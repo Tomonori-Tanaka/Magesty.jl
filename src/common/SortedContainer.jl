@@ -176,6 +176,7 @@ mutable struct SortedUniqueVector{T} <: AbstractSortedVector{T}
 		return new{eltype(data)}(unique(sort(data)))
 	end
 	SortedUniqueVector{T}() where T = new{T}(Vector{T}())
+	SortedUniqueVector() = new{Any}(Vector{Any}())
 end
 
 Base.getindex(suv::SortedUniqueVector, i::Int) = suv.data[i]  # Allow index-based access
