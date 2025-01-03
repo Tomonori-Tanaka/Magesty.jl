@@ -1,5 +1,7 @@
 module Magesty
 
-# Write your package code here.
+include("common/SortedContainer.jl")
+
+include("types/AtomicIndices.jl")
 
 end
