@@ -10,7 +10,7 @@ using Test
 include("./test_SortedContainer.jl")
 include("./test_AtomicIndices.jl")
 include("./test_UnitaryMatrixCl.jl")
+include("./test_RotationMatrices.jl")
 
-@testset "Magesty.jl" begin
-	# Write your tests here.
-end
+# @testset "Magesty.jl" begin
+# end
