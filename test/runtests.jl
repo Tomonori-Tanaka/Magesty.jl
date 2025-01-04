@@ -9,6 +9,7 @@ using Test
 
 include("./test_SortedContainer.jl")
 include("./test_AtomicIndices.jl")
+include("./test_UnitaryMatrixCl.jl")
 
 @testset "Magesty.jl" begin
 	# Write your tests here.
