@@ -1,11 +1,11 @@
 module UnitaryMatrixCl
 
-import Base: getindex, setindex!, *, transpose, inv, show, adjoint, conj, size, eltype, ==
-isapprox
+import Base:
+	getindex, setindex!, *, transpose, inv, show, adjoint, conj, size, eltype, ==, isapprox
 
 using LinearAlgebra
 
-export UniMatCl
+export UniMatCl, getindex_m
 
 """
 	UniMatCl(l::Int)
@@ -18,7 +18,7 @@ The dimension of Cˡ is (2l+1) * (2l+1).
 # References
 M.A. Blanco et al., Journal of Molecular Structure (Theochem) 419 19-27 (1997).
 """
-struct UniMatCl{T <: Complex}
+struct UniMatCl{T <: Complex} <: AbstractMatrix{T}
 	umat_cl::Matrix{T}
 	l::Int
 end
@@ -50,7 +50,7 @@ function UniMatCl{T}(l::Integer) where T <: Complex
 	return UniMatCl{T}(umat_cl, Int(l))
 end
 
-function getindex(cl::UniMatCl, m1::Integer, m2::Integer)
+function getindex_m(cl::UniMatCl, m1::Integer, m2::Integer)
 	# Convert m and m' to matrix indices
 	i = m1 + cl.l + 1
 	j = m2 + cl.l + 1
@@ -63,6 +63,8 @@ function getindex(cl::UniMatCl, m1::Integer, m2::Integer)
 
 	return cl.umat_cl[i, j]
 end
+
+getindex(cl::UniMatCl, i::Integer, j::Integer) = cl.umat_cl[i, j]
 
 function getindex(cl::UniMatCl, i::Integer)
 	throw(
@@ -102,7 +104,7 @@ end
 # Implement inverse as the adjoint for unitary matrices
 function inv(cl::UniMatCl)
 	# For unitary matrices, the inverse is equal to the adjoint
-	return UniMatCl(adjoint(cl.umat_cl), cl.l)
+	return UniMatCl(Matrix(adjoint(cl.umat_cl)), cl.l)
 end
 
 function show(io::IO, cl::UniMatCl)
@@ -110,11 +112,11 @@ function show(io::IO, cl::UniMatCl)
 	show(io, cl.umat_cl)
 end
 
-adjoint(cl::UniMatCl) = UniMatCl(adjoint(cl.umat_cl), cl.l)
+adjoint(cl::UniMatCl) = UniMatCl(Matrix(adjoint(cl.umat_cl)), cl.l)
 conj(cl::UniMatCl) = UniMatCl(conj(cl.umat_cl), cl.l)
 size(cl::UniMatCl) = size(cl.umat_cl)
 eltype(::Type{UniMatCl{T}}) where T <: Complex = T
-:(==)(cl1::UniMatCl, cl2::UniMatCl) = cl1.umat_cl == cl2.umat_cl
+==(cl1::UniMatCl, cl2::UniMatCl) = cl1.umat_cl == cl2.umat_cl
 isapprox(cl1::UniMatCl, cl2::UniMatCl) = isapprox(cl1.umat_cl, cl2.umat_cl)
 
 end
