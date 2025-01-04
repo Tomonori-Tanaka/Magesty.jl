@@ -1,8 +1,8 @@
-include("../src/common/SortedContainer.jl")
 
 using .SortedContainer
 
 @testset "SoterdContainer" begin
+
 	vec = Vector{Int}([3, 3, 2, 1, 1])
 	scv = SortedCountingVector(vec)
 	@test scv == [1, 2, 3]
