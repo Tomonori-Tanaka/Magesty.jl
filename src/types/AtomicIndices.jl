@@ -3,7 +3,7 @@ module AtomicIndices
 using ..SortedContainer
 
 export Indices,
-	IndicesUniqueList, product_indices, indices_singleatom, getatoms, gettotall
+	IndicesUniqueList, getatoms, gettotall, product_indices, indices_singleatom
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Indices
@@ -77,7 +77,7 @@ function IndicesUniqueList()
 end
 
 function IndicesUniqueList(data::AbstractVector{Indices})
-	return IndicesUniqueList(SortedUniqueVector{Indices}(data))
+	return IndicesUniqueList(SortedUniqueVector(data))
 end
 
 """
@@ -106,7 +106,7 @@ Extracts the total angular momentum index (L) from `IndicesUniqueList`
 # Returns
 - total angular momentum index (L)::Int
 """
-function total_l(iul::AbstractVector)::Int
+function gettotall(iul::AbstractVector)::Int
 	return sum([indices.l for indices in iul])
 end
 
@@ -145,11 +145,11 @@ Base.size(iul::IndicesUniqueList) = size(iul.data)
 
 
 """
-    product_indices(
-        atoms::AbstractVector{Int},
-        cells::AbstractVector{Int},
-        maxl::AbstractVector{Int},
-    ) :: Vector{IndicesUniqueList}
+	product_indices(
+		atoms::AbstractVector{Int},
+		cells::AbstractVector{Int},
+		maxl::AbstractVector{Int},
+	) :: Vector{IndicesUniqueList}
 
 Generates all possible combinations (Cartesian product) of `Indices` objects across multiple
 atoms, cells, and maximum angular momentum (l) values. For each triple `(atom, cell, l)` in
@@ -213,7 +213,7 @@ function product_indices(
 end
 
 """
-    indices_singleatom(atom::Int, cell::Int, maxl::Int) :: IndicesUniqueList
+	indices_singleatom(atom::Int, cell::Int, maxl::Int) :: IndicesUniqueList
 
 Constructs an `IndicesUniqueList` for a single atom with index `atom`, using quantum
 numbers `l` and `m` in the range `1 <= l <= maxl` and `-l <= m <= l`. Each
@@ -232,14 +232,14 @@ and the `(l, m)` pair.
 
 ```julia-repl
 julia> # Example 1: atom = 2, cell = 1, lmax = 1
-       iul1 = indices_singleatom(2, 1, 1)
+	   iul1 = indices_singleatom(2, 1, 1)
 (atom: 2, cell: 1, l: 1, m: -1)(atom: 2, cell: 1, l: 1, m: 0)(atom: 2, cell: 1, l: 1, m: 1)
 
 julia> length(iul1)
 3
 
 julia> # Example 2: atom = 3, cell = 1, lmax = 2
-       iul2 = indices_singleatom(3, 1, 2)
+	   iul2 = indices_singleatom(3, 1, 2)
 (atom: 3, cell: 1, l: 2, m: -2)(atom: 3, cell: 1, l: 2, m: -1)(atom: 3, cell: 1, l: 2, m: 0)(atom: 3, cell: 1, l: 2, m: 1)(atom: 3, cell: 1, l: 2, m: 2)
 
 julia> length(iul2)
