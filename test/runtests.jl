@@ -1,8 +1,8 @@
 include("../src/common/SortedContainer.jl")
-include("../src/types/AtomCells.jl")
+include("../src/types/AtomCell.jl")
 include("../src/types/AtomicIndices.jl")
 include("../src/types/UnitaryMatrixCl.jl")
-include("../src/utils/RotationMatrices.jl")
+include("../src/utils/RotationMatrix.jl")
 
 using Magesty
 using Test
@@ -11,7 +11,7 @@ using Test
 	include("./component_test/test_SortedContainer.jl")
 	include("./component_test/test_AtomicIndices.jl")
 	include("./component_test/test_UnitaryMatrixCl.jl")
-	include("./component_test/test_RotationMatrices.jl")
+	include("./component_test/test_RotationMatrix.jl")
 end
 # @testset "Magesty.jl" begin
 # end
