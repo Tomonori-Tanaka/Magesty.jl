@@ -7,11 +7,11 @@ include("../src/utils/RotationMatrices.jl")
 using Magesty
 using Test
 
-@testset "Component tests" begin
-	include("./test_SortedContainer.jl")
-	include("./test_AtomicIndices.jl")
-	include("./test_UnitaryMatrixCl.jl")
-	include("./test_RotationMatrices.jl")
+@testset "component tests" begin
+	include("./component_test/test_SortedContainer.jl")
+	include("./component_test/test_AtomicIndices.jl")
+	include("./component_test/test_UnitaryMatrixCl.jl")
+	include("./component_test/test_RotationMatrices.jl")
 end
 # @testset "Magesty.jl" begin
 # end

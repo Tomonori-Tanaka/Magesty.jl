@@ -17,7 +17,10 @@ using LinearAlgebra
 using StaticArrays
 using Spglib
 
+using ..AtomCells
 using ..Systems
+
+import Base: isless
 
 export Symmetry
 
@@ -43,31 +46,22 @@ struct SymmetryOperation
 	is_proper::Bool
 end
 
-function Base.:<(symop1::SymmetryOperation, symop2::SymmetryOperation)
-	symop1_list, symop2_list = [], []
-	for j in 1:3
-		for i in 1:3
-			append!(symop1_list, symop1.rotation_frac[i, j])
-			append!(symop2_list, symop2.rotation_frac[i, j])
-		end
-	end
+function isless(symop1::SymmetryOperation, symop2::SymmetryOperation)
+	symop1_rot_flatten = [symop1.rotation_frac[i, j] for j in 1:3, i in 1:3]
+	symop2_rot_flatten = [symop2.rotation_frac[i, j] for j in 1:3, i in 1:3]
 
-	for i in 1:3
-		symop1_tran_i = Float64(symop1.translation_frac[i])
-		symop2_tran_i = Float64(symop2.translation_frac[i])
-		if symop1_tran_i < 0.0
-			append!(symop1_list, 1.0 + symop1_tran_i)
-		else
-			append!(symop1_list, symop1_tran_i)
-		end
+	# if matrix element < 0, add 1.0
+	symop1_translation = [
+		symop1.translation_frac[i] < 0.0 ? 1.0 + symop1.translation_frac[i] :
+		symop1.translation_frac[i] for i in 1:3
+	]
+	symop2_translation = [
+		symop2.translation_frac[i] < 0.0 ? 1.0 + symop2.translation_frac[i] :
+		symop2.translation_frac[i] for i in 1:3
+	]
 
-		if symop2_tran_i < 0.0
-			append!(symop2_list, 1.0 + symop2_tran_i)
-		else
-			append!(symop2_list, symop2_tran_i)
-		end
-	end
-	return symop1_list < symop2_list
+	return vcat(symop1_rot_flatten, symop1_translation) <
+		   vcat(symop2_rot_flatten, symop2_translation)
 end
 
 """ Maps
@@ -110,7 +104,7 @@ struct Symmetry
 
 	symdata::Vector{SymmetryOperation}
 	map_sym::Matrix{Int}    # [num_atoms, nsym] -> corresponding atom index
-	map_sym_cell::Array{NamedTuple{(:atom, :cell), Tuple{Int, Int}}}
+	map_sym_cell::Array{AtomCell}
 	map_p2s::Matrix{Int}    # [nat_prim, ntran] -> corresponding atom index
 	map_s2p::Vector{Maps}   # [nat] -> corresponding atom index in primitive cel
 	symnum_translation::Vector{Int} # contains the indice of translational only operations
@@ -129,7 +123,7 @@ function Symmetry(system::System, tol::Real)
 	end
 
 	ntran::Int = 0
-	symnum_translation = []
+	symnum_translation = Int[]
 	for i in 1:nsym
 		if isapprox(spglib_data.rotations[i], I, atol = tol)
 			ntran += 1
@@ -145,12 +139,12 @@ function Symmetry(system::System, tol::Real)
 
 		if det(rotation_cart) > 0 ? is_proper = true : is_proper = false
 		end
-		translation =
+		translation_frac =
 			(abs.(spglib_data.translations[i]) .>= tol) .* spglib_data.translations[i]
 		# check a pure translation is included in the symmetry operation.
 		is_translation_included = false
 		for itrans in Base.tail(Tuple(symnum_translation))
-			if translation ≈ spglib_data.translations[itrans]
+			if translation_frac ≈ spglib_data.translations[itrans]
 				is_translation_included = true
 				break
 			end
@@ -159,18 +153,25 @@ function Symmetry(system::System, tol::Real)
 		symdata_elem = SymmetryOperation(
 			spglib_data.rotations[i],
 			rotation_cart,
-			translation,
+			translation_frac,
 			isapprox(spglib_data.rotations[i], I, atol = tol),
 			is_translation_included,
 			is_proper,
 		)
 		symdata[i] = symdata_elem
 	end
+	#check assigned or not
+	for i in 1:nsym
+		if !isassigned(symdata[i])
+			error("$i-th element symdata is not assinged.")
+		end
+	end
+
 
 	# construct mapping data
 	natomtypes::Int = length(system.atomtype_group)
 	map_sym = zeros(Int, cell.num_atoms, spglib_data.n_operations)
-	map_sym_cell = Array{NamedTuple{(:atom, :cell), Tuple{Int, Int}}}(
+	map_sym_cell = Array{AtomCell}(
 		undef,
 		cell.num_atoms,
 		27,# the number of total image cells
@@ -205,7 +206,7 @@ function Symmetry(system::System, tol::Real)
 								cell,
 							)
 							map_sym_cell[iat, cell, isym] =
-								(atom = jat, cell = matched_cell)
+								AtomCell(jat, matched_cell)
 							initialized_map_sym_cell[iat, cell, isym] = true
 						end
 						break
@@ -215,7 +216,7 @@ function Symmetry(system::System, tol::Real)
 					error(
 						"gen_mapping_info: cannot find symmetry for operation number $isym, atom index $iat.",
 					)
-				elseif false in map_sym_cell[iat, :, isym]
+				elseif false in initialized_map_sym_cell[iat, :, isym]
 					error("false is found in map_sym_cell at $iat, :, $cell")
 				end
 			end
