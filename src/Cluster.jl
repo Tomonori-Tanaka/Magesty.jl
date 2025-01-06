@@ -102,7 +102,7 @@ Represents a collection of interaction clusters based on the specified number of
 - `cutoff_radii::Array{Float64, 3}`: Cutoff radii for each atomic element pair and interaction body. Dimensions: [nkd, nkd, nbody].
 - `mindist_pairs::Matrix{Vector{DistInfo}}`: Matrix containing the minimum distance pairs between atoms. Dimensions: [num_atoms, num_atoms].
 - `interaction_clusters::Matrix{OrderedSet{InteractionCluster}}`: Matrix of interaction clusters for each primitive atom and interaction body. Dimensions: [nat_prim, nbody-1].
-- `cluster_list::Vector{SortedVec{Vector{Int}}}`: List of interacting atom clusters for each interaction body.
+- `cluster_list::Vector{SortedVector{Vector{Int}}}`: List of interacting atom clusters for each interaction body.
 
 # Constructor
 	Cluster(system, symmetry, nbody::Int, cutoff_radii)
@@ -118,8 +118,8 @@ struct Cluster
 	cutoff_radii::Array{Float64, 3}
 	mindist_pairs::Matrix{Vector{DistInfo}} # [≤ num_atoms, ≤ num_atoms]
 	interaction_clusters::Matrix{OrderedSet{InteractionCluster}}# [≤ nat_prim, ≤ nbody-1]
-	cluster_list::Vector{SortedVec{Vector{Int}}}# [≤ nbody-1][≤ number of clusters][≤ nbody]
-	cluster_list_with_cell::Vector{SortedVec{Vector{AtomCell}}} # [≤ nbody-1][≤ number of clusters][≤ nbody]
+	cluster_list::Vector{SortedVector{Vector{Int}}}# [≤ nbody-1][≤ number of clusters][≤ nbody]
+	cluster_list_with_cell::Vector{SortedVector{Vector{AtomCell}}} # [≤ nbody-1][≤ number of clusters][≤ nbody]
 
 	function Cluster(
 		system::System,
@@ -366,10 +366,10 @@ function generate_pairs(
 	map_p2s::AbstractMatrix{<:Integer},
 	interaction_clusters::AbstractMatrix{<:AbstractSet{InteractionCluster}},# [≤ nat_prim, ≤ nbody-1]
 	nbody::Integer,
-)::Vector{SortedVec{Vector{Int}}}
-	cluster_list = Vector{SortedVec{Vector{Int}}}()
+)::Vector{SortedVector{Vector{Int}}}
+	cluster_list = Vector{SortedVector{Vector{Int}}}()
 	for body in 2:nbody
-		ordered_set = SortedVec{Vector{Int}}()
+		ordered_set = SortedVector{Vector{Int}}()
 		for iat_prim in 1:nat_prim
 			iat = map_p2s[iat_prim][1]
 			for inter_clus::InteractionCluster in interaction_clusters[iat_prim, body-1]
@@ -388,11 +388,11 @@ function generate_pairs_with_icells(
 	atoms_in_prim::AbstractVector{<:Integer},
 	interactoin_clusters::AbstractMatrix{<:AbstractSet{InteractionCluster}},# [≤ nat_prim, ≤ nbody-1]
 	nbody::Integer,
-)::Vector{SortedVec{Vector{AtomCell}}}
-	cluster_list_with_cell = Vector{SortedVec{Vector{AtomCell}}}()
-	vsv = Vector{SortedVec{Vector{AtomCell}}}()
+)::Vector{SortedVector{Vector{AtomCell}}}
+	cluster_list_with_cell = Vector{SortedVector{Vector{AtomCell}}}()
+	vsv = Vector{SortedVector{Vector{AtomCell}}}()
 	for body in 2:nbody
-		sv = SortedVec{Vector{AtomCell}}()
+		sv = SortedVector{Vector{AtomCell}}()
 		for (i, iat) in enumerate(atoms_in_prim)
 			for intclus_i::InteractionCluster in interactoin_clusters[i, body-1]
 				pairs = generate_combinations(intclus_i.atoms, intclus_i.cells)
