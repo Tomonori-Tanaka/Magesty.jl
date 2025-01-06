@@ -21,6 +21,8 @@ module Systems
 using LinearAlgebra
 using StaticArrays
 
+import Base: show
+
 export System
 
 """
@@ -64,7 +66,6 @@ The matrix representing reciprocal vectors are defined to be the inverse matrix 
 struct Cell
 	lattice_vectors::SMatrix{3, 3, Float64}
 	reciprocal_vectors::SMatrix{3, 3, Float64}
-	volume::Real
 	num_atoms::Int
 	num_elements::Int
 	kd_int_list::Vector{Int}
@@ -78,7 +79,6 @@ function Cell(lattice_vectors::AbstractMatrix{<:Real},
 )
 	return Cell(lattice_vectors,
 		calc_reciprocal_vectors(lattice_vectors),
-		calc_volume(lattice_vectors),
 		length(kd_int_list),
 		length(Set(kd_int_list)),
 		kd_int_list,
@@ -86,17 +86,18 @@ function Cell(lattice_vectors::AbstractMatrix{<:Real},
 	)
 end
 
+function show(io::IO, cell::Cell)
+	println(io, "\tlattice_vectors: ", cell.lattice_vectors)
+	println(io, "\treciprocal_vectors: ", cell.reciprocal_vectors)
+	println(io, "\tnum_atoms: ", cell.num_atoms)
+	println(io, "\tnum_elements: ", cell.num_elements)
+	println(io, "\tkd_ind_list: ", cell.kd_int_list)
+	println(io, "\tx_frac: ", cell.x_frac)
+end
+
 function calc_reciprocal_vectors(lattice_vectors::AbstractMatrix{<:Real})
 	return inv(lattice_vectors)
 end
-
-function calc_volume(lattice_vectors::AbstractMatrix{<:Real})
-	a1 = lattice_vectors[:, 1]
-	a2 = lattice_vectors[:, 2]
-	a3 = lattice_vectors[:, 3]
-	return abs(LinearAlgebra.dot(a1, LinearAlgebra.cross(a2, a3)))
-end
-
 
 """
    System(lattice_vectors, is_periodic, kd_name, kd_int_list, x_frac)
@@ -162,11 +163,8 @@ function System(
 end
 
 function calc_atomtype_group(kd_int_list::AbstractVector{<:Integer})::Vector{Vector{Int}}
-	atomtype_group = Dict{Int, Vector{Int}}()
-	for (iat, kd) in enumerate(kd_int_list)
-		push!(get!(atomtype_group, kd, []), iat)
-	end
-	return collect(values(atomtype_group))
+	unique_vals = unique(kd_int_list)
+	return [findall(x -> x == val, kd_int_list) for val in unique_vals]
 end
 
 function calc_x_images(
@@ -250,6 +248,16 @@ function calc_exist_image(is_periodic::AbstractVector{Bool})::Vector{Bool}
 		end
 	end
 	return exist_image
+end
+
+function show(io::IO, system::System)
+	println(io, "supercell:\n ", system.supercell)
+	println(io, "is_periodic: ", system.is_periodic)
+	println(io, "kd_name: ", system.kd_name)
+	println(io, "x_image_frac: \n", system.x_image_frac)
+	println(io, "x_image_cart: \n", system.x_image_cart)
+	println(io, "exist_image: ", system.exist_image)
+	println(io, "atomtype_group: ", system.atomtype_group)
 end
 
 end

@@ -170,8 +170,7 @@ function Symmetry(system::System, tol::Real)
 		27,# the number of total image cells
 		spglib_data.n_operations,
 	)
-	initialized_map_sym_cell = similar(map_sym_cell, Bool)
-	fill!(initialized_map_sym_cell, false)
+	initialized = falses(size(map_sym_cell))
 
 	x_new::Vector{Float64} = Vector{Float64}(undef, 3)
 	tmp::Vector{Float64} = Vector{Float64}(undef, 3)
@@ -200,7 +199,7 @@ function Symmetry(system::System, tol::Real)
 							)
 							map_sym_cell[iat, cell, isym] =
 								AtomCell(jat, matched_cell)
-							initialized_map_sym_cell[iat, cell, isym] = true
+							initialized[iat, cell, isym] = true
 						end
 						break
 					end
@@ -209,7 +208,7 @@ function Symmetry(system::System, tol::Real)
 					error(
 						"gen_mapping_info: cannot find symmetry for operation number $isym, atom index $iat.",
 					)
-				elseif false in initialized_map_sym_cell[iat, :, isym]
+				elseif false in initialized[iat, :, isym]
 					error("false is found in map_sym_cell at $iat, :, $cell")
 				end
 			end
@@ -240,12 +239,19 @@ function Symmetry(system::System, tol::Real)
 
 	# generate map_s2p (supercell -> primitive cell)
 	map_s2p = Vector{Maps}(undef, cell.num_atoms)
+	initialized = falses(size(map_s2p))
 	for iat in 1:nat_prim
 		for itran in 1:ntran
 			atomnum_translated = map_p2s[iat, itran]
 			map_s2p[atomnum_translated] = Maps(iat, itran)
+			initialized[atomnum_translated] = true
 		end
 	end
+	undef_indices = findall(x -> x == false, initialized)
+	if length(undef_indices) >= 1
+		error("undef is detected in `map_s2p` variable: $undef_indices")
+	end
+
 
 	if 0 in map_s2p
 		error("something wrong in generating map_s2p")

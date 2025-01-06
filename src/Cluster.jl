@@ -278,6 +278,7 @@ function set_interaction_clusters(
 )::Matrix{OrderedSet{InteractionCluster}}
 	interaction_clusters =
 		Matrix{OrderedSet{InteractionCluster}}(undef, nat_prim, nbody - 1)
+	initialized = falses(size(interaction_clusters))
 	for body in 2:nbody
 		for iat_prim in 1:nat_prim
 			inter_cluster_set = OrderedSet{InteractionCluster}()
@@ -326,7 +327,13 @@ function set_interaction_clusters(
 				end
 			end
 			interaction_clusters[iat_prim, body-1] = deepcopy(inter_cluster_set)
+			initialized[iat_prim, body-1] = true
 		end
+	end
+
+	undef_indices = findall(x -> x == false, initialized)
+	if length(undef_indices) >= 1
+		error("undef is detected in `interaction_clusters` variable: $undef_indices")
 	end
 	return interaction_clusters
 end
