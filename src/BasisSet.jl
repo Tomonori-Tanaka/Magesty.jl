@@ -12,6 +12,8 @@ using ..Systems
 using ..Symmetries
 using ..Clusters
 
+include("./utils/Projection.jl")
+
 export BasisSet
 
 """
@@ -37,6 +39,7 @@ function BasisSet(
 		bodymax,
 	)
 
+	construct_projectionmatrix(basislist, symmetry.symdata, symmetry.map_sym_cell)
 	# to pass compile
 	tmp = [[]]
 

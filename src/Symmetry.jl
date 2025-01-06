@@ -22,7 +22,7 @@ using ..Systems
 
 import Base: isless
 
-export Symmetry
+export SymmetryOperation, Symmetry
 
 """
 	struct SymmetryOperation
