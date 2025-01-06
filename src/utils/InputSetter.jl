@@ -18,8 +18,8 @@ function set_cluster(parser, system, symmetry)
 	cluster = Cluster(system, symmetry, parser.nbody, parser.cutoff_radii)
 end
 
-function set_sccoeff(parser, system, symmetry, cluster)
-	sccoeff = SCcoeff(system, symmetry, cluster, parser.lmax, parser.nbody)
+function set_basisset(parser, system, symmetry, cluster)
+	basisset = BasisSet(system, symmetry, cluster, parser.lmax, parser.nbody)
 end
 
 function set_optimize(parser, system, symmetry, cluster)

@@ -15,9 +15,11 @@ using .InputParser
 include("System.jl")
 include("Symmetry.jl")
 include("Cluster.jl")
+include("BasisSet.jl")
 using .Systems
 using .Symmetries
 using .Clusters
+using .BasisSets
 
 export SpinCluster
 
@@ -26,6 +28,7 @@ struct SpinCluster
 	system::System
 	symmetry::Symmetry
 	cluster::Cluster
+	basisset::BasisSet
 end
 
 function SpinCluster(input_dict::Dict{<:AbstractString, <:Any})
@@ -33,8 +36,9 @@ function SpinCluster(input_dict::Dict{<:AbstractString, <:Any})
 	system::System = set_system(parser)
 	symmetry::Symmetry = set_symmetry(parser, system)
 	cluster::Cluster = set_cluster(parser, system, symmetry)
+	basisset::BasisSet = set_basisset(parser, system, symmetry, cluster)
 
-	return SpinCluster(parser, system, symmetry, cluster)
+	return SpinCluster(parser, system, symmetry, cluster, basisset)
 end
 
 function SpinCluster(toml_file::AbstractString)
