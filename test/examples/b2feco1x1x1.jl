@@ -49,4 +49,6 @@ using TOML
 	@test length(sclus.cluster.cluster_list) == 1
 	# @show sclus.cluster.cluster_list_with_cell
 	@test length(sclus.cluster.cluster_list_with_cell[1]) == 16 #counts 2body terms
+	@test length(sclus.basisset.basislist) == 16 * 9 - 9
+	@show sclus.basisset.basislist
 end

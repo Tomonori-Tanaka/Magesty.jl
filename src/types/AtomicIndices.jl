@@ -76,6 +76,10 @@ function IndicesUniqueList()
 	return IndicesUniqueList(SortedUniqueVector{Indices}())
 end
 
+function IndicesUniqueList(indices::Indices)
+	return IndicesUniqueList(SortedUniqueVector([indices]))
+end
+
 function IndicesUniqueList(data::AbstractVector{Indices})
 	return IndicesUniqueList(SortedUniqueVector(data))
 end

@@ -345,6 +345,13 @@ function Base.copy(scv::SortedCountingVector{T}) where T
 	return SortedCountingVector(data_copy, counts_copy)
 end
 
+function Base.show(io::IO, scv::SortedCountingVector{T}) where T
+	for val in scv.data
+		print(io, "counts: ", scv.counts[val], " ")
+		println(io, "data: ", val)
+	end
+end
+
 function getcount(scv::SortedCountingVector{T}, val::T)::Int where T
 	return get(scv.counts, val, 0)
 end

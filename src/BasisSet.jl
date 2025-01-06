@@ -60,15 +60,38 @@ function construct_basislist(
 			continue
 		end
 		iul::IndicesUniqueList = AtomicIndices.indices_singleatom(iat, 1, lmax) # where 1 means virtual cell index (i.e. centering cell)
-		append!(basislist, iul)
+		for indices::Indices in iul
+			push!(basislist, IndicesUniqueList(indices))
+		end
 	end
 
+	# multi-body cases
 	for body in 2:bodymax
-
+		for cluster in cluster_list[body-1]
+			atomlist, celllist, llist =
+				get_atomscellsls_from_cluster(cluster, lmax_mat, kd_int_list)
+			for iul in AtomicIndices.product_indices(atomlist, celllist, llist)
+				push!(basislist, iul)
+			end
+		end
 	end
 
 	return basislist
 end
 
+function get_atomscellsls_from_cluster(
+	cluster::AbstractVector{AtomCell}, # [≤ nbody]
+	lmax::AbstractMatrix{<:Integer},
+	kd_int_list::AbstractVector{<:Integer},
+)::Tuple{Vector{Int}, Vector{Int}, Vector{Int}}
+
+	atomlist = [atomcell.atom for atomcell in cluster]
+	celllist = [atomcell.cell for atomcell in cluster]
+
+	body = length(cluster)
+	llist = [lmax[kd_int_list[atomcell.atom], body] for atomcell in cluster]
+
+	return atomlist, celllist, llist
+end
 
 end
