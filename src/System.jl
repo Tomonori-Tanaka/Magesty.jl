@@ -57,8 +57,6 @@ A structure that stores crystallographic information for a simulation cell.
 - `x_frac::Matrix{Float64}`  
   A matrix holding the fractional coordinates of the atoms within the cell (`[3 × num_atoms]` or `[num_atoms × 3]` depending on usage).
 
-- `magmom::Matrix{Float64}`  
-  A matrix storing the magnetic moments for each atom (`[3 × num_atoms]` or `[num_atoms × 3]` depending on usage).
 
 # Notes
 The matrix representing reciprocal vectors are defined to be the inverse matrix of the lattice vectors.
@@ -101,7 +99,7 @@ end
 
 
 """
-   System(lattice_vectors, is_periodic, kd_name, kd_int_list, x_frac, magmom)
+   System(lattice_vectors, is_periodic, kd_name, kd_int_list, x_frac)
 
 A structure that represents a periodic system constructed from a `Cell`.
 
@@ -148,7 +146,7 @@ function System(
 	x_frac::AbstractMatrix{<:Real},
 )
 
-	supercell = Cell(lattice_vectors, kd_int_list, x_frac, magmom)
+	supercell = Cell(lattice_vectors, kd_int_list, x_frac)
 	x_image_frac, x_image_cart = calc_x_images(lattice_vectors, x_frac)# [≤ 3, ≤ nat, cell]
 	exist_image::Vector{Bool} = calc_exist_image(is_periodic)
 	atomtype_group::Vector{Vector{Int}} = calc_atomtype_group(kd_int_list)
@@ -178,8 +176,8 @@ function calc_x_images(
 
 	num_atoms::Int = size(x_frac, 2)
 	num_cell::Int = 27# the sum of centering and its neighboring imaginary cells.
-	x_image_frac::Array{Float64, 3} = zeros{Float64}(3, num_atoms, num_cell)
-	x_image_cart::Array{Float64, 3} = zeros{Float64}(3, num_atoms, num_cell)
+	x_image_frac::Array{Float64, 3} = zeros(Float64, 3, num_atoms, num_cell)
+	x_image_cart::Array{Float64, 3} = zeros(Float64, 3, num_atoms, num_cell)
 	x_image_check = fill(false, 3, num_atoms, num_cell)
 
 	x_image_frac[:, :, 1] = x_frac

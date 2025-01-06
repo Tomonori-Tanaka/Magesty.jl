@@ -95,7 +95,7 @@ Contains the symmetry information of a system.
 Generate symmetry information for the given system using the specified tolerance.
 """
 struct Symmetry
-	international_symbol::Symbol
+	international_symbol::String
 	nsym::Int   # the number of symmetry operations
 	ntran::Int  # the number of translational only operations
 	nat_prim::Int   # the number of atoms in a primitive cell
@@ -160,13 +160,6 @@ function Symmetry(system::System, tol::Real)
 		)
 		symdata[i] = symdata_elem
 	end
-	#check assigned or not
-	for i in 1:nsym
-		if !isassigned(symdata[i])
-			error("$i-th element symdata is not assinged.")
-		end
-	end
-
 
 	# construct mapping data
 	natomtypes::Int = length(system.atomtype_group)
@@ -310,7 +303,7 @@ function find_matching_image_cell(
 	cell::Integer,
 )::Int
 	# Apply the symmetry operation to the specified atom and image cell
-	x_moved = symop.rotation * x_image[:, atom, cell] + symop.translation_frac
+	x_moved = symop.rotation_frac * x_image[:, atom, cell] + symop.translation_frac
 	matches = [
 		(n, m) for n in 1:size(x_image, 2), m in 1:size(x_image, 3) if
 		isapprox(x_image[:, n, m], x_moved; atol = 1e-8)

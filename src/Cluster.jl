@@ -125,7 +125,7 @@ struct Cluster
 		system::System,
 		symmetry::Symmetry,
 		nbody::Integer,
-		cutoff_radii::AbstractMatrix{<:Real},
+		cutoff_radii::AbstractArray{<:Real},
 	)
 		mindist_pairs =
 			set_mindist_pairs(
@@ -181,7 +181,8 @@ function set_mindist_pairs(
 	exist_cell::AbstractVector{Bool},
 )::Matrix{Vector{DistInfo}}
 
-	distance_all = Matrix(undef, nat, nat)
+	distance_all = Matrix{Vector{DistInfo}}(undef, nat, nat)
+	initialized = falses(size(distance_all))
 	for iat in 1:nat
 		for jat in 1:nat
 			distinfo_list = Vector{DistInfo}()
@@ -196,16 +197,17 @@ function set_mindist_pairs(
 			end
 			sort!(distinfo_list)
 			distance_all[iat, jat] = distinfo_list
+			initialized[iat, jat] = true
 		end
 	end
 	# check assigned or not
-	for x in distance_all
-		if !(isassigned(x))
-			error("undef is detected in distance_all")
-		end
+	undef_indices = findall(x -> x == false, initialized)
+	if length(undef_indices) >= 1
+		error("unassigned indices: $undef_indices")
 	end
 
 	mindist_pairs = Matrix{Vector{DistInfo}}(undef, nat, nat)
+	initialized = falses(size(mindist_pairs))
 
 	for iat in 1:nat
 		for jat in 1:nat
@@ -217,13 +219,13 @@ function set_mindist_pairs(
 				end
 			end
 			mindist_pairs[iat, jat] = dist_vec_tmp
+			initialized[iat, jat] = true
 		end
 	end
 	# check assigned or not
-	for x in mindist_pairs
-		if !(isassigned(x))
-			error("undef is detected in mindist_pairs")
-		end
+	undef_indices = findall(x -> x == false, initialized)
+	if length(undef_indices) >= 1
+		error("unassigned indices: $undef_indices")
 	end
 
 	return mindist_pairs
