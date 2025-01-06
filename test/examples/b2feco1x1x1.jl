@@ -1,6 +1,6 @@
 using TOML
 
-@test "b2feco1x1x1" begin
+@testset "b2feco1x1x1" begin
 	input = """
 			[general]
 			name = "b2feco"
@@ -44,4 +44,6 @@ using TOML
 
 	parsed = TOML.parse(input)
 	sclus = SpinCluster(parsed)
+    @show sclus.config.kd_int_list
+    @show sclus.system
 end

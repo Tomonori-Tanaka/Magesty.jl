@@ -22,6 +22,7 @@ using .Clusters
 export SpinCluster
 
 struct SpinCluster
+	config::Parser
 	system::System
 	symmetry::Symmetry
 	cluster::Cluster
@@ -33,7 +34,7 @@ function SpinCluster(input_dict::Dict{<:AbstractString, <:Any})
 	symmetry::Symmetry = set_symmetry(parser, system)
 	cluster::Cluster = set_cluster(parser, system, symmetry)
 
-	return SpinCluster(system, symmetry, cluster)
+	return SpinCluster(parser, system, symmetry, cluster)
 end
 
 function SpinCluster(toml_file::AbstractString)
