@@ -13,5 +13,9 @@ using Test
 	include("./component_test/test_UnitaryMatrixCl.jl")
 	include("./component_test/test_RotationMatrix.jl")
 end
+
+@testset "examples" begin
+	include("./examples/b2feco1x1x1.jl")
+end
 # @testset "Magesty.jl" begin
 # end
