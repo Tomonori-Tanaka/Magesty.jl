@@ -8,13 +8,18 @@ include("types/AtomCell.jl")
 include("types/AtomicIndices.jl")
 include("types/UnitaryMatrixCl.jl")
 
+include("utils/InputParser.jl")
+include("utils/InputSetter.jl")
+using .InputParser
+
 include("System.jl")
 include("Symmetry.jl")
 include("Cluster.jl")
-
 using .Systems
 using .Symmetries
 using .Clusters
+
+export SpinCluster
 
 struct SpinCluster
 	system::System
@@ -22,8 +27,13 @@ struct SpinCluster
 	cluster::Cluster
 end
 
-function SpinCluster(input_dict::Dict{AbstractString, Any})
-    
+function SpinCluster(input_dict::Dict{<:AbstractString, <:Any})
+	parser = Parser(input_dict)
+	system::System = set_system(parser)
+	symmetry::Symmetry = set_symmetry(parser, system)
+	cluster::Cluster = set_cluster(parser, system, symmetry)
+
+	return SpinCluster(system, symmetry, cluster)
 end
 
 function SpinCluster(toml_file::AbstractString)
