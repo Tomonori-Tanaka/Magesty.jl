@@ -3,7 +3,7 @@ module AtomicIndices
 using ..SortedContainer
 
 export Indices,
-	IndicesUniqueList, getatoms, gettotall, product_indices, indices_singleatom
+	IndicesUniqueList, getatoms, gettotall
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Indices
