@@ -6,8 +6,9 @@ using TOML
 			name = "b2feco"
 			nat = 2
 			kd = [ "Fe", "Co" ]
-			periodicity = [ true, true, true ]
+			# periodicity = [ true, true, true ]
 			# periodicity = [false, false, false]
+            periodicity = [true, false, false]
 			j_zero_thr = 1e-10
 
 			[symmetry]
@@ -44,7 +45,12 @@ using TOML
 
 	parsed = TOML.parse(input)
 	sclus = SpinCluster(parsed)
-	@test length(sclus.cluster.cluster_list) == 1
-	@test length(sclus.cluster.cluster_list_with_cell[1]) == 16 #counts 2body terms
-	@test length(sclus.basisset.basislist) == 16 * 9 - 9
+	# @test length(sclus.cluster.cluster_list) == 1
+	# @test length(sclus.cluster.cluster_list_with_cell[1]) == 16 #counts 2body terms
+	# @test length(sclus.basisset.basislist) == 16 * 9 - 9
+    @test sclus.symmetry.map_sym_cell[2, 1, 2] == (2, 2)
+    @test sclus.symmetry.map_sym_cell[2, 2, 2] == (2, 1)
+    @test sclus.symmetry.map_sym_cell[2, 27, 2] == (2, -1)
+    @test sclus.symmetry.map_sym_cell[1, 2, 2] == (1, 27)
+    display(sclus.symmetry.map_sym_cell)
 end

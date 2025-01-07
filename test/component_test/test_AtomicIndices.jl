@@ -15,8 +15,8 @@ using .AtomicIndices
 	@test indices4 < indices3
 
 	iul1 = IndicesUniqueList([indices1, indices2])
-	@test getatoms(iul1) == (3, 4)
-	@test getatoms(iul1) != (4, 4)
+	@test getatoms(iul1) == [3, 4]
+	@test getatoms(iul1) != [4, 4]
 	@test gettotall(iul1) == 3
 	@test gettotall(iul1) != 4
 	@test iul1 == iul1

@@ -83,8 +83,8 @@ function setindex!(cl::UniMatCl, value, args...)
 	)
 end
 
-*(cl::UniMatCl, m::AbstractArray{<:Number}) = cl.umat_cl * m
-*(m::AbstractArray{<:Number}, cl::UniMatCl) = m * cl.umat_cl
+*(cl::UniMatCl, m::AbstractMatrix{<:Number}) = cl.umat_cl * m
+*(m::AbstractMatrix{<:Number}, cl::UniMatCl) = m * cl.umat_cl
 function *(cl1::UniMatCl, cl2::UniMatCl)
 	if cl1.l != cl2.l
 		throw(

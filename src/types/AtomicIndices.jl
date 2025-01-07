@@ -3,7 +3,7 @@ module AtomicIndices
 using ..SortedContainer
 
 export Indices,
-	IndicesUniqueList, getatoms, gettotall
+	IndicesUniqueList, getatoms, getls, gettotall
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Indices
@@ -85,7 +85,7 @@ function IndicesUniqueList(data::AbstractVector{Indices})
 end
 
 """
-	getatoms(iul::IndicesUniqueList) -> Tuple{Vararg{Int}}
+	getatoms(iul::IndicesUniqueList) -> Vector{Int}
 
 Extracts the atom indices from `IndicesUniqueList` and returns them as a tuple.
 
@@ -95,8 +95,12 @@ Extracts the atom indices from `IndicesUniqueList` and returns them as a tuple.
 # Returns
 - A tuple containing the atom indices.
 """
-function getatoms(iul::AbstractVector)::Tuple{Vararg{Int}}
-	return Tuple([indices.atom for indices in iul])
+function getatoms(iul::IndicesUniqueList)::Vector{Int}
+	return [indices.atom for indices in iul]
+end
+
+function getls(iul::IndicesUniqueList)::Vector{Int}
+	return [indices.l for indices in iul]
 end
 
 """
@@ -110,7 +114,7 @@ Extracts the total angular momentum index (L) from `IndicesUniqueList`
 # Returns
 - total angular momentum index (L)::Int
 """
-function gettotall(iul::AbstractVector)::Int
+function gettotall(iul::IndicesUniqueList)::Int
 	return sum([indices.l for indices in iul])
 end
 
