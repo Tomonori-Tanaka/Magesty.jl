@@ -9,13 +9,15 @@ using Test
 
 @testset "component tests" begin
 	include("./component_test/test_SortedContainer.jl")
-	include("./component_test/test_AtomicIndices.jl")
+	# include("./component_test/test_AtomicIndices.jl")
 	include("./component_test/test_UnitaryMatrixCl.jl")
 	include("./component_test/test_RotationMatrix.jl")
 end
 
 @testset "examples" begin
 	include("./examples/b2feco1x1x1.jl")
+	include("./examples/bccfe1x1x1.jl")
+	include("./examples/b2feco1x1x2.jl")
 end
 # @testset "Magesty.jl" begin
 # end

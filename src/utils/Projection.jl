@@ -5,7 +5,7 @@ using ..RotationMatrices
 
 function construct_projectionmatrix(basislist::AbstractVector{IndicesUniqueList},
 	symdata::AbstractVector{SymmetryOperation},
-	map_sym::AbstractArray{AtomCell},
+	map_sym::AbstractMatrix{<:Integer},
 )::Tuple{SparseMatrixCSC, Vector{SparseMatrixCSC}}
 	dimension = length(basislist)
 
@@ -56,7 +56,7 @@ function construct_projectionmatrix(basislist::AbstractVector{IndicesUniqueList}
 
 
 	projection_mat = projection_mat / nneq
-	projection_mat_list = projection_mat_list ./ nneq
+	# projection_mat_list = projection_mat_list ./ nneq
 
 	return projection_mat, projection_mat_list
 end
@@ -65,24 +65,24 @@ function calc_projection(
 	basislist::AbstractVector{IndicesUniqueList},
 	symop::SymmetryOperation,
 	isym::Integer,
-	map_sym::AbstractArray{AtomCell};
+	map_sym::AbstractMatrix{<:Integer};
 	threshold_digits::Integer = 10,
 	time_reversal_sym::Bool = false,
 )::SparseMatrixCSC{Float64, Int}
 
 	projection_matrix = spzeros(Float64, length(basislist), length(basislist))
 	for (ir, rbasis::IndicesUniqueList) in enumerate(basislist)  # right-hand basis
-		moved_atomlist, moved_celllist, llist =
-			move_atomscellsls(rbasis, isym, map_sym)
+		moved_atomlist, llist =
+			move_atoms(rbasis, isym, map_sym)
 		# moved_rbasis will be used later to determine a matrix element
 		moved_rbasis = IndicesUniqueList()
-		for (idx, (atom, cell)) in enumerate(zip(moved_atomlist, moved_celllist))
-			indices = Indices(atom, cell, rbasis[idx].l, rbasis[idx].m)
+		for (idx, atom) in enumerate(moved_atomlist)
+			indices = Indices(atom, rbasis[idx].l, rbasis[idx].m)
 			push!(moved_rbasis, indices)
 		end
 
 		partial_moved_basis::Vector{IndicesUniqueList} =
-			AtomicIndices.product_indices(moved_atomlist, moved_celllist, llist)
+			AtomicIndices.product_indices(moved_atomlist, llist)
 		partial_r_idx = findfirst(x -> x == moved_rbasis, partial_moved_basis)
 		if isnothing(partial_r_idx)
 			error("Something is wrong at partial_r_idx variable.")
@@ -130,19 +130,17 @@ function calc_projection(
 	return projection_matrix
 end
 
-function move_atomscellsls(
+function move_atoms(
 	iul::IndicesUniqueList,
 	isym::Integer,
-	map_sym::AbstractArray{AtomCell},   # [≤ num_atoms, ≤ 27, ≤ nsym]
-)::Tuple{Vector{Int}, Vector{Int}, Vector{Int}}
+	map_sym::AbstractMatrix{<:Integer},   # [≤ num_atoms, ≤ 27, ≤ nsym]
+)::Tuple{Vector{Int}, Vector{Int}}
 	moved_atomlist = Int[]
-	moved_celllist = Int[]
 	moved_llist = Int[]
 	for indices::Indices in iul
-		atomcell_tmp = map_sym[indices.atom, indices.cell, isym]
-		push!(moved_atomlist, atomcell_tmp.atom)
-		push!(moved_celllist, atomcell_tmp.cell)
+		moved_atom = map_sym[indices.atom, isym]
+		push!(moved_atomlist, moved_atom)
 		push!(moved_llist, indices.l)
 	end
-	return moved_atomlist, moved_celllist, moved_llist
+	return moved_atomlist, moved_llist
 end

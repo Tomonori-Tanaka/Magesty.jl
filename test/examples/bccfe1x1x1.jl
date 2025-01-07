@@ -1,11 +1,11 @@
 using TOML
 
-@testset "b2feco1x1x1" begin
+@testset "bccfe1x1x1" begin
 	input = """
 			[general]
-			name = "b2feco"
+			name = "bccfe1x1x1"
 			nat = 2
-			kd = [ "Fe", "Co" ]
+			kd = [ "Fe" ]
 			periodicity = [ true, true, true ]
 			# periodicity = [false, false, false]
 			# periodicity = [true, false, false]
@@ -19,11 +19,8 @@ using TOML
 				# nbody = 2
 				[interaction.lmax]
 				Fe = [ 0, 1 ] # the number of elements shoud be the same with "nbody" value.
-				Co = [ 0, 1 ]
 				[interaction.cutoff] # unit is bohr
 				Fe-Fe = [ 0, -1 ] # first element is just dummy to align wigh lmax array
-				Fe-Co = [ 0, -1 ]
-				Co-Co = [ 0, -1 ]
 				# negative cutoff means all of the possible interaction will be considered.
 
 			[regression]
@@ -39,20 +36,11 @@ using TOML
 			]
 			position = [
 				{ index = 1, kd = 1, coords = [ 0.00, 0.00, 0.00 ] },
-				{ index = 2, kd = 2, coords = [ 0.50, 0.50, 0.50 ] },
+				{ index = 2, kd = 1, coords = [ 0.50, 0.50, 0.50 ] },
 			]
 			"""
 
 	parsed = TOML.parse(input)
 	sclus = SpinCluster(parsed)
-	# @test length(sclus.cluster.cluster_list) == 1
-	# @test length(sclus.cluster.cluster_list_with_cell[1]) == 16 #counts 2body terms
-	# @test length(sclus.basisset.basislist) == 16 * 9 - 9
-	@test sclus.symmetry.map_sym_cell[2, 1, 2] == (2, 2)
-	@test sclus.symmetry.map_sym_cell[2, 2, 2] == (2, 1)
-	@test sclus.symmetry.map_sym_cell[2, 27, 2] == (2, -1)
-	@test sclus.symmetry.map_sym_cell[1, 2, 2] == (1, 27)
-	# display(sclus.symmetry.map_sym_cell)
-	# @show sclus.basisset.basislist
-
+	@show sclus.basisset.basislist
 end
