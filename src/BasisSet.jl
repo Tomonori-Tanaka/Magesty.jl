@@ -42,7 +42,7 @@ function BasisSet(
 	)
 
 	projection_matrix, each_matrix_list =
-		construct_projectionmatrix(basislist, symmetry.symdata, symmetry.map_sym_cell)
+		construct_projectionmatrix(basislist, symmetry.symdata, symmetry.map_sym)
 	projection_matrix = Matrix(projection_matrix)
 	eigenval, eigenvec = eigen(projection_matrix)
 	# eigenval, eigenvec = eigen(Matrix(projection_matrix))
@@ -51,11 +51,9 @@ function BasisSet(
 	eigenval = real.(eigenval)
 	eigenvec = real.(eigenvec)
 	@show eigenval
-	for (val, basis) in zip(eigenvec[:, end-1], basislist)
+	for (val, basis) in zip(eigenvec[:, end], basislist)
 		println(val, "\t", basis)
 	end
-
-
 
 	tmp = [[]]
 
@@ -70,6 +68,7 @@ function construct_basislist(
 	lmax_mat::AbstractMatrix{<:Integer},
 	bodymax::Integer,
 )::SortedCountingVector{IndicesUniqueList}
+
 	basislist = SortedCountingVector{IndicesUniqueList}()
 
 	# firstly treat 1-body case which needs special treatments.
@@ -78,7 +77,7 @@ function construct_basislist(
 		if lmax == 0
 			continue
 		end
-		iul::IndicesUniqueList = AtomicIndices.indices_singleatom(iat, 1, lmax) # where 1 means virtual cell index (i.e. centering cell)
+		iul::IndicesUniqueList = AtomicIndices.indices_singleatom(iat, lmax) 
 		for indices::Indices in iul
 			push!(basislist, IndicesUniqueList(indices))
 		end
@@ -87,9 +86,9 @@ function construct_basislist(
 	# multi-body cases
 	for body in 2:bodymax
 		for cluster in cluster_list[body-1]
-			atomlist, celllist, llist =
-				get_atomscellsls_from_cluster(cluster, lmax_mat, kd_int_list)
-			for iul in AtomicIndices.product_indices(atomlist, celllist, llist)
+			atomlist, llist =
+				get_atomsls_from_cluster(cluster, lmax_mat, kd_int_list)
+			for iul in AtomicIndices.product_indices(atomlist, llist)
 				push!(basislist, iul)
 			end
 		end
@@ -98,19 +97,18 @@ function construct_basislist(
 	return basislist
 end
 
-function get_atomscellsls_from_cluster(
+function get_atomsls_from_cluster(
 	cluster::AbstractVector{AtomCell}, # [≤ nbody]
 	lmax::AbstractMatrix{<:Integer},
 	kd_int_list::AbstractVector{<:Integer},
-)::Tuple{Vector{Int}, Vector{Int}, Vector{Int}}
+)::Tuple{Vector{Int}, Vector{Int}}
 
 	atomlist = [atomcell.atom for atomcell in cluster]
-	celllist = [atomcell.cell for atomcell in cluster]
 
 	body = length(cluster)
 	llist = [lmax[kd_int_list[atomcell.atom], body] for atomcell in cluster]
 
-	return atomlist, celllist, llist
+	return atomlist, llist
 end
 
 end
