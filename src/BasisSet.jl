@@ -42,7 +42,13 @@ function BasisSet(
 	)
 
 	projection_matrix, each_matrix_list =
-		construct_projectionmatrix(basislist, symmetry.symdata, symmetry.map_sym)
+		construct_projectionmatrix(
+			basislist,
+			symmetry.symdata,
+			symmetry.map_sym,
+			symmetry.map_s2p,
+			symmetry.atoms_in_prim,
+		)
 	projection_matrix = Matrix(projection_matrix)
 	eigenval, eigenvec = eigen(projection_matrix)
 	# eigenval, eigenvec = eigen(Matrix(projection_matrix))
@@ -51,9 +57,14 @@ function BasisSet(
 	eigenval = real.(eigenval)
 	eigenvec = real.(eigenvec)
 	@show eigenval
-	for (val, basis) in zip(eigenvec[:, end], basislist)
-		println(val, "\t", basis)
-	end
+	# for (val, basis) in zip(eigenvec[:, end], basislist)
+	# 	println(val, "\t", basis)
+	# end
+	idx = 2
+	display(symmetry.symdata[idx].rotation_frac)
+	display(symmetry.symdata[idx].translation_frac)
+	display(each_matrix_list[idx])
+	@show symmetry.map_sym[8, idx], symmetry.map_sym[9, idx]
 
 	tmp = [[]]
 
@@ -77,7 +88,7 @@ function construct_basislist(
 		if lmax == 0
 			continue
 		end
-		iul::IndicesUniqueList = AtomicIndices.indices_singleatom(iat, lmax) 
+		iul::IndicesUniqueList = AtomicIndices.indices_singleatom(iat, lmax)
 		for indices::Indices in iul
 			push!(basislist, IndicesUniqueList(indices))
 		end
