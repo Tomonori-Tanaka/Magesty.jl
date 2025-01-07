@@ -1,5 +1,6 @@
 module RotationMatrices
 
+using LinearAlgebra
 using WignerD
 
 using ..UnitaryMatrixCl
@@ -30,7 +31,7 @@ println(angles)  # (0.0, 0.7853981633974483, 0.0)
 function rotmat2euler(
 	m::AbstractMatrix{<:Real},
 	mod_positive::Bool = true;
-	tol::Real = 1e-12
+	tol::Real = 1e-12,
 )::Tuple{Float64, Float64, Float64}
 	if size(m) != (3, 3)
 		throw(ArgumentError("Only 3x3 matrices are allowed"))
@@ -99,7 +100,18 @@ function Δl(l::Integer, α::Real, β::Real, γ::Real; tol::Real = 1e-12)::Matri
 		)
 	end
 
+	realΔ = real(Δ)
+
+	if !(is_orthogonal(realΔ))
+		error("the rotation matrix is not orthogonal")
+	end
+
 	return real(Δ)
+end
+
+function is_orthogonal(Q::AbstractMatrix{<:Real}; tol::Float64 = 1e-10)::Bool
+	n = size(Q, 1)
+	return (norm(Q' * Q - I(n)) < tol)
 end
 
 end

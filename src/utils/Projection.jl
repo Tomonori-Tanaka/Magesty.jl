@@ -1,9 +1,12 @@
 using SparseArrays
 
+using ..RotationMatrices
+
+
 function construct_projectionmatrix(basislist::AbstractVector{IndicesUniqueList},
 	symdata::AbstractVector{SymmetryOperation},
 	map_sym::AbstractArray{AtomCell},
-)
+)::Tuple{SparseMatrixCSC, Vector{SparseMatrixCSC}}
 	dimension = length(basislist)
 
 	projection_mat = spzeros(Float64, dimension, dimension)
@@ -15,28 +18,47 @@ function construct_projectionmatrix(basislist::AbstractVector{IndicesUniqueList}
 
 	for (n, symop) in enumerate(symdata)
 		projection_mat_per_symop =
-			calc_projection(basislist, symop, n, map_sym; threshold = 1e-12)
+			calc_projection(
+				basislist,
+				symop,
+				n,
+				map_sym;
+				threshold_digits = 10,
+				time_reversal_sym = false,
+			)
 		if nnz(projection_mat_per_symop) != 0
 			nneq += 1
 			projection_mat += projection_mat_per_symop
 		end
 		push!(projection_mat_list, projection_mat_per_symop)
-
 	end
 
+	# time_reversal_sym will be optional keyword
 	time_reversal_sym = true
 	if time_reversal_sym
-		projection_mat_per_symop .= 0
-		nneq += 1
-		for (i, basis) in enumerate(basislist)
-			totall = gettotall(basis)
-			factor = (-1)^totall
-			projection_mat_per_symop[i, i] = factor
+		for (n, symop) in enumerate(symdata)
+			projection_mat_per_symop =
+				calc_projection(
+					basislist,
+					symop,
+					n,
+					map_sym;
+					threshold_digits = 10,
+					time_reversal_sym = time_reversal_sym,
+				)
+			if nnz(projection_mat_per_symop) != 0
+				nneq += 1
+				projection_mat += projection_mat_per_symop
+			end
+			push!(projection_mat_list, projection_mat_per_symop)
 		end
-		push!(projection_mat_list, projection_mat_per_symop)
-		projection_mat += projection_mat_per_symop
 	end
 
+
+	projection_mat = projection_mat / nneq
+	projection_mat_list = projection_mat_list ./ nneq
+
+	return projection_mat, projection_mat_list
 end
 
 function calc_projection(
@@ -44,21 +66,67 @@ function calc_projection(
 	symop::SymmetryOperation,
 	isym::Integer,
 	map_sym::AbstractArray{AtomCell};
-	threshold = 1e-12,
+	threshold_digits::Integer = 10,
+	time_reversal_sym::Bool = false,
 )::SparseMatrixCSC{Float64, Int}
 
 	projection_matrix = spzeros(Float64, length(basislist), length(basislist))
 	for (ir, rbasis::IndicesUniqueList) in enumerate(basislist)  # right-hand basis
-		moved_atomlist, moved_celllist, moved_llist =
+		moved_atomlist, moved_celllist, llist =
 			move_atomscellsls(rbasis, isym, map_sym)
-		for (il, lbasis::IndicesUniqueList) in enumerate(basislist)  # left-hand basis
+		# moved_rbasis will be used later to determine a matrix element
+		moved_rbasis = IndicesUniqueList()
+		for (idx, (atom, cell)) in enumerate(zip(moved_atomlist, moved_celllist))
+			indices = Indices(atom, cell, rbasis[idx].l, rbasis[idx].m)
+			push!(moved_rbasis, indices)
+		end
 
-			if length(rbasis) != length(lbasis)
+		partial_moved_basis::Vector{IndicesUniqueList} =
+			AtomicIndices.product_indices(moved_atomlist, moved_celllist, llist)
+		partial_r_idx = findfirst(x -> x == moved_rbasis, partial_moved_basis)
+		if isnothing(partial_r_idx)
+			error("Something is wrong at partial_r_idx variable.")
+		end
+
+		# calculate rotation matrix
+		is_proper::Bool = symop.is_proper
+		multiplier::Float64 = 1.0
+		if is_proper
+			rotmat = symop.rotation_cart
+		else
+			rotmat = -1 * symop.rotation_cart
+			multiplier = (-1)^(gettotall(rbasis))
+		end
+
+		if time_reversal_sym
+			multiplier *= (-1)^(gettotall(rbasis))
+		end
+
+		euler_angles::Tuple{Float64, Float64, Float64} = rotmat2euler(rotmat)
+		rotation_list = Vector{Matrix{Float64}}()
+		for indices in moved_rbasis
+			push!(rotation_list, Δl(indices.l, euler_angles...))
+		end
+
+		if length(moved_rbasis) == 1    # 1-body term
+			rotmat_kron = multiplier * rotation_list[begin]
+		else
+			rotmat_kron = multiplier * kron(rotation_list...)
+		end
+
+
+		for (il, lbasis::IndicesUniqueList) in enumerate(basislist)  # left-hand basis
+			partial_l_idx = findfirst(x -> x == lbasis, partial_moved_basis)
+			if isnothing(partial_l_idx)
 				continue
 			end
 
+			projection_matrix[il, ir] = rotmat_kron[partial_l_idx, partial_r_idx]
 		end
 	end
+
+	projection_matrix = round.(projection_matrix, digits = threshold_digits)
+
 	return projection_matrix
 end
 

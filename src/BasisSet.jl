@@ -3,7 +3,9 @@ This module provides functionality for storing and handling of basis set.
 """
 module BasisSets
 
+using Arpack
 using Combinatorics
+using LinearAlgebra
 
 using ..SortedContainer
 using ..AtomCells
@@ -39,8 +41,22 @@ function BasisSet(
 		bodymax,
 	)
 
-	construct_projectionmatrix(basislist, symmetry.symdata, symmetry.map_sym_cell)
-	# to pass compile
+	projection_matrix, each_matrix_list =
+		construct_projectionmatrix(basislist, symmetry.symdata, symmetry.map_sym_cell)
+	projection_matrix = Matrix(projection_matrix)
+	eigenval, eigenvec = eigen(projection_matrix)
+	# eigenval, eigenvec = eigen(Matrix(projection_matrix))
+	eigenvec = round.(eigenvec, digits = 6)
+	eigenval = round.(eigenval, digits = 6)
+	eigenval = real.(eigenval)
+	eigenvec = real.(eigenvec)
+	@show eigenval
+	for (val, basis) in zip(eigenvec[:, end-1], basislist)
+		println(val, "\t", basis)
+	end
+
+
+
 	tmp = [[]]
 
 	return BasisSet(basislist, tmp)

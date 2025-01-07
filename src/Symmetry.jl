@@ -326,4 +326,5 @@ function find_matching_image_cell(
 	end
 end
 
+is_in_centeringcell(xf, x_image_frac) = any(xf ≈ vec for vec in x_image_frac[:, :, 1])
 end

@@ -10,6 +10,7 @@ include("types/UnitaryMatrixCl.jl")
 
 include("utils/InputParser.jl")
 include("utils/InputSetter.jl")
+include("utils/RotationMatrix.jl")
 using .InputParser
 
 include("System.jl")
