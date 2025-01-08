@@ -42,6 +42,7 @@ using .AtomicIndices
 		push!(iul3, indices2)# ignored this operation because of the uniqueness
 		@test iul3 < iul1
 		push!(iul3, indices1)
+		@test equivalent(iul1, iul3)
 		@test iul1 < iul3
 		@test !(isempty(iul3))
 		iul3_copy = copy(iul3)
