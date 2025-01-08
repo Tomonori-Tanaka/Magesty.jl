@@ -46,6 +46,9 @@ function BasisSet(
 			basislist,
 			symmetry.symdata,
 			symmetry.map_sym,
+            symmetry.map_s2p,
+            symmetry.atoms_in_prim,
+            symmetry.symnum_translation,
 		)
 	projection_matrix = Matrix(projection_matrix)
 	eigenval, eigenvec = eigen(projection_matrix)
