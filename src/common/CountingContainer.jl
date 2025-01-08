@@ -72,7 +72,7 @@ function append!(
 	return cuv
 end
 
-function in(val, cuv::CountingUniqueVector{T}) where T
+function in(val::T, cuv::CountingUniqueVector{T}) where T
 	return haskey(cuv.counts, val)
 end
 
