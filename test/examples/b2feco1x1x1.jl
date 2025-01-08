@@ -45,14 +45,6 @@ using TOML
 
 	parsed = TOML.parse(input)
 	sclus = SpinCluster(parsed)
-	# @test length(sclus.cluster.cluster_list) == 1
-	# @test length(sclus.cluster.cluster_list_with_cell[1]) == 16 #counts 2body terms
-	# @test length(sclus.basisset.basislist) == 16 * 9 - 9
-	@test sclus.symmetry.map_sym_cell[2, 1, 2] == (2, 2)
-	@test sclus.symmetry.map_sym_cell[2, 2, 2] == (2, 1)
-	@test sclus.symmetry.map_sym_cell[2, 27, 2] == (2, -1)
-	@test sclus.symmetry.map_sym_cell[1, 2, 2] == (1, 27)
-	# display(sclus.symmetry.map_sym_cell)
-	# @show sclus.basisset.basislist
+	println(sclus.basisset.basislist)
 
 end

@@ -45,7 +45,7 @@ using TOML
 
 	parsed = TOML.parse(input)
 	sclus = SpinCluster(parsed)
-    # @show sclus.basisset.basislist
+    @show sclus.basisset.basislist
 end
 
 
