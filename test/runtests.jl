@@ -5,7 +5,7 @@ include("../src/types/AtomicIndices.jl")
 include("../src/types/UnitaryMatrixCl.jl")
 include("../src/utils/RotationMatrix.jl")
 
-using Magesty
+# using Magesty
 using Test
 
 @testset "component tests" begin
