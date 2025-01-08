@@ -23,8 +23,8 @@ using .AtomicIndices
 	iul2 = IndicesUniqueList([indices1, indices3])
 	@test iul2 < iul1
 
-	scv = SortedCountingVector([iul1, iul1, iul2])
-	scv2 = SortedCountingVector([iul1, iul2, iul2])
+	scv = SortedCountingUniqueVector([iul1, iul1, iul2])
+	scv2 = SortedCountingUniqueVector([iul1, iul2, iul2])
 	@test scv[1] == iul2
 	@test scv[2] == iul1
 	@test length(scv) == 2
@@ -43,7 +43,7 @@ using .AtomicIndices
 	@test iul1 in scv2
 	@test !(iul2 in scv2)
 
-	scv3 = SortedCountingVector([iul1, iul1, iul2])
+	scv3 = SortedCountingUniqueVector([iul1, iul1, iul2])
 	scv3_copy = copy(scv3)
 	push!(scv3_copy, iul1)
 	@test scv3 != scv3_copy

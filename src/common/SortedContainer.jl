@@ -4,16 +4,19 @@
 This module provides various sorted container data structures, including:
 - `SortedVector`: A mutable sorted vector allowing duplicate elements.
 - `SortedUniqueVector`: A mutable sorted vector that avoids duplicates.
-- `SortedCountingVector`: A mutable sorted vector that also keeps track of element counts.
+- `SortedCountingUniqueVector`: A mutable sorted vector that also keeps track of element counts.
 
 All data structures implement `AbstractVector` and support operations such as indexing,
 iteration, insertion, deletion, and clearing in a sorted manner.
 """
 module SortedContainer
 
+import Base: append!, copy, findall, findfirst, delete!, deleteat!, getindex, in, isless,
+	isempty, iterate, length, push!, size, ==
+
 export SortedVector
 export SortedUniqueVector
-export SortedCountingVector, getcount
+export SortedCountingUniqueVector, getcount
 
 """
 	AbstractSortedVector{T} <: AbstractVector{T}
@@ -58,14 +61,14 @@ mutable struct SortedVector{T} <: AbstractSortedVector{T}
 end
 
 # Support array-like operations
-Base.getindex(sv::SortedVector, i::Int) = sv.data[i]  # Allow index-based access
-Base.length(sv::SortedVector) = length(sv.data)       # Return the length of the vector
-Base.iterate(sv::SortedVector) = iterate(sv.data)     # Support iteration
-Base.iterate(sv::SortedVector, state) = iterate(sv.data, state)
-Base.isempty(sv::SortedVector) = isempty(sv.data)
-Base.size(sv::SortedVector) = size(sv.data)
-Base.:(==)(sv1::SortedVector, sv2::SortedVector) = sv1.data == sv2.data
-Base.isless(sv1::SortedVector, sv2::SortedVector) = sv1.data < sv2.data
+getindex(sv::SortedVector, i::Int) = sv.data[i]  # Allow index-based access
+length(sv::SortedVector) = length(sv.data)       # Return the length of the vector
+iterate(sv::SortedVector) = iterate(sv.data)     # Support iteration
+iterate(sv::SortedVector, state) = iterate(sv.data, state)
+isempty(sv::SortedVector) = isempty(sv.data)
+size(sv::SortedVector) = size(sv.data)
+==(sv1::SortedVector, sv2::SortedVector) = sv1.data == sv2.data
+isless(sv1::SortedVector, sv2::SortedVector) = sv1.data < sv2.data
 
 """
 	push!(sv::SortedVector{T}, value::T) -> SortedVector{T}
@@ -73,13 +76,13 @@ Base.isless(sv1::SortedVector, sv2::SortedVector) = sv1.data < sv2.data
 Insert `value` into the `SortedVector` while maintaining sorted order.
 Returns the updated `SortedVector`.
 """
-function Base.push!(sv::SortedVector{T}, value::T) where T
+function push!(sv::SortedVector{T}, value::T) where T
 	idx = searchsortedfirst(sv.data, value)  # Find the insertion position
 	insert!(sv.data, idx, value)            # Insert the value at the calculated position
 	return sv
 end
 
-function Base.append!(sv::SortedVector{T}, new_vec::AbstractVector{T}) where T
+function append!(sv::SortedVector{T}, new_vec::AbstractVector{T}) where T
 	for value in new_vec
 		push!(sv, value)
 	end
@@ -92,7 +95,7 @@ end
 Return the index of the first occurrence of `value` in `sv`, or `nothing`
 if `value` is not found.
 """
-function Base.findfirst(sv::SortedVector{T}, value::T) where T
+function findfirst(sv::SortedVector{T}, value::T) where T
 	idx = searchsortedfirst(sv.data, value)
 	return idx <= length(sv.data) && sv.data[idx] == value ? idx : nothing
 end
@@ -103,7 +106,7 @@ end
 Return all indices where `value` occurs in `sv`. If `value` is not present,
 an empty vector is returned.
 """
-function Base.findall(sv::SortedVector{T}, value::T) where T
+function findall(sv::SortedVector{T}, value::T) where T
 	indices = []
 	start_idx = searchsortedfirst(sv.data, value)
 	while start_idx <= length(sv.data) && sv.data[start_idx] == value
@@ -113,15 +116,15 @@ function Base.findall(sv::SortedVector{T}, value::T) where T
 	return indices
 end
 
-function Base.delete!(sv::SortedVector{T}, value::T) where T
-	idx = findfirst(sv.data .== value)
+function delete!(sv::SortedVector{T}, value::T) where T
+	idx = Base.findfirst(sv.data .== value)
 	if !isnothing(idx)
 		deleteat!(sv.data, idx)
 	end
 	return sv
 end
 
-function Base.deleteat!(sv::SortedVector{T}, idx::Int) where T
+function deleteat!(sv::SortedVector{T}, idx::Int) where T
 	if idx < 1 || idx > length(sv.data)
 		throw(BoundsError(sv, idx))  # Throw an error if index is out of bounds
 	end
@@ -130,14 +133,14 @@ function Base.deleteat!(sv::SortedVector{T}, idx::Int) where T
 end
 
 function deleteall!(sv::SortedVector{T}, value::T) where T
-	indices = findall(sv.data .== value)
+	indices = Base.findall(sv.data .== value)
 	for idx in reverse(indices)
 		deleteat!(sv.data, idx)
 	end
 	return sv
 end
 
-function Base.in(value::T, sv::SortedVector{T}) where T
+function in(value::T, sv::SortedVector{T}) where T
 	idx = searchsortedfirst(sv.data, value)
 	return idx <= length(sv.data) && sv.data[idx] == value
 end
@@ -147,7 +150,7 @@ function clear!(sv::SortedVector)
 	return sv
 end
 
-function Base.copy(sv::SortedVector{T}) where T
+function copy(sv::SortedVector{T}) where T
 	return SortedVector{T}(data = copy(sv.data))
 end
 
@@ -179,19 +182,19 @@ mutable struct SortedUniqueVector{T} <: AbstractSortedVector{T}
 	SortedUniqueVector() = new{Any}(Vector{Any}())
 end
 
-Base.getindex(suv::SortedUniqueVector, i::Int) = suv.data[i]  # Allow index-based access
-Base.length(suv::SortedUniqueVector) = length(suv.data)       # Return the length of the vector
-Base.iterate(suv::SortedUniqueVector) = iterate(suv.data)     # Support iteration
-Base.iterate(suv::SortedUniqueVector, state) = iterate(suv.data, state)
-Base.isempty(suv::SortedUniqueVector) = isempty(suv.data)
-Base.size(suv::SortedUniqueVector) = size(suv.data)
-Base.:(==)(suv1::SortedUniqueVector, suv2::SortedUniqueVector) = suv1.data == suv2.data
-Base.:(==)(suv::SortedUniqueVector, vec::AbstractVector) = suv.data == vec
-Base.:(==)(vec::AbstractVector, suv::SortedUniqueVector) = vec == suv.data
-Base.isless(suv1::SortedUniqueVector, suv2::SortedUniqueVector) = suv1.data < suv2.data
+getindex(suv::SortedUniqueVector, i::Int) = suv.data[i]  # Allow index-based access
+length(suv::SortedUniqueVector) = length(suv.data)       # Return the length of the vector
+iterate(suv::SortedUniqueVector) = iterate(suv.data)     # Support iteration
+iterate(suv::SortedUniqueVector, state) = iterate(suv.data, state)
+isempty(suv::SortedUniqueVector) = isempty(suv.data)
+size(suv::SortedUniqueVector) = size(suv.data)
+==(suv1::SortedUniqueVector, suv2::SortedUniqueVector) = suv1.data == suv2.data
+==(suv::SortedUniqueVector, vec::AbstractVector) = suv.data == vec
+==(vec::AbstractVector, suv::SortedUniqueVector) = vec == suv.data
+isless(suv1::SortedUniqueVector, suv2::SortedUniqueVector) = suv1.data < suv2.data
 
 # Overload push! to avoid duplicates
-function Base.push!(suv::SortedUniqueVector{T}, value::T) where T
+function push!(suv::SortedUniqueVector{T}, value::T) where T
 	idx = searchsortedfirst(suv.data, value)
 	if idx > length(suv.data) || suv.data[idx] != value
 		insert!(suv.data, idx, value)
@@ -199,28 +202,28 @@ function Base.push!(suv::SortedUniqueVector{T}, value::T) where T
 	return suv
 end
 
-function Base.append!(suv::SortedUniqueVector{T}, new_vec::AbstractVector{T}) where T
+function append!(suv::SortedUniqueVector{T}, new_vec::AbstractVector{T}) where T
 	for value in new_vec
 		push!(suv, value)
 	end
 	return suv
 end
 
-function Base.findfirst(suv::SortedUniqueVector{T}, value::T) where T
+function findfirst(suv::SortedUniqueVector{T}, value::T) where T
 	idx = searchsortedfirst(suv.data, value)
 	return idx <= length(suv.data) && suv.data[idx] == value ? idx : nothing
 end
 
 # Remove a specific element if it exists
-function Base.delete!(suv::SortedUniqueVector{T}, value::T) where T
-	idx = findfirst(suv.data .== value)
+function delete!(suv::SortedUniqueVector{T}, value::T) where T
+	idx = Base.findfirst(suv.data .== value)
 	if !isnothing(idx)
 		deleteat!(suv.data, idx)
 	end
 	return suv
 end
 
-function Base.deleteat!(suv::SortedUniqueVector{T}, idx::Int) where T
+function deleteat!(suv::SortedUniqueVector{T}, idx::Int) where T
 	if idx < 1 || idx > length(suv.data)
 		throw(BoundsError(suv, idx))  # Throw an error if index is out of bounds
 	end
@@ -228,12 +231,12 @@ function Base.deleteat!(suv::SortedUniqueVector{T}, idx::Int) where T
 	return suv
 end
 
-function Base.in(value::T, suv::SortedUniqueVector{T}) where T
+function in(value::T, suv::SortedUniqueVector{T}) where T
 	idx = searchsortedfirst(suv.data, value)
 	return idx <= length(suv.data) && suv.data[idx] == value
 end
 
-function Base.copy(suv::SortedUniqueVector{T}) where T
+function copy(suv::SortedUniqueVector{T}) where T
 	data = copy(suv.data)
 	return SortedUniqueVector(data)
 end
@@ -243,12 +246,12 @@ function clear!(suv::SortedUniqueVector)
 	return suv
 end
 
-# ─────────────────────────────────────────────────────────────────────────────
-# SortedCountingVector
-# ─────────────────────────────────────────────────────────────────────────────
 
+# ─────────────────────────────────────────────────────────────────────────────
+# SortedCountingUniqueVector
+# ─────────────────────────────────────────────────────────────────────────────
 """
-	SortedCountingVector{T} <: AbstractSortedVector{T}
+	SortedCountingUniqueVector{T} <: AbstractSortedVector{T}
 
 A mutable sorted vector of unique elements (like `SortedUniqueVector`) that also
 tracks how many times each element was inserted.
@@ -258,19 +261,19 @@ tracks how many times each element was inserted.
 - `counts::Dict{T,Int}`: A dictionary mapping each element to its insertion count.
 
 # Constructors
-- `SortedCountingVector{T}()`: Create an empty counting vector.
-- `SortedCountingVector(data::AbstractVector{T})`: Create a counting vector from `data`,
+- `SortedCountingUniqueVector{T}()`: Create an empty counting vector.
+- `SortedCountingUniqueVector(data::AbstractVector{T})`: Create a counting vector from `data`,
   counting each element's occurrences.
 """
-mutable struct SortedCountingVector{T} <: AbstractSortedVector{T}
+mutable struct SortedCountingUniqueVector{T} <: AbstractSortedVector{T}
 	data::SortedUniqueVector{T}
 	counts::Dict{T, Int}
 
-	function SortedCountingVector{T}() where T
+	function SortedCountingUniqueVector{T}() where T
 		new{T}(SortedUniqueVector{T}(), Dict{T, Int}())
 	end
 
-	function SortedCountingVector(data::AbstractVector{T}) where T
+	function SortedCountingUniqueVector(data::AbstractVector{T}) where T
 		suv = SortedUniqueVector(data)
 		cnts = Dict{T, Int}()
 		for value in data
@@ -283,7 +286,7 @@ mutable struct SortedCountingVector{T} <: AbstractSortedVector{T}
 		new{T}(suv, cnts)
 	end
 
-	function SortedCountingVector(
+	function SortedCountingUniqueVector(
 		data::SortedUniqueVector{T},
 		counts::Dict{T, Int},
 	) where {T}
@@ -291,19 +294,20 @@ mutable struct SortedCountingVector{T} <: AbstractSortedVector{T}
 	end
 end
 
-Base.getindex(suv::SortedCountingVector, i::Int) = suv.data[i]  # Allow index-based access
-Base.length(suv::SortedCountingVector) = length(suv.data)       # Return the length of the vector
-Base.size(suv::SortedCountingVector) = size(suv.data)
-Base.iterate(suv::SortedCountingVector) = iterate(suv.data)     # Support iteration
-Base.iterate(suv::SortedCountingVector, state) = iterate(suv.data, state)
-function Base.:(==)(suv1::SortedCountingVector, suv2::SortedCountingVector)
+getindex(suv::SortedCountingUniqueVector, i::Int) = suv.data[i]  # Allow index-based access
+length(suv::SortedCountingUniqueVector) = length(suv.data)       # Return the length of the vector
+size(suv::SortedCountingUniqueVector) = size(suv.data)
+iterate(suv::SortedCountingUniqueVector) = iterate(suv.data)     # Support iteration
+iterate(suv::SortedCountingUniqueVector, state) = iterate(suv.data, state)
+function ==(suv1::SortedCountingUniqueVector, suv2::SortedCountingUniqueVector)
 	return suv1.data == suv2.data && suv1.counts == suv2.counts
 end
-Base.:(==)(suv::SortedCountingVector, vec::AbstractVector) = suv.data == vec
-Base.:(==)(vec::AbstractVector, suv::SortedCountingVector) = vec == suv.data
-Base.isless(suv1::SortedCountingVector, suv2::SortedCountingVector) = suv1.data < suv2.data
+==(suv::SortedCountingUniqueVector, vec::AbstractVector) = suv.data == vec
+==(vec::AbstractVector, suv::SortedCountingUniqueVector) = vec == suv.data
+isless(suv1::SortedCountingUniqueVector, suv2::SortedCountingUniqueVector) =
+	suv1.data < suv2.data
 
-function Base.push!(scv::SortedCountingVector{T}, val::T) where T
+function push!(scv::SortedCountingUniqueVector{T}, val::T) where T
 	if haskey(scv.counts, val)
 		scv.counts[val] += 1
 	else
@@ -313,15 +317,17 @@ function Base.push!(scv::SortedCountingVector{T}, val::T) where T
 	return scv
 end
 
-
-function Base.append!(scv::SortedCountingVector{T}, new_vals::AbstractVector{T}) where T
+function append!(
+	scv::SortedCountingUniqueVector{T},
+	new_vals::AbstractVector{T},
+) where T
 	for val in new_vals
 		push!(scv, val)
 	end
 	return scv
 end
 
-function Base.delete!(scv::SortedCountingVector{T}, val::T) where T
+function delete!(scv::SortedCountingUniqueVector{T}, val::T) where T
 	if haskey(scv.counts, val)
 		delete!(scv.counts, val)
 		delete!(scv.data, val)
@@ -329,31 +335,108 @@ function Base.delete!(scv::SortedCountingVector{T}, val::T) where T
 	return scv
 end
 
-function Base.in(val, scv::SortedCountingVector{T}) where T
+function in(val, scv::SortedCountingUniqueVector{T}) where T
 	return haskey(scv.counts, val)
 end
 
 """
-	copy(scv::SortedCountingVector{T}) -> SortedCountingVector{T}
+	copy(scv::SortedCountingUniqueVector{T}) -> SortedCountingUniqueVector{T}
 
-Return a new `SortedCountingVector` that is a deep copy of `scv`.
+Return a new `SortedCountingUniqueVector` that is a deep copy of `scv`.
 It copies both the underlying `SortedUniqueVector` and the `counts` dictionary.
 """
-function Base.copy(scv::SortedCountingVector{T}) where T
+function copy(scv::SortedCountingUniqueVector{T}) where T
 	data_copy = copy(scv.data)
 	counts_copy = copy(scv.counts)
-	return SortedCountingVector(data_copy, counts_copy)
+	return SortedCountingUniqueVector(data_copy, counts_copy)
 end
 
-function Base.show(io::IO, scv::SortedCountingVector{T}) where T
+function show(io::IO, scv::SortedCountingUniqueVector{T}) where T
 	for val in scv.data
 		print(io, "counts: ", scv.counts[val], " ")
 		println(io, "data: ", val)
 	end
 end
 
-function getcount(scv::SortedCountingVector{T}, val::T)::Int where T
+function getcount(scv::SortedCountingUniqueVector{T}, val::T)::Int where T
 	return get(scv.counts, val, 0)
+end
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CountingUniqueVector
+# ─────────────────────────────────────────────────────────────────────────────
+mutable struct CountingUniqueVector{T} <: AbstractVector{T}
+	data::Vector{T}
+	counts::Dict{T, Int}
+end
+
+function CountingUniqueVector{T}() where T
+	CountingUniqueVector{T}(Vector{T}(), Dict{T, Int}())
+end
+
+function CountingUniqueVector(data::AbstractVector{T}) where T
+	vec::Vector{T} = unique(data)
+	cnts = Dict{T, Int}()
+	for value in data
+		if haskey(cnts, value)
+			cnts[value] += 1
+		else
+			cnts[value] = 1
+		end
+	end
+	CountingUniqueVector{T}(vec, cnts)
+end
+
+getindex(cuv::CountingUniqueVector, idx::Int) = cuv.data[idx]
+length(cuv::CountingUniqueVector) = length(cuv.data)
+size(cuv::CountingUniqueVector) = size(cuv.data)
+iterate(cuv::CountingUniqueVector) = iterate(cuv.data)     # Support iteration
+iterate(cuv::CountingUniqueVector, state) = iterate(cuv.data, state)
+function ==(cuv1::CountingUniqueVector, cuv2::CountingUniqueVector)
+	return cuv1.data == cuv2.data && cuv1.counts == cuv2.counts
+end
+isless(cuv1::CountingUniqueVector, cuv2::CountingUniqueVector) = cuv1.data < cuv2.data
+
+function push!(cuv::CountingUniqueVector{T}, val::T) where T
+	if haskey(cuv.counts, val)
+		cuv.counts[val] += 1
+	else
+		push!(cuv.data, val)
+		cuv.counts[val] = 1
+	end
+	return cuv
+end
+
+function append!(
+	cuv::CountingUniqueVector{T},
+	new_vals::AbstractVector{T},
+) where T
+	for val in new_vals
+		push!(cuv, val)
+	end
+	return cuv
+end
+
+function in(val, cuv::CountingUniqueVector{T}) where T
+	return haskey(cuv.counts, val)
+end
+
+function copy(cuv::CountingUniqueVector{T}) where T
+	data_copy = copy(cuv.data)
+	counts_copy = copy(cuv.counts)
+	return CountingUniqueVector(data_copy, counts_copy)
+end
+
+function show(io::IO, cuv::CountingUniqueVector{T}) where T
+	for val in cuv.data
+		print(io, "counts: ", cuv.counts[val], " ")
+		println(io, "data: ", val)
+	end
+end
+
+function getcount(cuv::CountingUniqueVector{T}, val::T)::Int where T
+	return get(cuv.counts, val, 0)
 end
 
 end

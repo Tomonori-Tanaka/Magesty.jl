@@ -2,9 +2,11 @@
 using .SortedContainer
 
 @testset "SoterdContainer" begin
-
+	# ─────────────────────────────────────────────────────────────────────────────
+	# SortedCountingUniqueVector
+	# ─────────────────────────────────────────────────────────────────────────────
 	vec = Vector{Int}([3, 3, 2, 1, 1])
-	scv = SortedCountingVector(vec)
+	scv = SortedCountingUniqueVector(vec)
 	@test scv == [1, 2, 3]
 	@test getcount(scv, 1) == 2
 	@test getcount(scv, 2) == 1
@@ -39,6 +41,11 @@ using .SortedContainer
 	@test getcount(scv_copy, 1) != getcount(scv, 1)
 	@test scv_copy.data == scv.data
 	@test scv_copy != scv
-    @test !(scv < scv_copy)
+	@test !(scv < scv_copy)
+
+
+	# ─────────────────────────────────────────────────────────────────────────────
+	# CountingUniqueVector
+	# ─────────────────────────────────────────────────────────────────────────────
 
 end

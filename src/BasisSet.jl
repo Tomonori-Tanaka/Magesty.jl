@@ -22,7 +22,7 @@ export BasisSet
  - 'salc_coeffs:', coefficient vectors to represent symmetry-adapted linear combinations.
 """
 struct BasisSet
-	basislist::SortedCountingVector{IndicesUniqueList}
+	basislist::SortedCountingUniqueVector{IndicesUniqueList}
 	salc_coeffs::Vector{Vector{Float64}}
 end
 
@@ -46,8 +46,6 @@ function BasisSet(
 			basislist,
 			symmetry.symdata,
 			symmetry.map_sym,
-			symmetry.map_s2p,
-			symmetry.atoms_in_prim,
 		)
 	projection_matrix = Matrix(projection_matrix)
 	eigenval, eigenvec = eigen(projection_matrix)
@@ -78,9 +76,9 @@ function construct_basislist(
 	cluster_list::AbstractVector{<:AbstractVector{<:AbstractVector{AtomCell}}}, # Vector{SortedVector{Vector{AtomCell}}}  2025-01-06
 	lmax_mat::AbstractMatrix{<:Integer},
 	bodymax::Integer,
-)::SortedCountingVector{IndicesUniqueList}
+)::SortedCountingUniqueVector{IndicesUniqueList}
 
-	basislist = SortedCountingVector{IndicesUniqueList}()
+	basislist = SortedCountingUniqueVector{IndicesUniqueList}()
 
 	# firstly treat 1-body case which needs special treatments.
 	for iat in atoms_in_prim

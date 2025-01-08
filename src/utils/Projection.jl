@@ -6,8 +6,6 @@ using ..RotationMatrices
 function construct_projectionmatrix(basislist::AbstractVector{IndicesUniqueList},
 	symdata::AbstractVector{SymmetryOperation},
 	map_sym::AbstractMatrix{<:Integer},
-    map_s2p::AbstractVector{Symmetry.Maps},
-    atoms_in_prim::AbstractVector{<:Integer},
 )::Tuple{SparseMatrixCSC, Vector{SparseMatrixCSC}}
 	dimension = length(basislist)
 
