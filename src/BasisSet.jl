@@ -22,7 +22,7 @@ export BasisSet
  - 'salc_coeffs:', coefficient vectors to represent symmetry-adapted linear combinations.
 """
 struct BasisSet
-	basislist::SortedCountingUniqueVector{IndicesUniqueList}
+	basislist::SortedCountingUniqueVector{IndicesSortedUniqueList}
 	salc_coeffs::Vector{Vector{Float64}}
 end
 
@@ -62,7 +62,6 @@ function BasisSet(
 	display(symmetry.symdata[idx].rotation_frac)
 	display(symmetry.symdata[idx].translation_frac)
 	display(each_matrix_list[idx])
-	@show symmetry.map_sym[8, idx], symmetry.map_sym[9, idx]
 
 	tmp = [[]]
 
@@ -76,9 +75,9 @@ function construct_basislist(
 	cluster_list::AbstractVector{<:AbstractVector{<:AbstractVector{AtomCell}}}, # Vector{SortedVector{Vector{AtomCell}}}  2025-01-06
 	lmax_mat::AbstractMatrix{<:Integer},
 	bodymax::Integer,
-)::SortedCountingUniqueVector{IndicesUniqueList}
+)::SortedCountingUniqueVector{IndicesSortedUniqueList}
 
-	basislist = SortedCountingUniqueVector{IndicesUniqueList}()
+	basislist = SortedCountingUniqueVector{IndicesSortedUniqueList}()
 
 	# firstly treat 1-body case which needs special treatments.
 	for iat in atoms_in_prim
@@ -86,9 +85,9 @@ function construct_basislist(
 		if lmax == 0
 			continue
 		end
-		iul::IndicesUniqueList = AtomicIndices.indices_singleatom(iat, lmax)
+		iul::IndicesSortedUniqueList = AtomicIndices.indices_singleatom(iat, lmax)
 		for indices::Indices in iul
-			push!(basislist, IndicesUniqueList(indices))
+			push!(basislist, IndicesSortedUniqueList(indices))
 		end
 	end
 
