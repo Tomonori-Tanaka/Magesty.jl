@@ -3,7 +3,7 @@ using SparseArrays
 using ..RotationMatrices
 
 
-function construct_projectionmatrix(basislist::AbstractVector{IndicesSortedUniqueList},
+function construct_projectionmatrix(basislist::AbstractVector{IndicesUniqueList},
 	symdata::AbstractVector{SymmetryOperation},
 	map_sym::AbstractMatrix{<:Integer},
 )::Tuple{SparseMatrixCSC, Vector{SparseMatrixCSC}}
@@ -62,7 +62,7 @@ function construct_projectionmatrix(basislist::AbstractVector{IndicesSortedUniqu
 end
 
 function calc_projection(
-	basislist::AbstractVector{IndicesSortedUniqueList},
+	basislist::AbstractVector{IndicesUniqueList},
 	symop::SymmetryOperation,
 	isym::Integer,
 	map_sym::AbstractMatrix{<:Integer};
@@ -71,17 +71,17 @@ function calc_projection(
 )::SparseMatrixCSC{Float64, Int}
 
 	projection_matrix = spzeros(Float64, length(basislist), length(basislist))
-	for (ir, rbasis::IndicesSortedUniqueList) in enumerate(basislist)  # right-hand basis
+	for (ir, rbasis::IndicesUniqueList) in enumerate(basislist)  # right-hand basis
 		moved_atomlist, llist =
 			move_atoms(rbasis, isym, map_sym)
 		# moved_rbasis will be used later to determine a matrix element
-		moved_rbasis = IndicesSortedUniqueList()
+		moved_rbasis = IndicesUniqueList()
 		for (idx, atom) in enumerate(moved_atomlist)
 			indices = Indices(atom, rbasis[idx].l, rbasis[idx].m)
 			push!(moved_rbasis, indices)
 		end
 
-		partial_moved_basis::Vector{IndicesSortedUniqueList} =
+		partial_moved_basis::Vector{IndicesUniqueList} =
 			AtomicIndices.product_indices(moved_atomlist, llist)
 		partial_r_idx = findfirst(x -> x == moved_rbasis, partial_moved_basis)
 		if isnothing(partial_r_idx)
@@ -95,11 +95,11 @@ function calc_projection(
 			rotmat = symop.rotation_cart
 		else
 			rotmat = -1 * symop.rotation_cart
-			multiplier = (-1)^(gettotall(rbasis))
+			multiplier = (-1)^(get_totalL(rbasis))
 		end
 
 		if time_reversal_sym
-			multiplier *= (-1)^(gettotall(rbasis))
+			multiplier *= (-1)^(get_totalL(rbasis))
 		end
 
 		euler_angles::Tuple{Float64, Float64, Float64} = rotmat2euler(rotmat)
@@ -115,7 +115,7 @@ function calc_projection(
 		end
 
 
-		for (il, lbasis::IndicesSortedUniqueList) in enumerate(basislist)  # left-hand basis
+		for (il, lbasis::IndicesUniqueList) in enumerate(basislist)  # left-hand basis
 			partial_l_idx = findfirst(x -> x == lbasis, partial_moved_basis)
 			if isnothing(partial_l_idx)
 				continue
@@ -131,7 +131,7 @@ function calc_projection(
 end
 
 function move_atoms(
-	iul::IndicesSortedUniqueList,
+	iul::IndicesUniqueList,
 	isym::Integer,
 	map_sym::AbstractMatrix{<:Integer},   # [≤ num_atoms, ≤ 27, ≤ nsym]
 )::Tuple{Vector{Int}, Vector{Int}}

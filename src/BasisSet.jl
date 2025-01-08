@@ -22,7 +22,7 @@ export BasisSet
  - 'salc_coeffs:', coefficient vectors to represent symmetry-adapted linear combinations.
 """
 struct BasisSet
-	basislist::SortedCountingUniqueVector{IndicesSortedUniqueList}
+	basislist::SortedCountingUniqueVector{IndicesUniqueList}
 	salc_coeffs::Vector{Vector{Float64}}
 end
 
@@ -75,9 +75,9 @@ function construct_basislist(
 	cluster_list::AbstractVector{<:AbstractVector{<:AbstractVector{AtomCell}}}, # Vector{SortedVector{Vector{AtomCell}}}  2025-01-06
 	lmax_mat::AbstractMatrix{<:Integer},
 	bodymax::Integer,
-)::SortedCountingUniqueVector{IndicesSortedUniqueList}
+)::SortedCountingUniqueVector{IndicesUniqueList}
 
-	basislist = SortedCountingUniqueVector{IndicesSortedUniqueList}()
+	basislist = SortedCountingUniqueVector{IndicesUniqueList}()
 
 	# firstly treat 1-body case which needs special treatments.
 	for iat in atoms_in_prim
@@ -85,9 +85,9 @@ function construct_basislist(
 		if lmax == 0
 			continue
 		end
-		iul::IndicesSortedUniqueList = AtomicIndices.indices_singleatom(iat, lmax)
+		iul::IndicesUniqueList = AtomicIndices.indices_singleatom(iat, lmax)
 		for indices::Indices in iul
-			push!(basislist, IndicesSortedUniqueList(indices))
+			push!(basislist, IndicesUniqueList(indices))
 		end
 	end
 
