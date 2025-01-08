@@ -3,7 +3,7 @@ module AtomicIndices
 using ..SortedContainer
 
 export Indices,
-	IndicesUniqueList, getatoms, getls, gettotall
+	IndicesSortedUniqueList, getatoms, getls, gettotall
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Indices
@@ -35,7 +35,7 @@ struct Indices
 		return new(atom, l, m)
 	end
 
-	function Indices(tuple::NTuple{4, Integer})
+	function Indices(tuple::NTuple{3, Integer})
 		return new(tuple...)
 	end
 end
@@ -43,17 +43,17 @@ end
 Base.isless(atom_i::Indices, atom_j::Indices) =
 	(atom_i.atom, atom_i.l, atom_i.m) <
 	(atom_j.atom, atom_j.l, atom_j.m)
-Base.isless(atom_i::Indices, tuple::NTuple{4, Integer}) =
+Base.isless(atom_i::Indices, tuple::NTuple{3, Integer}) =
 	(atom_i.atom, atom_i.l, atom_i.m) < tuple
 Base.isless(tuple::NTuple{4, Integer}, atom_j::Indices) =
 	tuple < (atom_j.atom, atom_j.l, atom_j.m)
 Base.:(==)(atom_i::Indices, atom_j::Indices) =
 	(atom_i.atom, atom_i.l, atom_i.m) ==
 	(atom_j.atom, atom_j.l, atom_j.m)
-Base.:(==)(atom_i::Indices, tuple::NTuple{4, Integer}) =
+Base.:(==)(atom_i::Indices, tuple::NTuple{3, Integer}) =
 	(atom_i.atom, atom_i.l, atom_i.m) == tuple
-Base.:(==)(tuple::NTuple{4, Integer}, atom_j::Indices) =
-	tuple == (atom_j.atom,  atom_j.l, atom_j.m)
+Base.:(==)(tuple::NTuple{3, Integer}, atom_j::Indices) =
+	tuple == (atom_j.atom, atom_j.l, atom_j.m)
 Base.hash(atom_i::Indices, h::UInt) =
 	hash((atom_i.atom, atom_i.l, atom_i.m), h)
 function Base.show(io::IO, indices::Indices)
@@ -63,76 +63,85 @@ function Base.show(io::IO, indices::Indices)
 	)
 end
 
+
 # ─────────────────────────────────────────────────────────────────────────────
 # IndicesUniqueList
 # ─────────────────────────────────────────────────────────────────────────────
 mutable struct IndicesUniqueList <: AbstractVector{Indices}
+	data::Vector{Indices}
+end
+
+# ─────────────────────────────────────────────────────────────────────────────
+# IndicesSortedUniqueList
+# ─────────────────────────────────────────────────────────────────────────────
+mutable struct IndicesSortedUniqueList <: AbstractVector{Indices}
 	data::SortedUniqueVector{Indices}
 end
 
-function IndicesUniqueList()
-	return IndicesUniqueList(SortedUniqueVector{Indices}())
+function IndicesSortedUniqueList()
+	return IndicesSortedUniqueList(SortedUniqueVector{Indices}())
 end
 
-function IndicesUniqueList(indices::Indices)
-	return IndicesUniqueList(SortedUniqueVector([indices]))
+function IndicesSortedUniqueList(indices::Indices)
+	return IndicesSortedUniqueList(SortedUniqueVector([indices]))
 end
 
-function IndicesUniqueList(data::AbstractVector{Indices})
-	return IndicesUniqueList(SortedUniqueVector(data))
+function IndicesSortedUniqueList(data::AbstractVector{Indices})
+	return IndicesSortedUniqueList(SortedUniqueVector(data))
 end
 
 """
-	getatoms(iul::IndicesUniqueList) -> Vector{Int}
+	getatoms(iul::IndicesSortedUniqueList) -> Vector{Int}
 
-Extracts the atom indices from `IndicesUniqueList` and returns them as a tuple.
+Extracts the atom indices from `IndicesSortedUniqueList` and returns them as a tuple.
 
 # Arguments
-- `iul::IndicesUniqueList`: The `IndicesUniqueList` instance.
+- `iul::IndicesSortedUniqueList`: The `IndicesSortedUniqueList` instance.
 
 # Returns
 - A tuple containing the atom indices.
 """
-function getatoms(iul::IndicesUniqueList)::Vector{Int}
+function getatoms(iul::IndicesSortedUniqueList)::Vector{Int}
 	return [indices.atom for indices in iul]
 end
 
-function getls(iul::IndicesUniqueList)::Vector{Int}
+function getls(iul::IndicesSortedUniqueList)::Vector{Int}
 	return [indices.l for indices in iul]
 end
 
 """
 	gettotall(iul::AbstractVector) -> Int
 
-Extracts the total angular momentum index (L) from `IndicesUniqueList`
+Extracts the total angular momentum index (L) from `IndicesSortedUniqueList`
 
 # Arguments
-- `iul::AbstractVector`: The `IndicesUniqueList` instance.
+- `iul::AbstractVector`: The `IndicesSortedUniqueList` instance.
 
 # Returns
 - total angular momentum index (L)::Int
 """
-function gettotall(iul::IndicesUniqueList)::Int
+function gettotall(iul::IndicesSortedUniqueList)::Int
 	return sum([indices.l for indices in iul])
 end
 
-Base.:(==)(iul1::IndicesUniqueList, iul2::IndicesUniqueList) = iul1.data == iul2.data
+Base.:(==)(iul1::IndicesSortedUniqueList, iul2::IndicesSortedUniqueList) =
+	iul1.data == iul2.data
 
-function Base.isless(iul1::IndicesUniqueList, iul2::IndicesUniqueList)
+function Base.isless(iul1::IndicesSortedUniqueList, iul2::IndicesSortedUniqueList)
 	return length(iul1.data) < length(iul2.data) || iul1.data < iul2.data
 end
 
-function Base.push!(iul::IndicesUniqueList, indices::Indices)
+function Base.push!(iul::IndicesSortedUniqueList, indices::Indices)
 	push!(iul.data, indices)
 	return iul
 end
 
-function Base.append!(iul::IndicesUniqueList, elems::AbstractVector{Indices})
+function Base.append!(iul::IndicesSortedUniqueList, elems::AbstractVector{Indices})
 	append!(iul.data, elems)
 	return iul
 end
 
-function Base.show(io::IO, iul::IndicesUniqueList)
+function Base.show(io::IO, iul::IndicesSortedUniqueList)
 	for indices in iul
 		print(
 			io,
@@ -141,33 +150,33 @@ function Base.show(io::IO, iul::IndicesUniqueList)
 	end
 end
 
-Base.getindex(iul::IndicesUniqueList, i::Int) = iul.data[i]
-Base.length(iul::IndicesUniqueList) = length(iul.data)
-Base.eltype(::Type{IndicesUniqueList}) = Indices
-Base.hash(iul::IndicesUniqueList, h::UInt) = hash(iul.data, h)
-Base.iterate(iul::IndicesUniqueList, state::Int = 1) = iterate(iul.data, state)
-Base.isempty(iul::IndicesUniqueList) = isempty(iul.data)
-Base.size(iul::IndicesUniqueList) = size(iul.data)
+Base.getindex(iul::IndicesSortedUniqueList, i::Int) = iul.data[i]
+Base.length(iul::IndicesSortedUniqueList) = length(iul.data)
+Base.eltype(::Type{IndicesSortedUniqueList}) = Indices
+Base.hash(iul::IndicesSortedUniqueList, h::UInt) = hash(iul.data, h)
+Base.iterate(iul::IndicesSortedUniqueList, state::Int = 1) = iterate(iul.data, state)
+Base.isempty(iul::IndicesSortedUniqueList) = isempty(iul.data)
+Base.size(iul::IndicesSortedUniqueList) = size(iul.data)
 
 
 """
 	product_indices(
 		atoms::AbstractVector{Int},
 		maxl::AbstractVector{Int},
-	) :: Vector{IndicesUniqueList}
+	) :: Vector{IndicesSortedUniqueList}
 
 Generates all possible combinations (Cartesian product) of `Indices` objects across multiple
 atoms,  and maximum angular momentum (l) values. For each triple `(atom, l)` in
-the input arrays, a corresponding `IndicesUniqueList` is built via `indices_singleatom`.
+the input arrays, a corresponding `IndicesSortedUniqueList` is built via `indices_singleatom`.
 The function then takes the Cartesian product of all these lists, forming a new
-`IndicesUniqueList` for each unique combination.
+`IndicesSortedUniqueList` for each unique combination.
 
 # Arguments
 - `atoms::AbstractVector{Int}`: A vector of atom indices.
 - `maxl::AbstractVector{Int}`: A vector of maximum `l` values (same length as `atoms`).
 
 # Returns
-- A `Vector{IndicesUniqueList}` where each element contains a unique combination of
+- A `Vector{IndicesSortedUniqueList}` where each element contains a unique combination of
   `Indices` formed from the Cartesian product.
 
 # Throws
@@ -179,7 +188,7 @@ julia> atoms = [1, 2]
 julia> maxl  = [1, 2]
 
 julia> combos = product_indices(atoms, maxl)
-# This will generate every combination of IndicesUniqueList from the input arrays.
+# This will generate every combination of IndicesSortedUniqueList from the input arrays.
 # [(atom: 1, l: 1, m: -1)(atom: 2, l: 2, m: -2), (atom: 1, l: 1, m: -1)(atom: 2, l: 2, m: -1), ... ]
 
 julia> length(combos)
@@ -188,24 +197,24 @@ julia> length(combos)
 function product_indices(
 	atoms::AbstractVector{Int},
 	maxl::AbstractVector{Int},
-)::Vector{IndicesUniqueList}
+)::Vector{IndicesSortedUniqueList}
 	if length(atoms) != length(maxl)
 		error(
 			"Different vector lengths detected. atoms, and maxl must have the same length.",
 		)
 	end
 
-	# 1. Build a temporary vector of IndicesUniqueList,
+	# 1. Build a temporary vector of IndicesSortedUniqueList,
 	#    one for each triple (atom, l) in zip(atoms, maxl).
 	vec_tmp = [indices_singleatom(a, l) for (a, l) in zip(atoms, maxl)]
 
-	# 2. Take the Cartesian product of all IndicesUniqueList objects in vec_tmp.
+	# 2. Take the Cartesian product of all IndicesSortedUniqueList objects in vec_tmp.
 	#    Each element in the product is a Tuple{Vararg{Indices}}.
-	combined_vec = Vector{IndicesUniqueList}()
+	combined_vec = Vector{IndicesSortedUniqueList}()
 	prod_iter = Iterators.product(vec_tmp...)
 	for comb::Tuple{Vararg{Indices}} in prod_iter
-		# 3. Build a new IndicesUniqueList from each tuple of Indices.
-		iul_tmp = IndicesUniqueList()
+		# 3. Build a new IndicesSortedUniqueList from each tuple of Indices.
+		iul_tmp = IndicesSortedUniqueList()
 		for ind in comb
 			push!(iul_tmp, ind)
 		end
@@ -215,9 +224,9 @@ function product_indices(
 end
 
 """
-	indices_singleatom(atom::Int,  maxl::Int) :: IndicesUniqueList
+	indices_singleatom(atom::Int,  maxl::Int) :: IndicesSortedUniqueList
 
-Constructs an `IndicesUniqueList` for a single atom with index `atom`, using quantum
+Constructs an `IndicesSortedUniqueList` for a single atom with index `atom`, using quantum
 numbers `l` and `m` in the range `1 <= l <= maxl` and `-l <= m <= l`. Each
 `Indices` object includes the specified atom index (`atom`),
 and the `(l, m)` pair.
@@ -227,7 +236,7 @@ and the `(l, m)` pair.
 - `maxl::Int`: The angular momentum quantum number `l`.
 
 # Returns
-- An `IndicesUniqueList` containing all valid `Indices` for the specified ranges.
+- An `IndicesSortedUniqueList` containing all valid `Indices` for the specified ranges.
 
  Examples
 
@@ -246,8 +255,8 @@ julia> # Example 2: atom = 3, lmax = 2
 julia> length(iul2)
 5
 """
-function indices_singleatom(atom::Int,  maxl::Int)::IndicesUniqueList
-	iul = IndicesUniqueList()
+function indices_singleatom(atom::Int, maxl::Int)::IndicesSortedUniqueList
+	iul = IndicesSortedUniqueList()
 	for l in 1:maxl
 		for m in -l:l
 			push!(iul, Indices(atom, l, m))
