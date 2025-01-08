@@ -12,7 +12,7 @@ iteration, insertion, deletion, and clearing in a sorted manner.
 module SortedContainer
 
 import Base: append!, copy, findall, findfirst, delete!, deleteat!, getindex, in, isless,
-	isempty, iterate, length, push!, size, ==
+	isempty, iterate, length, push!, show, size, ==
 
 export SortedVector
 export SortedUniqueVector

@@ -58,10 +58,6 @@ function BasisSet(
 	# for (val, basis) in zip(eigenvec[:, end], basislist)
 	# 	println(val, "\t", basis)
 	# end
-	idx = 2
-	display(symmetry.symdata[idx].rotation_frac)
-	display(symmetry.symdata[idx].translation_frac)
-	display(each_matrix_list[idx])
 
 	tmp = [[]]
 
