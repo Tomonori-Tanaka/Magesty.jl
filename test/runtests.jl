@@ -1,4 +1,5 @@
 include("../src/common/SortedContainer.jl")
+include("../src/common/CountingContainer.jl")
 # include("../src/types/AtomCell.jl")
 # include("../src/types/AtomicIndices.jl")
 include("../src/types/UnitaryMatrixCl.jl")
