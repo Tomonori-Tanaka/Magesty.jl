@@ -46,9 +46,9 @@ function BasisSet(
 			basislist,
 			symmetry.symdata,
 			symmetry.map_sym,
-            symmetry.map_s2p,
-            symmetry.atoms_in_prim,
-            symmetry.symnum_translation,
+			symmetry.map_s2p,
+			symmetry.atoms_in_prim,
+			symmetry.symnum_translation,
 		)
 	projection_matrix = Matrix(projection_matrix)
 	eigenval, eigenvec = eigen(projection_matrix)
@@ -96,7 +96,14 @@ function construct_basislist(
 			atomlist, llist =
 				get_atomsls_from_cluster(cluster, lmax_mat, kd_int_list)
 			for iul in AtomicIndices.product_indices(atomlist, llist)
+				for basis in basislist
+					if equivalent(basis, iul)
+						basislist.counts[basis] += 1
+						@goto skip
+					end
+				end
 				push!(basislist, iul)
+				@label skip
 			end
 		end
 	end
