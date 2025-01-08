@@ -4,7 +4,7 @@ import Base:
 	append!, eltype, getindex, hash, in, isempty, isless, iterate, length, push!, show,
 	size, sort, ==
 
-export Indices, IndicesUniqueList, get_atomlist, get_llist, get_totalL, product_indices,
+export Indices, IndicesUniqueList, get_atomlist, get_llist, get_totalL, equivalent, product_indices,
 	indices_singleatom
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -186,6 +186,14 @@ Returns the sum of all l values in `IndicesUniqueList`.
 """
 function get_totalL(iul::IndicesUniqueList)::Int
 	return sum(get_llist(iul))
+end
+
+"""
+	equivalent(iul1::IndicesUniqueList, iul2::IndicesUniqueList) -> Bool
+judge whether given 2 IndicesUniqueList are equivalent or not.
+"""
+function equivalent(iul1::IndicesUniqueList, iul2::IndicesUniqueList)::Bool
+	return sort(iul1) == sort(iul2)
 end
 
 # ─────────────────────────────────────────────────────────────────────────────
