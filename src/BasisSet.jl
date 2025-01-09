@@ -3,9 +3,9 @@ This module provides functionality for storing and handling of basis set.
 """
 module BasisSets
 
-using Arpack
 using Combinatorics
 using LinearAlgebra
+using DelimitedFiles# for test
 
 using ..SortedContainer
 using ..AtomCells
@@ -23,6 +23,8 @@ export BasisSet
 """
 struct BasisSet
 	basislist::SortedCountingUniqueVector{IndicesUniqueList}
+	projection_matrix::Matrix
+	each_projection_matrix::Vector{<:AbstractMatrix}
 	salc_coeffs::Vector{Vector{Float64}}
 end
 
@@ -58,13 +60,13 @@ function BasisSet(
 	eigenval = real.(eigenval)
 	eigenvec = real.(eigenvec)
 	@show eigenval
-	# for (val, basis) in zip(eigenvec[:, end], basislist)
-	# 	println(val, "\t", basis)
-	# end
+	for (val, basis) in zip(eigenvec[:, end-6], basislist)
+		println(val, "\t", basis)
+	end
 
 	tmp = [[]]
 
-	return BasisSet(basislist, tmp)
+	return BasisSet(basislist, projection_matrix, each_matrix_list, tmp)
 
 end
 
@@ -123,6 +125,14 @@ function get_atomsls_from_cluster(
 	llist = [lmax[kd_int_list[atomcell.atom], body] for atomcell in cluster]
 
 	return atomlist, llist
+end
+
+function __write_martix(
+	matrix::AbstractMatrix,
+)::Nothing
+	open("matrix.csv", "w") do io
+		writedlm(io, Matrix(matrix), ',')
+	end
 end
 
 end

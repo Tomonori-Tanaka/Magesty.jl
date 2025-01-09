@@ -69,8 +69,6 @@ function construct_projectionmatrix(
 	projection_mat = projection_mat / nneq
 	# projection_mat_list = projection_mat_list ./ nneq
 
-	display(projection_mat_list[1])
-
 	return projection_mat, projection_mat_list
 end
 
@@ -88,6 +86,9 @@ function calc_projection(
 )::SparseMatrixCSC{Float64, Int}
 
 	projection_matrix = spzeros(Float64, length(basislist), length(basislist))
+	if symop.is_translation_included
+		return projection_matrix
+	end
 	for (ir, rbasis::IndicesUniqueList) in enumerate(basislist)  # right-hand basis
 		moved_atomlist, llist =
 			move_atoms(rbasis, isym, map_sym)
@@ -104,14 +105,13 @@ function calc_projection(
 			indices = Indices(atom, rbasis[idx].l, rbasis[idx].m)
 			push!(moved_rbasis, indices)
 		end
-		moved_rbasis = sort(moved_rbasis)
 
 		partial_moved_basis::Vector{IndicesUniqueList} =
 			AtomicIndices.product_indices(
 				get_atomlist(moved_rbasis),
 				get_llist(moved_rbasis),
 			)
-		partial_r_idx = findfirst(x -> x == moved_rbasis, partial_moved_basis)
+		partial_r_idx = findfirst(x -> equivalent(x, moved_rbasis), partial_moved_basis)
 		if isnothing(partial_r_idx)
 			error("Something is wrong at partial_r_idx variable.")
 		end
@@ -131,10 +131,7 @@ function calc_projection(
 		end
 
 		euler_angles::Tuple{Float64, Float64, Float64} = rotmat2euler(rotmat)
-		rotation_list = Vector{Matrix{Float64}}()
-		for indices in moved_rbasis
-			push!(rotation_list, Δl(indices.l, euler_angles...))
-		end
+		rotation_list = [Δl(indices.l, euler_angles...) for indices in moved_rbasis]
 
 		if length(moved_rbasis) == 1    # 1-body term
 			rotmat_kron = multiplier * rotation_list[begin]
@@ -144,8 +141,7 @@ function calc_projection(
 
 
 		for (il, lbasis::IndicesUniqueList) in enumerate(basislist)  # left-hand basis
-			sorted_lbasis = sort(lbasis)
-			partial_l_idx = findfirst(x -> x == sorted_lbasis, partial_moved_basis)
+			partial_l_idx = findfirst(x -> equivalent(x, lbasis), partial_moved_basis)
 			if isnothing(partial_l_idx)
 				continue
 			end

@@ -45,7 +45,29 @@ using TOML
 
 	parsed = TOML.parse(input)
 	sclus = SpinCluster(parsed)
-	println(sclus.basisset.basislist)
+	@test sclus.symmetry.symnum_translation == [1, 17]
+	@test sclus.symmetry.map_sym[1, 1] == 1
+	@test sclus.symmetry.map_sym[3, 1] == 3
+	@test sclus.symmetry.map_sym[1, 17] == 2
+	@test sclus.symmetry.map_sym[2, 17] == 1
+	@test sclus.symmetry.map_sym[3, 17] == 4
+	@test sclus.symmetry.map_sym[4, 17] == 3
+
+	# Magesty.BasisSets.__write_martix(sclus.basisset.projection_matrix)
+	idx = 6
+	@show sclus.symmetry.symdata[idx]
+	Magesty.BasisSets.__write_martix(sclus.basisset.each_projection_matrix[idx])
+	for (i, basis) in enumerate(sclus.basisset.basislist)
+		println(i, "\t", basis)
+	end
+
+	for (idx, mat) in sclus.basisset.each_projection_matrix
+		for elem in mat
+			if !(elem ≈ 0) && !(elem ≈ 1)
+				println("found!!", idx)
+			end
+		end
+	end
 end
 
 
