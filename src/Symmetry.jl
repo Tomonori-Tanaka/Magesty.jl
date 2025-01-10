@@ -96,6 +96,7 @@ Generate symmetry information for the given system using the specified tolerance
 """
 struct Symmetry
 	international_symbol::String
+	spacegroup_number::Int
 	nsym::Int   # the number of symmetry operations
 	ntran::Int  # the number of translational only operations
 	nat_prim::Int   # the number of atoms in a primitive cell
@@ -260,7 +261,9 @@ function Symmetry(system::System, tol::Real)
 	atoms_in_prim = Int[map_p2s[i, 1] for i in 1:nat_prim]
 	atoms_in_prim = sort(atoms_in_prim)
 
-	return Symmetry(spglib_data.international_symbol,
+	return Symmetry(
+		spglib_data.international_symbol,
+		spglib_data.spacegroup_number,
 		spglib_data.n_operations,
 		ntran,
 		nat_prim,
@@ -328,6 +331,34 @@ end
 
 is_in_centeringcell(xf, x_image_frac) = any(xf ≈ vec for vec in x_image_frac[:, :, 1])
 
+function print_symmetry_info(symmetry::Symmetry)
+	str = """
+	========
+	SYMMETRY
+	========
+
+	Space group:  $(symmetry.international_symbol)  ($(symmetry.spacegroup_number))
+	Number of symmetry operations = $(symmetry.nsym)
+
+	"""
+	if symmetry.ntran == 1
+		str_prim = """
+		Given system is a primitive cell.
+		Primitive cell contains $(symmetry.nat_prim) atoms.
+
+		"""
+		str *= str_prim
+	else
+		str_supercell = """
+		Given system is not a primitive cell.
+		There are $(symmetry.ntran) translation operations.
+		Primitive cell contains $(symmetry.nat_prim) atoms.
+
+		"""
+		str *= str_supercell
+	end
+	println(str)
+end
 
 function __write_symdata(
 	symdata::AbstractVector,
@@ -336,7 +367,7 @@ function __write_symdata(
 )
 	mkpath(dir)
 	path = joinpath(dir, filename)
-	open(path , "w") do io
+	open(path, "w") do io
 		for (i, symdata) in enumerate(symdata)
 			write(io, "operation: $i\n")
 			write(io, "rotation (fractional)\n")
@@ -348,7 +379,10 @@ function __write_symdata(
 				write(io, "$vec1\t$vec2\t$vec3\n")
 			end
 			write(io, "translation (fractional)\n")
-			write(io, "$(symdata.translation_frac[1])\t$(symdata.translation_frac[2])\t$(symdata.translation_frac[3])\n")
+			write(
+				io,
+				"$(symdata.translation_frac[1])\t$(symdata.translation_frac[2])\t$(symdata.translation_frac[3])\n",
+			)
 			write(io, "\n")
 		end
 	end
