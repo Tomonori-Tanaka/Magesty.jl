@@ -14,8 +14,7 @@ using LinearAlgebra
 	tolerance = 1e-8
 
 	[interaction]
-	model = 1 # 1: isotropic Heisenberg model
-		# nbody = 2
+	nbody = 2
 		[interaction.lmax]
 		Fe = [ 0, 1 ] # the number of elements shoud be the same with "nbody" value.
 		Co = [ 0, 1 ]
@@ -36,11 +35,12 @@ using LinearAlgebra
 		[ 0.0, 1.0, 0.0 ],
 		[ 0.0, 0.0, 2.0 ],
 	]
+	kd_list = [1, 1, 2, 2]
 	position = [
-		{ index = 1, kd = 1, coords = [ 0.00, 0.00, 0.00 ] },
-		{ index = 2, kd = 1, coords = [ 0.00, 0.00, 0.50 ] },
-		{ index = 3, kd = 2, coords = [ 0.50, 0.50, 0.25 ] },
-		{ index = 4, kd = 2, coords = [ 0.50, 0.50, 0.75 ] }, 
+		[ 0.00, 0.00, 0.00 ],
+		[ 0.00, 0.00, 0.50 ],
+		[ 0.50, 0.50, 0.25 ],
+		[ 0.50, 0.50, 0.75 ], 
 	]
 	"""
 
