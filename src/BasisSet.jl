@@ -37,7 +37,7 @@ function BasisSet(
 
 	basislist = construct_basislist(
 		system.supercell.kd_int_list,
-		symmetry.atoms_in_prim,
+		symmetry,
 		cluster.cluster_list_with_cell,
 		lmax,
 		bodymax,
@@ -72,7 +72,7 @@ end
 
 function construct_basislist(
 	kd_int_list::AbstractVector{<:Integer},
-	atoms_in_prim::AbstractVector{<:Integer},
+	symmetry::Symmetry,
 	cluster_list::AbstractVector{<:AbstractVector{<:AbstractVector{AtomCell}}}, # Vector{SortedVector{Vector{AtomCell}}}  2025-01-06
 	lmax_mat::AbstractMatrix{<:Integer},
 	bodymax::Integer,
@@ -81,12 +81,13 @@ function construct_basislist(
 	basislist = SortedCountingUniqueVector{IndicesUniqueList}()
 
 	# firstly treat 1-body case which needs special treatments.
-	for iat in atoms_in_prim
+	for iat in symmetry.atoms_in_prim
 		lmax = lmax_mat[kd_int_list[iat], 1]
 		if lmax == 0
 			continue
 		end
-		iul::IndicesUniqueList = AtomicIndices.indices_singleatom(iat, lmax)
+
+		iul::Vector{Indices} = AtomicIndices.indices_singleatom(iat, lmax)
 		for indices::Indices in iul
 			push!(basislist, IndicesUniqueList(indices))
 		end
@@ -98,10 +99,12 @@ function construct_basislist(
 			atomlist, llist =
 				get_atomsls_from_cluster(cluster, lmax_mat, kd_int_list)
 			for iul in AtomicIndices.product_indices(atomlist, llist)
-				for basis in basislist
-					if equivalent(basis, iul)
-						basislist.counts[basis] += 1
-						@goto skip
+				for itrans in symmetry.symnum_translation
+					for basis in basislist
+						if equivalent(basis, iul)
+							basislist.counts[basis] += 1
+							@goto skip
+						end
 					end
 				end
 				push!(basislist, iul)
@@ -109,6 +112,8 @@ function construct_basislist(
 			end
 		end
 	end
+
+	basislist = merge_duplicated_elements(basislist, symmetry)
 
 	return basislist
 end
@@ -125,6 +130,58 @@ function get_atomsls_from_cluster(
 	llist = [lmax[kd_int_list[atomcell.atom], body] for atomcell in cluster]
 
 	return atomlist, llist
+end
+
+function map_atomlist(atom_list::AbstractVector{<:Integer}, map_sym, isym::Integer)
+	mapped_atomlist = similar(atom_list)
+	for (idx, atom) in enumerate(atom_list)
+		mapped_atomlist[idx] = map_sym[atom, isym]
+	end
+	return mapped_atomlist
+end
+
+function merge_duplicated_elements(
+	basislist::SortedCountingUniqueVector,
+	symmetry::Symmetry,
+)
+	basislist_copy = copy(basislist)
+	duplication_list = Vector{IndicesUniqueList}()
+
+	for (i, iul_outer) in enumerate(basislist)
+		for (j, iul_inner) in enumerate(basislist)
+			if j ≤ i
+				continue
+			elseif get_atomlist(iul_outer) == get_atomlist(iul_inner) &&
+				   get_llist(iul_outer) == get_llist(iul_inner)
+				continue
+			end
+
+			for itrans in symmetry.symnum_translation[2:end]
+				iul_mapped = IndicesUniqueList()
+				for indices in iul_inner
+					push!(
+						iul_mapped,
+						Indices(
+							symmetry.map_sym[indices.atom, itrans],
+							indices.l,
+							indices.m,
+						),
+					)
+				end
+				if equivalent(iul_outer, iul_mapped)
+					addcount!(basislist_copy, iul_outer, getcount(basislist, iul_inner))
+					push!(duplication_list, iul_inner)
+					break
+				end
+			end
+		end
+	end
+
+	for iul_delete in duplication_list
+		delete!(basislist_copy, iul_delete)
+	end
+
+	return basislist_copy
 end
 
 function __write_martix(

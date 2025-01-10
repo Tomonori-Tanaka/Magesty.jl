@@ -58,7 +58,6 @@ using TOML
 	parsed = TOML.parse(input)
 	sclus = SpinCluster(parsed)
 	println(sclus.basisset.basislist)
-	@show sclus.cluster.cluster_list
 	# @test length(sclus.basisset.basislist) ==
 	# 	  8 * (3 * 3) + (8 - 1) * (3 * 3) + 2 * (3 * (3 * 3)) + 2 * (4 * (3 * 3)) + 2 # 72 + 63 + 54 +72 + 2 
 end

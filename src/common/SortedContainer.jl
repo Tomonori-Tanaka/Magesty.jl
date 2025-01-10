@@ -16,7 +16,7 @@ import Base: append!, copy, findall, findfirst, delete!, deleteat!, getindex, in
 
 export SortedVector
 export SortedUniqueVector
-export SortedCountingUniqueVector, getcount
+export SortedCountingUniqueVector, getcount, addcount!
 
 """
 	AbstractSortedVector{T} <: AbstractVector{T}
@@ -216,7 +216,7 @@ end
 
 # Remove a specific element if it exists
 function delete!(suv::SortedUniqueVector{T}, value::T) where T
-	idx = Base.findfirst(suv.data .== value)
+	idx = Base.findfirst(x -> x == value, suv.data)
 	if !isnothing(idx)
 		deleteat!(suv.data, idx)
 	end
@@ -360,6 +360,10 @@ end
 
 function getcount(scv::SortedCountingUniqueVector{T}, val::T)::Int where T
 	return get(scv.counts, val, 0)
+end
+
+function addcount!(scv::SortedCountingUniqueVector{T}, val::T, count::Integer) where T
+	scv.counts[val] += count
 end
 
 end
