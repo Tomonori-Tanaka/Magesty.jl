@@ -53,10 +53,11 @@ using TOML
 	@test sclus.symmetry.map_sym[3, 17] == 4
 	@test sclus.symmetry.map_sym[4, 17] == 3
 
+
 	# Magesty.BasisSets.__write_martix(sclus.basisset.projection_matrix)
-	idx = 6
-	@show sclus.symmetry.symdata[idx]
-	Magesty.BasisSets.__write_martix(sclus.basisset.each_projection_matrix[idx])
+	# idx = 6
+	# @show sclus.symmetry.symdata[idx]
+	# Magesty.BasisSets.__write_martix(sclus.basisset.each_projection_matrix[idx])
 	for (i, basis) in enumerate(sclus.basisset.basislist)
 		println(i, "\t", basis)
 	end
@@ -68,6 +69,7 @@ using TOML
 			end
 		end
 	end
+	println(sclus.basisset.basislist)
 end
 
 
