@@ -112,6 +112,12 @@ struct Symmetry
 end
 
 function Symmetry(system::System, tol::Real)
+	println("""
+	========
+	SYMMETRY
+	========
+
+	""")
 	cell = system.supercell
 	spglib_cell = Spglib.Cell(cell.lattice_vectors, cell.x_frac, cell.kd_int_list)
 	spglib_data::Spglib.Dataset = get_dataset(spglib_cell)
@@ -337,10 +343,6 @@ is_in_centeringcell(xf, x_image_frac) = any(xf ≈ vec for vec in x_image_frac[:
 
 function print_symminfo_stdout(symmetry::Symmetry)
 	str = """
-	========
-	SYMMETRY
-	========
-
 	Space group:  $(symmetry.international_symbol)  ($(symmetry.spacegroup_number))
 	Number of symmetry operations = $(symmetry.nsym)
 
