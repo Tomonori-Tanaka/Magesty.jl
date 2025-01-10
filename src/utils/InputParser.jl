@@ -83,13 +83,24 @@ function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 	scale = structure_dict["scale"]
 	lattice_vectors::Matrix{Float64} = scale * hcat(structure_dict["lattice"]...)
 	if size(lattice_vectors) != (3, 3)
-		error("The size of \"lattice\":$(size(lattice_vectors)) is different with the correct size:(3, 3).")
+		error(
+			"The size of \"lattice\":$(size(lattice_vectors)) is different with the correct size:(3, 3).",
+		)
 	end
 	kd_int_list::Vector{Int} = structure_dict["kd_list"]
 	if length(kd_int_list) != num_atoms
 		error(
 			"The length of \"kd_list\":$(length(kd_int_list)) is diffrent with that of \"nat\":$(num_atoms).",
 		)
+	end
+	kd_int_set = Set(kd_int_list)# temporaly variable
+	nkd = length(kd_name)
+	if nkd != length(kd_int_set)
+		error(
+			"The number of elements: $nkd is different with that obtained from \"kd_list\".",
+		)
+	elseif any(x -> (x < 1 || nkd < x), kd_int_set)
+		error("The integers in \"kd_list\" must be consecutive numbers starting from 1.")
 	end
 	if length(structure_dict["position"]) != num_atoms
 		error(
@@ -186,7 +197,11 @@ function parse_lmax(
 	return Matrix{Int}(lmax_tmp)
 end
 
-function parse_cutoff(cutoff_dict::AbstractDict{<:AbstractString, Any}, kd_name::AbstractVector{<:AbstractString}, nbody::Integer)
+function parse_cutoff(
+	cutoff_dict::AbstractDict{<:AbstractString, Any},
+	kd_name::AbstractVector{<:AbstractString},
+	nbody::Integer,
+)
 	kd_num = length(kd_name)
 	cutoff_tmp = fill(0.0, kd_num, kd_num, nbody)
 	cutoff_check = fill(false, kd_num, kd_num, nbody)
