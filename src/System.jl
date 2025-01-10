@@ -146,7 +146,12 @@ function System(
 	kd_int_list::AbstractVector{<:Integer},
 	x_frac::AbstractMatrix{<:Real},
 )
+	println("""
+	======
+	SYSTEM
+	======
 
+	""")
 	supercell = Cell(lattice_vectors, kd_int_list, x_frac)
 	x_image_frac, x_image_cart = calc_x_images(lattice_vectors, x_frac)# [≤ 3, ≤ nat, cell]
 	exist_image::Vector{Bool} = calc_exist_image(is_periodic)
