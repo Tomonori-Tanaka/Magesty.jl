@@ -22,6 +22,7 @@ end
 	# include("./examples/b2feco1x1x2.jl")
 	# include("./examples/bccfe2x2x2.jl")
 	# include("./examples/b2feco2x2x2.jl")
+	# include("./examples/fesi_atomicchain.jl")
 end
 # @testset "Magesty.jl" begin
 # end
