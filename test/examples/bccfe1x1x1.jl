@@ -15,12 +15,11 @@ using TOML
 			tolerance = 1e-8
 
 			[interaction]
-			model = 1 # 1: isotropic Heisenberg model
-				# nbody = 2
+				nbody = 2
 				[interaction.lmax]
-				Fe = [ 0, 1 ] # the number of elements shoud be the same with "nbody" value.
+					Fe = [ 0, 1 ] # the number of elements shoud be the same with "nbody" value.
 				[interaction.cutoff] # unit is bohr
-				Fe-Fe = [ 0, -1 ] # first element is just dummy to align wigh lmax array
+					Fe-Fe = [ 0, -1 ] # first element is just dummy to align wigh lmax array
 				# negative cutoff means all of the possible interaction will be considered.
 
 			[regression]
@@ -34,9 +33,10 @@ using TOML
 				[ 0.0, 1.0, 0.0 ],
 				[ 0.0, 0.0, 1.0 ],
 			]
+			kd_list = [1, 1]
 			position = [
-				{ index = 1, kd = 1, coords = [ 0.00, 0.00, 0.00 ] },
-				{ index = 2, kd = 1, coords = [ 0.50, 0.50, 0.50 ] },
+				[ 0.00, 0.00, 0.00 ],
+				[ 0.50, 0.50, 0.50 ],
 			]
 			"""
 
