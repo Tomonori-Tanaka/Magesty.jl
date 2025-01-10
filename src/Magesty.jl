@@ -36,7 +36,6 @@ function SpinCluster(input_dict::Dict{<:AbstractString, <:Any})
 	parser = Parser(input_dict)
 	system::System = set_system(parser)
 	symmetry::Symmetry = set_symmetry(parser, system)
-	Symmetries.print_symmetry_info(symmetry)
 	cluster::Cluster = set_cluster(parser, system, symmetry)
 	basisset::BasisSet = set_basisset(parser, system, symmetry, cluster)
 

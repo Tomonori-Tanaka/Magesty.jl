@@ -261,7 +261,7 @@ function Symmetry(system::System, tol::Real)
 	atoms_in_prim = Int[map_p2s[i, 1] for i in 1:nat_prim]
 	atoms_in_prim = sort(atoms_in_prim)
 
-	return Symmetry(
+	symmetry = Symmetry(
 		spglib_data.international_symbol,
 		spglib_data.spacegroup_number,
 		spglib_data.n_operations,
@@ -275,6 +275,10 @@ function Symmetry(system::System, tol::Real)
 		map_p2s,
 		map_s2p,
 		symnum_translation)
+
+	print_symminfo_stdout(symmetry)
+
+	return symmetry
 end
 
 """
@@ -331,7 +335,7 @@ end
 
 is_in_centeringcell(xf, x_image_frac) = any(xf ≈ vec for vec in x_image_frac[:, :, 1])
 
-function print_symmetry_info(symmetry::Symmetry)
+function print_symminfo_stdout(symmetry::Symmetry)
 	str = """
 	========
 	SYMMETRY
