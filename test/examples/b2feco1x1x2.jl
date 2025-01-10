@@ -1,4 +1,5 @@
 using TOML
+using LinearAlgebra
 @testset "b2feco1x1x2" begin
 	input = """
 	[general]
@@ -45,6 +46,7 @@ using TOML
 
 	parsed = TOML.parse(input)
 	sclus = SpinCluster(parsed)
+	@test sclus.symmetry.international_symbol == "Pm-3m"
 	@test sclus.symmetry.symnum_translation == [1, 17]
 	@test sclus.symmetry.map_sym[1, 1] == 1
 	@test sclus.symmetry.map_sym[3, 1] == 3
@@ -55,9 +57,15 @@ using TOML
 
 
 	# Magesty.BasisSets.__write_martix(sclus.basisset.projection_matrix)
-	# idx = 6
-	# @show sclus.symmetry.symdata[idx]
-	# Magesty.BasisSets.__write_martix(sclus.basisset.each_projection_matrix[idx])
+	@test sclus.basisset.each_projection_matrix[1] == I
+	idx = 17
+	@show sclus.symmetry.symdata[idx]
+	Magesty.Symmetries.__write_symdata(
+		sclus.symmetry.symdata,
+		"/Users/tomorin/Desktop",
+		"symdata.txt",
+	)
+	Magesty.BasisSets.__write_martix(sclus.basisset.each_projection_matrix[idx])
 	for (i, basis) in enumerate(sclus.basisset.basislist)
 		println(i, "\t", basis)
 	end

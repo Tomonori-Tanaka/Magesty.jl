@@ -327,4 +327,31 @@ function find_matching_image_cell(
 end
 
 is_in_centeringcell(xf, x_image_frac) = any(xf ≈ vec for vec in x_image_frac[:, :, 1])
+
+
+function __write_symdata(
+	symdata::AbstractVector,
+	dir::AbstractString,
+	filename::AbstractString,
+)
+	mkpath(dir)
+	path = joinpath(dir, filename)
+	open(path , "w") do io
+		for (i, symdata) in enumerate(symdata)
+			write(io, "operation: $i\n")
+			write(io, "rotation (fractional)\n")
+			for line in 1:3
+				vec = Vector(symdata.rotation_frac[line, :])
+				vec1 = vec[1]
+				vec2 = vec[2]
+				vec3 = vec[3]
+				write(io, "$vec1\t$vec2\t$vec3\n")
+			end
+			write(io, "translation (fractional)\n")
+			write(io, "$(symdata.translation_frac[1])\t$(symdata.translation_frac[2])\t$(symdata.translation_frac[3])\n")
+			write(io, "\n")
+		end
+	end
+end
+
 end

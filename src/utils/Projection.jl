@@ -86,19 +86,16 @@ function calc_projection(
 )::SparseMatrixCSC{Float64, Int}
 
 	projection_matrix = spzeros(Float64, length(basislist), length(basislist))
-	if symop.is_translation_included
-		return projection_matrix
-	end
 	for (ir, rbasis::IndicesUniqueList) in enumerate(basislist)  # right-hand basis
 		moved_atomlist, llist =
 			move_atoms(rbasis, isym, map_sym)
-		moved_atomlist = translate_atomlist2primitive(
+		#= moved_atomlist = translate_atomlist2primitive(
 			moved_atomlist,
 			map_sym,
 			map_s2p,
 			atoms_in_prim,
 			symnum_translation,
-		)
+		) =#
 		# moved_rbasis will be used later to determine a matrix element
 		moved_rbasis = IndicesUniqueList()
 		for (idx, atom) in enumerate(moved_atomlist)

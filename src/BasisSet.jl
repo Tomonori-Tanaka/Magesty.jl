@@ -60,7 +60,7 @@ function BasisSet(
 	eigenval = real.(eigenval)
 	eigenvec = real.(eigenvec)
 	@show eigenval
-	for (val, basis) in zip(eigenvec[:, end-6], basislist)
+	for (val, basis) in zip(eigenvec[:, end-7], basislist)
 		println(val, "\t", basis)
 	end
 
@@ -99,12 +99,10 @@ function construct_basislist(
 			atomlist, llist =
 				get_atomsls_from_cluster(cluster, lmax_mat, kd_int_list)
 			for iul in AtomicIndices.product_indices(atomlist, llist)
-				for itrans in symmetry.symnum_translation
-					for basis in basislist
-						if equivalent(basis, iul)
-							basislist.counts[basis] += 1
-							@goto skip
-						end
+				for basis in basislist
+					if equivalent(basis, iul)
+						basislist.counts[basis] += 1
+						@goto skip
 					end
 				end
 				push!(basislist, iul)
@@ -113,7 +111,7 @@ function construct_basislist(
 		end
 	end
 
-	basislist = merge_duplicated_elements(basislist, symmetry)
+	# basislist = merge_duplicated_elements(basislist, symmetry)
 
 	return basislist
 end
@@ -151,7 +149,7 @@ function merge_duplicated_elements(
 		for (j, iul_inner) in enumerate(basislist)
 			if j ≤ i
 				continue
-			elseif get_atomlist(iul_outer) == get_atomlist(iul_inner) &&
+			elseif sort(get_atomlist(iul_outer)) == sort(get_atomlist(iul_inner)) &&
 				   get_llist(iul_outer) == get_llist(iul_inner)
 				continue
 			end
