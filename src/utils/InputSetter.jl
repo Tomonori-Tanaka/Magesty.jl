@@ -30,6 +30,5 @@ function set_optimize(parser, system, symmetry, cluster)
 		parser.time_reversal_sym,
 		parser.crystal_sym,
 		parser.lmax,
-		parser.model,
 	)
 end

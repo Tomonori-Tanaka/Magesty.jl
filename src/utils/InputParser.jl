@@ -14,7 +14,6 @@ mutable struct Parser
 	tolerance_sym::Float64
 
 	# interaction
-	model::Int
 	nbody::Int
 	lmax::Matrix{Int}# [≤kd, ≤nbody]
 	cutoff_radii::Array{Float64, 3}
@@ -49,8 +48,7 @@ function Parser(input_dict::Dict{String, Any})
 	name::String = general_dict["name"]
 	num_atoms::Int = general_dict["nat"]
 	if length(general_dict["kd"]) != length(Set(general_dict["kd"]))
-		println("Duplication is detected in \"kd\" tag.")
-		exit()
+		error("Duplication is detected in \"kd\" tag.")
 	end
 	kd_name::Vector{String} = general_dict["kd"]
 	is_periodic::Vector{Bool} = general_dict["periodicity"]
@@ -71,13 +69,8 @@ function Parser(input_dict::Dict{String, Any})
 	# interaction variables
 	interaction_dict = input_dict["interaction"]
 	check_interaction_field(interaction_dict, kd_name)
-	model::Int = interaction_dict["model"]
-	if model == 1
-		nbody::Int = 2
-	else
-		nbody = interaction_dict["nbody"]
-	end
-	lmax::Matrix{Int} = parse_lmax(interaction_dict["lmax"], kd_name, nbody, model)
+	nbody = interaction_dict["nbody"]
+	lmax::Matrix{Int} = parse_lmax(interaction_dict["lmax"], kd_name, nbody)
 	cutoff_radii::Array{Float64} = parse_cutoff(interaction_dict["cutoff"], kd_name, nbody)
 
 	# regression
@@ -88,8 +81,23 @@ function Parser(input_dict::Dict{String, Any})
 	# structure
 	structure_dict = input_dict["structure"]
 	scale = structure_dict["scale"]
-	lattice_vectors = scale * hcat(structure_dict["lattice"]...)
-	kd_int_list, x_fractional = parse_position(structure_dict["position"], num_atoms)
+	lattice_vectors::Matrix{Float64} = scale * hcat(structure_dict["lattice"]...)
+	if size(lattice_vectors) != (3, 3)
+		error("The size of \"lattice\":$(size(lattice_vectors)) is different with the correct size:(3, 3).")
+	end
+	kd_int_list::Vector{Int} = structure_dict["kd_list"]
+	if length(kd_int_list) != num_atoms
+		error(
+			"The length of \"kd_list\":$(length(kd_int_list)) is diffrent with that of \"nat\":$(num_atoms).",
+		)
+	end
+	if length(structure_dict["position"]) != num_atoms
+		error(
+			"The length of \"position\":$(length(structure_dict["position"])) is different with that of \"nat\":$(num_atoms).",
+		)
+	end
+
+	x_fractional::Matrix{Float64} = parse_position(structure_dict["position"], num_atoms)
 
 	return Parser(
 		name,
@@ -98,7 +106,6 @@ function Parser(input_dict::Dict{String, Any})
 		is_periodic,
 		j_zero_thr,
 		tolerance_sym,
-		model,
 		nbody,
 		lmax,
 		cutoff_radii,
@@ -116,16 +123,12 @@ function check_interaction_field(
 	kd_name::Vector{String},
 )
 
-	if interaction_dict["model"] == 1
-		nbody = 2
-	else
-		nbody = interaction_dict["nbody"]
-	end
+	nbody = interaction_dict["nbody"]
 	lmax_dict::Dict{String, Any} = interaction_dict["lmax"]
 	cutoff_dict::Dict{String, Any} = interaction_dict["cutoff"]
 
 	# length check
-	for (key, value) ∈ lmax_dict
+	for (key, value) in lmax_dict
 		if length(value) != nbody
 			error("The size of $key in \"lmax\" tag is different from \"nbody\" tag.")
 		end
@@ -133,7 +136,7 @@ function check_interaction_field(
 			error("Specified element $key in \"lmax\" tag is not in \"kd\"")
 		end
 	end
-	for (key, value) ∈ cutoff_dict
+	for (key, value) in cutoff_dict
 		if length(value) != nbody
 			error("The size of $key in \"cutoff\" tag is different from \"nbody\" tag.")
 		end
@@ -152,14 +155,13 @@ function parse_lmax(
 	lmax_dict::Dict{String, Any},
 	kd_name::Vector{String},
 	nbody::Int,
-	model::Int,
 )
 	kd_num = length(kd_name)
 	lmax_tmp = fill(-1, kd_num, nbody)
 	lmax_check = fill(false, kd_num, nbody)
 
-	for (kd_index, kd) ∈ enumerate(kd_name)
-		for j ∈ 1:nbody
+	for (kd_index, kd) in enumerate(kd_name)
+		for j in 1:nbody
 			lmax_tmp[kd_index, j] = lmax_dict[kd][j]
 			lmax_check[kd_index, j] = true
 		end
@@ -169,7 +171,7 @@ function parse_lmax(
 	indices = findall(x -> x == false, lmax_check)
 	if length(indices) != 0
 		println("ERROR found in \"lmax\" tag")
-		for index ∈ indices
+		for index in indices
 			println(
 				"element: ",
 				kd_name[index[1]],
@@ -181,17 +183,6 @@ function parse_lmax(
 		error()
 	end
 
-	if model == 1
-		indices = findall(x -> !(x in [0, 1]), lmax_tmp[:, 1])
-		if !isempty(indices)
-			error("lmax on the 1-body interaction should be 0 or 1 when model = 1.")
-		end
-		indices = findall(x -> !(x == 1), lmax_tmp[:, 2])
-		if !isempty(indices)
-			error("lmax on the 2-body interaction should be 1 when model = 1.")
-		end
-	end
-
 	return Matrix{Int}(lmax_tmp)
 end
 
@@ -200,13 +191,13 @@ function parse_cutoff(cutoff_dict::Dict{String, Any}, kd_name::Vector{String}, n
 	cutoff_tmp = fill(0.0, kd_num, kd_num, nbody)
 	cutoff_check = fill(false, kd_num, kd_num, nbody)
 
-	for n ∈ 1:nbody
+	for n in 1:nbody
 		if n == 1
 			cutoff_tmp[:, :, n] .= 0.0
 			cutoff_check[:, :, n] .= true
 			continue
 		end
-		for (key, value) ∈ cutoff_dict
+		for (key, value) in cutoff_dict
 			elem1 = strip(split(key, "-")[1])
 			elem2 = strip(split(key, "-")[2])
 
@@ -223,7 +214,7 @@ function parse_cutoff(cutoff_dict::Dict{String, Any}, kd_name::Vector{String}, n
 	indices = findall(x -> x == false, cutoff_check)
 	if length(indices) != 0
 		println("ERROR found in \"cutoff\" tag")
-		for index ∈ indices
+		for index in indices
 			println(
 				"element1: ",
 				kd_name[index[1]],
@@ -241,33 +232,25 @@ function parse_cutoff(cutoff_dict::Dict{String, Any}, kd_name::Vector{String}, n
 end
 
 function parse_position(
-	position_list::Vector{Dict{String, Any}},
-	num_atoms::Int,
-)
-	kd_int_list_tmp = fill(-1, num_atoms)
-	kd_int_list_check = fill(false, num_atoms)
+	position_list::AbstractVector{<:AbstractVector{<:Real}},
+	num_atoms::Integer,
+)::Matrix{Float64}
 	position_tmp = fill(-1.0, 3, num_atoms)
 	position_check = fill(false, 3, num_atoms)
 
-	for (i, dict) ∈ enumerate(position_list)
-		kd_int_list_tmp[i] = dict["kd"]
-		kd_int_list_check[i] = true
-		position_tmp[:, i] = dict["coords"]
+	for (i, vec) in enumerate(position_list)
+		position_tmp[:, i] = vec
 		position_check[:, i] .= true
 	end
 
 	# check missing
-	if false in kd_int_list_check
-		error("Error in \"kd\" list in position field.")
-	end
 	if false in position_check
 		error("Error in \"coords\" list in position field.")
 	end
 
-	kd_int_list = Vector{Int}(kd_int_list_tmp)
 	position = Matrix{Float64}(position_tmp)
 
-	return kd_int_list, position
+	return position
 end
 
 end # module
