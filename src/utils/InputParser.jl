@@ -29,7 +29,7 @@ mutable struct Parser
 	x_fractional::Matrix{Float64}
 end
 
-function Parser(input_dict::Dict{String, Any})
+function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 
 	if !haskey(input_dict, "general")
 		error("\"general\" field is not found in the input.")
@@ -119,8 +119,8 @@ function Parser(input_dict::Dict{String, Any})
 end
 
 function check_interaction_field(
-	interaction_dict::Dict{String, Any},
-	kd_name::Vector{String},
+	interaction_dict::AbstractDict{<:AbstractString, Any},
+	kd_name::AbstractVector{<:AbstractString},
 )
 
 	nbody = interaction_dict["nbody"]
@@ -152,9 +152,9 @@ function check_interaction_field(
 end
 
 function parse_lmax(
-	lmax_dict::Dict{String, Any},
-	kd_name::Vector{String},
-	nbody::Int,
+	lmax_dict::AbstractDict{<:AbstractString, Any},
+	kd_name::AbstractVector{<:AbstractString},
+	nbody::Integer,
 )
 	kd_num = length(kd_name)
 	lmax_tmp = fill(-1, kd_num, nbody)
@@ -186,7 +186,7 @@ function parse_lmax(
 	return Matrix{Int}(lmax_tmp)
 end
 
-function parse_cutoff(cutoff_dict::Dict{String, Any}, kd_name::Vector{String}, nbody::Int)
+function parse_cutoff(cutoff_dict::AbstractDict{<:AbstractString, Any}, kd_name::AbstractVector{<:AbstractString}, nbody::Integer)
 	kd_num = length(kd_name)
 	cutoff_tmp = fill(0.0, kd_num, kd_num, nbody)
 	cutoff_check = fill(false, kd_num, kd_num, nbody)
