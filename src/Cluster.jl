@@ -471,4 +471,24 @@ function generate_combinations(
 	return [Tuple(zip(vec, comb)) for comb in combinations]
 end
 
+function all_atomlist_by_symop(
+	atomlist::AbstractVector{<:Integer},
+	map_sym::AbstractMatrix{<:Integer},
+)::Vector{Vector{Int}}
+	# total number of symmetry operations
+	nsym = size(map_sym, 2)
+	atomlist_list = Vector{Vector{Int}}()
+
+	for i in 1:nsym
+		atomlist_tmp = Int[]
+		for atom in atomlist
+			push!(atomlist_tmp, map_sym[atom, i])
+		end
+		push!(atomlist_list, atomlist_tmp)
+	end
+
+	return atomlist_list
+
+end
+
 end
