@@ -203,7 +203,7 @@ function set_mindist_pairs(
 	# check assigned or not
 	undef_indices = findall(x -> x == false, initialized)
 	if length(undef_indices) >= 1
-		error("unassigned indices: $undef_indices")
+		error("unassigned indices in distance_all variable: $undef_indices")
 	end
 
 	mindist_pairs = Matrix{Vector{DistInfo}}(undef, nat, nat)
@@ -214,7 +214,7 @@ function set_mindist_pairs(
 			dist_vec_tmp = Vector{DistInfo}()
 			dist_min = distance_all[iat, jat][1].distance
 			for distinfo in distance_all[iat, jat]
-				if isapprox(distinfo.distance, dist_min)
+				if distinfo.distance ≈ dist_min
 					push!(dist_vec_tmp, distinfo)
 				end
 			end
@@ -225,7 +225,7 @@ function set_mindist_pairs(
 	# check assigned or not
 	undef_indices = findall(x -> x == false, initialized)
 	if length(undef_indices) >= 1
-		error("unassigned indices: $undef_indices")
+		error("unassigned indices in mindist_pairs variable: $undef_indices")
 	end
 
 	return mindist_pairs
