@@ -160,10 +160,11 @@ struct Cluster
 			interaction_clusters,
 			nbody,
 		)
-		# display(cluster_list[1])
 		cluster_list_with_cell =
 			generate_pairs_with_icells(symmetry.atoms_in_prim, interaction_clusters, nbody)
-		# display(cluster_list_with_cell[1])
+
+		display(classify_equivalent_atoms(symmetry.atoms_in_prim, symmetry.map_sym))
+
 		return new(
 			nbody,
 			cutoff_radii,
@@ -423,6 +424,77 @@ function generate_pairs_with_icells(
 end
 
 """
+classify the atoms in the primitive cell into equivalent group.
+"""
+function classify_equivalent_atoms(
+	atoms_in_prim::AbstractVector{<:Integer},
+	map_sym::AbstractMatrix{<:Integer},
+)::Vector{Vector{Int}}
+	group = Vector{Vector{Int}}()
+	checked = falses(size(atoms_in_prim))
+
+	nsym = size(map_sym, 2)
+	for (idx, atom) in enumerate(atoms_in_prim)
+		if checked[idx]
+			continue
+		end
+
+		eqlist = Int[atom]
+
+		for isym in 1:nsym
+			eqatom = map_sym[atom, isym]
+			if atom == eqatom
+				continue
+			elseif eqatom in atoms_in_prim && !(eqatom in eqlist)
+				eq_idx = findfirst(x -> x == eqatom, atoms_in_prim)
+				checked[eq_idx] = true
+				push!(eqlist, eqatom)
+			end
+		end
+		push!(group, eqlist)
+	end
+
+	return group
+end
+
+function classify_equivalent_clusters(
+	interactoin_clusters::AbstractMatrix{<:AbstractSet{InteractionCluster}},
+	kd_int_list::AbstractVector{<:Integer},
+	atoms_in_prim::AbstractVector{<:Integer},
+	map_sym::AbstractMatrix{<:Integer},
+	lmax::AbstractMatrix{<:Integer},
+)
+
+	classified_dict =
+	# 1-body case
+		for iat in atoms_in_prim
+			equiv_clus = EquivalentCluster()
+			lmax_iat = lmax[kd_int_list[iat], 1]
+			if lmax_iat == 0
+				continue
+			end
+			equiv_listoflist::Vector{Vector{Int}} = all_atomlist_by_symop([iat], map_sym)
+			for equiv_list in equiv_listoflist
+				equiv_idx = findfirst(x -> x == equiv_list, classified_list)
+				if isnothing(equiv_idx)
+					continue
+				else
+					push!(classified_list[equiv_idx], equiv_list)
+					break
+				end
+			end
+			push!(classified_list, [iat])
+		end
+
+	display(classified_list)
+
+	# for (i, iat) in enumerate(atoms_in_prim)
+	# 	for intclus::InteractionCluster in interactoin_clusters[i,]
+	# 	end
+	# end
+end
+
+"""
 	generate_combinations(vec::AbstractVector{<:Any}, vecofvec::AbstractVector{<:AbstractVector{<:Any}}) -> Vector{Tuple}
 
 Generates all possible combinations by pairing each element of `vec` with each element of the corresponding sublist in `vecofvec`.
@@ -487,7 +559,7 @@ function all_atomlist_by_symop(
 		push!(atomlist_list, atomlist_tmp)
 	end
 
-	return atomlist_list
+	return unique(atomlist_list)
 
 end
 
