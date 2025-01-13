@@ -120,6 +120,7 @@ struct Cluster
 	interaction_clusters::Matrix{OrderedSet{InteractionCluster}}# [≤ nat_prim, ≤ nbody-1]
 	cluster_list::Vector{SortedVector{Vector{Int}}}# [≤ nbody-1][≤ number of clusters][≤ nbody]
 	cluster_list_with_cell::Vector{SortedVector{Vector{AtomCell}}} # [≤ nbody-1][≤ number of clusters][≤ nbody]
+	equivalent_atom_list::Vector{Vector{Int}}
 
 	function Cluster(
 		system::System,
@@ -163,7 +164,8 @@ struct Cluster
 		cluster_list_with_cell =
 			generate_pairs_with_icells(symmetry.atoms_in_prim, interaction_clusters, nbody)
 
-		display(classify_equivalent_atoms(symmetry.atoms_in_prim, symmetry.map_sym))
+		equivalent_atom_list =
+			classify_equivalent_atoms(symmetry.atoms_in_prim, symmetry.map_sym)
 
 		return new(
 			nbody,
@@ -172,6 +174,7 @@ struct Cluster
 			interaction_clusters,
 			cluster_list,
 			cluster_list_with_cell,
+			equivalent_atom_list,
 		)
 	end
 end
@@ -465,33 +468,6 @@ function classify_equivalent_clusters(
 	lmax::AbstractMatrix{<:Integer},
 )
 
-	classified_dict =
-	# 1-body case
-		for iat in atoms_in_prim
-			equiv_clus = EquivalentCluster()
-			lmax_iat = lmax[kd_int_list[iat], 1]
-			if lmax_iat == 0
-				continue
-			end
-			equiv_listoflist::Vector{Vector{Int}} = all_atomlist_by_symop([iat], map_sym)
-			for equiv_list in equiv_listoflist
-				equiv_idx = findfirst(x -> x == equiv_list, classified_list)
-				if isnothing(equiv_idx)
-					continue
-				else
-					push!(classified_list[equiv_idx], equiv_list)
-					break
-				end
-			end
-			push!(classified_list, [iat])
-		end
-
-	display(classified_list)
-
-	# for (i, iat) in enumerate(atoms_in_prim)
-	# 	for intclus::InteractionCluster in interactoin_clusters[i,]
-	# 	end
-	# end
 end
 
 """
