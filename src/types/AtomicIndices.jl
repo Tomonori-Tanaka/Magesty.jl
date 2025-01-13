@@ -4,7 +4,8 @@ import Base:
 	append!, eltype, getindex, hash, in, isempty, isless, iterate, length, push!, show,
 	size, sort, ==
 
-export Indices, IndicesUniqueList, get_atomlist, get_llist, get_totalL, equivalent, product_indices,
+export Indices, IndicesUniqueList, get_atomlist, get_llist, get_totalL, equivalent,
+	product_indices,
 	indices_singleatom
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -186,6 +187,17 @@ Returns the sum of all l values in `IndicesUniqueList`.
 """
 function get_totalL(iul::IndicesUniqueList)::Int
 	return sum(get_llist(iul))
+end
+
+function get_atom_l_list(iul::IndicesUniqueList)::Vector{Vector{Int}}
+	atom_list = get_atomlist(iul)
+	l_list = get_llist(iul)
+	vec = Vector{Vector{Int}}()
+	for (atom, l) in zip(atom_list, l_list)
+		push!(vec, Int[atom, l])
+	end
+
+	return vec
 end
 
 """
