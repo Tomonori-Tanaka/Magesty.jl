@@ -17,8 +17,8 @@ using TOML
 			[interaction]
 			nbody = 2
 				[interaction.lmax]
-				Fe = [ 0, 1 ] # the number of elements shoud be the same with "nbody" value.
-				Si = [ 0, 0 ]
+				Fe = [ 2, 1 ] # the number of elements shoud be the same with "nbody" value.
+				Si = [ 2, 0 ]
 				[interaction.cutoff] # unit is bohr
 				Fe-Fe = [ 0, -1 ] # first element is just dummy to align wigh lmax array
 				Fe-Si = [ 0, -1 ]
@@ -47,6 +47,5 @@ using TOML
 
 	parsed = TOML.parse(input)
 	sclus = SpinCluster(parsed)
-	println(sclus.basisset.basislist)
 
 end
