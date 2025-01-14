@@ -249,6 +249,34 @@ function product_indices(
 	return sort(combined_vec)
 end
 
+function product_indices_fixed_l(
+	atom_list::AbstractVector{<:Integer},
+	l_list::AbstractVector{<:Integer},
+)
+	if length(atom_list) != length(l_list)
+		error(
+			"Different vector lengths detected. atom_list, and l_list must have the same length.",
+		)
+	end
+	list_tmp = Vector{Vector{Indices}}()
+	for (atom, l) in zip(atom_list, l_list)
+		singleatom_list = Vector{Indices}()
+		append!(singleatom_list, indices_singleatom(atom, l))
+		push!(list_tmp, singleatom_list)
+	end
+
+	combined_vec = Vector{IndicesUniqueList}()
+	prod_iter = Iterators.product(list_tmp...)
+	for comb::Tuple{Vararg{Indices}} in prod_iter
+		iul_tmp = IndicesUniqueList()
+		for ind in comb
+			push!(iul_tmp, ind)
+		end
+		push!(combined_vec, iul_tmp)
+	end
+	return sort(combined_vec)
+end
+
 """
 	indices_singleatom(atom::Integer,  l::Integer) :: Vector{Indices}
 

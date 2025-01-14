@@ -18,7 +18,7 @@ using TOML
 	[interaction]
 		nbody = 2
 		[interaction.lmax]
-		Co = [ 2, 1 ]
+		Co = [ 0, 1 ]
 		[interaction.cutoff] # unit is bohr
 		Co-Co = [ 0, -1 ]
 		# negative cutoff means all of the possible interaction will be considered.

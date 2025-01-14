@@ -7,13 +7,18 @@ function construct_projectionmatrix(
 	basisdict::AbstractDict{<:Integer, <:AbstractVector},
 	symdata::AbstractVector{SymmetryOperation},
 	map_sym::AbstractMatrix{<:Integer},
-)::Dict{Int, Matrix{Float64}}
+	map_s2p,
+	atoms_in_prim,
+	symnum_translation,
+)::Tuple{Dict{Int, Matrix{Float64}}, Dict{Int, Any}}
 
 	dict = Dict{Int, Matrix{Float64}}()
+	dict_each_matrix = Dict{Int, Vector{SparseMatrixCSC{Float64, Int}}}()
 	for (idx::Int, basislist::SortedCountingUniqueVector) in basisdict
 		println("calculating projection matrix of $idx-th basis list.")
 		dim = length(basislist)
 		projection_mat = spzeros(Float64, dim, dim)
+		dict_each_matrix[idx] = []
 
 		nneq = 0
 
@@ -24,9 +29,13 @@ function construct_projectionmatrix(
 					symop,
 					n,
 					map_sym,
+					map_s2p,
+					atoms_in_prim,
+					symnum_translation,
 					threshold_digits = 10,
 					time_reversal_sym = false,
 				)
+			push!(dict_each_matrix[idx], projection_mat_per_symop)
 			if nnz(projection_mat_per_symop) != 0
 				nneq += 1
 				projection_mat += projection_mat_per_symop
@@ -42,6 +51,9 @@ function construct_projectionmatrix(
 						symop,
 						n,
 						map_sym,
+						map_s2p,
+						atoms_in_prim,
+						symnum_translation,
 						threshold_digits = 10,
 						time_reversal_sym = time_reversal_sym,
 					)
@@ -55,7 +67,7 @@ function construct_projectionmatrix(
 		dict[idx] = projection_mat
 	end
 
-	return dict
+	return dict, dict_each_matrix
 end
 
 function calc_projection(
@@ -63,6 +75,9 @@ function calc_projection(
 	symop::SymmetryOperation,
 	isym::Integer,
 	map_sym::AbstractMatrix{<:Integer},
+	map_s2p,
+	atoms_in_prim,
+	symnum_translation,
 	;
 	threshold_digits::Integer = 10,
 	time_reversal_sym::Bool = false,
@@ -72,13 +87,13 @@ function calc_projection(
 	for (ir, rbasis::IndicesUniqueList) in enumerate(basislist)  # right-hand basis
 		moved_atomlist, llist =
 			move_atoms(rbasis, isym, map_sym)
-		#= moved_atomlist = translate_atomlist2primitive(
+		moved_atomlist = translate_atomlist2primitive(
 			moved_atomlist,
 			map_sym,
 			map_s2p,
 			atoms_in_prim,
 			symnum_translation,
-		) =#
+		)
 		# moved_rbasis will be used later to determine a matrix element
 		moved_rbasis = IndicesUniqueList()
 		for (idx, atom) in enumerate(moved_atomlist)
@@ -87,7 +102,7 @@ function calc_projection(
 		end
 
 		partial_moved_basis::Vector{IndicesUniqueList} =
-			AtomicIndices.product_indices(
+			AtomicIndices.product_indices_fixed_l(
 				get_atomlist(moved_rbasis),
 				get_llist(moved_rbasis),
 			)
@@ -125,7 +140,6 @@ function calc_projection(
 			if isnothing(partial_l_idx)
 				continue
 			end
-
 			projection_matrix[il, ir] = rotmat_kron[partial_l_idx, partial_r_idx]
 		end
 	end

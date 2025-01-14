@@ -44,22 +44,37 @@ function BasisSet(
 	)
 
 	classified_basisdict = classify_basislist(basislist, symmetry.map_sym)
+	@show classified_basisdict
 
-	projection_dict::Dict{Int, Matrix{Float64}} =
+	projection_dict::Dict{Int, Matrix{Float64}},
+	each_projection_dict =
 		construct_projectionmatrix(
 			classified_basisdict,
 			symmetry.symdata,
 			symmetry.map_sym,
+			symmetry.map_s2p,
+			symmetry.atoms_in_prim,
+			symmetry.symnum_translation,
 		)
-	@show classified_basisdict
+
+	# display(projection_dict[4])
+#= 	for (idx, mat) in enumerate(each_projection_dict[1])
+		if idx > 0
+			println(idx)
+			display(mat)
+		end
+	end =#
 	for idx in 1:maximum(keys(projection_dict))
 		eigenval, eigenvec = eigen(projection_dict[idx])
+		eigenval = round.(eigenval, digits = 6)
+		eigenvec = round.(eigenvec, digits = 6)
 		println(idx, "\t", eigenval)
+		display(eigenvec)
 	end
 
 	# projection_matrix = Matrix(projection_matrix)
 	# eigenval, eigenvec = eigen(projection_matrix)
-	# # eigenval, eigenvec = eigen(Matrix(projection_matrix))
+	# eigenval, eigenvec = eigen(Matrix(projection_matrix))
 	# eigenvec = round.(eigenvec, digits = 6)
 	# eigenval = round.(eigenval, digits = 6)
 	# eigenval = real.(eigenval)
@@ -116,7 +131,7 @@ function construct_basislist(
 		end
 	end
 
-	# basislist = merge_duplicated_elements(basislist, symmetry)
+	basislist = merge_duplicated_elements(basislist, symmetry)
 
 	return basislist
 end
