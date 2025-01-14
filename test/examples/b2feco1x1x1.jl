@@ -17,8 +17,8 @@ using TOML
 			[interaction]
 			nbody = 2
 				[interaction.lmax]
-				Fe = [ 2, 1 ] # the number of elements shoud be the same with "nbody" value.
-				Co = [ 2, 1 ]
+				Fe = [ 0, 1 ] # the number of elements shoud be the same with "nbody" value.
+				Co = [ 0, 1 ]
 				[interaction.cutoff] # unit is bohr
 				Fe-Fe = [ 0, -1 ] # first element is just dummy to align wigh lmax array
 				Fe-Co = [ 0, -1 ]

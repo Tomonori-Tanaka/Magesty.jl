@@ -24,8 +24,7 @@ export BasisSet
 """
 struct BasisSet
 	basislist::SortedCountingUniqueVector{IndicesUniqueList}
-	projection_matrix::Matrix
-	each_projection_matrix::Vector{<:AbstractMatrix}
+	projection_matrix::Dict{Int, Matrix{Float64}}
 	salc_coeffs::Vector{Vector{Float64}}
 end
 
@@ -46,30 +45,33 @@ function BasisSet(
 
 	classified_basisdict = classify_basislist(basislist, symmetry.map_sym)
 
-	projection_matrix, each_matrix_list =
+	projection_dict::Dict{Int, Matrix{Float64}} =
 		construct_projectionmatrix(
-			basislist,
+			classified_basisdict,
 			symmetry.symdata,
 			symmetry.map_sym,
-			symmetry.map_s2p,
-			symmetry.atoms_in_prim,
-			symmetry.symnum_translation,
 		)
-	projection_matrix = Matrix(projection_matrix)
-	eigenval, eigenvec = eigen(projection_matrix)
-	# eigenval, eigenvec = eigen(Matrix(projection_matrix))
-	eigenvec = round.(eigenvec, digits = 6)
-	eigenval = round.(eigenval, digits = 6)
-	eigenval = real.(eigenval)
-	eigenvec = real.(eigenvec)
-	@show eigenval
-	for (val, basis) in zip(eigenvec[:, end-7], basislist)
-		println(val, "\t", basis)
+	@show classified_basisdict
+	for idx in 1:maximum(keys(projection_dict))
+		eigenval, eigenvec = eigen(projection_dict[idx])
+		println(idx, "\t", eigenval)
 	end
+
+	# projection_matrix = Matrix(projection_matrix)
+	# eigenval, eigenvec = eigen(projection_matrix)
+	# # eigenval, eigenvec = eigen(Matrix(projection_matrix))
+	# eigenvec = round.(eigenvec, digits = 6)
+	# eigenval = round.(eigenval, digits = 6)
+	# eigenval = real.(eigenval)
+	# eigenvec = real.(eigenvec)
+	# @show eigenval
+	# for (val, basis) in zip(eigenvec[:, end-7], basislist)
+	# 	println(val, "\t", basis)
+	# end
 
 	tmp = [[]]
 
-	return BasisSet(basislist, projection_matrix, each_matrix_list, tmp)
+	return BasisSet(basislist, projection_dict, tmp)
 
 end
 
