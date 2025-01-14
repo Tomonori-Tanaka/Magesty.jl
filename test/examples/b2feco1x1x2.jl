@@ -57,27 +57,18 @@ using LinearAlgebra
 
 
 	# Magesty.BasisSets.__write_martix(sclus.basisset.projection_matrix)
-	@test sclus.basisset.each_projection_matrix[1] == I
-	idx = 17
-	@show sclus.symmetry.symdata[idx]
-	Magesty.Symmetries.__write_symdata(
-		sclus.symmetry.symdata,
-		"/Users/tomorin/Desktop",
-		"symdata.txt",
-	)
-	Magesty.BasisSets.__write_martix(sclus.basisset.each_projection_matrix[idx])
-	for (i, basis) in enumerate(sclus.basisset.basislist)
-		println(i, "\t", basis)
-	end
+	# idx = 17
+	# @show sclus.symmetry.symdata[idx]
+	# Magesty.Symmetries.__write_symdata(
+	# 	sclus.symmetry.symdata,
+	# 	"/Users/tomorin/Desktop",
+	# 	"symdata.txt",
+	# )
+	# Magesty.BasisSets.__write_martix(sclus.basisset.each_projection_matrix[idx])
+	# for (i, basis) in enumerate(sclus.basisset.basislist)
+	# 	println(i, "\t", basis)
+	# end
 
-	for (idx, mat) in sclus.basisset.each_projection_matrix
-		for elem in mat
-			if !(elem ≈ 0) && !(elem ≈ 1)
-				println("found!!", idx)
-			end
-		end
-	end
-	println(sclus.basisset.basislist)
 end
 
 

@@ -4,46 +4,19 @@ using ..RotationMatrices
 
 
 function construct_projectionmatrix(
-	basislist::AbstractVector{IndicesUniqueList},
+	basisdict::AbstractDict{<:Integer, <:AbstractVector},
 	symdata::AbstractVector{SymmetryOperation},
 	map_sym::AbstractMatrix{<:Integer},
-	map_s2p::AbstractVector{Symmetries.Maps},
-	atoms_in_prim::AbstractVector{<:Integer},
-	symnum_translation::AbstractVector{<:Integer},
-)::Tuple{SparseMatrixCSC, Vector{SparseMatrixCSC}}
+)::Dict{Int, Matrix{Float64}}
 
-	dimension = length(basislist)
+	dict = Dict{Int, Matrix{Float64}}()
+	for (idx::Int, basislist::SortedCountingUniqueVector) in basisdict
+		println("calculating projection matrix of $idx-th basis list.")
+		dim = length(basislist)
+		projection_mat = spzeros(Float64, dim, dim)
 
-	projection_mat = spzeros(Float64, dimension, dimension)
-	projection_mat_list = Vector{SparseMatrixCSC}()
+		nneq = 0
 
-	nneq = 0
-
-	projection_mat_per_symop = spzeros(Float64, dimension, dimension)
-
-	for (n, symop) in enumerate(symdata)
-		projection_mat_per_symop =
-			calc_projection(
-				basislist,
-				symop,
-				n,
-				map_sym,
-				map_s2p,
-				atoms_in_prim,
-				symnum_translation;
-				threshold_digits = 10,
-				time_reversal_sym = false,
-			)
-		if nnz(projection_mat_per_symop) != 0
-			nneq += 1
-			projection_mat += projection_mat_per_symop
-		end
-		push!(projection_mat_list, projection_mat_per_symop)
-	end
-
-	# time_reversal_sym will be optional keyword
-	time_reversal_sym = true
-	if time_reversal_sym
 		for (n, symop) in enumerate(symdata)
 			projection_mat_per_symop =
 				calc_projection(
@@ -51,25 +24,38 @@ function construct_projectionmatrix(
 					symop,
 					n,
 					map_sym,
-					map_s2p,
-					atoms_in_prim,
-					symnum_translation;
 					threshold_digits = 10,
-					time_reversal_sym = time_reversal_sym,
+					time_reversal_sym = false,
 				)
 			if nnz(projection_mat_per_symop) != 0
 				nneq += 1
 				projection_mat += projection_mat_per_symop
 			end
-			push!(projection_mat_list, projection_mat_per_symop)
 		end
+		# time_reversal_sym will be optional keyword
+		time_reversal_sym = true
+		if time_reversal_sym
+			for (n, symop) in enumerate(symdata)
+				projection_mat_per_symop =
+					calc_projection(
+						basislist,
+						symop,
+						n,
+						map_sym,
+						threshold_digits = 10,
+						time_reversal_sym = time_reversal_sym,
+					)
+				if nnz(projection_mat_per_symop) != 0
+					nneq += 1
+					projection_mat += projection_mat_per_symop
+				end
+			end
+		end
+		projection_mat = projection_mat / nneq
+		dict[idx] = projection_mat
 	end
 
-
-	projection_mat = projection_mat / nneq
-	# projection_mat_list = projection_mat_list ./ nneq
-
-	return projection_mat, projection_mat_list
+	return dict
 end
 
 function calc_projection(
@@ -77,9 +63,6 @@ function calc_projection(
 	symop::SymmetryOperation,
 	isym::Integer,
 	map_sym::AbstractMatrix{<:Integer},
-	map_s2p::AbstractVector{Symmetries.Maps},
-	atoms_in_prim::AbstractVector{<:Integer},
-	symnum_translation::AbstractVector{<:Integer}
 	;
 	threshold_digits::Integer = 10,
 	time_reversal_sym::Bool = false,
