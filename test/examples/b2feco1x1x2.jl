@@ -49,6 +49,8 @@ using LinearAlgebra
 	@test sclus.symmetry.international_symbol == "Pm-3m"
 	@test sclus.symmetry.symnum_translation == [1, 17]
 	@test sclus.symmetry.map_sym[1, 1] == 1
+	@test sclus.symmetry.map_sym[1, 2] == 1
+	@test sclus.symmetry.map_sym[3, 2] == 4
 	@test sclus.symmetry.map_sym[3, 1] == 3
 	@test sclus.symmetry.map_sym[1, 17] == 2
 	@test sclus.symmetry.map_sym[2, 17] == 1
