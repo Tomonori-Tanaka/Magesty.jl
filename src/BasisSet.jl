@@ -4,6 +4,7 @@ This module provides functionality for storing and handling of basis set.
 module BasisSets
 
 using Combinatorics
+using DataStructures
 using LinearAlgebra
 using DelimitedFiles# for test
 
@@ -43,7 +44,7 @@ function BasisSet(
 		bodymax,
 	)
 
-	classify_basislist(basislist, symmetry.map_sym)
+	classified_basisdict = classify_basislist(basislist, symmetry.map_sym)
 
 	projection_matrix, each_matrix_list =
 		construct_projectionmatrix(
@@ -161,6 +162,23 @@ function classify_basislist(
 	# for i in 1:length(basislist)
 	# 	println(label_list[i], "\t", basislist[i])
 	# end
+
+	dict = OrderedDict{Int, SortedCountingUniqueVector}()
+
+	for idx in 1:maximum(label_list)
+		if !haskey(dict, idx)
+			dict[idx] = SortedCountingUniqueVector{IndicesUniqueList}()
+		end
+	end
+
+	for (basis, label) in zip(basislist, label_list)
+		if !(haskey(dict, label))
+			dict[label] = SortedCountingUniqueVector{IndicesUniqueList}()
+		end
+		push!(dict[label], basis, getcount(basislist, basis))
+	end
+
+	return dict
 end
 
 function map_atom_l_list(
