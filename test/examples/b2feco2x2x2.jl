@@ -14,8 +14,7 @@ using TOML
 	tolerance = 1e-8
 
 	[interaction]
-	model = 1 # 1: isotropic Heisenberg model
-		# nbody = 2
+		nbody = 2
 		[interaction.lmax]
 		Fe = [ 0, 1 ] # the number of elements shoud be the same with "nbody" value.
 		Co = [ 0, 1 ]
@@ -58,7 +57,7 @@ using TOML
 	"""
 	parsed = TOML.parse(input)
 	sclus = SpinCluster(parsed)
-	println(sclus.basisset.basislist)
+	# println(sclus.basisset.basislist)
 	# @test length(sclus.basisset.basislist) ==
 	# 	  8 * (3 * 3) + (8 - 1) * (3 * 3) + 2 * (3 * (3 * 3)) + 2 * (4 * (3 * 3)) + 2 # 72 + 63 + 54 +72 + 2 
 end

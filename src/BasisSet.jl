@@ -43,6 +43,8 @@ function BasisSet(
 		bodymax,
 	)
 
+	classify_basislist(basislist, symmetry.map_sym)
+
 	projection_matrix, each_matrix_list =
 		construct_projectionmatrix(
 			basislist,
@@ -130,12 +132,49 @@ function get_atomsls_from_cluster(
 	return atomlist, llist
 end
 
-function map_atomlist(atom_list::AbstractVector{<:Integer}, map_sym, isym::Integer)
-	mapped_atomlist = similar(atom_list)
-	for (idx, atom) in enumerate(atom_list)
-		mapped_atomlist[idx] = map_sym[atom, isym]
+function classify_basislist(
+	basislist::AbstractVector{IndicesUniqueList},
+	map_sym::AbstractMatrix{<:Integer},
+)
+
+	count = 1
+	label_list = zeros(Int, size(basislist))
+	for (idx, basis) in enumerate(basislist)
+		if label_list[idx] != 0
+			continue
+		end
+
+		atom_l_list_base = get_atom_l_list(basis)
+
+		for isym in 1:size(map_sym, 2)
+			mapped_list = map_atom_l_list(atom_l_list_base, map_sym, isym)
+			for (idx2, basis2) in enumerate(basislist)
+				if sort(mapped_list) == sort(get_atom_l_list(basis2))
+					label_list[idx2] = count
+				end
+			end
+		end
+		count += 1
 	end
-	return mapped_atomlist
+
+	# for test code
+	# for i in 1:length(basislist)
+	# 	println(label_list[i], "\t", basislist[i])
+	# end
+end
+
+function map_atom_l_list(
+	atom_l_list::AbstractVector{<:AbstractVector{<:Integer}},
+	map_sym::AbstractMatrix{<:Integer},
+	isym::Integer,
+)::Vector{Vector{Int}}
+	mapped_atom_l_list = Vector{Vector{Int}}()
+	for atom_l_vec in atom_l_list
+		mapped_atom = map_sym[atom_l_vec[1], isym]
+		push!(mapped_atom_l_list, [mapped_atom, atom_l_vec[2]])
+	end
+
+	return mapped_atom_l_list
 end
 
 function merge_duplicated_elements(

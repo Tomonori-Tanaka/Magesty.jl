@@ -29,7 +29,7 @@ struct SpinCluster
 	system::System
 	symmetry::Symmetry
 	cluster::Cluster
-	# basisset::BasisSet
+	basisset::BasisSet
 end
 
 function SpinCluster(input_dict::Dict{<:AbstractString, <:Any})
@@ -37,9 +37,9 @@ function SpinCluster(input_dict::Dict{<:AbstractString, <:Any})
 	system::System = set_system(parser)
 	symmetry::Symmetry = set_symmetry(parser, system)
 	cluster::Cluster = set_cluster(parser, system, symmetry)
-	# basisset::BasisSet = set_basisset(parser, system, symmetry, cluster)
+	basisset::BasisSet = set_basisset(parser, system, symmetry, cluster)
 
-	return SpinCluster(parser, system, symmetry, cluster)
+	return SpinCluster(parser, system, symmetry, cluster, basisset)
 end
 
 function SpinCluster(toml_file::AbstractString)

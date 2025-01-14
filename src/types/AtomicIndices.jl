@@ -4,7 +4,8 @@ import Base:
 	append!, eltype, getindex, hash, in, isempty, isless, iterate, length, push!, show,
 	size, sort, ==
 
-export Indices, IndicesUniqueList, get_atomlist, get_llist, get_totalL, equivalent,
+export Indices, IndicesUniqueList, get_atomlist, get_llist, get_totalL, get_atom_l_list,
+	equivalent,
 	product_indices,
 	indices_singleatom
 
