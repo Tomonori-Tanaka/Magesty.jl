@@ -36,10 +36,11 @@ function construct_projectionmatrix(
 					time_reversal_sym = false,
 				)
 			push!(dict_each_matrix[idx], projection_mat_per_symop)
-			if nnz(projection_mat_per_symop) != 0
-				nneq += 1
-				projection_mat += projection_mat_per_symop
+			if nnz(projection_mat_per_symop) == 0
+				error("nnz projection_mat_per_symop")
 			end
+			nneq += 1
+			projection_mat += projection_mat_per_symop
 		end
 		# time_reversal_sym will be optional keyword
 		time_reversal_sym = true
@@ -57,10 +58,11 @@ function construct_projectionmatrix(
 						threshold_digits = 10,
 						time_reversal_sym = time_reversal_sym,
 					)
-				if nnz(projection_mat_per_symop) != 0
-					nneq += 1
-					projection_mat += projection_mat_per_symop
+				if nnz(projection_mat_per_symop) == 0
+					error("nnz projection_mat_per_symop")
 				end
+				nneq += 1
+				projection_mat += projection_mat_per_symop
 			end
 		end
 		projection_mat = projection_mat / nneq
