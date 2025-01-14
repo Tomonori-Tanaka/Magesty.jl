@@ -43,6 +43,9 @@ using .SortedContainer
 	@test scv_copy != scv
 	@test !(scv < scv_copy)
 
+	scv = SortedCountingUniqueVector([3, 2, 2, 1])
+	push!(scv, 4, 2)
+	@test getcount(scv, 4) == 2
 
 	# ─────────────────────────────────────────────────────────────────────────────
 	# CountingUniqueVector

@@ -317,6 +317,16 @@ function push!(scv::SortedCountingUniqueVector{T}, val::T) where T
 	return scv
 end
 
+function push!(scv::SortedCountingUniqueVector{T}, val::T, count::Integer) where T
+	if haskey(scv.counts, val)
+		scv.counts[val] += count
+	else
+		push!(scv.data, val)
+		scv.counts[val] = count
+	end
+	return scv
+end
+
 function append!(
 	scv::SortedCountingUniqueVector{T},
 	new_vals::AbstractVector{T},
