@@ -30,7 +30,7 @@ println(angles)  # (0.0, 0.7853981633974483, 0.0)
 """
 function rotmat2euler(
 	m::AbstractMatrix{<:Real},
-	mod_positive::Bool = true;
+	mod_positive::Bool = false;
 	tol::Real = 1e-12,
 )::Tuple{Float64, Float64, Float64}
 	if size(m) != (3, 3)
@@ -39,15 +39,18 @@ function rotmat2euler(
 
 	β = acos(m[3, 3])# 0 ≤ β ≤ π
 
-	if isapprox(β, 0.0, atol = tol)
+	if isapprox(m[3, 3], 1.0, atol = tol)
+		β = 0.0
+	elseif isapprox(m[3, 3], -1.0, atol = tol)
+		β = π
+	end
+
+	if isapprox(β, 0.0, atol = tol) || isapprox(β, π, atol = tol)
 		γ = 0
-		α = acos(m[1, 1])
-	elseif isapprox(β, π, atol = tol)
-		γ = 0
-		α = acos(-m[1, 1])
+		α = atan(-m[1, 2], m[2, 2])
 	else
-		α = atan(m[2, 3], m[1, 3])
 		γ = atan(m[3, 2], -m[3, 1])
+		α = atan(m[2, 3], m[1, 3])
 	end
 
 	if mod_positive
