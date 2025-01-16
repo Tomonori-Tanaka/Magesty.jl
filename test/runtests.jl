@@ -25,7 +25,7 @@ end
 	# include("./examples/bccfe2x2x2.jl")
 	# include("./examples/b2feco2x2x2.jl")
 	# include("./examples/b2feco2x2x2_xy.jl")
-	# include("./examples/l10feni2x2x2.jl")
+	include("./examples/l10feni2x2x2.jl")
 	# include("./examples/fesi_atomicchain.jl")
 	# include("./examples/hcpco1x1x1.jl")
 end

@@ -57,12 +57,10 @@ using LinearAlgebra
 	@test sclus.symmetry.map_sym[3, 17] == 4
 	@test sclus.symmetry.map_sym[4, 17] == 3
 
-	for i in 1:sclus.symmetry.nsym
-		println(i)
-		println(sclus.symmetry.symdata[i])
-		# display(sclus.symmetry.symdata[i].rotation_frac)
-		# println(sclus.symmetry.symdata[i].translation_frac)
-	end
+	# for i in 1:sclus.symmetry.nsym
+	# 	println(i)
+	# 	println(sclus.symmetry.symdata[i])
+	# end
 
 
 	# Magesty.BasisSets.__write_martix(sclus.basisset.projection_matrix)

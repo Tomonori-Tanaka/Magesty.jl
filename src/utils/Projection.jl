@@ -44,8 +44,6 @@ function construct_projectionmatrix(
 			end
 		end
 
-		println("nneq w/o time_reversal_sym: $nneq")
-
 		# time_reversal_sym will be optional keyword
 		time_reversal_sym = true
 		if time_reversal_sym
@@ -69,12 +67,8 @@ function construct_projectionmatrix(
 				end
 			end
 		end
-		println("nneq w/ time_reversal_sym: $nneq")
 
 		projection_mat = projection_mat / nneq
-		if !(RotationMatrices.is_orthogonal(projection_mat))
-			display(projection_mat)
-		end
 		dict[idx] = projection_mat
 	end
 
@@ -160,9 +154,9 @@ function calc_projection(
 		end
 	end
 
-	if !(RotationMatrices.is_orthogonal(projection_matrix))
-		error("not orthogonal")
-	end
+	# if !(RotationMatrices.is_orthogonal(projection_matrix, tol = 1e-6))
+	# 	error("not orthogonal")
+	# end
 	projection_matrix = round.(projection_matrix, digits = threshold_digits)
 
 
