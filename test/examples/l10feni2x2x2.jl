@@ -1,11 +1,11 @@
 using TOML
 
-@testset "b2feco2x2x2" begin
+@testset "l10feni2x2x2" begin
 	input = """
 	[general]
-	name = "b2feco2x2x2"
+	name = "l10feni2x2x2"
 	nat = 16
-	kd = [ "Fe", "Co" ]
+	kd = [ "Fe", "Ni" ]
 	periodicity = [ true, true, true ]
 	# periodicity = [false, false, false]
 	j_zero_thr = 1e-10
@@ -17,11 +17,11 @@ using TOML
 		nbody = 2
 		[interaction.lmax]
 		Fe = [ 0, 1 ] # the number of elements shoud be the same with "nbody" value.
-		Co = [ 0, 1 ]
+		Ni = [ 0, 1 ]
 		[interaction.cutoff] # unit is bohr
 		Fe-Fe = [ 0, 0 ] # first element is just dummy to align wigh lmax array
-		Fe-Co = [ 0, 3 ]
-		Co-Co = [ 0, 0 ]
+		Fe-Ni = [ 0, 1.5 ]
+		Ni-Ni = [ 0, 0 ]
 		# negative cutoff means all of the possible interaction will be considered.
 
 	[regression]
@@ -29,11 +29,11 @@ using TOML
 	datafile = "EMBSET.txt"
 
 	[structure]
-	scale = 2.84
+	scale = 1
 	lattice = [
 		[ 2.0, 0.0, 0.0 ],
 		[ 0.0, 2.0, 0.0 ],
-		[ 0.0, 0.0, 2.0 ],
+		[ 0.0, 0.0, 2.2 ],
 	]
 	kd_list = [1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2]
 	position = [

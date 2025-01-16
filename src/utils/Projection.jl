@@ -5,6 +5,7 @@ using ..RotationMatrices
 
 function construct_projectionmatrix(
 	basisdict::AbstractDict{<:Integer, <:AbstractVector},
+	num_atoms::Integer,
 	symdata::AbstractVector{SymmetryOperation},
 	map_sym::AbstractMatrix{<:Integer},
 	map_s2p,
@@ -26,6 +27,7 @@ function construct_projectionmatrix(
 			projection_mat_per_symop =
 				calc_projection(
 					basislist,
+					num_atoms,
 					symop,
 					n,
 					map_sym,
@@ -36,12 +38,14 @@ function construct_projectionmatrix(
 					time_reversal_sym = false,
 				)
 			push!(dict_each_matrix[idx], projection_mat_per_symop)
-			if nnz(projection_mat_per_symop) == 0
-				error("nnz projection_mat_per_symop")
+			if nnz(projection_mat_per_symop) != 0
+				nneq += 1
+				projection_mat += projection_mat_per_symop
 			end
-			nneq += 1
-			projection_mat += projection_mat_per_symop
 		end
+
+		println("nneq w/o time_reversal_sym: $nneq")
+
 		# time_reversal_sym will be optional keyword
 		time_reversal_sym = true
 		if time_reversal_sym
@@ -49,6 +53,7 @@ function construct_projectionmatrix(
 				projection_mat_per_symop =
 					calc_projection(
 						basislist,
+						num_atoms,
 						symop,
 						n,
 						map_sym,
@@ -58,14 +63,18 @@ function construct_projectionmatrix(
 						threshold_digits = 10,
 						time_reversal_sym = time_reversal_sym,
 					)
-				if nnz(projection_mat_per_symop) == 0
-					error("nnz projection_mat_per_symop")
+				if nnz(projection_mat_per_symop) != 0
+					nneq += 1
+					projection_mat += projection_mat_per_symop
 				end
-				nneq += 1
-				projection_mat += projection_mat_per_symop
 			end
 		end
+		println("nneq w/ time_reversal_sym: $nneq")
+
 		projection_mat = projection_mat / nneq
+		if !(RotationMatrices.is_orthogonal(projection_mat))
+			display(projection_mat)
+		end
 		dict[idx] = projection_mat
 	end
 
@@ -74,6 +83,7 @@ end
 
 function calc_projection(
 	basislist::AbstractVector{IndicesUniqueList},
+	num_atoms::Integer,
 	symop::SymmetryOperation,
 	isym::Integer,
 	map_sym::AbstractMatrix{<:Integer},
@@ -86,11 +96,15 @@ function calc_projection(
 )::SparseMatrixCSC{Float64, Int}
 
 	projection_matrix = spzeros(Float64, length(basislist), length(basislist))
+	if symop.is_translation_included == true
+		return projection_matrix
+	end
 	for (ir, rbasis::IndicesUniqueList) in enumerate(basislist)  # right-hand basis
 		moved_atomlist, llist =
 			move_atoms(rbasis, isym, map_sym)
 		moved_atomlist = translate_atomlist2primitive(
 			moved_atomlist,
+			num_atoms,
 			map_sym,
 			map_s2p,
 			atoms_in_prim,
@@ -146,7 +160,11 @@ function calc_projection(
 		end
 	end
 
+	if !(RotationMatrices.is_orthogonal(projection_matrix))
+		error("not orthogonal")
+	end
 	projection_matrix = round.(projection_matrix, digits = threshold_digits)
+
 
 	return projection_matrix
 end
@@ -174,13 +192,14 @@ This function is designed to transform the given atoms_list using translational 
 """
 function translate_atomlist2primitive(
 	atom_list::AbstractVector{<:Integer},
+	num_atoms::Integer,
 	map_sym::AbstractMatrix{<:Integer},
 	map_s2p::AbstractVector{Symmetries.Maps},
-	nat_in_prim::AbstractVector{<:Integer},
+	atoms_in_prim::AbstractVector{<:Integer},
 	symnum_translation::AbstractVector{<:Integer},
 )::Vector{Int}
 	header_atom = first(atom_list)
-	header_atom_in_prim = nat_in_prim[map_s2p[header_atom].atom]
+	header_atom_in_prim = atoms_in_prim[map_s2p[header_atom].atom]
 
 	# identify corresponding translational operation
 	trans_op_idx = 0
@@ -196,7 +215,16 @@ function translate_atomlist2primitive(
 
 	moved_atomlist = Int[]
 	for atom in atom_list
-		push!(moved_atomlist, map_sym[atom, trans_op_idx])
+		for iat in 1:num_atoms
+			if map_sym[iat, trans_op_idx] == atom
+				push!(moved_atomlist, iat)
+			end
+		end
 	end
+
+	if length(moved_atomlist) != length(atom_list)
+		error("Something is wrong.")
+	end
+
 	return moved_atomlist
 end

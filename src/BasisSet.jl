@@ -24,7 +24,8 @@ export BasisSet
 """
 struct BasisSet
 	basislist::SortedCountingUniqueVector{IndicesUniqueList}
-	projection_matrix::Dict{Int, Matrix{Float64}}
+	projection_dict::Dict{Int, Matrix{Float64}}
+	each_projection_dict::Any
 	salc_coeffs::Vector{Vector{Float64}}
 end
 
@@ -50,6 +51,7 @@ function BasisSet(
 	each_projection_dict =
 		construct_projectionmatrix(
 			classified_basisdict,
+			system.supercell.num_atoms,
 			symmetry.symdata,
 			symmetry.map_sym,
 			symmetry.map_s2p,
@@ -58,12 +60,12 @@ function BasisSet(
 		)
 
 	# display(projection_dict[4])
-#= 	for (idx, mat) in enumerate(each_projection_dict[1])
-		if idx > 0
-			println(idx)
-			display(mat)
-		end
-	end =#
+	#= 	for (idx, mat) in enumerate(each_projection_dict[1])
+			if idx > 0
+				println(idx)
+				display(mat)
+			end
+		end =#
 	for idx in 1:maximum(keys(projection_dict))
 		eigenval, eigenvec = eigen(projection_dict[idx])
 		eigenval = round.(eigenval, digits = 6)
@@ -86,7 +88,7 @@ function BasisSet(
 
 	tmp = [[]]
 
-	return BasisSet(basislist, projection_dict, tmp)
+	return BasisSet(basislist, projection_dict, each_projection_dict, tmp)
 
 end
 

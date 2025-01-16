@@ -30,17 +30,12 @@ using ..RotationMatrices
 		@test γ ≈ rotmat2euler(rotmat)[3]
 	end
 
-	rotmat = [1 0 0; 0 1 0; 0 0 -1]
-	rotmat = Rz(1)
+	# 90 deg. rotation
+	rotmat = Rz(deg2rad(90))
+	@show rad2deg.(rotmat2euler(rotmat))
 
-	rotmat2 = [cos(π / 2) -sin(π / 2) 0; sin(π / 2) cos(π / 2) 0; 0 0 1]
-	# rotmat2 = [cos(π) -sin(π) 0; sin(π) cos(π) 0; 0 0 1]
-	# rotmat2 = [cos(π / 4) -sin(π / 4) 0; sin(π / 4) cos(π / 4) 0; 0 0 1]
-	# rotmat2 = Rz(0)
-	# display(Rz(0))
+	# -90 deg. rotation
+	rotmat = Rz(deg2rad(-90))
+	@show rad2deg.(rotmat2euler(rotmat))
 
-	#delta = Δl(1, π/2, 0, 0)
-	#@show delta * [1, 0, 0]
-	#@show delta * [0, 1, 0]
-	#@show delta * [0, 0, 1]
 end

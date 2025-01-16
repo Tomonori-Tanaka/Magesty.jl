@@ -6,9 +6,9 @@ using TOML
 			name = "fesi_atomicchain"
 			nat = 4
 			kd = [ "Fe", "Si" ]
-			# periodicity = [ true, true, true ]
+			periodicity = [ true, true, true ]
 			# periodicity = [false, false, false]
-			periodicity = [true, false, false]
+			# periodicity = [true, false, false]
 			j_zero_thr = 1e-10
 
 			[symmetry]
@@ -17,8 +17,8 @@ using TOML
 			[interaction]
 			nbody = 2
 				[interaction.lmax]
-				Fe = [ 2, 1 ] # the number of elements shoud be the same with "nbody" value.
-				Si = [ 2, 0 ]
+				Fe = [ 0, 1 ] # the number of elements shoud be the same with "nbody" value.
+				Si = [ 0, 0 ]
 				[interaction.cutoff] # unit is bohr
 				Fe-Fe = [ 0, -1 ] # first element is just dummy to align wigh lmax array
 				Fe-Si = [ 0, -1 ]
@@ -39,9 +39,9 @@ using TOML
 			kd_list = [1, 1, 2, 2]
 			position =[
 				[ 0.00, 0.00, 0.10 ], 
-                [ 0.40, 0.00, 0.10 ],
+				[ 0.50, 0.00, 0.10 ],
 				[ 0.00, 0.00, 0.00 ],
-                [ 0.40, 0.00, 0.00 ],
+				[ 0.50, 0.00, 0.00 ],
 			]
 			"""
 
