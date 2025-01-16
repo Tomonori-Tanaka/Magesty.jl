@@ -20,7 +20,7 @@ using Spglib
 using ..AtomCells
 using ..Systems
 
-import Base: isless
+import Base: isless, show
 
 export SymmetryOperation, Symmetry
 
@@ -62,6 +62,17 @@ function isless(symop1::SymmetryOperation, symop2::SymmetryOperation)
 
 	return vcat(symop1_rot_flatten, symop1_translation) <
 		   vcat(symop2_rot_flatten, symop2_translation)
+end
+
+function show(io::IO, symop::SymmetryOperation)
+	println("rotation_frac: ")
+	display(symop.rotation_frac)
+	println("rotation_cart: ")
+	display(symop.rotation_cart)
+	println("translation_frac: ", symop.translation_frac)
+	println("is_translation: ", symop.is_translation)
+	println("is_translation_included: ", symop.is_translation_included)
+	println("is_proper: ", symop.is_proper)
 end
 
 """ Maps

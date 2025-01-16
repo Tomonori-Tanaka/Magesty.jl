@@ -6,7 +6,7 @@ using TOML
 	name = "b2feco2x2x2"
 	nat = 16
 	kd = [ "Fe", "Co" ]
-	periodicity = [ true, true, true ]
+	periodicity = [ true, true, false ]
 	# periodicity = [false, false, false]
 	j_zero_thr = 1e-10
 
@@ -57,13 +57,13 @@ using TOML
 	"""
 	parsed = TOML.parse(input)
 	sclus = SpinCluster(parsed)
-	# for i in 1:sclus.symmetry.nsym
-	# 	if sclus.symmetry.symdata[i].is_translation_included
-	# 		continue
-	# 	end
-	# 	println(i)
-	# 	println(sclus.symmetry.symdata[i])
-	# end
+	for i in 1:sclus.symmetry.nsym
+		if sclus.symmetry.symdata[i].is_translation_included
+			continue
+		end
+		println(i)
+		println(sclus.symmetry.symdata[i])
+	end
 
 	# idx = 48
 	# Magesty.BasisSets.__write_martix(sclus.basisset.each_projection_dict[1][idx])

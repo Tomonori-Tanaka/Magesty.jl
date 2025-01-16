@@ -1,11 +1,11 @@
 using TOML
 
-@testset "b2feco1x1x1" begin
+@testset "l10feni1x1x1" begin
 	input = """
 			[general]
-			name = "b2feco"
+			name = "l10feni"
 			nat = 2
-			kd = [ "Fe", "Co" ]
+			kd = [ "Fe", "Ni" ]
 			periodicity = [ true, true, true ]
 			# periodicity = [false, false, false]
 			# periodicity = [true, false, false]
@@ -18,11 +18,11 @@ using TOML
 			nbody = 2
 				[interaction.lmax]
 				Fe = [ 0, 1 ] # the number of elements shoud be the same with "nbody" value.
-				Co = [ 0, 1 ]
+				Ni = [ 0, 1 ]
 				[interaction.cutoff] # unit is bohr
-				Fe-Fe = [ 0, 0 ] # first element is just dummy to align wigh lmax array
-				Fe-Co = [ 0, -1 ]
-				Co-Co = [ 0, 0 ]
+				Fe-Fe = [ 0, -1 ] # first element is just dummy to align wigh lmax array
+				Fe-Ni = [ 0, -1 ]
+				Ni-Ni = [ 0, -1 ]
 				# negative cutoff means all of the possible interaction will be considered.
 
 			[regression]
@@ -34,7 +34,7 @@ using TOML
 			lattice = [
 				[ 1.0, 0.0, 0.0 ],
 				[ 0.0, 1.0, 0.0 ],
-				[ 0.0, 0.0, 1.0 ],
+				[ 0.0, 0.0, 1.5 ],
 			]
 			kd_list = [1, 2]
 			position =[
@@ -47,6 +47,14 @@ using TOML
 	sclus = SpinCluster(parsed)
 
 	for idx in 1:sclus.symmetry.nsym
+		@show idx
+		println(sclus.symmetry.symdata[idx])
 		display(sclus.basisset.each_projection_dict[1][idx])
 	end
+
+	#= for i in 1:sclus.symmetry.nsym
+		   println(i)
+		   display(sclus.symmetry.symdata[i].rotation_frac)
+		   println(sclus.symmetry.symdata[i].translation_frac)
+	   end =#
 end
