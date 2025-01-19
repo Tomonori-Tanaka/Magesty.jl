@@ -154,9 +154,12 @@ function calc_projection(
 		end
 	end
 
-	# if !(RotationMatrices.is_orthogonal(projection_matrix, tol = 1e-6))
-	# 	error("not orthogonal")
-	# end
+	if !(RotationMatrices.is_orthogonal(projection_matrix, tol = 1e-6))
+		println("symmetry operation index: $isym")
+		println(symop)
+		display(projection_matrix)
+		error("not orthogonal")
+	end
 	projection_matrix = round.(projection_matrix, digits = threshold_digits)
 
 
