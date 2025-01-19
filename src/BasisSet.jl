@@ -38,6 +38,7 @@ function BasisSet(
 
 	basislist = construct_basislist(
 		system.supercell.kd_int_list,
+		system,
 		symmetry,
 		cluster.cluster_list_with_cell,
 		lmax,
@@ -45,7 +46,7 @@ function BasisSet(
 	)
 
 	classified_basisdict = classify_basislist(basislist, symmetry.map_sym)
-	@show classified_basisdict
+	println(classified_basisdict)
 
 	projection_dict::Dict{Int, Matrix{Float64}},
 	each_projection_dict =
@@ -59,7 +60,7 @@ function BasisSet(
 			symmetry.symnum_translation,
 		)
 
-	# display(projection_dict[4])
+	display(SparseMatrixCSC(projection_dict[1]))
 	#= 	for (idx, mat) in enumerate(each_projection_dict[1])
 			if idx > 0
 				println(idx)
@@ -71,7 +72,8 @@ function BasisSet(
 		eigenval = round.(eigenval, digits = 6)
 		eigenvec = round.(eigenvec, digits = 6)
 		println(idx, "\t", eigenval)
-		display(eigenvec)
+		display(eigenvec[:, end-1])
+		display(eigenvec[:, end])
 	end
 
 	# projection_matrix = Matrix(projection_matrix)
@@ -94,6 +96,7 @@ end
 
 function construct_basislist(
 	kd_int_list::AbstractVector{<:Integer},
+	system::System,
 	symmetry::Symmetry,
 	cluster_list::AbstractVector{<:AbstractVector{<:AbstractVector{AtomCell}}}, # Vector{SortedVector{Vector{AtomCell}}}  2025-01-06
 	lmax_mat::AbstractMatrix{<:Integer},
@@ -125,6 +128,9 @@ function construct_basislist(
 					if equivalent(basis, iul)
 						basislist.counts[basis] += 1
 						@goto skip
+					elseif is_translationally_equiv_basis(iul, basis, symmetry, system)
+						basislist.counts[basis] += 1
+						@goto skip
 					end
 				end
 				push!(basislist, iul)
@@ -133,7 +139,7 @@ function construct_basislist(
 		end
 	end
 
-	basislist = merge_duplicated_elements(basislist, symmetry)
+	# basislist = merge_duplicated_elements(basislist, symmetry)
 
 	return basislist
 end
@@ -177,10 +183,6 @@ function classify_basislist(
 		count += 1
 	end
 
-	# for test code
-	# for i in 1:length(basislist)
-	# 	println(label_list[i], "\t", basislist[i])
-	# end
 
 	dict = OrderedDict{Int, SortedCountingUniqueVector}()
 
@@ -214,6 +216,81 @@ function map_atom_l_list(
 	return mapped_atom_l_list
 end
 
+function is_translationally_equiv_basis(
+	basis_target::IndicesUniqueList,
+	basis_ref::IndicesUniqueList,
+	symmetry::Symmetry,
+	system::System,
+)::Bool
+
+	atomlist = get_atomlist(basis_target)
+
+	for i in 2:length(basis_target)
+		iatom = get_atomlist(basis_target)[i]
+		iatom_in_prim = symmetry.atoms_in_prim[symmetry.map_s2p[iatom].atom]
+
+		trans_op_idx = 0
+		for idx_trans in symmetry.symnum_translation
+			if symmetry.map_sym[iatom_in_prim, idx_trans] == iatom
+				trans_op_idx = idx_trans
+			end
+		end
+		if trans_op_idx == 0
+			error("Something is wrong.")
+		end
+
+		moved_atomlist = Int[]
+		for atom in atomlist
+			for iat in 1:system.supercell.num_atoms
+				if symmetry.map_sym[iat, trans_op_idx] == atom
+					push!(moved_atomlist, iat)
+				end
+			end
+		end
+
+		if length(moved_atomlist) != length(atomlist)
+			error("Something is wrong.")
+		end
+
+		if length(intersect(moved_atomlist, atomlist)) != 0
+			return false
+		end
+
+		iul = IndicesUniqueList()
+		for (idx, atom) in enumerate(moved_atomlist)
+			push!(iul, Indices(atom, basis_target[idx].l, basis_target[idx].m))
+		end
+
+		if equivalent(iul, basis_ref)
+			return true
+		end
+	end
+	return false
+	# for itrans in symmetry.symnum_translation[2:end]# 1 is always identical operation
+	# 	basis_mapped = IndicesUniqueList()
+	# 	for indices in basis_target
+	# 		push!(
+	# 			basis_mapped,
+	# 			Indices(
+	# 				symmetry.map_sym[indices.atom, itrans],
+	# 				indices.l,
+	# 				indices.m,
+	# 			),
+	# 		)
+	# 	end
+
+	# 	if sort(basis_mapped) == sort(basis_ref)
+	# 		continue
+	# 	end
+
+	# 	if equivalent(basis_mapped, basis_ref)
+	# 		return true
+	# 	end
+	# end
+	# return false
+end
+
+
 function merge_duplicated_elements(
 	basislist::SortedCountingUniqueVector,
 	symmetry::Symmetry,
@@ -222,11 +299,12 @@ function merge_duplicated_elements(
 	duplication_list = Vector{IndicesUniqueList}()
 
 	for (i, iul_outer) in enumerate(basislist)
+		if iul_outer in duplication_list
+			continue
+		end
+
 		for (j, iul_inner) in enumerate(basislist)
 			if j ≤ i
-				continue
-			elseif sort(get_atomlist(iul_outer)) == sort(get_atomlist(iul_inner)) &&
-				   get_llist(iul_outer) == get_llist(iul_inner)
 				continue
 			end
 
@@ -250,6 +328,8 @@ function merge_duplicated_elements(
 			end
 		end
 	end
+
+	@show duplication_list
 
 	for iul_delete in duplication_list
 		delete!(basislist_copy, iul_delete)
