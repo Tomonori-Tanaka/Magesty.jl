@@ -5,13 +5,17 @@ using ..RotationMatrices
 
 function construct_projectionmatrix(
 	basisdict::AbstractDict{<:Integer, <:AbstractVector},
-	num_atoms::Integer,
-	symdata::AbstractVector{SymmetryOperation},
-	map_sym::AbstractMatrix{<:Integer},
-	map_s2p,
-	atoms_in_prim,
-	symnum_translation,
+	system::System,
+	symmetry::Symmetry,
 )::Tuple{Dict{Int, Matrix{Float64}}, Dict{Int, Any}}
+
+	# aliases
+	num_atoms::Int = system.supercell.num_atoms# total number of atoms in the supercell
+	symdata::Vector{SymmetryOperation} = symmetry.symdata
+	map_sym::Matrix{Int} = symmetry.map_sym
+	map_s2p::Vector{Maps} = symmetry.map_s2p
+	atoms_in_prim::Vector{Int} = symmetry.atoms_in_prim# atoms in the primitive cell
+	symnum_translation::Vector{Int} = symmetry.symnum_translation
 
 	dict = Dict{Int, Matrix{Float64}}()
 	dict_each_matrix = Dict{Int, Vector{SparseMatrixCSC{Float64, Int}}}()
