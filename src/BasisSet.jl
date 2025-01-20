@@ -37,10 +37,9 @@ function BasisSet(
 	bodymax::Integer)
 
 	basislist = construct_basislist(
-		system.supercell.kd_int_list,
 		system,
 		symmetry,
-		cluster.cluster_list_with_cell,
+		cluster,
 		lmax,
 		bodymax,
 	)
@@ -52,12 +51,8 @@ function BasisSet(
 	each_projection_dict =
 		construct_projectionmatrix(
 			classified_basisdict,
-			system.supercell.num_atoms,
-			symmetry.symdata,
-			symmetry.map_sym,
-			symmetry.map_s2p,
-			symmetry.atoms_in_prim,
-			symmetry.symnum_translation,
+			system,
+			symmetry,
 		)
 
 	display(SparseMatrixCSC(projection_dict[1]))
@@ -95,15 +90,18 @@ function BasisSet(
 end
 
 function construct_basislist(
-	kd_int_list::AbstractVector{<:Integer},
 	system::System,
 	symmetry::Symmetry,
-	cluster_list::AbstractVector{<:AbstractVector{<:AbstractVector{AtomCell}}}, # Vector{SortedVector{Vector{AtomCell}}}  2025-01-06
+	cluster::Cluster,
 	lmax_mat::AbstractMatrix{<:Integer},
 	bodymax::Integer,
 )::SortedCountingUniqueVector{IndicesUniqueList}
 
 	basislist = SortedCountingUniqueVector{IndicesUniqueList}()
+
+	# aliases
+	kd_int_list = system.supercell.kd_int_list
+	cluster_list = cluster.cluster_list_with_cell
 
 	# firstly treat 1-body case which needs special treatments.
 	for iat in symmetry.atoms_in_prim
