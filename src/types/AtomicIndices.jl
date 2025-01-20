@@ -29,41 +29,42 @@ struct Indices
 	atom::Int
 	l::Int
 	m::Int
+	cell::Int
 
-	function Indices(atom::Integer, l::Integer, m::Integer)
+	function Indices(atom::Integer, l::Integer, m::Integer, cell::Integer)
 		if l < 1
 			error("negative or 0 l value is detected.")
 		elseif abs(m) > l
 			error("|m| exceeds l.")
 		end
-		return new(atom, l, m)
+		return new(atom, l, m, cell)
 	end
 
-	function Indices(tuple::NTuple{3, Integer})
+	function Indices(tuple::NTuple{4, Integer})
 		return new(tuple...)
 	end
 end
 
-isless(atom_i::Indices, atom_j::Indices) =
-	(atom_i.atom, atom_i.l, atom_i.m) <
-	(atom_j.atom, atom_j.l, atom_j.m)
-isless(atom_i::Indices, tuple::NTuple{3, Integer}) =
-	(atom_i.atom, atom_i.l, atom_i.m) < tuple
-isless(tuple::NTuple{3, Integer}, atom_j::Indices) =
-	tuple < (atom_j.atom, atom_j.l, atom_j.m)
-==(atom_i::Indices, atom_j::Indices) =
-	(atom_i.atom, atom_i.l, atom_i.m) ==
-	(atom_j.atom, atom_j.l, atom_j.m)
-==(atom_i::Indices, tuple::NTuple{3, Integer}) =
-	(atom_i.atom, atom_i.l, atom_i.m) == tuple
-==(tuple::NTuple{3, Integer}, atom_j::Indices) =
-	tuple == (atom_j.atom, atom_j.l, atom_j.m)
-hash(atom_i::Indices, h::UInt) =
-	hash((atom_i.atom, atom_i.l, atom_i.m), h)
+isless(atom_1::Indices, atom_2::Indices) =
+	(atom_1.atom, atom_1.l, atom_1.m, atom_1.cell) <
+	(atom_2.atom, atom_2.l, atom_2.m, atom_2.cell)
+isless(atom_1::Indices, tuple::NTuple{4, Integer}) =
+	(atom_1.atom, atom_1.l, atom_1.m, atom_1.cell) < tuple
+isless(tuple::NTuple{4, Integer}, atom_2::Indices) =
+	tuple < (atom_2.atom, atom_2.l, atom_2.m, atom_2.cell)
+==(atom_1::Indices, atom_2::Indices) =
+	(atom_1.atom, atom_1.l, atom_1.m, atom_1.cell) ==
+	(atom_2.atom, atom_2.l, atom_2.m, atom_2.cell)
+==(atom_1::Indices, tuple::NTuple{4, Integer}) =
+	(atom_1.atom, atom_1.l, atom_1.m, atom_1.cell) == tuple
+==(tuple::NTuple{4, Integer}, atom_2::Indices) =
+	tuple == (atom_2.atom, atom_2.l, atom_2.m, atom_2.cell)
+hash(atom_1::Indices, h::UInt) =
+	hash((atom_1.atom, atom_1.l, atom_1.m, atom_1.cell), h)
 function show(io::IO, indices::Indices)
 	print(
 		io,
-		"(atom: $(indices.atom), l: $(indices.l), m: $(indices.m))",
+		"(atom: $(indices.atom), l: $(indices.l), m: $(indices.m), cell: $(indices.cell))",
 	)
 end
 
@@ -142,7 +143,7 @@ function show(io::IO, iul::IndicesUniqueList)
 	for indices in iul
 		print(
 			io,
-			"(atom: $(indices.atom), l: $(indices.l), m: $(indices.m))",
+			"(atom: $(indices.atom), l: $(indices.l), m: $(indices.m), cell: $(indices.cell))",
 		)
 	end
 end
@@ -216,18 +217,19 @@ end
 function product_indices(
 	atom_list::AbstractVector{<:Integer},
 	lmax_list::AbstractVector{<:Integer},
+	cell_list::AbstractVector{<:Integer},
 )::Vector{IndicesUniqueList}
-	if length(atom_list) != length(lmax_list)
+	if length(atom_list) != length(lmax_list) != length(cell_list)
 		error(
-			"Different vector lengths detected. atom_list, and l_list must have the same length.",
+			"Different vector lengths detected. atom_list, l_list, and cell_list must have the same length.",
 		)
 	end
 
 	list_tmp = Vector{Vector{Indices}}()
-	for (atom, lmax) in zip(atom_list, lmax_list)
+	for (atom, lmax, cell) in zip(atom_list, lmax_list, cell_list)
 		singleatom_list = Vector{Indices}()
 		for l in 1:lmax
-			append!(singleatom_list, indices_singleatom(atom, l))
+			append!(singleatom_list, indices_singleatom(atom, l, cell))
 		end
 		# Examle for (atom=3, lmax=2),
 		# singleatom_list = [Indices(3, 1, -1), Indices(3, 1, 0), Indices(3, 1, 1), Indices(3, 2, -2), Indices(3, 2, -1), ..., Indices(3, 2, 2)]
@@ -252,16 +254,17 @@ end
 function product_indices_fixed_l(
 	atom_list::AbstractVector{<:Integer},
 	l_list::AbstractVector{<:Integer},
+	cell_list::AbstractVector{<:Integer},
 )
-	if length(atom_list) != length(l_list)
+	if length(atom_list) != length(l_list) != length(cell_list)
 		error(
-			"Different vector lengths detected. atom_list, and l_list must have the same length.",
+			"Different vector lengths detected. atom_list, l_list, and cell_list must have the same length.",
 		)
 	end
 	list_tmp = Vector{Vector{Indices}}()
-	for (atom, l) in zip(atom_list, l_list)
+	for (atom, l, cell) in zip(atom_list, l_list, cell_list)
 		singleatom_list = Vector{Indices}()
-		append!(singleatom_list, indices_singleatom(atom, l))
+		append!(singleatom_list, indices_singleatom(atom, l, cell))
 		push!(list_tmp, singleatom_list)
 	end
 
@@ -278,13 +281,13 @@ function product_indices_fixed_l(
 end
 
 """
-	indices_singleatom(atom::Integer,  l::Integer) :: Vector{Indices}
+	indices_singleatom(atom::Integer,  l::Integer, cell::Integer) :: Vector{Indices}
 
 """
-function indices_singleatom(atom::Integer, l::Integer)::Vector{Indices}
+function indices_singleatom(atom::Integer, l::Integer, cell::Integer)::Vector{Indices}
 	vec = Vector{Indices}()
 	for m in -l:l
-		push!(vec, Indices(atom, l, m))
+		push!(vec, Indices(atom, l, m, cell))
 	end
 	return sort(vec)
 end

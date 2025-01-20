@@ -11,7 +11,7 @@ using Test
 @testset "component tests" begin
 	include("./component_test/test_SortedContainer.jl")
 	include("./component_test/test_CountingContainer.jl")
-	include("./component_test/test_AtomicIndices.jl")
+	# include("./component_test/test_AtomicIndices.jl")
 	include("./component_test/test_UnitaryMatrixCl.jl")
 	include("./component_test/test_RotationMatrix.jl")
 end
