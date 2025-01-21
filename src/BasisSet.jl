@@ -108,7 +108,7 @@ function construct_basislist(
 		lmax = lmax_mat[kd_int_list[iat], 1]
 
 		for l in 1:lmax
-			iul::Vector{Indices} = AtomicIndices.indices_singleatom(iat, l, 1)
+			iul::Vector{Indices} = indices_singleatom(iat, l, 1)
 			for indices::Indices in iul
 				push!(basislist, IndicesUniqueList(indices))
 			end
@@ -120,7 +120,7 @@ function construct_basislist(
 		for cluster in cluster_list[body-1]
 			atomlist, llist, celllist =
 				get_atomsls_from_cluster(cluster, lmax_mat, kd_int_list)
-			for iul in AtomicIndices.product_indices(atomlist, llist, celllist)
+			for iul in product_indices(atomlist, llist, celllist)
 				for basis in basislist
 					if equivalent(basis, iul)
 						basislist.counts[basis] += 1
