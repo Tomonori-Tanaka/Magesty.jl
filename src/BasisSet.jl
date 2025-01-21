@@ -292,12 +292,14 @@ function find_corresponding_atom(
 	num_cells = size(x_image_cart, 3)
 	for iatom in 1:num_atoms
 		for icell in 1:num_cells
-			if isapprox(x_image_cart[:, iatom, icell], moved_coords, atol = 1e-8)
+			if isapprox(x_image_cart[:, iatom, icell], moved_coords, atol = 1e-6)
 				return (iatom, icell)
 			end
 		end
 	end
-	error("No matching (atom, cell) indices found.")
+	error("atom: $(atom[1]), cell: $(atom[2]) \n
+	relvec: $relvec \n
+	No matching (atom, cell) indices found.")
 end
 
 
