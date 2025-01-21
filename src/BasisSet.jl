@@ -106,22 +106,21 @@ function construct_basislist(
 	# firstly treat 1-body case which needs special treatments.
 	for iat in symmetry.atoms_in_prim
 		lmax = lmax_mat[kd_int_list[iat], 1]
-		if lmax == 0
-			continue
-		end
 
-		iul::Vector{Indices} = AtomicIndices.indices_singleatom(iat, lmax)
-		for indices::Indices in iul
-			push!(basislist, IndicesUniqueList(indices))
+		for l in 1:lmax
+			iul::Vector{Indices} = AtomicIndices.indices_singleatom(iat, l, 1)
+			for indices::Indices in iul
+				push!(basislist, IndicesUniqueList(indices))
+			end
 		end
 	end
 
 	# multi-body cases
 	for body in 2:bodymax
 		for cluster in cluster_list[body-1]
-			atomlist, llist =
+			atomlist, llist, celllist =
 				get_atomsls_from_cluster(cluster, lmax_mat, kd_int_list)
-			for iul in AtomicIndices.product_indices(atomlist, llist)
+			for iul in AtomicIndices.product_indices(atomlist, llist, celllist)
 				for basis in basislist
 					if equivalent(basis, iul)
 						basislist.counts[basis] += 1
@@ -146,14 +145,15 @@ function get_atomsls_from_cluster(
 	cluster::AbstractVector{AtomCell}, # [≤ nbody]
 	lmax::AbstractMatrix{<:Integer},
 	kd_int_list::AbstractVector{<:Integer},
-)::Tuple{Vector{Int}, Vector{Int}}
+)::Tuple{Vector{Int}, Vector{Int}, Vector{Int}}
 
 	atomlist = [atomcell.atom for atomcell in cluster]
+	celllist = [atomcell.cell for atomcell in cluster]
 
 	body = length(cluster)
 	llist = [lmax[kd_int_list[atomcell.atom], body] for atomcell in cluster]
 
-	return atomlist, llist
+	return atomlist, llist, celllist
 end
 
 function classify_basislist(
