@@ -297,7 +297,7 @@ function find_corresponding_atom(
 			end
 		end
 	end
-	throw(RuntimeError("No matching (atom, cell) indices found."))
+	error("No matching (atom, cell) indices found.")
 end
 
 

@@ -17,11 +17,11 @@ using TOML
 		nbody = 2
 		[interaction.lmax]
 		Fe = [ 0, 1 ] # the number of elements shoud be the same with "nbody" value.
-		Ge = [ 0, 1 ]
+		Ge = [ 0, 0 ]
 		[interaction.cutoff] # unit is bohr
 		Fe-Fe = [ 0, -1 ] # first element is just dummy to align wigh lmax array
-		Fe-Ge = [ 0, -1 ]
-		Ge-Ge = [ 0, -1 ]
+		Fe-Ge = [ 0, 0 ]
+		Ge-Ge = [ 0, 0 ]
 		# negative cutoff means all of the possible interaction will be considered.
 
 	[regression]
@@ -33,7 +33,7 @@ using TOML
 	lattice = [
 		[ 2.0, 0.0, 0.0 ],
 		[ 0.0, 2.0, 0.0 ],
-		[ 0.0, 0.0, 2.2 ],
+		[ 0.0, 0.0, 2.0 ],
 	]
 	kd_list = [
 	1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
