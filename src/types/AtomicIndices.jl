@@ -4,7 +4,7 @@ import Base:
 	append!, eltype, getindex, hash, in, isempty, isless, iterate, length, push!, show,
 	size, sort, ==
 
-export Indices, IndicesUniqueList, get_atomlist, get_llist, get_totalL, get_atom_l_list,
+export Indices, IndicesUniqueList, get_atomlist, get_llist, get_celllist, get_totalL, get_atom_l_list,
 	equivalent,
 	product_indices,
 	indices_singleatom
@@ -181,6 +181,21 @@ Extracts the l indices from `IndicesUniqueList` and returns them as a Vector.
 """
 function get_llist(iul::IndicesUniqueList)::Vector{Int}
 	[indices.l for indices in iul]
+end
+
+"""
+	get_celllist(iul::IndicesUniqueList) -> Vector{Int}
+
+Extracts the cell indices from `IndicesUniqueList` and returns them as a Vector.
+
+# Arguments
+- `iul::IndicesUniqueList`: The `IndicesUniqueList` instance.
+
+# Returns
+- A Vector containing the cell indices.
+"""
+function get_celllist(iul::IndicesUniqueList)::Vector{Int}
+	[indices.cell for indices in iul]
 end
 
 
