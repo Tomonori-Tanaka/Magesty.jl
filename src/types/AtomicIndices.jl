@@ -30,19 +30,21 @@ struct Indices
 	l::Int
 	m::Int
 	cell::Int
+end
 
-	function Indices(atom::Integer, l::Integer, m::Integer, cell::Integer)
-		if l < 1
-			error("negative or 0 l value is detected.")
-		elseif abs(m) > l
-			error("|m| exceeds l.")
-		end
-		return new(atom, l, m, cell)
+function Indices(atom::Integer, l::Integer, m::Integer, cell::Integer)
+	if l < 1
+		throw(DomainError("l: $l, l should be positive."))
+	elseif abs(m) > l
+		throw(DomainError("l: $l, m: $m, |m| must not exceed l."))
+	elseif cell <= 0 || cell > 27
+		throw(DomainError("cell: $cell, it should be in 1 <= cell <= 27. "))
 	end
+	return Indices(atom, l, m, cell)
+end
 
-	function Indices(tuple::NTuple{4, Integer})
-		return new(tuple...)
-	end
+function Indices(tuple::NTuple{4, Integer})
+	return Indices(tuple...)
 end
 
 isless(atom_1::Indices, atom_2::Indices) =
