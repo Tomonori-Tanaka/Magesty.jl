@@ -222,41 +222,37 @@ function is_translationally_equiv_basis(
 )::Bool
 
 	atomlist = get_atomlist(basis_target)
+	celllist = get_celllist(basis_target)
+
+	if atomlist == get_atomlist(basis_ref)
+		return false
+	end
 
 	for i in 2:length(basis_target)
 		iatom = get_atomlist(basis_target)[i]
+		icell = get_celllist(basis_target)[i]
 		iatom_in_prim = symmetry.atoms_in_prim[symmetry.map_s2p[iatom].atom]
 
-		trans_op_idx = 0
-		for idx_trans in symmetry.symnum_translation
-			if symmetry.map_sym[iatom_in_prim, idx_trans] == iatom
-				trans_op_idx = idx_trans
-			end
-		end
-		if trans_op_idx == 0
-			error("Something is wrong.")
-		end
+		# cartesian relative vector b/w iatom and iatom_in_prim
+		relvec::Vector{Float64} =
+			calc_relvec_in_cart((iatom, icell), (iatom_in_prim, 1), system.x_image_cart)
 
 		moved_atomlist = Int[]
-		for atom in atomlist
-			for iat in 1:system.supercell.num_atoms
-				if symmetry.map_sym[iat, trans_op_idx] == atom
-					push!(moved_atomlist, iat)
-				end
-			end
-		end
-
-		if length(moved_atomlist) != length(atomlist)
-			error("Something is wrong.")
-		end
-
-		if length(intersect(moved_atomlist, atomlist)) != 0
-			return false
+		moved_celllist = Int[]
+		for indices::Indices in basis_target
+			# corresponding atom and cell obtained by adding relvec
+			crrsp_atom, crrsp_cell = find_corresponding_atom(
+				(indices.atom, indices.cell),
+				relvec,
+				system.x_image_cart,
+			)
+			push!(moved_atomlist, crrsp_atom)
+			push!(moved_celllist, crrsp_cell)
 		end
 
 		iul = IndicesUniqueList()
-		for (idx, atom) in enumerate(moved_atomlist)
-			push!(iul, Indices(atom, basis_target[idx].l, basis_target[idx].m))
+		for (idx, (atom, cell)) in enumerate(zip(moved_atomlist, moved_celllist))
+			push!(iul, Indices(atom, basis_target[idx].l, basis_target[idx].m, cell))
 		end
 
 		if equivalent(iul, basis_ref)
@@ -264,28 +260,44 @@ function is_translationally_equiv_basis(
 		end
 	end
 	return false
-	# for itrans in symmetry.symnum_translation[2:end]# 1 is always identical operation
-	# 	basis_mapped = IndicesUniqueList()
-	# 	for indices in basis_target
-	# 		push!(
-	# 			basis_mapped,
-	# 			Indices(
-	# 				symmetry.map_sym[indices.atom, itrans],
-	# 				indices.l,
-	# 				indices.m,
-	# 			),
-	# 		)
-	# 	end
+end
 
-	# 	if sort(basis_mapped) == sort(basis_ref)
-	# 		continue
-	# 	end
+"""
+Finds the cartesian relative vector b/w 2 atoms specified by (atom, cell) tuples, where cell means virtual cell index (1 <= cell <= 27).
+The equation is
+r(atom2) - r(atom1)
+"""
+function calc_relvec_in_cart(
+	atom1::NTuple{2, Integer},# (atom, cell)
+	atom2::NTuple{2, Integer},
+	x_image_cart::AbstractArray{<:Real, 3},
+)::Vector{Float64}
+	relvec::Vector{Float64} =
+		x_image_cart[:, atom2[1], atom2[2]] - x_image_cart[:, atom1[1], atom1[2]]
+	return relvec
+end
 
-	# 	if equivalent(basis_mapped, basis_ref)
-	# 		return true
-	# 	end
-	# end
-	# return false
+"""
+Move an atom by a cartesian relative vector (calculated by `calc_relvec_in_cart` function) and find corresponding atom and cell indices as a tuple.
+"""
+function find_corresponding_atom(
+	atom::NTuple{2, Int},# (atom, cell)
+	relvec::AbstractVector{<:Real},
+	x_image_cart::AbstractArray{<:Real, 3},
+)::NTuple{2, Int}
+
+	moved_coords::Vector{Float64} = x_image_cart[:, atom[1], atom[2]] + relvec
+
+	num_atoms = size(x_image_cart, 2)
+	num_cells = size(x_image_cart, 3)
+	for iatom in 1:num_atoms
+		for icell in 1:num_cells
+			if isapprox(x_image_cart[:, iatom, icell], moved_coords, atol = 1e-8)
+				return (iatom, icell)
+			end
+		end
+	end
+	throw(RuntimeError("No matching (atom, cell) indices found."))
 end
 
 
