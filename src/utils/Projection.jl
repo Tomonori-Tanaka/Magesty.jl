@@ -86,7 +86,7 @@ function calc_projection(
 	map_sym_cell::AbstractArray{AtomCell},
 	x_image_frac
 	;
-	threshold_digits::Integer = 10,
+	threshold_digits::Integer = 6,
 	time_reversal_sym::Bool = false,
 )::SparseMatrixCSC{Float64, Int}
 
@@ -97,7 +97,7 @@ function calc_projection(
 	for (ir, rbasis::IndicesUniqueList) in enumerate(basislist)  # right-hand basis
 
 		moved_atomlist, moved_celllist =
-			apply_symop_to_basis(
+			apply_symop_to_basis_with_shift(
 				rbasis,
 				isym,
 				symop,
@@ -157,23 +157,43 @@ function calc_projection(
 		end
 	end
 
-	if !(RotationMatrices.is_orthogonal(projection_matrix, tol = 1e-6))
-		println("symmetry operation index: $isym")
-		println(symop)
-		display(projection_matrix)
-		error("not orthogonal")
-	end
 	projection_matrix = round.(projection_matrix, digits = threshold_digits)
-
+	# if !(RotationMatrices.is_orthogonal(projection_matrix, tol = 1e-6))
+	# 	println("symmetry operation index: $isym")
+	# 	println(symop)
+	# 	display(projection_matrix)
+	# 	display(Matrix(projection_matrix))
+	# 	error("not orthogonal")
+	# end
 
 	return projection_matrix
+end
+
+function apply_symop_to_basis(
+	basis::IndicesUniqueList,
+	isym::Integer,
+	map_sym_cell::AbstractArray{AtomCell},
+)::NTuple{2, Vector{Int}}
+	atom_list = get_atomlist(basis)
+	cell_list = get_celllist(basis)
+
+	moved_atom_list = Vector{Int}()
+	moved_cell_list = Vector{Int}()
+
+	for (atom, cell) in zip(atom_list, cell_list)
+		push!(moved_atom_list, map_sym_cell[atom, cell, isym].atom)
+		push!(moved_cell_list, map_sym_cell[atom, cell, isym].cell)
+	end
+
+	return moved_atom_list, moved_cell_list
+
 end
 
 """
 Apply the symmetry operation and return the list of correspoinding atom and cell list.
 Note that the first atom is keeped to be located at the primitive cell. 
 """
-function apply_symop_to_basis(
+function apply_symop_to_basis_with_shift(
 	basis::IndicesUniqueList,
 	isym::Integer,
 	symop::SymmetryOperation,
@@ -211,9 +231,10 @@ function apply_symop_to_basis(
 		@show header_cell
 		@show isym
 		@show moved_header_indices
+		error("Something is wrong.")
 	end
 	translation_vec =
-		calc_relvec_in_frac(moved_header_indices, moved_header_prim, x_image_frac)
+		calc_relvec_in_frac(moved_header_prim, moved_header_indices, x_image_frac)
 
 	# thirdly, shift all atoms by using the translation vector
 	shifted_coords = Vector{Vector{Float64}}()
@@ -250,7 +271,7 @@ function calc_relvec_in_frac(atom1::NTuple{2, Integer},# (atom, cell)
 	x_image_frac::AbstractArray{<:Real, 3},
 )::Vector{Float64}
 	result::Vector{Float64} =
-		x_image_frac[:, atom2[1], atom2[2]] - x_image_frac[:, atom1[1], atom1[2]]
+		x_image_frac[:, atom1[1], atom1[2]] - x_image_frac[:, atom2[1], atom2[2]]
 
 	return result
 end

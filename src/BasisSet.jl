@@ -44,7 +44,7 @@ function BasisSet(
 		bodymax,
 	)
 
-	println(basislist)
+	# println(basislist)
 	classified_basisdict = classify_basislist(basislist, symmetry.map_sym)
 	println(classified_basisdict)
 
@@ -119,7 +119,6 @@ function construct_basislist(
 		end
 	end
 
-	# basislist = merge_duplicated_elements(basislist, symmetry)
 
 	return basislist
 end
@@ -215,7 +214,7 @@ function is_translationally_equiv_basis(
 
 		# cartesian relative vector b/w iatom and iatom_in_prim
 		relvec::Vector{Float64} =
-			calc_relvec_in_cart((iatom, icell), (iatom_in_prim, 1), system.x_image_cart)
+			calc_relvec_in_cart((iatom_in_prim, 1), (iatom, icell), system.x_image_cart)
 
 		moved_atomlist = Int[]
 		moved_celllist = Int[]
@@ -230,9 +229,9 @@ function is_translationally_equiv_basis(
 			push!(moved_celllist, crrsp_cell)
 		end
 
-		if length(intersect(moved_atomlist, get_atomlist(basis_target))) != 0
-			return false
-		end
+		# if length(intersect(moved_atomlist, get_atomlist(basis_target))) != 0
+		# 	return false
+		# end
 
 		iul = IndicesUniqueList()
 		for (idx, (atom, cell)) in enumerate(zip(moved_atomlist, moved_celllist))
@@ -257,7 +256,7 @@ function calc_relvec_in_cart(
 	x_image_cart::AbstractArray{<:Real, 3},
 )::Vector{Float64}
 	relvec::Vector{Float64} =
-		x_image_cart[:, atom2[1], atom2[2]] - x_image_cart[:, atom1[1], atom1[2]]
+		x_image_cart[:, atom1[1], atom1[2]] - x_image_cart[:, atom2[1], atom2[2]]
 	return relvec
 end
 
