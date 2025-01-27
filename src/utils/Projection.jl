@@ -2,7 +2,20 @@ using SparseArrays
 
 using ..RotationMatrices
 
+"""
+Construct projection matrices for basis functions
 
+Parameters
+----------
+basisdict : Dictionary of basis functions
+system : System information
+symmetry : Symmetry information
+
+Returns
+-------
+Tuple{Dict{Int, Matrix{Float64}}, Dict{Int, Any}}
+	Dictionary of projection matrices and dictionary of matrices for each symmetry operation
+"""
 function construct_projectionmatrix(
 	basisdict::AbstractDict{<:Integer, <:AbstractVector},
 	system::System,
@@ -108,7 +121,7 @@ function calc_projection(
 			)
 		partial_r_idx = findfirst(x -> equivalent(x, moved_rbasis), partial_moved_basis)
 		if isnothing(partial_r_idx)
-			error("Something is wrong at partial_r_idx variable.")
+			error("Failed to find partial basis index in basis projection.")
 		end
 
 		# calculate rotation matrix
@@ -212,23 +225,21 @@ function apply_symop_to_basis(
 	result_atom_list = Int[]
 	result_cell_list = Int[]
 	for coords in shifted_coords
+		found = false
 		for iatom in axes(x_image_frac, 2)
 			for icell in axes(x_image_frac, 3)
 				if isapprox(coords, x_image_frac[:, iatom, icell], atol = 1e-6)
 					push!(result_atom_list, iatom)
 					push!(result_cell_list, icell)
-					@goto found
+					found = true
+					break
 				end
 			end
+			found && break
 		end
-
-		# hints of error
-		@show atom_list
-		@show moved_coords
-		@show translation_vec
-		@show result_atom_list
-		error("Something is wrong.")
-		@label found
+		if !found
+			error("Could not find atomic position after symmetry operation.")
+		end
 	end
 
 	return result_atom_list, result_cell_list
