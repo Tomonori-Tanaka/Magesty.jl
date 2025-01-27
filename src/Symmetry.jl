@@ -116,7 +116,7 @@ struct Symmetry
 
 	symdata::Vector{SymmetryOperation}
 	map_sym::Matrix{Int}    # [num_atoms, nsym] -> corresponding atom index
-	map_sym_cell::Array{AtomCell}
+	map_sym_cell::Array{AtomCell}	# [atom, cell, isym] -> corresponding AtomCell instance
 	map_p2s::Matrix{Int}    # [nat_prim, ntran] -> corresponding atom index
 	map_s2p::Vector{Maps}   # [nat] -> corresponding atom index in primitive cel
 	symnum_translation::Vector{Int} # contains the indice of translational only operations
