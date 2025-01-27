@@ -55,13 +55,6 @@ function BasisSet(
 			symmetry,
 		)
 
-	display(SparseMatrixCSC(projection_dict[1]))
-	#= 	for (idx, mat) in enumerate(each_projection_dict[1])
-			if idx > 0
-				println(idx)
-				display(mat)
-			end
-		end =#
 	for idx in 1:maximum(keys(projection_dict))
 		eigenval, eigenvec = eigen(projection_dict[idx])
 		eigenval = round.(eigenval, digits = 6)
@@ -70,18 +63,6 @@ function BasisSet(
 		display(eigenvec[:, end-1])
 		display(eigenvec[:, end])
 	end
-
-	# projection_matrix = Matrix(projection_matrix)
-	# eigenval, eigenvec = eigen(projection_matrix)
-	# eigenval, eigenvec = eigen(Matrix(projection_matrix))
-	# eigenvec = round.(eigenvec, digits = 6)
-	# eigenval = round.(eigenval, digits = 6)
-	# eigenval = real.(eigenval)
-	# eigenvec = real.(eigenvec)
-	# @show eigenval
-	# for (val, basis) in zip(eigenvec[:, end-7], basislist)
-	# 	println(val, "\t", basis)
-	# end
 
 	tmp = [[]]
 
@@ -297,62 +278,6 @@ function find_corresponding_atom(
 	error("atom: $(atom[1]), cell: $(atom[2]) \n
 	relvec: $relvec \n
 	No matching (atom, cell) indices found.")
-end
-
-
-function merge_duplicated_elements(
-	basislist::SortedCountingUniqueVector,
-	symmetry::Symmetry,
-)
-	basislist_copy = copy(basislist)
-	duplication_list = Vector{IndicesUniqueList}()
-
-	for (i, iul_outer) in enumerate(basislist)
-		if iul_outer in duplication_list
-			continue
-		end
-
-		for (j, iul_inner) in enumerate(basislist)
-			if j ≤ i
-				continue
-			end
-
-			for itrans in symmetry.symnum_translation[2:end]
-				iul_mapped = IndicesUniqueList()
-				for indices in iul_inner
-					push!(
-						iul_mapped,
-						Indices(
-							symmetry.map_sym[indices.atom, itrans],
-							indices.l,
-							indices.m,
-						),
-					)
-				end
-				if equivalent(iul_outer, iul_mapped)
-					addcount!(basislist_copy, iul_outer, getcount(basislist, iul_inner))
-					push!(duplication_list, iul_inner)
-					break
-				end
-			end
-		end
-	end
-
-	@show duplication_list
-
-	for iul_delete in duplication_list
-		delete!(basislist_copy, iul_delete)
-	end
-
-	return basislist_copy
-end
-
-function __write_martix(
-	matrix::AbstractMatrix,
-)::Nothing
-	open("matrix.csv", "w") do io
-		writedlm(io, Matrix(matrix), ',')
-	end
 end
 
 end
