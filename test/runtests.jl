@@ -17,7 +17,7 @@ using Test
 end
 
 @testset "examples" begin
-	# include("./examples/bccfe1x1x1.jl")
+	include("./examples/bccfe1x1x1.jl")
 	# include("./examples/bccfe2x2x2.jl")
 	# include("./examples/b2feco1x1x1.jl")
 	# include("./examples/b2feco2x2x2.jl")
