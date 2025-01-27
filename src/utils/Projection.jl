@@ -11,8 +11,10 @@ function construct_projectionmatrix(
 
 	# aliases
 	num_atoms::Int = system.supercell.num_atoms# total number of atoms in the supercell
+	x_image_frac::Array{Float64, 3} = system.x_image_frac
 	symdata::Vector{SymmetryOperation} = symmetry.symdata
 	map_sym::Matrix{Int} = symmetry.map_sym
+	map_sym_cell::Array{AtomCell} = symmetry.map_sym_cell
 	map_s2p::Vector{Maps} = symmetry.map_s2p
 	atoms_in_prim::Vector{Int} = symmetry.atoms_in_prim# atoms in the primitive cell
 	symnum_translation::Vector{Int} = symmetry.symnum_translation
@@ -38,6 +40,8 @@ function construct_projectionmatrix(
 					map_s2p,
 					atoms_in_prim,
 					symnum_translation,
+					map_sym_cell,
+					x_image_frac,
 					threshold_digits = 10,
 					time_reversal_sym = false,
 				)
@@ -62,6 +66,8 @@ function construct_projectionmatrix(
 						map_s2p,
 						atoms_in_prim,
 						symnum_translation,
+						map_sym_cell,
+						x_image_frac,
 						threshold_digits = 10,
 						time_reversal_sym = time_reversal_sym,
 					)
@@ -88,6 +94,8 @@ function calc_projection(
 	map_s2p,
 	atoms_in_prim,
 	symnum_translation,
+	map_sym_cell::AbstractArray{AtomCell},
+	x_image_frac
 	;
 	threshold_digits::Integer = 10,
 	time_reversal_sym::Bool = false,
@@ -98,20 +106,23 @@ function calc_projection(
 		return projection_matrix
 	end
 	for (ir, rbasis::IndicesUniqueList) in enumerate(basislist)  # right-hand basis
-		moved_atomlist, llist =
-			move_atoms(rbasis, isym, map_sym)
-		moved_atomlist = translate_atomlist2primitive(
-			moved_atomlist,
-			num_atoms,
-			map_sym,
-			map_s2p,
-			atoms_in_prim,
-			symnum_translation,
-		)
+		# moved_atomlist, llist =
+		# 	move_atoms(rbasis, isym, map_sym)
+		# moved_atomlist = translate_atomlist2primitive(
+		# 	moved_atomlist,
+		# 	num_atoms,
+		# 	map_sym,
+		# 	map_s2p,
+		# 	atoms_in_prim,
+		# 	symnum_translation,
+		# )
+
+		moved_atomlist, moved_celllist =
+			apply_symop_to_basis(rbasis, isym, symop, map_sym_cell, map_s2p, x_image_frac)
 		# moved_rbasis will be used later to determine a matrix element
 		moved_rbasis = IndicesUniqueList()
-		for (idx, atom) in enumerate(moved_atomlist)
-			indices = Indices(atom, rbasis[idx].l, rbasis[idx].m)
+		for (idx, (atom, cell)) in enumerate(zip(moved_atomlist, moved_celllist))
+			indices = Indices(atom, rbasis[idx].l, rbasis[idx].m, cell)
 			push!(moved_rbasis, indices)
 		end
 
@@ -119,6 +130,7 @@ function calc_projection(
 			AtomicIndices.product_indices_fixed_l(
 				get_atomlist(moved_rbasis),
 				get_llist(moved_rbasis),
+				get_celllist(moved_rbasis)
 			)
 		partial_r_idx = findfirst(x -> equivalent(x, moved_rbasis), partial_moved_basis)
 		if isnothing(partial_r_idx)
@@ -229,3 +241,78 @@ function translate_atomlist2primitive(
 
 	return moved_atomlist
 end
+
+"""
+Apply the symmetry operation and return the list of correspoinding atom and cell list.
+Note that the first atom is keeped to be located at the primitive cell. 
+"""
+function apply_symop_to_basis(
+	basis::IndicesUniqueList,
+	isym::Integer,
+	symop::SymmetryOperation,
+	map_sym_cell::AbstractArray{AtomCell},
+	map_s2p::AbstractVector,
+	x_image_frac::AbstractArray,
+)::NTuple{2, Vector{Int}}
+
+	atom_list = get_atomlist(basis)
+	cell_list = get_celllist(basis)
+
+	header_atom = atom_list[begin]
+	header_cell = cell_list[begin]
+
+	# firstly, apply the symmetry operation to atoms
+	moved_coords = Vector{Vector{Float64}}()
+	for (atom, cell) in zip(atom_list, cell_list)
+		coords_tmp =
+			symop.rotation_frac * x_image_frac[:, atom, cell] + symop.translation_frac
+		push!(moved_coords, coords_tmp)
+	end
+
+	# secondly, calculate translation vector to shift first atom to the primitive cell
+	moved_header_indices::NTuple{2, Int} =
+		(
+			map_sym_cell[header_atom, header_cell, isym].atom,
+			map_sym_cell[header_atom, header_cell, isym].cell,
+		)
+	moved_header_prim::NTuple{2, Int} = (map_s2p[moved_header_indices[1]].atom, 1)
+
+	translation_vec =
+		calc_relvec_in_frac(moved_header_prim, moved_header_indices, x_image_frac)
+
+	# thirdly, shift all atoms by using the translation vector
+	shifted_coords = Vector{Vector{Float64}}()
+	for coords in moved_coords
+		push!(shifted_coords, coords + translation_vec)
+	end
+
+	# finally, find corresponding atom indices
+	result_atom_list = Int[]
+	result_cell_list = Int[]
+	for coords in shifted_coords
+		for iatom in axes(x_image_frac, 2)
+			for icell in axes(x_image_frac, 3)
+				if isapprox(coords, x_image_frac[:, iatom, icell], atol = 1e-6)
+					push!(result_atom_list, iatom)
+					push!(result_cell_list, icell)
+					@goto found
+				end
+			end
+		end
+		error("Something is wrong.")
+		@label found
+	end
+
+	return result_atom_list, result_cell_list
+end
+
+function calc_relvec_in_frac(atom1::NTuple{2, Integer},# (atom, cell)
+	atom2::NTuple{2, Integer},
+	x_image_frac::AbstractArray{<:Real, 3},
+)::Vector{Float64}
+	result::Vector{Float64} =
+		x_image_frac[:, atom2[1], atom2[2]] - x_image_frac[:, atom1[1], atom1[2]]
+
+	return result
+end
+
