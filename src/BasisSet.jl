@@ -221,10 +221,7 @@ function is_translationally_equiv_basis(
 	system::System,
 )::Bool
 
-	atomlist = get_atomlist(basis_target)
-	celllist = get_celllist(basis_target)
-
-	if atomlist == get_atomlist(basis_ref)
+	if length(intersect(get_atomlist(basis_ref), get_atomlist(basis_target))) > 0
 		return false
 	end
 
