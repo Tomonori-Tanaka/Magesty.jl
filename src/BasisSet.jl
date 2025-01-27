@@ -60,7 +60,10 @@ function BasisSet(
 		eigenval, eigenvec = eigen(projection_dict[idx])
 		eigenval = round.(eigenval, digits = 6)
 		eigenvec = round.(eigenvec, digits = 6)
-		println(idx, "\t", eigenval)
+		if !check_eigenval(eigenval)
+			println(idx, "\t", eigenval)	
+			error("incorrect eigenvalue is detected in $idx-th eigenvalue")
+		end
 	end
 
 	tmp = [[]]
@@ -281,6 +284,16 @@ function find_corresponding_atom(
 	error("atom: $(atom[1]), cell: $(atom[2]) \n
 	relvec: $relvec \n
 	No matching (atom, cell) indices found.")
+end
+
+# check whether the given eigenvalues consists of 0 or 1 only
+function check_eigenval(eigenval::AbstractVector; tol = 1e-8)::Bool
+	for value in eigenval
+		if !isapprox(value, 0, atol = tol) && !isapprox(value, 1, atol = tol)
+			return false
+		end
+	end
+	return true
 end
 
 end
