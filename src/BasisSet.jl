@@ -44,6 +44,7 @@ function BasisSet(
 		bodymax,
 	)
 
+	println(basislist)
 	classified_basisdict = classify_basislist(basislist, symmetry.map_sym)
 	println(classified_basisdict)
 
@@ -60,8 +61,6 @@ function BasisSet(
 		eigenval = round.(eigenval, digits = 6)
 		eigenvec = round.(eigenvec, digits = 6)
 		println(idx, "\t", eigenval)
-		display(eigenvec[:, end-1])
-		display(eigenvec[:, end])
 	end
 
 	tmp = [[]]
@@ -202,7 +201,7 @@ function is_translationally_equiv_basis(
 	system::System,
 )::Bool
 
-	if length(intersect(get_atomlist(basis_ref), get_atomlist(basis_target))) > 0
+	if get_atomlist(basis_target) == get_atomlist(basis_ref)
 		return false
 	end
 
@@ -226,6 +225,10 @@ function is_translationally_equiv_basis(
 			)
 			push!(moved_atomlist, crrsp_atom)
 			push!(moved_celllist, crrsp_cell)
+		end
+
+		if length(intersect(moved_atomlist, get_atomlist(basis_target))) != 0
+			return false
 		end
 
 		iul = IndicesUniqueList()

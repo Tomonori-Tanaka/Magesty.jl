@@ -84,7 +84,15 @@ function calc_projection(
 	for (ir, rbasis::IndicesUniqueList) in enumerate(basislist)  # right-hand basis
 
 		moved_atomlist, moved_celllist =
-			apply_symop_to_basis(rbasis, isym, symop, map_sym_cell, map_s2p, x_image_frac)
+			apply_symop_to_basis(
+				rbasis,
+				isym,
+				symop,
+				map_sym_cell,
+				map_s2p,
+				atoms_in_prim,
+				x_image_frac,
+			)
 		# moved_rbasis will be used later to determine a matrix element
 		moved_rbasis = IndicesUniqueList()
 		for (idx, (atom, cell)) in enumerate(zip(moved_atomlist, moved_celllist))
@@ -158,6 +166,7 @@ function apply_symop_to_basis(
 	symop::SymmetryOperation,
 	map_sym_cell::AbstractArray{AtomCell},
 	map_s2p::AbstractVector,
+	atoms_in_prim::AbstractVector{<:Integer},
 	x_image_frac::AbstractArray,
 )::NTuple{2, Vector{Int}}
 
@@ -181,10 +190,17 @@ function apply_symop_to_basis(
 			map_sym_cell[header_atom, header_cell, isym].atom,
 			map_sym_cell[header_atom, header_cell, isym].cell,
 		)
-	moved_header_prim::NTuple{2, Int} = (map_s2p[moved_header_indices[1]].atom, 1)
+	moved_header_prim::NTuple{2, Int} =
+		(atoms_in_prim[map_s2p[moved_header_indices[1]].atom], 1)
 
+	if map_sym_cell[header_atom, header_cell, isym].cell < 0
+		@show header_atom
+		@show header_cell
+		@show isym
+		@show moved_header_indices
+	end
 	translation_vec =
-		calc_relvec_in_frac(moved_header_prim, moved_header_indices, x_image_frac)
+		calc_relvec_in_frac(moved_header_indices, moved_header_prim, x_image_frac)
 
 	# thirdly, shift all atoms by using the translation vector
 	shifted_coords = Vector{Vector{Float64}}()
@@ -205,6 +221,12 @@ function apply_symop_to_basis(
 				end
 			end
 		end
+
+		# hints of error
+		@show atom_list
+		@show moved_coords
+		@show translation_vec
+		@show result_atom_list
 		error("Something is wrong.")
 		@label found
 	end

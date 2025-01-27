@@ -116,7 +116,7 @@ struct Symmetry
 
 	symdata::Vector{SymmetryOperation}
 	map_sym::Matrix{Int}    # [num_atoms, nsym] -> corresponding atom index
-	map_sym_cell::Array{AtomCell}	# [atom, cell, isym] -> corresponding AtomCell instance
+	map_sym_cell::Array{AtomCell}# [atom, cell, isym] -> corresponding AtomCell instance
 	map_p2s::Matrix{Int}    # [nat_prim, ntran] -> corresponding atom index
 	map_s2p::Vector{Maps}   # [nat] -> corresponding atom index in primitive cel
 	symnum_translation::Vector{Int} # contains the indice of translational only operations
@@ -214,6 +214,7 @@ function Symmetry(system::System, tol::Real)
 								system.x_image_frac,
 								iat,
 								cell,
+								tol = tol,
 							)
 							map_sym_cell[iat, cell, isym] =
 								AtomCell(jat, matched_cell)
@@ -331,12 +332,14 @@ function find_matching_image_cell(
 	x_image::AbstractArray{<:Real, 3},
 	atom::Integer,
 	cell::Integer,
+	;
+	tol::Real = 1e-5,
 )::Int
 	# Apply the symmetry operation to the specified atom and image cell
 	x_moved = symop.rotation_frac * x_image[:, atom, cell] + symop.translation_frac
 	matches = [
 		(n, m) for n in 1:size(x_image, 2), m in 1:size(x_image, 3) if
-		isapprox(x_image[:, n, m], x_moved; atol = 1e-8)
+		isapprox(x_image[:, n, m], x_moved; atol = tol)
 	]
 
 	if length(matches) == 0
