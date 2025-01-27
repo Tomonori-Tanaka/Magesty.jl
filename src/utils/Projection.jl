@@ -29,32 +29,7 @@ function construct_projectionmatrix(
 
 		nneq = 0
 
-		for (n, symop) in enumerate(symdata)
-			projection_mat_per_symop =
-				calc_projection(
-					basislist,
-					num_atoms,
-					symop,
-					n,
-					map_sym,
-					map_s2p,
-					atoms_in_prim,
-					symnum_translation,
-					map_sym_cell,
-					x_image_frac,
-					threshold_digits = 10,
-					time_reversal_sym = false,
-				)
-			push!(dict_each_matrix[idx], projection_mat_per_symop)
-			if nnz(projection_mat_per_symop) != 0
-				nneq += 1
-				projection_mat += projection_mat_per_symop
-			end
-		end
-
-		# time_reversal_sym will be optional keyword
-		time_reversal_sym = true
-		if time_reversal_sym
+		for time_rev_sym in [false, true]
 			for (n, symop) in enumerate(symdata)
 				projection_mat_per_symop =
 					calc_projection(
@@ -69,8 +44,9 @@ function construct_projectionmatrix(
 						map_sym_cell,
 						x_image_frac,
 						threshold_digits = 10,
-						time_reversal_sym = time_reversal_sym,
+						time_reversal_sym = time_rev_sym,
 					)
+				push!(dict_each_matrix[idx], projection_mat_per_symop)
 				if nnz(projection_mat_per_symop) != 0
 					nneq += 1
 					projection_mat += projection_mat_per_symop
@@ -106,16 +82,6 @@ function calc_projection(
 		return projection_matrix
 	end
 	for (ir, rbasis::IndicesUniqueList) in enumerate(basislist)  # right-hand basis
-		# moved_atomlist, llist =
-		# 	move_atoms(rbasis, isym, map_sym)
-		# moved_atomlist = translate_atomlist2primitive(
-		# 	moved_atomlist,
-		# 	num_atoms,
-		# 	map_sym,
-		# 	map_s2p,
-		# 	atoms_in_prim,
-		# 	symnum_translation,
-		# )
 
 		moved_atomlist, moved_celllist =
 			apply_symop_to_basis(rbasis, isym, symop, map_sym_cell, map_s2p, x_image_frac)
@@ -130,7 +96,7 @@ function calc_projection(
 			AtomicIndices.product_indices_fixed_l(
 				get_atomlist(moved_rbasis),
 				get_llist(moved_rbasis),
-				get_celllist(moved_rbasis)
+				get_celllist(moved_rbasis),
 			)
 		partial_r_idx = findfirst(x -> equivalent(x, moved_rbasis), partial_moved_basis)
 		if isnothing(partial_r_idx)
@@ -180,66 +146,6 @@ function calc_projection(
 
 
 	return projection_matrix
-end
-
-function move_atoms(
-	iul::IndicesUniqueList,
-	isym::Integer,
-	map_sym::AbstractMatrix{<:Integer},   # [≤ num_atoms, ≤ 27, ≤ nsym]
-)::Tuple{Vector{Int}, Vector{Int}}
-	moved_atomlist = Int[]
-	moved_llist = Int[]
-	for indices::Indices in iul
-		moved_atom = map_sym[indices.atom, isym]
-		push!(moved_atomlist, moved_atom)
-		push!(moved_llist, indices.l)
-	end
-	return moved_atomlist, moved_llist
-end
-
-"""
-	translate_atomlist2primitive
-
-This function is designed to transform the given atoms_list using translational operations
-	so that the first atom in the list is positioned within the primitive cell.
-"""
-function translate_atomlist2primitive(
-	atom_list::AbstractVector{<:Integer},
-	num_atoms::Integer,
-	map_sym::AbstractMatrix{<:Integer},
-	map_s2p::AbstractVector{Symmetries.Maps},
-	atoms_in_prim::AbstractVector{<:Integer},
-	symnum_translation::AbstractVector{<:Integer},
-)::Vector{Int}
-	header_atom = first(atom_list)
-	header_atom_in_prim = atoms_in_prim[map_s2p[header_atom].atom]
-
-	# identify corresponding translational operation
-	trans_op_idx = 0
-	for idx_trans in symnum_translation
-		if map_sym[header_atom_in_prim, idx_trans] == header_atom
-			trans_op_idx = idx_trans
-			break
-		end
-	end
-	if trans_op_idx == 0
-		error("Something is wrong.")
-	end
-
-	moved_atomlist = Int[]
-	for atom in atom_list
-		for iat in 1:num_atoms
-			if map_sym[iat, trans_op_idx] == atom
-				push!(moved_atomlist, iat)
-			end
-		end
-	end
-
-	if length(moved_atomlist) != length(atom_list)
-		error("Something is wrong.")
-	end
-
-	return moved_atomlist
 end
 
 """
