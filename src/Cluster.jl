@@ -218,7 +218,7 @@ function set_mindist_pairs(
 			dist_vec_tmp = Vector{DistInfo}()
 			dist_min = distance_all[iat, jat][1].distance
 			for distinfo in distance_all[iat, jat]
-				if distinfo.distance ≈ dist_min
+				if isapprox(distinfo.distance, dist_min, atol=1e-5)
 					push!(dist_vec_tmp, distinfo)
 				end
 			end
