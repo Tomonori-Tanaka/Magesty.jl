@@ -24,7 +24,8 @@ function construct_projectionmatrix(
 
 	# aliases
 	num_atoms::Int = system.supercell.num_atoms# total number of atoms in the supercell
-	x_image_frac::Array{Float64, 3} = system.x_image_frac
+	x_image_cart::Array{Float64, 3} = system.x_image_cart
+	lattice_vectors::Array{Float64, 2} = system.supercell.lattice_vectors
 	symdata::Vector{SymmetryOperation} = symmetry.symdata
 	map_sym::Matrix{Int} = symmetry.map_sym
 	map_sym_cell::Array{AtomCell} = symmetry.map_sym_cell
@@ -32,15 +33,15 @@ function construct_projectionmatrix(
 	atoms_in_prim::Vector{Int} = symmetry.atoms_in_prim# atoms in the primitive cell
 	symnum_translation::Vector{Int} = symmetry.symnum_translation
 
-	dict = Dict{Int, Matrix{Float64}}()
-	dict_each_matrix = Dict{Int, Vector{SparseMatrixCSC{Float64, Int}}}()
+	result_projection = Dict{Int, Matrix{Float64}}()
+	result_each_matrix = Dict{Int, Vector{SparseMatrixCSC{Float64, Int}}}()
 	for (idx::Int, basislist::SortedCountingUniqueVector) in basisdict
 		println("calculating projection matrix of $idx-th basis list.")
 		dim = length(basislist)
 		projection_mat = spzeros(Float64, dim, dim)
-		dict_each_matrix[idx] = []
+		result_each_matrix[idx] = []
 
-		nneq = 0
+		num_nonzero_projections = 0
 
 		for time_rev_sym in [false, true]
 			for (n, symop) in enumerate(symdata)
@@ -55,23 +56,24 @@ function construct_projectionmatrix(
 						atoms_in_prim,
 						symnum_translation,
 						map_sym_cell,
-						x_image_frac,
+						x_image_cart,
+						lattice_vectors,
 						threshold_digits = 10,
 						time_reversal_sym = time_rev_sym,
 					)
-				push!(dict_each_matrix[idx], projection_mat_per_symop)
+				push!(result_each_matrix[idx], projection_mat_per_symop)
 				if nnz(projection_mat_per_symop) != 0
-					nneq += 1
+					num_nonzero_projections += 1
 					projection_mat += projection_mat_per_symop
 				end
 			end
 		end
 
-		projection_mat = projection_mat / nneq
-		dict[idx] = projection_mat
+		projection_mat = projection_mat / num_nonzero_projections
+		result_projection[idx] = projection_mat
 	end
 
-	return dict, dict_each_matrix
+	return result_projection, result_each_matrix
 end
 
 function calc_projection(
@@ -84,7 +86,8 @@ function calc_projection(
 	atoms_in_prim,
 	symnum_translation,
 	map_sym_cell::AbstractArray{AtomCell},
-	x_image_frac
+	x_image_cart,
+	lattice_vectors,
 	;
 	threshold_digits::Integer = 6,
 	time_reversal_sym::Bool = false,
@@ -95,7 +98,7 @@ function calc_projection(
 		return projection_matrix
 	end
 	for (ir, rbasis::IndicesUniqueList) in enumerate(basislist)  # right-hand basis
-
+	
 		moved_atomlist, moved_celllist =
 			apply_symop_to_basis_with_shift(
 				rbasis,
@@ -104,13 +107,34 @@ function calc_projection(
 				map_sym_cell,
 				map_s2p,
 				atoms_in_prim,
-				x_image_frac,
+				x_image_cart,
+				lattice_vectors,
 			)
 		# moved_rbasis will be used later to determine a matrix element
 		moved_rbasis = IndicesUniqueList()
 		for (idx, (atom, cell)) in enumerate(zip(moved_atomlist, moved_celllist))
 			indices = Indices(atom, rbasis[idx].l, rbasis[idx].m, cell)
 			push!(moved_rbasis, indices)
+		end
+
+		found = false
+		for basis in basislist
+			if equivalent(basis, moved_rbasis)
+				moved_rbasis = basis
+				found = true
+				break
+			elseif is_translationally_equiv_basis(moved_rbasis, basis, atoms_in_prim, map_s2p, x_image_cart)
+				moved_rbasis = basis
+				found = true
+				break
+			end
+		end
+		if !found
+			@show isym
+			@show symop
+			@show rbasis
+			@show moved_rbasis
+			error("Failed to find moved basis in basis projection.")
 		end
 
 		partial_moved_basis::Vector{IndicesUniqueList} =
@@ -149,6 +173,8 @@ function calc_projection(
 
 
 		for (il, lbasis::IndicesUniqueList) in enumerate(basislist)  # left-hand basis
+			# @show lbasis
+			# @show moved_rbasis
 			partial_l_idx = findfirst(x -> equivalent(x, lbasis), partial_moved_basis)
 			if isnothing(partial_l_idx)
 				continue
@@ -158,13 +184,13 @@ function calc_projection(
 	end
 
 	projection_matrix = round.(projection_matrix, digits = threshold_digits)
-	# if !(RotationMatrices.is_orthogonal(projection_matrix, tol = 1e-6))
-	# 	println("symmetry operation index: $isym")
-	# 	println(symop)
-	# 	display(projection_matrix)
-	# 	display(Matrix(projection_matrix))
-	# 	error("not orthogonal")
-	# end
+	if !(RotationMatrices.is_orthogonal(projection_matrix, tol = 1e-7))
+		println("symmetry operation index: $isym")
+		println(symop)
+		display(projection_matrix)
+		# display(Matrix(projection_matrix))
+		error("not orthogonal")
+	end
 
 	return projection_matrix
 end
@@ -200,7 +226,8 @@ function apply_symop_to_basis_with_shift(
 	map_sym_cell::AbstractArray{AtomCell},
 	map_s2p::AbstractVector,
 	atoms_in_prim::AbstractVector{<:Integer},
-	x_image_frac::AbstractArray,
+	x_image_cart::AbstractArray,
+	lattice_vectors::AbstractArray,
 )::NTuple{2, Vector{Int}}
 
 	atom_list = get_atomlist(basis)
@@ -212,8 +239,9 @@ function apply_symop_to_basis_with_shift(
 	# firstly, apply the symmetry operation to atoms
 	moved_coords = Vector{Vector{Float64}}()
 	for (atom, cell) in zip(atom_list, cell_list)
+		translation_cart = lattice_vectors * symop.translation_frac
 		coords_tmp =
-			symop.rotation_frac * x_image_frac[:, atom, cell] + symop.translation_frac
+			symop.rotation_cart * x_image_cart[:, atom, cell] + translation_cart
 		push!(moved_coords, coords_tmp)
 	end
 
@@ -234,7 +262,7 @@ function apply_symop_to_basis_with_shift(
 		error("Something is wrong.")
 	end
 	translation_vec =
-		calc_relvec_in_frac(moved_header_prim, moved_header_indices, x_image_frac)
+		calc_relvec_in_cart(moved_header_prim, moved_header_indices, x_image_cart)
 
 	# thirdly, shift all atoms by using the translation vector
 	shifted_coords = Vector{Vector{Float64}}()
@@ -247,9 +275,9 @@ function apply_symop_to_basis_with_shift(
 	result_cell_list = Int[]
 	for coords in shifted_coords
 		found = false
-		for iatom in axes(x_image_frac, 2)
-			for icell in axes(x_image_frac, 3)
-				if isapprox(coords, x_image_frac[:, iatom, icell], atol = 1e-6)
+		for iatom in axes(x_image_cart, 2)
+			for icell in axes(x_image_cart, 3)
+				if isapprox(coords, x_image_cart[:, iatom, icell], atol = 1e-5)
 					push!(result_atom_list, iatom)
 					push!(result_cell_list, icell)
 					found = true

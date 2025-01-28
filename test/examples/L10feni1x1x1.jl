@@ -46,15 +46,4 @@ using TOML
 	parsed = TOML.parse(input)
 	sclus = SpinCluster(parsed)
 
-	for idx in 1:sclus.symmetry.nsym
-		@show idx
-		println(sclus.symmetry.symdata[idx])
-		display(sclus.basisset.each_projection_dict[1][idx])
-	end
-
-	#= for i in 1:sclus.symmetry.nsym
-		   println(i)
-		   display(sclus.symmetry.symdata[i].rotation_frac)
-		   println(sclus.symmetry.symdata[i].translation_frac)
-	   end =#
 end

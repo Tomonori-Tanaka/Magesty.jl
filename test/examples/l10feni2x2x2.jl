@@ -11,7 +11,7 @@ using TOML
 	j_zero_thr = 1e-10
 
 	[symmetry]
-	tolerance = 1e-8
+	tolerance = 1e-5
 
 	[interaction]
 		nbody = 2
