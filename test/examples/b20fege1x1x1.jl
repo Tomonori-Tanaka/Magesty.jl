@@ -20,7 +20,7 @@ using TOML
 		Ge = [ 0, 0 ]
 		[interaction.cutoff] # unit is bohr
 		Fe-Fe = [ 0, -1 ] # first element is just dummy to align wigh lmax array
-		Fe-Ge = [ 0, 0 ]
+		Fe-Ge = [ 0, -1 ]
 		Ge-Ge = [ 0, 0 ]
 		# negative cutoff means all of the possible interaction will be considered.
 

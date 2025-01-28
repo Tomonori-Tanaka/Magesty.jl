@@ -58,7 +58,7 @@ function BasisSet(
 
 	for idx in 1:maximum(keys(projection_dict))
 		eigenval, eigenvec = eigen(projection_dict[idx])
-		eigenval = round.(eigenval, digits = 6)
+		eigenval = real.(round.(eigenval, digits = 6))
 		eigenvec = round.(eigenvec, digits = 6)
 		println(idx, "\t", eigenval)
 		# display(eigenvec[:, end])
@@ -113,7 +113,14 @@ function construct_basislist(
 					if equivalent(basis, iul)
 						basislist.counts[basis] += 1
 						@goto skip
-					elseif is_translationally_equiv_basis(iul, basis, symmetry.atoms_in_prim, symmetry.map_s2p, system.x_image_cart)
+					elseif is_translationally_equiv_basis(
+						iul,
+						basis,
+						symmetry.atoms_in_prim,
+						symmetry.map_s2p,
+						system.x_image_cart,
+						tol = symmetry.tol,
+					)
 						basislist.counts[basis] += 1
 						@goto skip
 					end
@@ -207,6 +214,8 @@ function is_translationally_equiv_basis(
 	atoms_in_prim::AbstractVector{<:Integer},
 	map_s2p::AbstractVector,
 	x_image_cart::AbstractArray{<:Real, 3},
+	;
+	tol::Real = 1e-5,
 )::Bool
 
 	if get_atomlist(basis_target) == get_atomlist(basis_ref)
@@ -230,6 +239,7 @@ function is_translationally_equiv_basis(
 				(indices.atom, indices.cell),
 				relvec,
 				x_image_cart,
+				tol = tol,
 			)
 			push!(moved_atomlist, crrsp_atom)
 			push!(moved_celllist, crrsp_cell)
@@ -273,6 +283,8 @@ function find_corresponding_atom(
 	atom::NTuple{2, Int},# (atom, cell)
 	relvec::AbstractVector{<:Real},
 	x_image_cart::AbstractArray{<:Real, 3},
+	;
+	tol::Real = 1e-5,
 )::NTuple{2, Int}
 
 	moved_coords::Vector{Float64} = x_image_cart[:, atom[1], atom[2]] + relvec
@@ -281,7 +293,7 @@ function find_corresponding_atom(
 	num_cells = size(x_image_cart, 3)
 	for iatom in 1:num_atoms
 		for icell in 1:num_cells
-			if isapprox(x_image_cart[:, iatom, icell], moved_coords, atol = 1e-5)
+			if isapprox(x_image_cart[:, iatom, icell], moved_coords, atol = tol)
 				return (iatom, icell)
 			end
 		end
