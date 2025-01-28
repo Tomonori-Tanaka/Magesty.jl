@@ -10,14 +10,14 @@ using TOML
 	j_zero_thr = 1e-10
 
 	[symmetry]
-	tolerance = 1e-8
+	tolerance = 1e-5
 
 	[interaction]
 	nbody = 2
 		[interaction.lmax]
 		Fe = [ 0, 1 ] # the number of elements shoud be the same with "nbody" value.
 		[interaction.cutoff] # unit is bohr
-	  	Fe-Fe = [ 0.0, -1 ] # first element is just dummy to align wigh lmax array
+	  	Fe-Fe = [ 0.0, 2.6 ] # first element is just dummy to align wigh lmax array
 
 	[regression]
 	weight = 0.5        # 1.0: only use the energy info. 0.0: only use torque info (0 <= weight_ratio <= 1)

@@ -126,7 +126,7 @@ function calc_projection(
 				moved_rbasis = basis
 				found = true
 				break
-			elseif is_translationally_equiv_basis(moved_rbasis, basis, atoms_in_prim, map_s2p, x_image_cart)
+			elseif is_translationally_equiv_basis(moved_rbasis, basis, atoms_in_prim, map_s2p, x_image_cart, tol=tol)
 				moved_rbasis = basis
 				found = true
 				break
