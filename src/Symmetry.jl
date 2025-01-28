@@ -159,12 +159,18 @@ function Symmetry(system::System, tol::Real)
 		end
 		translation_frac =
 			(abs.(spglib_data.translations[i]) .>= tol) .* spglib_data.translations[i]
-		# check a pure translation is included in the symmetry operation.
+		# check a translation vector is included in the symmetry operation.
 		is_translation_included = false
 		for itrans in Base.tail(Tuple(symnum_translation))
-			if translation_frac ≈ spglib_data.translations[itrans]
-				is_translation_included = true
-				break
+			for (elem_translation_frac, elem_translation) in
+				zip(translation_frac, spglib_data.translations[itrans])
+				if isapprox(elem_translation, 0.0, atol = tol)
+					continue
+				end
+				if elem_translation_frac >= elem_translation
+					is_translation_included = true
+					break
+				end
 			end
 		end
 

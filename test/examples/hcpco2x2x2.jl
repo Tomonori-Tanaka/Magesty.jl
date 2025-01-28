@@ -18,7 +18,7 @@ using TOML
 		[interaction.lmax]
 		Co = [ 0, 1 ]
 		[interaction.cutoff] # unit is bohr
-		Co-Co = [ 0, -1 ]
+		Co-Co = [ 0, 2.48 ]
 		# negative cutoff means all of the possible interaction will be considered.
 
 	[regression]
@@ -54,4 +54,11 @@ using TOML
 	"""
 	parsed = TOML.parse(input)
 	sclus = SpinCluster(parsed)
+
+	# for data in sclus.symmetry.symdata
+	# 	@show data
+	# end
+	# for itrans in sclus.symmetry.symnum_translation
+	# 	@show sclus.symmetry.symdata[itrans].translation_frac
+	# end
 end
