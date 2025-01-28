@@ -20,9 +20,9 @@ using TOML
 				Fe = [ 0, 1 ] # the number of elements shoud be the same with "nbody" value.
 				Ni = [ 0, 1 ]
 				[interaction.cutoff] # unit is bohr
-				Fe-Fe = [ 0, 0 ] # first element is just dummy to align wigh lmax array
+				Fe-Fe = [ 0, -1 ] # first element is just dummy to align wigh lmax array
 				Fe-Ni = [ 0, -1 ]
-				Ni-Ni = [ 0, 0 ]
+				Ni-Ni = [ 0, -1 ]
 				# negative cutoff means all of the possible interaction will be considered.
 
 			[regression]

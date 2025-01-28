@@ -27,8 +27,9 @@ end
 	# include("./examples/l10feni2x2x2.jl")
 	# include("./examples/fesi_atomicchain.jl")
 	# include("./examples/hcpco1x1x1.jl")
+	include("./examples/hcpco2x2x2.jl")
 	# include("./examples/b20fege1x1x1.jl")
-	include("./examples/b20fege2x2x2.jl")
+	# include("./examples/b20fege2x2x2.jl")
 end
 # @testset "Magesty.jl" begin
 # end

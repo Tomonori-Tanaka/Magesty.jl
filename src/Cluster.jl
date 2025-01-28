@@ -133,6 +133,7 @@ struct Cluster
 				system.supercell.num_atoms,
 				system.x_image_cart,
 				system.exist_image,
+				tol = symmetry.tol,
 			)
 		# interaction_pairs[≤ nat_prim][nbody-1]
 		interaction_pairs::Vector{Vector{Int}} = set_interaction_by_cutoff(
@@ -183,6 +184,8 @@ function set_mindist_pairs(
 	nat::Integer,
 	xc_in::AbstractArray{<:AbstractFloat, 3}, # x_image_cart in `System`
 	exist_cell::AbstractVector{Bool},
+	;
+	tol::Real = 1e-5,
 )::Matrix{Vector{DistInfo}}
 
 	distance_all = Matrix{Vector{DistInfo}}(undef, nat, nat)
@@ -218,7 +221,7 @@ function set_mindist_pairs(
 			dist_vec_tmp = Vector{DistInfo}()
 			dist_min = distance_all[iat, jat][1].distance
 			for distinfo in distance_all[iat, jat]
-				if isapprox(distinfo.distance, dist_min, atol=1e-5)
+				if isapprox(distinfo.distance, dist_min, atol=tol)
 					push!(dist_vec_tmp, distinfo)
 				end
 			end

@@ -11,7 +11,7 @@ using TOML
 	j_zero_thr = 1e-10
 
 	[symmetry]
-	tolerance = 1e-5
+	tolerance = 1e-3
 
 	[interaction]
 		nbody = 2
@@ -19,7 +19,7 @@ using TOML
 		Fe = [ 0, 1 ] # the number of elements shoud be the same with "nbody" value.
 		Ge = [ 0, 0 ]
 		[interaction.cutoff] # unit is bohr
-		Fe-Fe = [ 0, 2.9 ] # first element is just dummy to align wigh lmax array
+		Fe-Fe = [ 0, -1] # first element is just dummy to align wigh lmax array
 		Fe-Ge = [ 0, 0 ]
 		Ge-Ge = [ 0, 0 ]
 		# negative cutoff means all of the possible interaction will be considered.

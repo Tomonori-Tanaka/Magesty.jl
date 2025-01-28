@@ -32,7 +32,7 @@ function construct_projectionmatrix(
 	map_s2p::Vector{Maps} = symmetry.map_s2p
 	atoms_in_prim::Vector{Int} = symmetry.atoms_in_prim# atoms in the primitive cell
 	symnum_translation::Vector{Int} = symmetry.symnum_translation
-
+	tol::Real = symmetry.tol
 	result_projection = Dict{Int, Matrix{Float64}}()
 	result_each_matrix = Dict{Int, Vector{SparseMatrixCSC{Float64, Int}}}()
 	for (idx::Int, basislist::SortedCountingUniqueVector) in basisdict
@@ -59,6 +59,7 @@ function construct_projectionmatrix(
 						x_image_cart,
 						lattice_vectors,
 						threshold_digits = 10,
+						tol = tol,
 						time_reversal_sym = time_rev_sym,
 					)
 				push!(result_each_matrix[idx], projection_mat_per_symop)
@@ -89,6 +90,7 @@ function calc_projection(
 	x_image_cart,
 	lattice_vectors,
 	;
+	tol::Real = 1e-5,
 	threshold_digits::Integer = 6,
 	time_reversal_sym::Bool = false,
 )::SparseMatrixCSC{Float64, Int}
@@ -109,6 +111,7 @@ function calc_projection(
 				atoms_in_prim,
 				x_image_cart,
 				lattice_vectors,
+				tol = tol,
 			)
 		# moved_rbasis will be used later to determine a matrix element
 		moved_rbasis = IndicesUniqueList()
@@ -228,6 +231,8 @@ function apply_symop_to_basis_with_shift(
 	atoms_in_prim::AbstractVector{<:Integer},
 	x_image_cart::AbstractArray,
 	lattice_vectors::AbstractArray,
+	;
+	tol::Real = 1e-5,
 )::NTuple{2, Vector{Int}}
 
 	atom_list = get_atomlist(basis)
@@ -277,7 +282,7 @@ function apply_symop_to_basis_with_shift(
 		found = false
 		for iatom in axes(x_image_cart, 2)
 			for icell in axes(x_image_cart, 3)
-				if isapprox(coords, x_image_cart[:, iatom, icell], atol = 1e-5)
+				if isapprox(coords, x_image_cart[:, iatom, icell], atol = tol)
 					push!(result_atom_list, iatom)
 					push!(result_cell_list, icell)
 					found = true
