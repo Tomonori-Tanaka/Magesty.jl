@@ -14,6 +14,7 @@ using ..AtomicIndices
 using ..Systems
 using ..Symmetries
 using ..Clusters
+using ..SALCs
 
 include("./utils/Projection.jl")
 
@@ -26,7 +27,7 @@ struct BasisSet
 	basislist::SortedCountingUniqueVector{IndicesUniqueList}
 	projection_dict::Dict{Int, Matrix{Float64}}
 	each_projection_dict::Any
-	salc_coeffs::Vector{Vector{Float64}}
+	salc_list::Vector{SALC}
 end
 
 function BasisSet(
@@ -45,7 +46,8 @@ function BasisSet(
 	)
 
 	# println(basislist)
-	classified_basisdict = classify_basislist(basislist, symmetry.map_sym)
+	classified_basisdict::AbstractDict{Int, SortedCountingUniqueVector} =
+		classify_basislist(basislist, symmetry.map_sym)
 	println(classified_basisdict)
 
 	projection_dict::Dict{Int, Matrix{Float64}},
@@ -56,19 +58,25 @@ function BasisSet(
 			symmetry,
 		)
 
+	salc_list = Vector{SALC}()
 	for idx in 1:maximum(keys(projection_dict))
 		eigenval, eigenvec = eigen(projection_dict[idx])
 		eigenval = real.(round.(eigenval, digits = 6))
 		eigenvec = round.(eigenvec, digits = 6)
-		println(idx, "\t", eigenval)
 		if !check_eigenval(eigenval)
-			error("Critical error: incorrect eigenvalue is detected in $idx-th eigenvalue")
+			throw(DomainError("Critical error: Eigenvalues must be either 0 or 1. index: $idx"))
+		end
+
+		# collect indices of basis with eigenvalue 1
+		eigenval_1_list = findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenval)
+		for idx_eigenval in eigenval_1_list
+			push!(salc_list, SALC(classified_basisdict[idx], eigenvec[:, idx_eigenval]))
 		end
 	end
 
-	tmp = [[]]
+	@show salc_list
 
-	return BasisSet(basislist, projection_dict, each_projection_dict, tmp)
+	return BasisSet(basislist, projection_dict, each_projection_dict, salc_list)
 
 end
 
@@ -148,7 +156,7 @@ end
 function classify_basislist(
 	basislist::AbstractVector{IndicesUniqueList},
 	map_sym::AbstractMatrix{<:Integer},
-)
+)::AbstractDict{Int, SortedCountingUniqueVector}
 
 	count = 1
 	label_list = zeros(Int, size(basislist))

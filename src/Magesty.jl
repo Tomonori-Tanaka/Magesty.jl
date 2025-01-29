@@ -7,6 +7,7 @@ include("common/SortedContainer.jl")
 include("types/AtomCell.jl")
 include("types/AtomicIndices.jl")
 include("types/UnitaryMatrixCl.jl")
+include("types/SALC.jl")
 
 include("utils/InputParser.jl")
 include("utils/InputSetter.jl")
