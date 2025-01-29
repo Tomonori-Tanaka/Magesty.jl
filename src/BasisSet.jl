@@ -61,13 +61,8 @@ function BasisSet(
 		eigenval = real.(round.(eigenval, digits = 6))
 		eigenvec = round.(eigenvec, digits = 6)
 		println(idx, "\t", eigenval)
-		# display(eigenvec[:, end])
 		if !check_eigenval(eigenval)
-			# for i in eachindex(each_projection_dict[idx])
-			# 	@show i
-			# 	display(each_projection_dict[idx][i])
-			# end
-			error("incorrect eigenvalue is detected in $idx-th eigenvalue")
+			error("Critical error: incorrect eigenvalue is detected in $idx-th eigenvalue")
 		end
 	end
 
