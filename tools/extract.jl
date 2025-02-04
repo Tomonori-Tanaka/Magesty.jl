@@ -2,14 +2,14 @@ using ArgParse
 using Printf
 
 function extract_energy_magmom(
-	file::String,
-	energy_kind::String,
+	file::AbstractString,
+	energy_kind::AbstractString,
 	mint::Bool,
 )::Tuple{Float64, Matrix{Float64}}
 	magmom_listoflist = Vector{Vector{Float64}}()
 	magmom_temp_listoflist = Vector{Vector{Float64}}()
-	energy::Float64 = 0.0
 
+	energy::Float64 = 0.0
 	open(file, "r") do f
 		collecting = false
 		for line in eachline(f)
@@ -99,6 +99,12 @@ s = ArgParseSettings()
 	help = "flag to extract magnetic moment from \"M_int\""
 	action = :store_true
 
+	"--saxis", "-s"
+	help = "quantization axis (three real numbers)"
+	nargs = 3
+	arg_type = Float64
+	default = [0.0, 0.0, 1.0]
+
 	"--target_files", "-t"
 	help = "target files"
 	required = true
@@ -113,6 +119,20 @@ for (idx, file) in enumerate(parsed_args["target_files"])
 	num_atoms = size(magmom_matrix, 1)
 	magfield_matrix = extract_magfield(file, num_atoms)
 
+	# calculate rotation matrix
+	alpha = atan(parsed_args["saxis"][2], parsed_args["saxis"][1])
+	beta = atan(
+		sqrt(parsed_args["saxis"][1]^2 + parsed_args["saxis"][2]^2),
+		parsed_args["saxis"][3],
+	)
+	Rz(a) = [cos(a) -sin(a) 0; sin(a) cos(a) 0; 0 0 1]
+	Ry(b) = [cos(b) 0 sin(b); 0 1 0; -sin(b) 0 cos(b)]
+	R = Rz(alpha) * Ry(beta)
+
+	# rotate magmom_matrix and magfield_matrix
+	magmom_matrix = (R * magmom_matrix')'
+    magfield_matrix = (R * magfield_matrix')'
+
 	concated_data = hcat(magmom_matrix, magfield_matrix)
 	println(
 		"# $idx, $file, energy unit = eV, magmom unit = Bohr magneton, magnetic field unit = T",
@@ -123,7 +143,7 @@ for (idx, file) in enumerate(parsed_args["target_files"])
 			lpad(row_idx, 7),
 			"  ",
 			join([lpad(@sprintf("%.7f", x), 12) for x in row[1:3]], " "),
-            "  ",
+			"  ",
 			join([lpad(@sprintf("%.5e", x), 14) for x in row[4:6]], " "),
 		)
 	end
