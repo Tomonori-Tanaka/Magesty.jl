@@ -1,0 +1,51 @@
+[general]
+name = "feptL10_2x2x2_saxis001"
+nat = 16
+kd = [ "Fe", "Pt" ]
+periodicity = [ true, true, true ]
+j_zero_thr = 1e-10
+
+[symmetry]
+tolerance = 1e-5
+
+[interaction]
+nbody = 2
+	[interaction.lmax]
+	Fe = [ 0, 1 ] # the number of elements shoud be the same with "nbody" value.
+	Pt = [ 0, 1 ]
+	[interaction.cutoff] # unit is bohr
+	Fe-Fe = [ 0, -1 ] # first element is just dummy to align wigh lmax array
+	Fe-Pt = [ 0, -1 ]
+	Pt-Pt = [ 0, 0 ]
+	# negative cutoff means all of the possible interaction will be considered.
+
+[regression]
+weight = 0.5        # 1.0: only use the energy info. 0.0: only use torque info (0 <= weight_ratio <= 1)
+datafile = "EMBSET"
+
+[structure]
+scale = 1
+lattice = [
+	[ 5.444, 0.0,   0.0 ],
+	[ 0.0,   5.444, 0.0 ],
+	[ 0.0,   0.0,   7.541 ],
+]
+kd_list = [1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2]
+position = [
+	[ 0.00, 0.00, 0.00 ],
+	[ 0.00, 0.00, 0.50 ],
+	[ 0.00, 0.50, 0.00 ],
+	[ 0.00, 0.50, 0.50 ],
+	[ 0.50, 0.00, 0.00 ],
+	[ 0.50, 0.00, 0.50 ],
+	[ 0.50, 0.50, 0.00 ],
+	[ 0.50, 0.50, 0.50 ],
+	[ 0.25, 0.25, 0.25 ],
+	[ 0.25, 0.25, 0.75 ],
+	[ 0.25, 0.75, 0.25 ],
+	[ 0.25, 0.75, 0.75 ],
+	[ 0.75, 0.25, 0.25 ],
+	[ 0.75, 0.25, 0.75 ],
+	[ 0.75, 0.75, 0.25 ],
+	[ 0.75, 0.75, 0.75 ],
+]

@@ -5,6 +5,10 @@ A module for spin configurations.
 """
 module SpinConfigs
 
+using Printf
+using LinearAlgebra
+import Base: show
+export SpinConfig, read_embset
 """
 	SpinConfig
 
@@ -13,7 +17,7 @@ A configuration of spins.
 # Fields
 - `energy::Float64`: The energy of the spin configuration. [num_atoms]
 - `magmom_size::Vector{Float64}`: The size of the magnetic moments. [3, num_atoms]
-- `spin_directions::Matrix{Float64}`: The directions of the spins. [3, num_atoms]
+- `spin_directions::Matrix{Float64}`: The direction cosines (unit vectors) of the spins. [3, num_atoms]
 - `local_magfield::Matrix{Float64}`: The local magnetic field. [3, num_atoms]
 """
 struct SpinConfig
@@ -48,6 +52,30 @@ function SpinConfig(
 	return SpinConfig(energy, magmom_size, spin_directions, local_magfield)
 end
 
+function show(io::IO, config::SpinConfig)
+	println(io, "energy (eV): $(config.energy)")
+	num_atoms = length(config.magmom_size)
+	for i in 1:num_atoms
+		println(
+			lpad(i, 7),
+			"  ",
+			lpad(@sprintf("%.5f", config.magmom_size[i]), 7),
+			"  ",
+			lpad(@sprintf("%.6f", config.spin_directions[1, i]), 9),
+			" ",
+			lpad(@sprintf("%.6f", config.spin_directions[2, i]), 9),
+			" ",
+			lpad(@sprintf("%.6f", config.spin_directions[3, i]), 9),
+			"  ",
+			lpad(@sprintf("%.5e", config.local_magfield[1, i]), 12),
+			" ",
+			lpad(@sprintf("%.5e", config.local_magfield[2, i]), 12),
+			" ",
+			lpad(@sprintf("%.5e", config.local_magfield[3, i]), 12),
+		)
+	end
+end
+
 function read_embset(filepath::AbstractString, num_atoms::Integer)::Vector{SpinConfig}
 	filtered_lines = String[]
 	open(filepath, "r") do file
@@ -64,7 +92,7 @@ function read_embset(filepath::AbstractString, num_atoms::Integer)::Vector{SpinC
 			"EMBSET file '$filepath' is not compatible: Number of lines $(size(filtered_lines, 1)) is not divisible by $(num_atoms + 1).",
 		)
 	end
-	num_configs::Int = size(filtered_lines, 1) // (num_atoms + 1)
+	num_configs::Int = size(filtered_lines, 1) ÷ (num_atoms + 1)
 
 	configs = SpinConfig[]
 	for i in 1:num_configs
@@ -88,9 +116,9 @@ function separate_embset(
 	energy = parse(Float64, filtered_lines[start_line])
 	for (i, line) in enumerate(filtered_lines[start_line+1:end_line])
 		line_split = split(line)
-		magmom_size[i] = parse(Float64, line_split[1])
-		direction = map(x -> parse(Float64, x), line_split[2:4])
-		spin_directions[:, i] = direction
+		moment::Vector{Float64} = map(x -> parse(Float64, x), line_split[2:4])
+		magmom_size[i] = norm(moment)
+		spin_directions[:, i] = moment ./ magmom_size[i]
 		magfield = map(x -> parse(Float64, x), line_split[5:7])
 		local_magfield[:, i] = magfield
 	end
