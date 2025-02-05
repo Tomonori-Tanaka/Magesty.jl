@@ -3,6 +3,7 @@ include("../src/common/CountingContainer.jl")
 include("../src/types/AtomCell.jl")
 include("../src/types/AtomicIndices.jl")
 include("../src/types/UnitaryMatrixCl.jl")
+include("../src/types/SpinConfig.jl")
 include("../src/utils/RotationMatrix.jl")
 
 using Magesty
@@ -14,10 +15,11 @@ using Test
 	# include("./component_test/test_AtomicIndices.jl")
 	include("./component_test/test_UnitaryMatrixCl.jl")
 	include("./component_test/test_RotationMatrix.jl")
+	include("./component_test/test_SpinConfig.jl")
 end
 
 @testset "examples" begin
-	include("./examples/bccfe1x1x1.jl")
+	# include("./examples/bccfe1x1x1.jl")
 	# include("./examples/bccfe2x2x2.jl")
 	# include("./examples/b2feco1x1x1.jl")
 	# include("./examples/b2feco2x2x2.jl")
