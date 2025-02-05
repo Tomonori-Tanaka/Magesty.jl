@@ -16,6 +16,7 @@ export SALC
 struct SALC
     basisset::Vector{IndicesUniqueList}
     coeffs::Vector{Float64}
+    multiplicity::Vector{Int}
 end
 
 function SALC(basislist::SortedCountingUniqueVector{IndicesUniqueList}, coeffs::Vector{<:Real})
@@ -25,6 +26,7 @@ function SALC(basislist::SortedCountingUniqueVector{IndicesUniqueList}, coeffs::
 
     result_basisset = Vector{IndicesUniqueList}()
     result_coeffs = Vector{Float64}()
+    result_multiplicity = Vector{Int}()
 
     for (idx, basis) in enumerate(basislist)
         count::Int = basislist.counts[basis]
@@ -32,6 +34,7 @@ function SALC(basislist::SortedCountingUniqueVector{IndicesUniqueList}, coeffs::
         if !isapprox(coeff, 0.0, atol = 1e-8)
             push!(result_basisset, basis)
             push!(result_coeffs, coeff)
+            push!(result_multiplicity, count)
         end
     end
 
@@ -42,7 +45,7 @@ function SALC(basislist::SortedCountingUniqueVector{IndicesUniqueList}, coeffs::
     end
     result_coeffs ./= norm_coeffs
 
-    return SALC(result_basisset, result_coeffs)
+    return SALC(result_basisset, result_coeffs, result_multiplicity)
 end
 
 function show(io::IO, salc::SALC)
