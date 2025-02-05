@@ -21,7 +21,8 @@ using Test
 end
 
 @testset "examples" begin
-	include("./examples/feptL10_2x2x2_saxis001/test.jl")
+	include("./examples/febcc_2x2x2_paramag/test.jl")
+	# include("./examples/feptL10_2x2x2_saxis001/test.jl")
 	# include("./examples/bccfe1x1x1.jl")
 	# include("./examples/bccfe2x2x2.jl")
 	# include("./examples/b2feco1x1x1.jl")

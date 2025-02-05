@@ -13,6 +13,7 @@ include("types/SpinConfig.jl")
 include("utils/InputParser.jl")
 include("utils/InputSetter.jl")
 include("utils/RotationMatrix.jl")
+include("utils/MySphericalHarmonics.jl")
 using .InputParser
 
 include("System.jl")
