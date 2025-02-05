@@ -131,13 +131,13 @@ for (idx, file) in enumerate(parsed_args["target_files"])
 
 	# rotate magmom_matrix and magfield_matrix
 	magmom_matrix = (R * magmom_matrix')'
-    magfield_matrix = (R * magfield_matrix')'
+	magfield_matrix = (R * magfield_matrix')'
 
 	concated_data = hcat(magmom_matrix, magfield_matrix)
 	println(
 		"# $idx, $file, energy unit = eV, magmom unit = Bohr magneton, magnetic field unit = T",
 	)
-	println(energy)
+	@printf("%.5f\n", energy)
 	for (row_idx, row) in enumerate(eachrow(concated_data))
 		println(
 			lpad(row_idx, 7),
