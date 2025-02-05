@@ -8,6 +8,7 @@ include("types/AtomCell.jl")
 include("types/AtomicIndices.jl")
 include("types/UnitaryMatrixCl.jl")
 include("types/SALC.jl")
+include("types/SpinConfig.jl")
 
 include("utils/InputParser.jl")
 include("utils/InputSetter.jl")
@@ -18,10 +19,13 @@ include("System.jl")
 include("Symmetry.jl")
 include("Cluster.jl")
 include("BasisSet.jl")
+include("Optimize.jl")
+
 using .Systems
 using .Symmetries
 using .Clusters
 using .BasisSets
+using .Optimize
 
 export SpinCluster
 
@@ -31,6 +35,7 @@ struct SpinCluster
 	symmetry::Symmetry
 	cluster::Cluster
 	basisset::BasisSet
+	optimize::SCEOptimizer
 end
 
 function SpinCluster(input_dict::Dict{<:AbstractString, <:Any})
@@ -39,8 +44,9 @@ function SpinCluster(input_dict::Dict{<:AbstractString, <:Any})
 	symmetry::Symmetry = set_symmetry(parser, system)
 	cluster::Cluster = set_cluster(parser, system, symmetry)
 	basisset::BasisSet = set_basisset(parser, system, symmetry, cluster)
+	optimize::SCEOptimizer = set_optimize(parser, system, symmetry, cluster, basisset)
 
-	return SpinCluster(parser, system, symmetry, cluster, basisset)
+	return SpinCluster(parser, system, symmetry, cluster, basisset, optimize)
 end
 
 function SpinCluster(toml_file::AbstractString)

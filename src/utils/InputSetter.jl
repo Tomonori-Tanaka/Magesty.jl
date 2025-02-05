@@ -22,13 +22,14 @@ function set_basisset(parser, system, symmetry, cluster)
 	basisset = BasisSet(system, symmetry, cluster, parser.lmax, parser.nbody)
 end
 
-function set_optimize(parser, system, symmetry, cluster)
-	optimize = Optimize(
+function set_optimize(parser, system, symmetry, cluster, basisset)
+	optimize = SCEOptimizer(
 		system,
 		symmetry,
 		cluster,
-		parser.time_reversal_sym,
-		parser.crystal_sym,
-		parser.lmax,
+		basisset,
+		parser.j_zero_thr,
+		parser.weight,
+		parser.datafile,
 	)
 end
