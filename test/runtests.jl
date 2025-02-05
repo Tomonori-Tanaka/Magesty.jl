@@ -5,11 +5,13 @@ include("../src/types/AtomicIndices.jl")
 include("../src/types/UnitaryMatrixCl.jl")
 include("../src/types/SpinConfig.jl")
 include("../src/utils/RotationMatrix.jl")
+include("../src/utils/MySphericalHarmonics.jl")
 
 using Magesty
 using Test
 
 @testset "component tests" begin
+	include("./component_test/test_MySphericalHarmonics.jl")
 	include("./component_test/test_SortedContainer.jl")
 	include("./component_test/test_CountingContainer.jl")
 	# include("./component_test/test_AtomicIndices.jl")
