@@ -21,7 +21,7 @@ nbody = 2
 
 [regression]
 weight = 0.5        # 1.0: only use the energy info. 0.0: only use torque info (0 <= weight_ratio <= 1)
-datafile = "EMBSET"
+datafile = "/Users/tomorin/Packages/Magesty/test/examples/feptL10_2x2x2_saxis001/EMBSET.txt"
 
 [structure]
 scale = 1
