@@ -5,6 +5,7 @@ This module contains functions for optimizing the SCE coefficients.
 """
 module Optimize
 
+using ..SALCs
 using ..Systems 
 using ..Symmetries
 using ..Clusters
