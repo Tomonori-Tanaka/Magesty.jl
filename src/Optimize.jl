@@ -70,6 +70,15 @@ function ols_energy(
 	# solve Ax = b
 	ols_coeffs = design_matrix \ energy_list
 
+	predicted_energy_list::Vector{Float64} = design_matrix * ols_coeffs
+
+	# for i in 1:num_spinconfigs
+	# 	println(
+	# 		"predicted: $(predicted_energy_list[i]) actual: $(energy_list[i])",
+	# 		" diff: $(predicted_energy_list[i] - energy_list[i])",
+	# 	)
+	# end
+
 	return ols_coeffs * 1000 # convert to meV
 end
 
