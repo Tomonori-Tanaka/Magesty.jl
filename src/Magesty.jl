@@ -45,7 +45,11 @@ function SpinCluster(input_dict::Dict{<:AbstractString, <:Any})
 	symmetry::Symmetry = set_symmetry(parser, system)
 	cluster::Cluster = set_cluster(parser, system, symmetry)
 	basisset::BasisSet = set_basisset(parser, system, symmetry, cluster)
-	optimize::SCEOptimizer = set_optimize(parser, system, symmetry, cluster, basisset)
+	if parser.mode == "optimize"
+		optimize::SCEOptimizer = set_optimize(parser, system, symmetry, cluster, basisset)
+	else
+		exit()
+	end
 
 	return SpinCluster(parser, system, symmetry, cluster, basisset, optimize)
 end
