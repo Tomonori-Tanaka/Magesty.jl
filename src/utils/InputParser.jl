@@ -5,6 +5,7 @@ export Parser
 mutable struct Parser
 	# general
 	name::String
+	mode::String
 	num_atoms::Int
 	kd_name::Vector{String}
 	is_periodic::Vector{Bool}
@@ -46,6 +47,11 @@ function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 	# general variables
 	general_dict = input_dict["general"]
 	name::String = general_dict["name"]
+	if haskey(general_dict, "mode")
+		mode::String = general_dict["mode"]
+	else
+		mode = "optimize"
+	end
 	num_atoms::Int = general_dict["nat"]
 	if length(general_dict["kd"]) != length(Set(general_dict["kd"]))
 		error("Duplication is detected in \"kd\" tag.")
@@ -112,6 +118,7 @@ function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 
 	return Parser(
 		name,
+		mode,
 		num_atoms,
 		kd_name,
 		is_periodic,
