@@ -25,6 +25,7 @@ export BasisSet
 """
 struct BasisSet
 	basislist::SortedCountingUniqueVector{IndicesUniqueList}
+	classified_basisdict::Dict{Int, SortedCountingUniqueVector}
 	projection_dict::Dict{Int, Matrix{Float64}}
 	each_projection_dict::Any
 	salc_list::Vector{SALC}
@@ -48,7 +49,7 @@ function BasisSet(
 	# println(basislist)
 	classified_basisdict::AbstractDict{Int, SortedCountingUniqueVector} =
 		classify_basislist(basislist, symmetry.map_sym)
-	println(classified_basisdict)
+	# println(classified_basisdict)
 
 	projection_dict::Dict{Int, Matrix{Float64}},
 	each_projection_dict =
@@ -74,9 +75,9 @@ function BasisSet(
 		end
 	end
 
-	@show salc_list
+	# @show salc_list
 
-	return BasisSet(basislist, projection_dict, each_projection_dict, salc_list)
+	return BasisSet(basislist, classified_basisdict, projection_dict, each_projection_dict, salc_list)
 
 end
 
