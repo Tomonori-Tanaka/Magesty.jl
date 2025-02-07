@@ -36,7 +36,7 @@ struct SpinCluster
 	symmetry::Symmetry
 	cluster::Cluster
 	basisset::BasisSet
-	optimize::SCEOptimizer
+	optimize::Union{SCEOptimizer, Nothing}
 end
 
 function SpinCluster(input_dict::Dict{<:AbstractString, <:Any})
@@ -45,10 +45,10 @@ function SpinCluster(input_dict::Dict{<:AbstractString, <:Any})
 	symmetry::Symmetry = set_symmetry(parser, system)
 	cluster::Cluster = set_cluster(parser, system, symmetry)
 	basisset::BasisSet = set_basisset(parser, system, symmetry, cluster)
-	if parser.mode == "optimize"
-		optimize::SCEOptimizer = set_optimize(parser, system, symmetry, cluster, basisset)
+	optimize = if parser.mode == "optimize"
+		set_optimize(parser, system, symmetry, basisset)
 	else
-		exit()
+		nothing
 	end
 
 	return SpinCluster(parser, system, symmetry, cluster, basisset, optimize)
