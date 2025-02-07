@@ -18,12 +18,24 @@ export SCEOptimizer
 
 struct SCEOptimizer
 	SCE::Vector{Float64}
+	energy_list::Vector{Float64}
 end
 
 function SCEOptimizer(
 	system::System,
 	symmetry::Symmetry,
-	cluster::Cluster,
+	basisset::BasisSet,
+	j_zero_thr::Real,
+	weight::Real,
+	spinconfig_list::AbstractVector{SpinConfig},
+)
+	SCE, energy_list = ols_energy(basisset.salc_list, spinconfig_list, symmetry)
+	return SCEOptimizer(SCE, energy_list)
+end
+
+function SCEOptimizer(
+	system::System,
+	symmetry::Symmetry,
 	basisset::BasisSet,
 	j_zero_thr::Real,
 	weight::Real,
@@ -32,16 +44,15 @@ function SCEOptimizer(
 	# read datafile
 	spinconfig_list::Vector{SpinConfig} = read_embset(datafile, system.supercell.num_atoms)
 
-	SCE = ols_energy(basisset.salc_list, spinconfig_list, symmetry)
-	@show SCE
-	return SCEOptimizer(SCE)
+	return SCEOptimizer(system, symmetry, basisset, j_zero_thr, weight, spinconfig_list)
 end
+
 
 function ols_energy(
 	salc_list::AbstractVector{SALC},
 	spinconfig_list::AbstractVector{SpinConfig},
 	symmetry::Symmetry,
-)
+)::Tuple{Vector{Float64}, Vector{Float64}}
 	# dimensions
 	num_salcs = length(salc_list)
 	num_spinconfigs = length(spinconfig_list)
@@ -57,7 +68,11 @@ function ols_energy(
 	for i in 1:num_salcs
 		for j in 1:num_spinconfigs
 			design_matrix[j, i+1] =
-				calc_design_matrix_element(salc_list[i], spinconfig_list[j], symmetry)
+				calc_design_matrix_element(
+					salc_list[i],
+					spinconfig_list[j].spin_directions,
+					symmetry,
+				)
 			initialize_check[j, i+1] = true
 		end
 	end
@@ -79,12 +94,12 @@ function ols_energy(
 	# 	)
 	# end
 
-	return ols_coeffs * 1000 # convert to meV
+	return ols_coeffs, energy_list
 end
 
 function calc_design_matrix_element(
 	salc::SALC,
-	spinconfig::SpinConfig,
+	spin_directions::AbstractMatrix{<:Real},
 	symmetry::Symmetry,
 )::Float64
 	num_salc_basis::Int = length(salc.basisset)
@@ -97,7 +112,7 @@ function calc_design_matrix_element(
 				atom::Int = symmetry.map_sym[ibasis.atom, itrans]
 				l::Int = ibasis.l
 				m::Int = ibasis.m
-				product_tmp *= Sₗₘ(l, m, spinconfig.spin_directions[:, atom])
+				product_tmp *= Sₗₘ(l, m, spin_directions[:, atom])
 			end
 			result += salc.coeffs[basis_idx] * salc.multiplicity[basis_idx] * product_tmp
 		end
