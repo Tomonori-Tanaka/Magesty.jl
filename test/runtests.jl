@@ -20,8 +20,13 @@ using Test
 	include("./component_test/test_SpinConfig.jl")
 end
 
+@testset "toy_models" begin
+	include("./toy_models/bcc2x2x2.jl")
+end
+
 @testset "examples" begin
-	include("./examples/febcc_2x2x2_fm/test.jl")
+	# include("./toy_models/bcc2x2x2.jl")
+	# include("./examples/febcc_2x2x2_fm/test.jl")
 	# include("./examples/febcc_2x2x2_paramag/test.jl")
 	# include("./examples/feptL10_2x2x2_saxis001/test.jl")
 	# include("./examples/bccfe1x1x1.jl")
