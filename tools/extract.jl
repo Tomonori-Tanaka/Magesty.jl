@@ -91,7 +91,7 @@ end
 
 s = ArgParseSettings()
 @add_arg_table s begin
-	"--energy_kind"
+	"--energy_kind", "-e"
 	help = "The kind of energy. f: free energy, e0: energy(sigma->0)"
 	default = "f"
 
@@ -105,7 +105,7 @@ s = ArgParseSettings()
 	arg_type = Float64
 	default = [0.0, 0.0, 1.0]
 
-	"--target_files", "-t"
+	"--target_files", "-f"
 	help = "target files"
 	required = true
 	nargs = '+'
