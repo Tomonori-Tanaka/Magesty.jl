@@ -21,7 +21,7 @@ using TOML
 		[interaction.lmax]
 		X = [ 0, 1 ] # the number of elements shoud be the same with "nbody" value.
 		[interaction.cutoff] # unit is bohr
-		X-X = [ 0, 2.9 ] # first element is just dummy to align wigh lmax array
+		X-X = [ 0, 1.5 ] # first element is just dummy to align wigh lmax array
 		# negative cutoff means all of the possible interaction will be considered.
 
 	[regression]
@@ -119,8 +119,8 @@ using TOML
 		sclus.basisset,
 		optimize,
 	)
-	@show typeof(optimize)
-	@show typeof(sclus_new.optimize)
+	display(sclus_new.basisset.salc_list)
+	# display(sclus_new.basisset.classified_basisdict)
 	@test isapprox(sclus_new.optimize.energy_list, energy_list, atol=1e-6)
 	@test isapprox(sclus_new.optimize.SCE, sce_list, atol=1e-6)
 end
