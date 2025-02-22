@@ -2,7 +2,7 @@ using TOML
 
 input = TOML.parse(
 	open(
-		"/Users/tomorin/Packages/Magesty/test/examples/feptL10_2x2x2_saxis001/input.toml",
+		"/Users/tomorin/Packages/Magesty/test/examples/srmno3_2x2x2_gAFM/input.toml",
 		"r",
 	),
 )

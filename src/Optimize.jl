@@ -81,6 +81,8 @@ function ols_energy(
 		error("Failed to initialize the design matrix.")
 	end
 
+	# display(design_matrix)
+
 	energy_list::Vector{Float64} = [spinconfig.energy for spinconfig in spinconfig_list]
 	# solve Ax = b
 	ols_coeffs = design_matrix \ energy_list
