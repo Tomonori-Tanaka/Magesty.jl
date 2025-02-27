@@ -57,22 +57,10 @@ using TOML
 	"""
 	parsed = TOML.parse(input)
 	sclus = SpinCluster(parsed)
-	# for i in 1:sclus.symmetry.nsym
-	# 	if sclus.symmetry.symdata[i].is_translation_included
-	# 		continue
-	# 	end
-	# 	println(i)
-	# 	println(sclus.symmetry.symdata[i])
-	# end
 
-	# idx = 48
-	# Magesty.BasisSets.__write_martix(sclus.basisset.each_projection_dict[1][idx])
-	# for idx in 1:sclus.symmetry.nsym
-	# 	display(sclus.basisset.each_projection_dict[1][idx])
-	# end
-	# for (i, basis) in enumerate(sclus.basisset.basislist)
-	# 	println(i, "\t", basis)
-	# println(sclus.basisset.basislist)
-	# @test length(sclus.basisset.basislist) ==
-	# 	  8 * (3 * 3) + (8 - 1) * (3 * 3) + 2 * (3 * (3 * 3)) + 2 * (4 * (3 * 3)) + 2 # 72 + 63 + 54 +72 + 2 
+	@show sclus.cluster.cluster_list_with_cell
+	@show sclus.basisset.basislist
+	display(sclus.basisset.classified_basisdict)
+	display(sclus.basisset.salc_list)
+	display(sclus.optimize.SCE)
 end

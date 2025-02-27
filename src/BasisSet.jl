@@ -249,9 +249,9 @@ function is_translationally_equiv_basis(
 			push!(moved_celllist, crrsp_cell)
 		end
 
-		# if length(intersect(moved_atomlist, get_atomlist(basis_target))) != 0
-		# 	return false
-		# end
+		if length(intersect(moved_atomlist, get_atomlist(basis_target))) != 0
+			return false
+		end
 
 		iul = IndicesUniqueList()
 		for (idx, (atom, cell)) in enumerate(zip(moved_atomlist, moved_celllist))
