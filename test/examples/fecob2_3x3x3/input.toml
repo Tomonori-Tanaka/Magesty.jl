@@ -16,7 +16,7 @@ Co = [0, 1]
 Fe = [0, 1] # the number of elements shoud be the same with "nbody" value.
 [interaction.cutoff] # unit is bohr
 Co-Co = [0, 0]
-Fe-Co = [0, 5]
+Fe-Co = [0, 3]
 Fe-Fe = [0, 0] # first element is just dummy to align wigh lmax array
 # negative cutoff means all of the possible interaction will be considered.
 
