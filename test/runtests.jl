@@ -26,8 +26,8 @@ end
 
 @testset "examples" begin
 	# include("./examples/febcc_2x2x2_fm/test.jl")
-	# include("./examples/febcc_2x2x2_paramag/test.jl")
-	include("./examples/fecob2_3x3x3/test.jl")	
+	include("./examples/febcc_2x2x2_paramag/test.jl")
+	# include("./examples/fecob2_3x3x3/test.jl")	
 	# include("./examples/febcc_4x4x4_paramag/test.jl")
 	# include("./examples/srmno3_2x2x2_gAFM/test.jl")
 	# include("./examples/feptL10_2x2x2_saxis001/test.jl")

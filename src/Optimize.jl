@@ -73,6 +73,9 @@ function ols_energy(
 					spinconfig_list[j].spin_directions,
 					symmetry,
 				)
+			# if i == 1
+			# 	design_matrix[j, i+1] = 0.0
+			# end
 			initialize_check[j, i+1] = true
 		end
 	end
@@ -81,7 +84,7 @@ function ols_energy(
 		error("Failed to initialize the design matrix.")
 	end
 
-	# display(design_matrix)
+	display(design_matrix)
 
 	energy_list::Vector{Float64} = [spinconfig.energy for spinconfig in spinconfig_list]
 	# solve Ax = b
@@ -92,9 +95,13 @@ function ols_energy(
 	# for i in 1:num_spinconfigs
 	# 	println(
 	# 		"predicted: $(predicted_energy_list[i]) actual: $(energy_list[i])",
-	# 		" diff: $(predicted_energy_list[i] - energy_list[i])",
 	# 	)
 	# end
+	open("energy_comparison.txt", "w") do file
+        for i in 1:num_spinconfigs
+            println(file, "$(energy_list[i])\t$(predicted_energy_list[i])")
+        end
+    end
 
 	return ols_coeffs, energy_list
 end
@@ -120,7 +127,7 @@ function calc_design_matrix_element(
 		end
 	end
 
-	result = num_salc_basis * result
+	# result = num_salc_basis * result
 	return result
 end
 

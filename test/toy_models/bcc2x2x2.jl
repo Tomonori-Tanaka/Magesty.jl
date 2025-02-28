@@ -21,7 +21,7 @@ using TOML
 		[interaction.lmax]
 		X = [ 0, 1 ] # the number of elements shoud be the same with "nbody" value.
 		[interaction.cutoff] # unit is bohr
-		X-X = [ 0, 1.5 ] # first element is just dummy to align wigh lmax array
+		X-X = [ 0, 0.9 ] # first element is just dummy to align wigh lmax array
 		# negative cutoff means all of the possible interaction will be considered.
 
 	[regression]

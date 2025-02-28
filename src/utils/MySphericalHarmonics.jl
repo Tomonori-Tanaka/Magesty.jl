@@ -114,8 +114,8 @@ function Yₗₘ(l::Int, m::Int, uvec::Vector{<:Real})::Complex
 end
 
 function Sₗₘ(l::Int, m::Int, uvec::Vector{<:Real})::Float64
-	if l ≤ 0
-		error("Invalid value for l: l must be greater than 0 in the Sₗₘ function.")
+	if l < 0
+		error("Invalid value for l: l must be positive.")
 	end
 
 	if !is_normalized(uvec)
