@@ -3,13 +3,56 @@ using LinearAlgebra
 
 using ..MySphericalHarmonics
 
-@testset "Y_lm" begin
+@testset "Y_lm analytical" begin
 	@test isapprox(MySphericalHarmonics.Yₗₘ(0, 0, [1, 0, 0]), 1 / sqrt(4π))
 	@test isapprox(MySphericalHarmonics.Yₗₘ(1, 1, [-1, 0, 0]), sqrt(3 / 8π))
 	@test isapprox(MySphericalHarmonics.Yₗₘ(1, -1, [-1, 0, 0]), -sqrt(3 / 8π))
 	@test isapprox(MySphericalHarmonics.Yₗₘ(1, 1, [0, 0, 1]), 0)
 	@test isapprox(MySphericalHarmonics.Yₗₘ(2, 2, [0, 1, 0]), -3 * sqrt(5 / 96π))
 	@test isapprox(MySphericalHarmonics.Yₗₘ(2, 0, [0, 0, 1]), sqrt(5 / 4π))
+end
+
+@testset "S_lm analytical" begin
+	@test isapprox(MySphericalHarmonics.Sₗₘ(0, 0, [1, 0, 0]), 1 / sqrt(4π))
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, -1, [0, 0, 1]), 0)
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, -1, [0, 0, -1]), 0)
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, -1, [0, 1, 0]), 1 / 2 * sqrt(3 / π))
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, -1, [0, -1, 0]), -1 / 2 * sqrt(3 / π))
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, -1, [1, 0, 0]), 0)
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, -1, [-1, 0, 0]), 0)
+	@test isapprox(
+		MySphericalHarmonics.Sₗₘ(1, -1, 1 / sqrt(2) * [0, 1, 1]),
+		1 / 2 * sqrt(3 / (2π)),
+	)
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, -1, 1 / sqrt(2) * [1, 0, 1]), 0)
+	@test isapprox(
+		MySphericalHarmonics.Sₗₘ(1, -1, 1 / sqrt(2) * [1, 1, 0]),
+		1 / 2 * sqrt(3 / (2π)),
+	)
+
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 0, [0, 0, 1]), sqrt(3 / 4π))
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 0, [0, 0, -1]), -sqrt(3 / 4π))
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 0, [0, 1, 0]), 0)
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 0, [0, -1, 0]), 0)
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 0, [1, 0, 0]), 0)
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 0, [-1, 0, 0]), 0)
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 0, 1 / sqrt(2) * [0, 1, 1]), sqrt(3 / 8π))
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 0, 1 / sqrt(2) * [0, 1, -1]), -sqrt(3 / 8π))
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 0, 1 / sqrt(2) * [1, 0, 1]), sqrt(3 / 8π))
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 0, 1 / sqrt(2) * [1, 1, 0]), 0)
+
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 1, [0, 0, 1]), 0)
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 1, [0, 0, -1]), 0)
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 1, [0, 1, 0]), 0)
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 1, [0, -1, 0]), 0)
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 1, [1, 0, 0]), 1 / 2 * sqrt(3 / π))
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 1, [-1, 0, 0]), -1 / 2 * sqrt(3 / π))
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 1, 1 / sqrt(2) * [0, 1, 1]), 0)
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 1, 1 / sqrt(2) * [1, 0, 1]), 1 / 2 * sqrt(3 / (2π)))
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 1, 1 / sqrt(2) * [1, 0, -1]), 1 / 2 * sqrt(3 / (2π)))
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 1, 1 / sqrt(2) * [1, 1, 0]), 1 / 2 * sqrt(3 / (2π)))
+	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 1, 1 / sqrt(2) * [-1, 1, 0]), -1 / 2 * sqrt(3 / (2π)))
+	
 end
 
 @testset "Real Spherical Harmonics (Slm)" begin
