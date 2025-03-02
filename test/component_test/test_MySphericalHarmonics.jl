@@ -1,132 +1,1059 @@
 using Test
 using LinearAlgebra
+using LegendrePolynomials
 
 using ..MySphericalHarmonics
+using ..MySphericalHarmonics: P̄ₗₘ, dP̄ₗₘ, Yₗₘ, ∂Yₗₘ_∂r̂x, ∂Yₗₘ_∂r̂y, ∂Yₗₘ_∂r̂z, yₗₘ,
+	∂Sₗₘ_∂r̂x, ∂Sₗₘ_∂r̂y, ∂Sₗₘ_∂r̂z, ssₗₘ, ∂Sₗₘ_∂x, ∂Sₗₘ_∂y, ∂Sₗₘ_∂z
 
-@testset "Y_lm analytical" begin
-	@test isapprox(MySphericalHarmonics.Yₗₘ(0, 0, [1, 0, 0]), 1 / sqrt(4π))
-	@test isapprox(MySphericalHarmonics.Yₗₘ(1, 1, [-1, 0, 0]), sqrt(3 / 8π))
-	@test isapprox(MySphericalHarmonics.Yₗₘ(1, -1, [-1, 0, 0]), -sqrt(3 / 8π))
-	@test isapprox(MySphericalHarmonics.Yₗₘ(1, 1, [0, 0, 1]), 0)
-	@test isapprox(MySphericalHarmonics.Yₗₘ(2, 2, [0, 1, 0]), -3 * sqrt(5 / 96π))
-	@test isapprox(MySphericalHarmonics.Yₗₘ(2, 0, [0, 0, 1]), sqrt(5 / 4π))
-end
+@testset "Legendre polynomials" begin
+	# (l, m, r̂z)
+	@testset "P̄ₗₘ" begin
+		# Error handling
+		@test_throws ArgumentError P̄ₗₘ(0, 0, 1.1)
+		@test_throws ArgumentError P̄ₗₘ(0, 0, [1, 1, 1])
+		@test_throws ArgumentError P̄ₗₘ(0, 0, [1, 0])
+		@test_throws ArgumentError P̄ₗₘ(1, -1, [1, 0, 0])
+		@test_throws ArgumentError P̄ₗₘ(1, 2, [1, 0, 0])
+		@test_throws ArgumentError P̄ₗₘ(-1, 0, [1, 0, 0])
 
-@testset "S_lm analytical" begin
-	@test isapprox(MySphericalHarmonics.Sₗₘ(0, 0, [1, 0, 0]), 1 / sqrt(4π))
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, -1, [0, 0, 1]), 0)
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, -1, [0, 0, -1]), 0)
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, -1, [0, 1, 0]), 1 / 2 * sqrt(3 / π))
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, -1, [0, -1, 0]), -1 / 2 * sqrt(3 / π))
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, -1, [1, 0, 0]), 0)
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, -1, [-1, 0, 0]), 0)
-	@test isapprox(
-		MySphericalHarmonics.Sₗₘ(1, -1, 1 / sqrt(2) * [0, 1, 1]),
-		1 / 2 * sqrt(3 / (2π)),
-	)
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, -1, 1 / sqrt(2) * [1, 0, 1]), 0)
-	@test isapprox(
-		MySphericalHarmonics.Sₗₘ(1, -1, 1 / sqrt(2) * [1, 1, 0]),
-		1 / 2 * sqrt(3 / (2π)),
-	)
+		# l = 0, m = 0, √(1/4π)
+		@test isapprox(P̄ₗₘ(0, 0, 0), √(1 / 4π))
+		@test isapprox(P̄ₗₘ(0, 0, 1), √(1 / 4π))
+		@test isapprox(P̄ₗₘ(0, 0, -1), √(1 / 4π))
 
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 0, [0, 0, 1]), sqrt(3 / 4π))
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 0, [0, 0, -1]), -sqrt(3 / 4π))
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 0, [0, 1, 0]), 0)
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 0, [0, -1, 0]), 0)
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 0, [1, 0, 0]), 0)
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 0, [-1, 0, 0]), 0)
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 0, 1 / sqrt(2) * [0, 1, 1]), sqrt(3 / 8π))
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 0, 1 / sqrt(2) * [0, 1, -1]), -sqrt(3 / 8π))
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 0, 1 / sqrt(2) * [1, 0, 1]), sqrt(3 / 8π))
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 0, 1 / sqrt(2) * [1, 1, 0]), 0)
+		# l = 1, m = 0, √(3/4π)*r̂z
+		@test isapprox(P̄ₗₘ(1, 0, 0), 0)
+		@test isapprox(P̄ₗₘ(1, 0, 1), √(3 / 4π) * 1)
+		@test isapprox(P̄ₗₘ(1, 0, -1), √(3 / 4π) * -1)
 
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 1, [0, 0, 1]), 0)
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 1, [0, 0, -1]), 0)
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 1, [0, 1, 0]), 0)
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 1, [0, -1, 0]), 0)
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 1, [1, 0, 0]), 1 / 2 * sqrt(3 / π))
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 1, [-1, 0, 0]), -1 / 2 * sqrt(3 / π))
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 1, 1 / sqrt(2) * [0, 1, 1]), 0)
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 1, 1 / sqrt(2) * [1, 0, 1]), 1 / 2 * sqrt(3 / (2π)))
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 1, 1 / sqrt(2) * [1, 0, -1]), 1 / 2 * sqrt(3 / (2π)))
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 1, 1 / sqrt(2) * [1, 1, 0]), 1 / 2 * sqrt(3 / (2π)))
-	@test isapprox(MySphericalHarmonics.Sₗₘ(1, 1, 1 / sqrt(2) * [-1, 1, 0]), -1 / 2 * sqrt(3 / (2π)))
-	
-end
+		# l = 1, m = 1, -√(3/8π)
+		@test isapprox(P̄ₗₘ(1, 1, 0), -√(3 / 8π))
+		@test isapprox(P̄ₗₘ(1, 1, 1), -√(3 / 8π))
+		@test isapprox(P̄ₗₘ(1, 1, -1), -√(3 / 8π))
 
-@testset "Real Spherical Harmonics (Slm)" begin
+		# l = 2, m = 0, √(5/16π)*(3r̂z^2 - 1)
+		@test isapprox(P̄ₗₘ(2, 0, 0), -√(5 / 16π))
+		@test isapprox(P̄ₗₘ(2, 0, 1), √(5 / 16π) * (3 * 1^2 - 1))
+		@test isapprox(P̄ₗₘ(2, 0, -1), √(5 / 16π) * (3 * (-1)^2 - 1))
 
-	# uvec_list = [[1, 0, 0], [0, 1, 0], [0, 0, 1], [1 / sqrt(2), 1 / sqrt(2), 0], [0, 0, -1]]
-	uvec_list = [randn(3) for _ in 1:10]
-	for (i, uvec) in enumerate(uvec_list)
-		uvec_list[i] = uvec / norm(uvec)
-	end
-	result = 0 + 0im
-	for l in 1:10
-		for m in -l:l
-			for uvec in uvec_list
-				if m < 0
-					n = abs(m)
-					result =
-						(-1)^n / (sqrt(2) * im) * (
-							MySphericalHarmonics.Yₗₘ(l, n, uvec) -
-							conj(MySphericalHarmonics.Yₗₘ(l, n, uvec))
-						)
-				elseif m == 0
-					result = MySphericalHarmonics.Yₗₘ(l, m, uvec)
-				else
-					result =
-						(-1)^m / sqrt(2) * (
-							MySphericalHarmonics.Yₗₘ(l, m, uvec) +
-							conj(MySphericalHarmonics.Yₗₘ(l, m, uvec))
-						)
-				end
-				# println(l, m, uvec)
-				@test isapprox(Sₗₘ(l, m, uvec), result, atol = 1e-10)
-			end
-		end
+		# l = 2, m = 1, -√(15/8π)*r̂z
+		@test isapprox(P̄ₗₘ(2, 1, 0), 0)
+		@test isapprox(P̄ₗₘ(2, 1, 1), -√(15 / 8π) * 1)
+		@test isapprox(P̄ₗₘ(2, 1, -1), -√(15 / 8π) * -1)
+
+		# l = 2, m = 2, √(45/96π)
+		@test isapprox(P̄ₗₘ(2, 2, 0), √(45 / 96π))
+		@test isapprox(P̄ₗₘ(2, 2, 1), √(45 / 96π))
+		@test isapprox(P̄ₗₘ(2, 2, -1), √(45 / 96π))
 	end
 
-	# test for derivatives
-	for uvec in uvec_list
-		# _∂r̂x
-		# l = 1
-		@test MySphericalHarmonics.∂Sₗₘ_∂r̂x(1, -1, uvec) ≈ 0
-		@test MySphericalHarmonics.∂Sₗₘ_∂r̂x(1, 0, uvec) ≈ 0
-		@test MySphericalHarmonics.∂Sₗₘ_∂r̂x(1, 1, uvec) ≈ √(3 / 4π)
-		# l = 2
-		@test MySphericalHarmonics.∂Sₗₘ_∂r̂x(2, -2, uvec) ≈ 6 * √(5 / 48π) * uvec[2]
-		@test MySphericalHarmonics.∂Sₗₘ_∂r̂x(2, -1, uvec) ≈ 0
-		@test MySphericalHarmonics.∂Sₗₘ_∂r̂x(2, 0, uvec) ≈ 0
-		@test MySphericalHarmonics.∂Sₗₘ_∂r̂x(2, 1, uvec) ≈ 3 * √(5 / 12π) * uvec[3]
-		@test MySphericalHarmonics.∂Sₗₘ_∂r̂x(2, 2, uvec) ≈ 6 * √(5 / 48π) * uvec[1]
+	@testset "dP̄ₗₘ" begin
+		# l = 0, m = 0, 0
+		@test isapprox(dP̄ₗₘ(0, 0, 0), 0)
+		@test isapprox(dP̄ₗₘ(0, 0, 1), 0)
+		@test isapprox(dP̄ₗₘ(0, 0, -1), 0)
 
-		# _∂r̂y
-		# l = 1
-		@test MySphericalHarmonics.∂Sₗₘ_∂r̂y(1, -1, uvec) ≈ √(3 / 4π)
-		@test MySphericalHarmonics.∂Sₗₘ_∂r̂y(1, 0, uvec) ≈ 0
-		@test MySphericalHarmonics.∂Sₗₘ_∂r̂y(1, 1, uvec) ≈ 0
-		# l = 2
-		@test MySphericalHarmonics.∂Sₗₘ_∂r̂y(2, -1, uvec) ≈ 3 * √(5 / 12π) * uvec[3]
-		@test MySphericalHarmonics.∂Sₗₘ_∂r̂y(2, 0, uvec) ≈ 0
-		@test MySphericalHarmonics.∂Sₗₘ_∂r̂y(2, 1, uvec) ≈ 0
-		@test MySphericalHarmonics.∂Sₗₘ_∂r̂y(2, 2, uvec) ≈ -6 * √(5 / 48π) * uvec[2]
+		# l = 1, m = 0, √(3/4π)
+		@test isapprox(dP̄ₗₘ(1, 0, 0), √(3 / 4π))
+		@test isapprox(dP̄ₗₘ(1, 0, 1), √(3 / 4π))
+		@test isapprox(dP̄ₗₘ(1, 0, -1), √(3 / 4π))
 
-		# _∂r̂z
-		# l = 1
-		@test MySphericalHarmonics.∂Sₗₘ_∂r̂z(1, -1, uvec) ≈ 0
-		@test MySphericalHarmonics.∂Sₗₘ_∂r̂z(1, 0, uvec) ≈ √(3 / 4π)
-		@test MySphericalHarmonics.∂Sₗₘ_∂r̂z(1, 1, uvec) ≈ 0
-		# l = 2
-		@test MySphericalHarmonics.∂Sₗₘ_∂r̂z(2, -2, uvec) ≈ 0
-		@test MySphericalHarmonics.∂Sₗₘ_∂r̂z(2, -1, uvec) ≈ 3 * √(5 / 12π) * uvec[2]
-		@test MySphericalHarmonics.∂Sₗₘ_∂r̂z(2, 0, uvec) ≈ 3 * √(5 / 4π) * uvec[3]
-		@test MySphericalHarmonics.∂Sₗₘ_∂r̂z(2, 1, uvec) ≈ 3 * √(5 / 12π) * uvec[1]
-		@test MySphericalHarmonics.∂Sₗₘ_∂r̂z(2, 2, uvec) ≈ 0
+		# l = 1, m = 1, 0
+		@test isapprox(dP̄ₗₘ(1, 1, 0), 0)
+		@test isapprox(dP̄ₗₘ(1, 1, 1), 0)
+		@test isapprox(dP̄ₗₘ(1, 1, -1), 0)
 
-		@test d_Slm[1](1, 1, uvec) ≈ √(3 / 4π) - uvec[1] * (√(3 / 4π) * uvec[1] + 0 + 0)
-		@test d_Slm[1](1, 0, uvec) ≈ 0 - uvec[1] * (0 + 0 + √(3 / 4π) * uvec[3])
+		# l = 2, m = 0, √(5/16π)*(6r̂z)
+		@test isapprox(dP̄ₗₘ(2, 0, 0), 0)
+		@test isapprox(dP̄ₗₘ(2, 0, 1), √(5 / 16π) * 6 * 1)
+		@test isapprox(dP̄ₗₘ(2, 0, -1), √(5 / 16π) * 6 * -1)
 
+		# l = 2, m = 1, -√(15/8π)
+		@test isapprox(dP̄ₗₘ(2, 1, 0), -√(15 / 8π))
+		@test isapprox(dP̄ₗₘ(2, 1, 1), -√(15 / 8π))
+		@test isapprox(dP̄ₗₘ(2, 1, -1), -√(15 / 8π))
+
+		# l = 2, m = 2, 0
+		@test isapprox(dP̄ₗₘ(2, 2, 0), 0)
+		@test isapprox(dP̄ₗₘ(2, 2, 1), 0)
+		@test isapprox(dP̄ₗₘ(2, 2, -1), 0)
+	end
+end
+
+@testset "complex spherical harmonics" begin
+	@testset "Yₗₘ" begin
+		vec111 = 1 / √(3) * [1, 1, 1]
+		# Error handling
+		@test_throws ArgumentError Yₗₘ(0, 0, [1, 1, 0])
+		@test_throws ArgumentError Yₗₘ(0, 0, [1, 0])
+		@test_throws ArgumentError Yₗₘ(0, 1, [1, 0, 0])
+		@test_throws ArgumentError Yₗₘ(0, -1, [1, 0, 0])
+
+		# l = 0, m = 0, √(1/4π)
+		@test isapprox(Yₗₘ(0, 0, [1, 0, 0]), 1 / √(4π))
+		@test isapprox(Yₗₘ(0, 0, [0, 1, 0]), 1 / √(4π))
+		@test isapprox(Yₗₘ(0, 0, [0, 0, 1]), 1 / √(4π))
+		@test isapprox(Yₗₘ(0, 0, [0, 0, -1]), 1 / √(4π))
+
+		# l = 1, m = 0, √(3/4π)*r̂z
+		@test isapprox(Yₗₘ(1, 0, [1, 0, 0]), 0)
+		@test isapprox(Yₗₘ(1, 0, [0, 1, 0]), 0)
+		@test isapprox(Yₗₘ(1, 0, [0, 0, 1]), √(3 / 4π))
+		@test isapprox(Yₗₘ(1, 0, [0, 0, -1]), -√(3 / 4π))
+
+		# l = 1, m = 1, -√(3/8π)*(r̂x + ir̂y)
+		@test isapprox(Yₗₘ(1, 1, [1, 0, 0]), -√(3 / 8π))
+		@test isapprox(Yₗₘ(1, 1, [-1, 0, 0]), √(3 / 8π))
+		@test isapprox(Yₗₘ(1, 1, [0, 1, 0]), -√(3 / 8π)im)
+		@test isapprox(Yₗₘ(1, 1, [0, -1, 0]), √(3 / 8π)im)
+		@test isapprox(Yₗₘ(1, 1, [0, 0, 1]), 0)
+		@test isapprox(Yₗₘ(1, 1, [0, 0, -1]), 0)
+
+		# l = 1, m = -1, √(3/8π)*(r̂x - ir̂y)
+		@test isapprox(Yₗₘ(1, -1, [1, 0, 0]), √(3 / 8π))
+		@test isapprox(Yₗₘ(1, -1, [-1, 0, 0]), -√(3 / 8π))
+		@test isapprox(Yₗₘ(1, -1, [0, 1, 0]), -√(3 / 8π)im)
+		@test isapprox(Yₗₘ(1, -1, [0, -1, 0]), √(3 / 8π)im)
+		@test isapprox(Yₗₘ(1, -1, [0, 0, 1]), 0)
+		@test isapprox(Yₗₘ(1, -1, [0, 0, -1]), 0)
+
+		# l = 2, m = 0, √(5/16π)*(3r̂z^2 - 1)
+		@test isapprox(Yₗₘ(2, 0, [1, 0, 0]), -√(5 / 16π))
+		@test isapprox(Yₗₘ(2, 0, [0, 1, 0]), -√(5 / 16π))
+		@test isapprox(Yₗₘ(2, 0, [0, 0, 1]), √(5 / 16π) * (3 * 1^2 - 1))
+		@test isapprox(Yₗₘ(2, 0, [0, 0, -1]), √(5 / 16π) * (3 * (-1)^2 - 1))
+
+		# l = 2, m = 1, -√(15/8π)*(r̂x + ir̂y)*r̂z
+		@test isapprox(Yₗₘ(2, 1, [1, 0, 0]), 0)
+		@test isapprox(Yₗₘ(2, 1, [0, 1, 0]), 0)
+		@test isapprox(Yₗₘ(2, 1, [0, 0, 1]), 0)
+		@test isapprox(Yₗₘ(2, 1, [0, 0, -1]), 0)
+		@test isapprox(Yₗₘ(2, 1, vec111), -√(15 / 8π) * (1 / 3) * (1 + im))
+		@test isapprox(Yₗₘ(2, 1, -vec111), -√(15 / 8π) * (1 / 3) * (1 + im))
+
+		# l = 2, m = -1, √(15/8π)*(r̂x - ir̂y)*r̂z
+		@test isapprox(Yₗₘ(2, -1, [1, 0, 0]), 0)
+		@test isapprox(Yₗₘ(2, -1, [0, 1, 0]), 0)
+		@test isapprox(Yₗₘ(2, -1, [0, 0, 1]), 0)
+		@test isapprox(Yₗₘ(2, -1, [0, 0, -1]), 0)
+		@test isapprox(Yₗₘ(2, -1, vec111), √(15 / 8π) * (1 / 3) * (1 - im))
+		@test isapprox(Yₗₘ(2, -1, -vec111), √(15 / 8π) * (1 / 3) * (1 - im))
+
+
+		# l = 2, m = 2, √(45/96π)*(r̂x + ir̂y)^2
+		@test isapprox(Yₗₘ(2, 2, [1, 0, 0]), √(45 / 96π))
+		@test isapprox(Yₗₘ(2, 2, [-1, 0, 0]), √(45 / 96π))
+		@test isapprox(Yₗₘ(2, 2, [0, 1, 0]), -√(45 / 96π))
+		@test isapprox(Yₗₘ(2, 2, [0, -1, 0]), -√(45 / 96π))
+		@test isapprox(Yₗₘ(2, 2, [0, 0, 1]), 0)
+		@test isapprox(Yₗₘ(2, 2, [0, 0, -1]), 0)
+		@test isapprox(Yₗₘ(2, 2, vec111), √(45 / 96π) * (1 / 3) * 2im)
+		@test isapprox(Yₗₘ(2, 2, -vec111), √(45 / 96π) * (1 / 3) * (2im))
+
+		# l = 2, m = -2, √(45/96π)*(r̂x - ir̂y)^2
+		@test isapprox(Yₗₘ(2, -2, [1, 0, 0]), √(45 / 96π))
+		@test isapprox(Yₗₘ(2, -2, [-1, 0, 0]), √(45 / 96π))
+		@test isapprox(Yₗₘ(2, -2, [0, 1, 0]), -√(45 / 96π))
+		@test isapprox(Yₗₘ(2, -2, [0, -1, 0]), -√(45 / 96π))
+		@test isapprox(Yₗₘ(2, -2, [0, 0, 1]), 0)
+		@test isapprox(Yₗₘ(2, -2, [0, 0, -1]), 0)
+		@test isapprox(
+			Yₗₘ(2, -2, vec111),
+			√(45 / 96π) * (1 / 3) * (-2im),
+		)
+		@test isapprox(
+			Yₗₘ(2, -2, -vec111),
+			√(45 / 96π) * (1 / 3) * (-2im),
+		)
+	end
+
+	@testset "∂Yₗₘ_∂r̂x" begin
+		vec111 = 1 / √(3) * [1, 1, 1]
+		# l = 0, m = 0, 0
+		@test isapprox(∂Yₗₘ_∂r̂x(0, 0, [1, 0, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂x(0, 0, [0, 1, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂x(0, 0, [0, 0, 1]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂x(0, 0, [0, 0, -1]), 0)
+
+		# l = 1, m = 0, 0
+		@test isapprox(∂Yₗₘ_∂r̂x(1, 0, [1, 0, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂x(1, 0, [0, 1, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂x(1, 0, [0, 0, 1]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂x(1, 0, [0, 0, -1]), 0)
+		# l = 1, m = 1, -√(3/8π)
+		@test isapprox(∂Yₗₘ_∂r̂x(1, 1, [1, 0, 0]), -√(3 / 8π))
+		@test isapprox(∂Yₗₘ_∂r̂x(1, 1, [-1, 0, 0]), -√(3 / 8π))
+		@test isapprox(∂Yₗₘ_∂r̂x(1, 1, [0, 1, 0]), -√(3 / 8π))
+		@test isapprox(∂Yₗₘ_∂r̂x(1, 1, [0, -1, 0]), -√(3 / 8π))
+		@test isapprox(∂Yₗₘ_∂r̂x(1, 1, [0, 0, 1]), -√(3 / 8π))
+		@test isapprox(∂Yₗₘ_∂r̂x(1, 1, [0, 0, -1]), -√(3 / 8π))
+		# l = 1, m = -1, √(3/8π)
+		@test isapprox(∂Yₗₘ_∂r̂x(1, -1, [1, 0, 0]), √(3 / 8π))
+		@test isapprox(∂Yₗₘ_∂r̂x(1, -1, [-1, 0, 0]), √(3 / 8π))
+		@test isapprox(∂Yₗₘ_∂r̂x(1, -1, [0, 1, 0]), √(3 / 8π))
+		@test isapprox(∂Yₗₘ_∂r̂x(1, -1, [0, -1, 0]), √(3 / 8π))
+		@test isapprox(∂Yₗₘ_∂r̂x(1, -1, [0, 0, 1]), √(3 / 8π))
+		@test isapprox(∂Yₗₘ_∂r̂x(1, -1, [0, 0, -1]), √(3 / 8π))
+
+		# l = 2, m = 0, 0
+		@test isapprox(∂Yₗₘ_∂r̂x(2, 0, [1, 0, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂x(2, 0, [0, 1, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂x(2, 0, [0, 0, 1]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂x(2, 0, [0, 0, -1]), 0)
+		# l = 2, m = 1, -√(15/8π)*r̂z
+		@test isapprox(∂Yₗₘ_∂r̂x(2, 1, [1, 0, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂x(2, 1, [0, 1, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂x(2, 1, [0, 0, 1]), -√(15 / 8π))
+		@test isapprox(∂Yₗₘ_∂r̂x(2, 1, [0, 0, -1]), √(15 / 8π))
+		# l = 2, m = -1, √(15/8π)*r̂z
+		@test isapprox(∂Yₗₘ_∂r̂x(2, -1, [1, 0, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂x(2, -1, [0, 1, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂x(2, -1, [0, 0, 1]), √(15 / 8π))
+		@test isapprox(∂Yₗₘ_∂r̂x(2, -1, [0, 0, -1]), -√(15 / 8π))
+		# l = 2, m = 2, √(45/96π)*2*(r̂x + ir̂y)
+		@test isapprox(∂Yₗₘ_∂r̂x(2, 2, [1, 0, 0]), 2 * √(45 / 96π))
+		@test isapprox(∂Yₗₘ_∂r̂x(2, 2, [-1, 0, 0]), -2 * √(45 / 96π))
+		@test isapprox(∂Yₗₘ_∂r̂x(2, 2, [0, 1, 0]), 2 * √(45 / 96π)im)
+		@test isapprox(∂Yₗₘ_∂r̂x(2, 2, [0, -1, 0]), -2 * √(45 / 96π)im)
+		@test isapprox(∂Yₗₘ_∂r̂x(2, 2, [0, 0, 1]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂x(2, 2, [0, 0, -1]), 0)
+		@test isapprox(
+			∂Yₗₘ_∂r̂x(2, 2, vec111),
+			2 * √(45 / 96π) * (1 / √(3)) * (1 + im),
+		)
+		@test isapprox(
+			∂Yₗₘ_∂r̂x(2, 2, -vec111),
+			-2 * √(45 / 96π) * (1 / √(3)) * (1 + im),
+		)
+		# l = 2, m = -2, √(45/96π)*2*(r̂x - ir̂y)
+		@test isapprox(∂Yₗₘ_∂r̂x(2, -2, [1, 0, 0]), 2 * √(45 / 96π))
+		@test isapprox(∂Yₗₘ_∂r̂x(2, -2, [-1, 0, 0]), -2 * √(45 / 96π))
+		@test isapprox(∂Yₗₘ_∂r̂x(2, -2, [0, 1, 0]), -2 * √(45 / 96π)im)
+		@test isapprox(∂Yₗₘ_∂r̂x(2, -2, [0, -1, 0]), 2 * √(45 / 96π)im)
+		@test isapprox(∂Yₗₘ_∂r̂x(2, -2, [0, 0, 1]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂x(2, -2, [0, 0, -1]), 0)
+		@test isapprox(
+			∂Yₗₘ_∂r̂x(2, -2, vec111),
+			2 * √(45 / 96π) * (1 / √(3)) * (1 - im),
+		)
+		@test isapprox(
+			∂Yₗₘ_∂r̂x(2, -2, -vec111),
+			-2 * √(45 / 96π) * (1 / √(3)) * (1 - im),
+		)
+	end
+
+	@testset "∂Yₗₘ_∂r̂y" begin
+		vec111 = 1 / √(3) * [1, 1, 1]
+		# l = 0, m = 0, 0
+		@test isapprox(∂Yₗₘ_∂r̂y(0, 0, [1, 0, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂y(0, 0, [0, 1, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂y(0, 0, [0, 0, 1]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂y(0, 0, [0, 0, -1]), 0)
+
+		# l = 1, m = 0, 0
+		@test isapprox(∂Yₗₘ_∂r̂y(1, 0, [1, 0, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂y(1, 0, [0, 1, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂y(1, 0, [0, 0, 1]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂y(1, 0, [0, 0, -1]), 0)
+		# l = 1, m = 1, -√(3/8π)im
+		@test isapprox(∂Yₗₘ_∂r̂y(1, 1, [1, 0, 0]), -√(3 / 8π)im)
+		@test isapprox(∂Yₗₘ_∂r̂y(1, 1, [-1, 0, 0]), -√(3 / 8π)im)
+		@test isapprox(∂Yₗₘ_∂r̂y(1, 1, [0, 1, 0]), -√(3 / 8π)im)
+		@test isapprox(∂Yₗₘ_∂r̂y(1, 1, [0, -1, 0]), -√(3 / 8π)im)
+		@test isapprox(∂Yₗₘ_∂r̂y(1, 1, [0, 0, 1]), -√(3 / 8π)im)
+		@test isapprox(∂Yₗₘ_∂r̂y(1, 1, [0, 0, -1]), -√(3 / 8π)im)
+		# l = 1, m = -1, -√(3/8π)im
+		@test isapprox(∂Yₗₘ_∂r̂y(1, -1, [1, 0, 0]), -√(3 / 8π)im)
+		@test isapprox(∂Yₗₘ_∂r̂y(1, -1, [-1, 0, 0]), -√(3 / 8π)im)
+		@test isapprox(∂Yₗₘ_∂r̂y(1, -1, [0, 1, 0]), -√(3 / 8π)im)
+		@test isapprox(∂Yₗₘ_∂r̂y(1, -1, [0, -1, 0]), -√(3 / 8π)im)
+		@test isapprox(∂Yₗₘ_∂r̂y(1, -1, [0, 0, 1]), -√(3 / 8π)im)
+		@test isapprox(∂Yₗₘ_∂r̂y(1, -1, [0, 0, -1]), -√(3 / 8π)im)
+
+		# l = 2, m = 0, 0
+		@test isapprox(∂Yₗₘ_∂r̂y(2, 0, [1, 0, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂y(2, 0, [0, 1, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂y(2, 0, [0, 0, 1]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂y(2, 0, [0, 0, -1]), 0)
+		# l = 2, m = 1, -im*1*√(15/8π)*r̂z
+		@test isapprox(∂Yₗₘ_∂r̂y(2, 1, [1, 0, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂y(2, 1, [-1, 0, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂y(2, 1, [0, 1, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂y(2, 1, [0, -1, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂y(2, 1, [0, 0, 1]), -√(15 / 8π)im)
+		@test isapprox(∂Yₗₘ_∂r̂y(2, 1, [0, 0, -1]), √(15 / 8π)im)
+		# l = 2, m = -1, -im*1*√(15/8π)*r̂z
+		@test isapprox(∂Yₗₘ_∂r̂y(2, -1, [1, 0, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂y(2, -1, [-1, 0, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂y(2, -1, [0, 1, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂y(2, -1, [0, -1, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂y(2, -1, [0, 0, 1]), -√(15 / 8π)im)
+		@test isapprox(∂Yₗₘ_∂r̂y(2, -1, [0, 0, -1]), √(15 / 8π)im)
+		# l = 2, m = 2, im*2(r̂x + im*r̂y)√(45/96π)
+		@test isapprox(∂Yₗₘ_∂r̂y(2, 2, [1, 0, 0]), 2im * √(45 / 96π))
+		@test isapprox(∂Yₗₘ_∂r̂y(2, 2, [-1, 0, 0]), -2im * √(45 / 96π))
+		@test isapprox(∂Yₗₘ_∂r̂y(2, 2, [0, 1, 0]), -2 * √(45 / 96π))
+		@test isapprox(∂Yₗₘ_∂r̂y(2, 2, [0, -1, 0]), 2 * √(45 / 96π))
+		@test isapprox(∂Yₗₘ_∂r̂y(2, 2, [0, 0, 1]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂y(2, 2, [0, 0, -1]), 0)
+		@test isapprox(
+			∂Yₗₘ_∂r̂y(2, 2, vec111),
+			2im * (1 / √(3)) * √(45 / 96π) * (1 + im),
+		)
+		@test isapprox(
+			∂Yₗₘ_∂r̂y(2, 2, -vec111),
+			-2im * (1 / √(3)) * √(45 / 96π) * (1 + im),
+		)
+		# l = 2, m = -2, -im*2(r̂x - im*r̂y)√(45/96π)
+		@test isapprox(∂Yₗₘ_∂r̂y(2, -2, [1, 0, 0]), -2im * √(45 / 96π))
+		@test isapprox(∂Yₗₘ_∂r̂y(2, -2, [-1, 0, 0]), 2im * √(45 / 96π))
+		@test isapprox(∂Yₗₘ_∂r̂y(2, -2, [0, 1, 0]), -2 * √(45 / 96π))
+		@test isapprox(∂Yₗₘ_∂r̂y(2, -2, [0, -1, 0]), 2 * √(45 / 96π))
+		@test isapprox(∂Yₗₘ_∂r̂y(2, -2, [0, 0, 1]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂y(2, -2, [0, 0, -1]), 0)
+		@test isapprox(
+			∂Yₗₘ_∂r̂y(2, -2, vec111),
+			-2im * (1 / √(3)) * √(45 / 96π) * (1 - im),
+		)
+		@test isapprox(
+			∂Yₗₘ_∂r̂y(2, -2, -vec111),
+			2im * (1 / √(3)) * √(45 / 96π) * (1 - im),
+		)
+	end
+
+	@testset "∂Yₗₘ_∂r̂z" begin
+		vec111 = 1 / √(3) * [1, 1, 1]
+		# l = 0, m = 0, 0
+		@test isapprox(∂Yₗₘ_∂r̂z(0, 0, [1, 0, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂z(0, 0, [0, 1, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂z(0, 0, [0, 0, 1]), 0)
+
+		# l = 1, m = 0, √(3/4π)
+		@test isapprox(∂Yₗₘ_∂r̂z(1, 0, [1, 0, 0]), √(3 / 4π))
+		@test isapprox(∂Yₗₘ_∂r̂z(1, 0, [0, 1, 0]), √(3 / 4π))
+		@test isapprox(∂Yₗₘ_∂r̂z(1, 0, [0, 0, 1]), √(3 / 4π))
+		# l = 1, m = 1, 0
+		@test isapprox(∂Yₗₘ_∂r̂z(1, 1, [1, 0, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂z(1, 1, [0, 1, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂z(1, 1, [0, 0, 1]), 0)
+		# l = 1, m = -1, 0
+		@test isapprox(∂Yₗₘ_∂r̂z(1, -1, [1, 0, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂z(1, -1, [0, 1, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂z(1, -1, [0, 0, 1]), 0)
+
+		# l = 2, m = 0, 6√(5/16π)r̂z
+		@test isapprox(∂Yₗₘ_∂r̂z(2, 0, [1, 0, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂z(2, 0, [0, 1, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂z(2, 0, [0, 0, 1]), 6 * √(5 / 16π))
+		@test isapprox(∂Yₗₘ_∂r̂z(2, 0, [0, 0, -1]), -6 * √(5 / 16π))
+		# l = 2, m = 1, -√(15/8π)(r̂x + im*r̂y)
+		@test isapprox(∂Yₗₘ_∂r̂z(2, 1, [1, 0, 0]), -√(15 / 8π))
+		@test isapprox(∂Yₗₘ_∂r̂z(2, 1, [0, 1, 0]), -√(15 / 8π)im)
+		@test isapprox(∂Yₗₘ_∂r̂z(2, 1, [0, 0, 1]), 0)
+		@test isapprox(
+			∂Yₗₘ_∂r̂z(2, 1, vec111),
+			-√(15 / 8π) * (1 / √(3)) * (1 + im),
+		)
+		@test isapprox(
+			∂Yₗₘ_∂r̂z(2, 1, -vec111),
+			√(15 / 8π) * (1 / √(3)) * (1 + im),
+		)
+		# l = 2, m = -1, √(15/8π)(r̂x - im*r̂y)
+		@test isapprox(∂Yₗₘ_∂r̂z(2, -1, [1, 0, 0]), √(15 / 8π))
+		@test isapprox(∂Yₗₘ_∂r̂z(2, -1, [0, 1, 0]), -√(15 / 8π)im)
+		@test isapprox(∂Yₗₘ_∂r̂z(2, -1, [0, -1, 0]), √(15 / 8π)im)
+		@test isapprox(∂Yₗₘ_∂r̂z(2, -1, [0, 0, 1]), 0)
+		@test isapprox(
+			∂Yₗₘ_∂r̂z(2, -1, vec111),
+			√(15 / 8π) * (1 / √(3)) * (1 - im),
+		)
+		@test isapprox(
+			∂Yₗₘ_∂r̂z(2, -1, -vec111),
+			-√(15 / 8π) * (1 / √(3)) * (1 - im),
+		)
+		# l = 2, m = 2, 0
+		@test isapprox(∂Yₗₘ_∂r̂z(2, 2, [1, 0, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂z(2, 2, [0, 1, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂z(2, 2, [0, 0, 1]), 0)
+		# l = 2, m = -2, 0
+		@test isapprox(∂Yₗₘ_∂r̂z(2, -2, [1, 0, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂z(2, -2, [0, 1, 0]), 0)
+		@test isapprox(∂Yₗₘ_∂r̂z(2, -2, [0, 0, 1]), 0)
+	end
+
+	@testset "yₗₘ" begin
+		vec111 = 1 / √(3) * [1, 1, 1]
+		# l = 0, m = 0, 0
+		@test isapprox(yₗₘ(0, 0, [1, 0, 0]), 0)
+		@test isapprox(yₗₘ(0, 0, [0, 1, 0]), 0)
+		@test isapprox(yₗₘ(0, 0, [0, 0, 1]), 0)
+
+		# l = 1, m = 0, √(3/4π)*r̂z
+		@test isapprox(yₗₘ(1, 0, [1, 0, 0]), 0)
+		@test isapprox(yₗₘ(1, 0, [0, 1, 0]), 0)
+		@test isapprox(yₗₘ(1, 0, [0, 0, 1]), √(3 / 4π))
+		@test isapprox(yₗₘ(1, 0, vec111), √(1 / 4π))
+		@test isapprox(yₗₘ(1, 0, -vec111), -√(1 / 4π))
+		# l = 1, m = 1, -√(3/8π)*(r̂x + im*r̂y)
+		@test isapprox(yₗₘ(1, 1, [1, 0, 0]), -√(3 / 8π))
+		@test isapprox(yₗₘ(1, 1, [-1, 0, 0]), √(3 / 8π))
+		@test isapprox(yₗₘ(1, 1, [0, 1, 0]), -√(3 / 8π)im)
+		@test isapprox(yₗₘ(1, 1, [0, -1, 0]), √(3 / 8π)im)
+		@test isapprox(yₗₘ(1, 1, [0, 0, 1]), 0)
+		@test isapprox(yₗₘ(1, 1, vec111), -√(1 / 8π) * (1 + im))
+		@test isapprox(yₗₘ(1, 1, -vec111), √(1 / 8π) * (1 + im))
+		# l = 1, m = -1, √(3/8π)*(r̂x - im*r̂y)
+		@test isapprox(yₗₘ(1, -1, [1, 0, 0]), √(3 / 8π))
+		@test isapprox(yₗₘ(1, -1, [-1, 0, 0]), -√(3 / 8π))
+		@test isapprox(yₗₘ(1, -1, [0, 1, 0]), -√(3 / 8π)im)
+		@test isapprox(yₗₘ(1, -1, [0, -1, 0]), √(3 / 8π)im)
+		@test isapprox(yₗₘ(1, -1, [0, 0, 1]), 0)
+		@test isapprox(yₗₘ(1, -1, vec111), √(1 / 8π) * (1 - im))
+		@test isapprox(yₗₘ(1, -1, -vec111), -√(1 / 8π) * (1 - im))
+
+		# l = 2, m = 0, 6√(5/16π)*r̂z^2
+		@test isapprox(yₗₘ(2, 0, [1, 0, 0]), 0)
+		@test isapprox(yₗₘ(2, 0, [0, 1, 0]), 0)
+		@test isapprox(yₗₘ(2, 0, [0, 0, 1]), 6 * √(5 / 16π))
+		@test isapprox(yₗₘ(2, 0, [0, 0, -1]), 6 * √(5 / 16π))
+		@test isapprox(yₗₘ(2, 0, vec111), 2 * √(5 / 16π))
+		@test isapprox(yₗₘ(2, 0, -vec111), 2 * √(5 / 16π))
+		# l = 2, m = 1, -√(15/2π)*(r̂x + im*r̂y)*r̂z
+		@test isapprox(yₗₘ(2, 1, [1, 0, 0]), 0)
+		@test isapprox(yₗₘ(2, 1, [0, 1, 0]), 0)
+		@test isapprox(yₗₘ(2, 1, [0, 0, 1]), 0)
+		@test isapprox(yₗₘ(2, 1, vec111), -(1 / 3) * √(15 / 2π) * (1 + im))
+		@test isapprox(yₗₘ(2, 1, -vec111), -(1 / 3) * √(15 / 2π) * (1 + im))
+		# l = 2, m = -1, √(15/2π)*(r̂x - im*r̂y)*r̂z
+		@test isapprox(yₗₘ(2, -1, [1, 0, 0]), 0)
+		@test isapprox(yₗₘ(2, -1, [0, 1, 0]), 0)
+		@test isapprox(yₗₘ(2, -1, [0, 0, 1]), 0)
+		@test isapprox(yₗₘ(2, -1, vec111), (1 / 3) * √(15 / 2π) * (1 - im))
+		@test isapprox(yₗₘ(2, -1, -vec111), (1 / 3) * √(15 / 2π) * (1 - im))
+		# l = 2, m = 2, 2*√(45/96π)*(r̂x + im*r̂y)^2
+		@test isapprox(yₗₘ(2, 2, [1, 0, 0]), 2 * √(45 / 96π))
+		@test isapprox(yₗₘ(2, 2, [-1, 0, 0]), 2 * √(45 / 96π))
+		@test isapprox(yₗₘ(2, 2, [0, 1, 0]), -2 * √(45 / 96π))
+		@test isapprox(yₗₘ(2, 2, [0, -1, 0]), -2 * √(45 / 96π))
+		@test isapprox(yₗₘ(2, 2, [0, 0, 1]), 0)
+		@test isapprox(yₗₘ(2, 2, [0, 0, -1]), 0)
+		@test isapprox(yₗₘ(2, 2, vec111), 2 / 3 * √(45 / 96π) * (1 + im)^2)
+		@test isapprox(yₗₘ(2, 2, -vec111), 2 / 3 * √(45 / 96π) * (1 + im)^2)
+		# l = 2, m = -2, 2*√(45/96π)*(r̂x - im*r̂y)^2
+		@test isapprox(yₗₘ(2, -2, [1, 0, 0]), 2 * √(45 / 96π))
+		@test isapprox(yₗₘ(2, -2, [-1, 0, 0]), 2 * √(45 / 96π))
+		@test isapprox(yₗₘ(2, -2, [0, 1, 0]), -2 * √(45 / 96π))
+		@test isapprox(yₗₘ(2, -2, [0, -1, 0]), -2 * √(45 / 96π))
+		@test isapprox(yₗₘ(2, -2, [0, 0, 1]), 0)
+		@test isapprox(yₗₘ(2, -2, [0, 0, -1]), 0)
+		@test isapprox(yₗₘ(2, -2, vec111), 2 / 3 * √(45 / 96π) * (1 - im)^2)
+		@test isapprox(yₗₘ(2, -2, -vec111), 2 / 3 * √(45 / 96π) * (1 - im)^2)
+	end
+end
+
+@testset "real spherical harmonics" begin
+
+	@testset "Sₗₘ" begin
+		vec111 = 1 / √(3) * [1, 1, 1]
+		# l = 0, m = 0, 1/√(4π)
+		@test isapprox(Sₗₘ(0, 0, [1, 0, 0]), 1 / √(4π))
+		@test isapprox(Sₗₘ(0, 0, [0, 1, 0]), 1 / √(4π))
+		@test isapprox(Sₗₘ(0, 0, [0, 0, 1]), 1 / √(4π))
+		@test isapprox(Sₗₘ(0, 0, vec111), 1 / √(4π))
+		@test isapprox(Sₗₘ(0, 0, -vec111), 1 / √(4π))
+
+		# l = 1, m = 0, √(3/4π)*r̂z
+		@test isapprox(Sₗₘ(1, 0, [1, 0, 0]), 0)
+		@test isapprox(Sₗₘ(1, 0, [0, 1, 0]), 0)
+		@test isapprox(Sₗₘ(1, 0, [0, 0, 1]), √(3 / 4π))
+		@test isapprox(Sₗₘ(1, 0, [0, 0, -1]), -√(3 / 4π))
+		@test isapprox(Sₗₘ(1, 0, vec111), √(1 / 4π))
+		@test isapprox(Sₗₘ(1, 0, -vec111), -√(1 / 4π))
+		# l = 1, m = 1, √(3/4π)*r̂x
+		@test isapprox(Sₗₘ(1, 1, [1, 0, 0]), √(3 / 4π))
+		@test isapprox(Sₗₘ(1, 1, [-1, 0, 0]), -√(3 / 4π))
+		@test isapprox(Sₗₘ(1, 1, [0, 1, 0]), 0)
+		@test isapprox(Sₗₘ(1, 1, [0, 0, 1]), 0)
+		@test isapprox(Sₗₘ(1, 1, vec111), √(1 / 4π))
+		@test isapprox(Sₗₘ(1, 1, -vec111), -√(1 / 4π))
+		# l = 1, m = -1, √(3/4π)*r̂y
+		@test isapprox(Sₗₘ(1, -1, [1, 0, 0]), 0)
+		@test isapprox(Sₗₘ(1, -1, [-1, 0, 0]), 0)
+		@test isapprox(Sₗₘ(1, -1, [0, 1, 0]), √(3 / 4π))
+		@test isapprox(Sₗₘ(1, -1, [0, -1, 0]), -√(3 / 4π))
+		@test isapprox(Sₗₘ(1, -1, [0, 0, 1]), 0)
+		@test isapprox(Sₗₘ(1, -1, [0, 0, -1]), 0)
+		@test isapprox(Sₗₘ(1, -1, vec111), √(1 / 4π))
+		@test isapprox(Sₗₘ(1, -1, -vec111), -√(1 / 4π))
+
+		# l = 2, m = 0, √(5/16π)*(3r̂z^2 - 1)
+		@test isapprox(Sₗₘ(2, 0, [1, 0, 0]), -√(5 / 16π))
+		@test isapprox(Sₗₘ(2, 0, [0, 1, 0]), -√(5 / 16π))
+		@test isapprox(Sₗₘ(2, 0, [0, 0, 1]), √(5 / 16π) * 2)
+		@test isapprox(Sₗₘ(2, 0, [0, 0, -1]), √(5 / 16π) * 2)
+		@test isapprox(Sₗₘ(2, 0, vec111), 0, atol = 1e-15)
+		@test isapprox(Sₗₘ(2, 0, -vec111), 0, atol = 1e-15)
+		# l = 2, m = 1, √(15/4π)*r̂z*r̂x
+		@test isapprox(Sₗₘ(2, 1, [1, 0, 0]), 0)
+		@test isapprox(Sₗₘ(2, 1, [-1, 0, 0]), 0)
+		@test isapprox(Sₗₘ(2, 1, [0, 1, 0]), 0)
+		@test isapprox(Sₗₘ(2, 1, [0, -1, 0]), 0)
+		@test isapprox(Sₗₘ(2, 1, [0, 0, 1]), 0)
+		@test isapprox(Sₗₘ(2, 1, [0, 0, -1]), 0)
+		@test isapprox(Sₗₘ(2, 1, vec111), √(15 / 4π) * (1 / 3))
+		@test isapprox(Sₗₘ(2, 1, -vec111), √(15 / 4π) * (1 / 3))
+		@test isapprox(Sₗₘ(2, 1, [1 / √(2), 0, 1 / √(2)]), √(15 / 4π) * (1 / 2))
+		@test isapprox(Sₗₘ(2, 1, [1 / √(2), 0, -1 / √(2)]), -√(15 / 4π) * (1 / 2))
+		@test isapprox(Sₗₘ(2, 1, [-1 / √(2), 0, 1 / √(2)]), -√(15 / 4π) * (1 / 2))
+		@test isapprox(Sₗₘ(2, 1, [-1 / √(2), 0, -1 / √(2)]), √(15 / 4π) * (1 / 2))
+		# l = 2, m = -1, √(15/4π)*r̂z*r̂y
+		@test isapprox(Sₗₘ(2, -1, [1, 0, 0]), 0)
+		@test isapprox(Sₗₘ(2, -1, [-1, 0, 0]), 0)
+		@test isapprox(Sₗₘ(2, -1, [0, 1, 0]), 0)
+		@test isapprox(Sₗₘ(2, -1, [0, -1, 0]), 0)
+		@test isapprox(Sₗₘ(2, -1, [0, 0, 1]), 0)
+		@test isapprox(Sₗₘ(2, -1, [0, 0, -1]), 0)
+		@test isapprox(Sₗₘ(2, -1, vec111), √(15 / 4π) * (1 / 3))
+		@test isapprox(Sₗₘ(2, -1, -vec111), √(15 / 4π) * (1 / 3))
+		@test isapprox(Sₗₘ(2, -1, [0, 1 / √(2), 1 / √(2)]), √(15 / 4π) * (1 / 2))
+		@test isapprox(Sₗₘ(2, -1, [0, 1 / √(2), -1 / √(2)]), -√(15 / 4π) * (1 / 2))
+		@test isapprox(Sₗₘ(2, -1, [0, -1 / √(2), 1 / √(2)]), -√(15 / 4π) * (1 / 2))
+		@test isapprox(Sₗₘ(2, -1, [0, -1 / √(2), -1 / √(2)]), √(15 / 4π) * (1 / 2))
+		# l = 2, m = 2, √(2)*√(45/96π)*(r̂x^2-r̂y^2)
+		@test isapprox(Sₗₘ(2, 2, [1, 0, 0]), √(2) * √(45 / 96π))
+		@test isapprox(Sₗₘ(2, 2, [-1, 0, 0]), √(2) * √(45 / 96π))
+		@test isapprox(Sₗₘ(2, 2, [0, 1, 0]), -√(2) * √(45 / 96π))
+		@test isapprox(Sₗₘ(2, 2, [0, -1, 0]), -√(2) * √(45 / 96π))
+		@test isapprox(Sₗₘ(2, 2, [0, 0, 1]), 0)
+		@test isapprox(Sₗₘ(2, 2, [0, 0, -1]), 0)
+		@test isapprox(Sₗₘ(2, 2, vec111), 0)
+		@test isapprox(Sₗₘ(2, 2, -vec111), 0)
+		@test isapprox(Sₗₘ(2, 2, [1 / √(2), 0, 1 / √(2)]), √(2) * √(45 / 96π) * (1 / 2))
+		@test isapprox(Sₗₘ(2, 2, [-1 / √(2), 0, 1 / √(2)]), √(2) * √(45 / 96π) * (1 / 2))
+		@test isapprox(Sₗₘ(2, 2, [1 / √(2), 0, -1 / √(2)]), √(2) * √(45 / 96π) * (1 / 2))
+		@test isapprox(Sₗₘ(2, 2, [0, 1 / √(2), 1 / √(2)]), -√(2) * √(45 / 96π) * (1 / 2))
+		@test isapprox(Sₗₘ(2, 2, [0, 1 / √(2), -1 / √(2)]), -√(2) * √(45 / 96π) * (1 / 2))
+		@test isapprox(Sₗₘ(2, 2, [1 / √(2), -1 / √(2), 0]), 0)
+		@test isapprox(Sₗₘ(2, 2, [-1 / √(2), -1 / √(2), 0]), 0)
+		# l = 2, m = -2, √(15/4π)*r̂x*r̂y
+		@test isapprox(Sₗₘ(2, -2, [1, 0, 0]), 0)
+		@test isapprox(Sₗₘ(2, -2, [-1, 0, 0]), 0)
+		@test isapprox(Sₗₘ(2, -2, [0, 1, 0]), 0)
+		@test isapprox(Sₗₘ(2, -2, [0, -1, 0]), 0)
+		@test isapprox(Sₗₘ(2, -2, [0, 0, 1]), 0)
+		@test isapprox(Sₗₘ(2, -2, [0, 0, -1]), 0)
+		@test isapprox(Sₗₘ(2, -2, vec111), √(15 / 4π) / 3)
+		@test isapprox(Sₗₘ(2, -2, -vec111), √(15 / 4π) / 3)
+		@test isapprox(Sₗₘ(2, -2, [0, 1 / √(2), 1 / √(2)]), 0)
+		@test isapprox(Sₗₘ(2, -2, [0, -1 / √(2), -1 / √(2)]), 0)
+		@test isapprox(Sₗₘ(2, -2, [1 / √(2), 1 / √(2), 0]), √(15 / 4π) / 2)
+		@test isapprox(Sₗₘ(2, -2, [-1 / √(2), 1 / √(2), 0]), -√(15 / 4π) / 2)
+		@test isapprox(Sₗₘ(2, -2, [1 / √(2), -1 / √(2), 0]), -√(15 / 4π) / 2)
+		@test isapprox(Sₗₘ(2, -2, [-1 / √(2), -1 / √(2), 0]), √(15 / 4π) / 2)
+	end
+
+	@testset "∂Sₗₘ_∂r̂x" begin
+		vec111 = 1 / √(3) * [1, 1, 1]
+		# l = 0, m = 0, 0
+		@test isapprox(∂Sₗₘ_∂r̂x(0, 0, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(0, 0, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(0, 0, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(0, 0, vec111), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(0, 0, -vec111), 0)
+
+		# l = 1, m = 0, 0
+		@test isapprox(∂Sₗₘ_∂r̂x(1, 0, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(1, 0, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(1, 0, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(1, 0, [0, 0, -1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(1, 0, vec111), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(1, 0, -vec111), 0)
+		# l = 1, m = 1, √(3/4π)
+		@test isapprox(∂Sₗₘ_∂r̂x(1, 1, [1, 0, 0]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂x(1, 1, [-1, 0, 0]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂x(1, 1, [0, 1, 0]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂x(1, 1, [0, -1, 0]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂x(1, 1, [0, 0, 1]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂x(1, 1, [0, 0, -1]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂x(1, 1, vec111), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂x(1, 1, -vec111), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂x(1, 1, [1 / √(2), 0, 1 / √(2)]), √(3 / 4π))
+		# l = 1, m = -1, 0
+		@test isapprox(∂Sₗₘ_∂r̂x(1, -1, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(1, -1, [-1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(1, -1, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(1, -1, [0, -1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(1, -1, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(1, -1, [0, 0, -1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(1, -1, vec111), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(1, -1, -vec111), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(1, -1, [1 / √(2), 0, 1 / √(2)]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(1, -1, [1 / √(2), 0, -1 / √(2)]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(1, -1, [-1 / √(2), 0, 1 / √(2)]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(1, -1, [-1 / √(2), 0, -1 / √(2)]), 0)
+
+		# l = 2, m = 0, 0
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 0, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 0, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 0, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 0, [0, 0, -1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 0, vec111), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 0, -vec111), 0)
+		# l = 2, m = 1, √(15/4π)*r̂z
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 1, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 1, [-1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 1, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 1, [0, -1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 1, [0, 0, 1]), √(15 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 1, [0, 0, -1]), -√(15 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 1, vec111), √(15 / 4π) / √(3))
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 1, -vec111), -√(15 / 4π) / √(3))
+		# l = 2, m = -1, 0
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -1, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -1, [-1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -1, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -1, [0, -1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -1, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -1, [0, 0, -1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -1, vec111), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -1, -vec111), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -1, [1 / √(2), 0, 1 / √(2)]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -1, [1 / √(2), 0, -1 / √(2)]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -1, [-1 / √(2), 0, 1 / √(2)]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -1, [-1 / √(2), 0, -1 / √(2)]), 0)
+		# l = 2, m = 2, √(15/4π)*r̂x
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 2, [1, 0, 0]), √(15 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 2, [-1, 0, 0]), -√(15 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 2, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 2, [0, -1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 2, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 2, [0, 0, -1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 2, vec111), √(15 / 4π) / √(3))
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 2, -vec111), -√(15 / 4π) / √(3))
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 2, [1 / √(2), 0, 1 / √(2)]), √(15 / 4π) / √(2))
+		@test isapprox(∂Sₗₘ_∂r̂x(2, 2, [-1 / √(2), 0, 1 / √(2)]), -√(15 / 4π) / √(2))
+		# l = 2, m = -2, √(15/4π)*r̂y
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -2, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -2, [-1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -2, [0, 1, 0]), √(15 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -2, [0, -1, 0]), -√(15 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -2, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -2, [0, 0, -1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -2, vec111), √(15 / 4π) / √(3))
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -2, -vec111), -√(15 / 4π) / √(3))
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -2, [1 / √(2), 0, 1 / √(2)]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -2, [-1 / √(2), 0, 1 / √(2)]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -2, [1 / √(2), 1 / √(2), 0]), √(15 / 4π) / √(2))
+		@test isapprox(∂Sₗₘ_∂r̂x(2, -2, [-1 / √(2), -1 / √(2), 0]), -√(15 / 4π) / √(2))
+	end
+
+	@testset "∂Sₗₘ_∂r̂y" begin
+		vec111 = 1 / √(3) * [1, 1, 1]
+		# l = 0, m = 0, 0
+		@test isapprox(∂Sₗₘ_∂r̂y(0, 0, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(0, 0, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(0, 0, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(0, 0, vec111), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(0, 0, -vec111), 0)
+
+		# l = 1, m = 0, 0
+		@test isapprox(∂Sₗₘ_∂r̂y(1, 0, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(1, 0, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(1, 0, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(1, 0, [0, 0, -1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(1, 0, vec111), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(1, 0, -vec111), 0)
+		# l = 1, m = 1, 0
+		@test isapprox(∂Sₗₘ_∂r̂y(1, 1, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(1, 1, [-1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(1, 1, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(1, 1, [0, -1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(1, 1, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(1, 1, [0, 0, -1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(1, 1, vec111), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(1, 1, -vec111), 0)
+		# l = 1, m = -1, √(3/4π)
+		@test isapprox(∂Sₗₘ_∂r̂y(1, -1, [1, 0, 0]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂y(1, -1, [-1, 0, 0]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂y(1, -1, [0, 1, 0]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂y(1, -1, [0, -1, 0]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂y(1, -1, [0, 0, 1]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂y(1, -1, [0, 0, -1]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂y(1, -1, vec111), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂y(1, -1, -vec111), √(3 / 4π))
+
+		# l = 2, m = 0, 0
+		@test isapprox(∂Sₗₘ_∂r̂y(2, 0, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, 0, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, 0, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, 0, [0, 0, -1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, 0, vec111), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, 0, -vec111), 0)
+		# l = 2, m = 1, 0
+		@test isapprox(∂Sₗₘ_∂r̂y(2, 1, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, 1, [-1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, 1, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, 1, [0, -1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, 1, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, 1, [0, 0, -1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, 1, vec111), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, 1, -vec111), 0)
+		# l = 2, m = -1, √((15/4π)*r̂z
+		@test isapprox(∂Sₗₘ_∂r̂y(2, -1, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, -1, [-1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, -1, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, -1, [0, -1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, -1, [0, 0, 1]), √(15 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂y(2, -1, [0, 0, -1]), -√(15 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂y(2, -1, vec111), √(15 / 4π) / √(3))
+		@test isapprox(∂Sₗₘ_∂r̂y(2, -1, -vec111), -√(15 / 4π) / √(3))
+		# l = 2, m = 2, -√((15/4π)*r̂y
+		@test isapprox(∂Sₗₘ_∂r̂y(2, 2, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, 2, [-1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, 2, [0, 1, 0]), -√(15 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂y(2, 2, [0, -1, 0]), √(15 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂y(2, 2, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, 2, [0, 0, -1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, 2, vec111), -√(15 / 4π) / √(3))
+		@test isapprox(∂Sₗₘ_∂r̂y(2, 2, -vec111), √(15 / 4π) / √(3))
+		# l = 2, m = -2, √((15/4π)*r̂x
+		@test isapprox(∂Sₗₘ_∂r̂y(2, -2, [1, 0, 0]), √(15 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂y(2, -2, [-1, 0, 0]), -√(15 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂y(2, -2, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, -2, [0, -1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, -2, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, -2, [0, 0, -1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂y(2, -2, vec111), √(15 / 4π) / √(3))
+		@test isapprox(∂Sₗₘ_∂r̂y(2, -2, -vec111), -√(15 / 4π) / √(3))
+	end
+
+	@testset "∂Sₗₘ_∂r̂z" begin
+		vec111 = 1 / √(3) * [1, 1, 1]
+		# l = 0, m = 0, 0
+		@test isapprox(∂Sₗₘ_∂r̂z(0, 0, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(0, 0, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(0, 0, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(0, 0, vec111), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(0, 0, -vec111), 0)
+
+		# l = 1, m = 0, √(3/4π)
+		@test isapprox(∂Sₗₘ_∂r̂z(1, 0, [1, 0, 0]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂z(1, 0, [-1, 0, 0]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂z(1, 0, [0, 1, 0]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂z(1, 0, [0, -1, 0]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂z(1, 0, [0, 0, 1]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂z(1, 0, [0, 0, -1]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂z(1, 0, vec111), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂z(1, 0, -vec111), √(3 / 4π))
+		# l = 1, m = 1, 0
+		@test isapprox(∂Sₗₘ_∂r̂z(1, 1, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(1, 1, [-1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(1, 1, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(1, 1, [0, -1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(1, 1, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(1, 1, [0, 0, -1]), 0)
+		# l = 1, m = -1, 0
+		@test isapprox(∂Sₗₘ_∂r̂z(1, -1, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(1, -1, [-1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(1, -1, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(1, -1, [0, -1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(1, -1, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(1, -1, [0, 0, -1]), 0)
+		# l = 2, m = 0,  √(5/16π)*6r̂z
+		@test isapprox(∂Sₗₘ_∂r̂z(2, 0, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, 0, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, 0, [0, 0, 1]), √(5 / 16π) * 6)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, 0, [0, 0, -1]), -√(5 / 16π) * 6)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, 0, vec111), √(5 / 16π) * 6 / √(3))
+		@test isapprox(∂Sₗₘ_∂r̂z(2, 0, -vec111), -√(5 / 16π) * 6 / √(3))
+		# l = 2, m = 1, √(15/4π)*r̂x
+		@test isapprox(∂Sₗₘ_∂r̂z(2, 1, [1, 0, 0]), √(15 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂z(2, 1, [-1, 0, 0]), -√(15 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂z(2, 1, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, 1, [0, -1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, 1, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, 1, [0, 0, -1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, 1, vec111), √(15 / 4π) / √(3))
+		@test isapprox(∂Sₗₘ_∂r̂z(2, 1, -vec111), -√(15 / 4π) / √(3))
+		# l = 2, m = -1, √(15/4π)*r̂y
+		@test isapprox(∂Sₗₘ_∂r̂z(2, -1, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, -1, [-1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, -1, [0, 1, 0]), √(15 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂z(2, -1, [0, -1, 0]), -√(15 / 4π))
+		@test isapprox(∂Sₗₘ_∂r̂z(2, -1, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, -1, [0, 0, -1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, -1, vec111), √(15 / 4π) / √(3))
+		@test isapprox(∂Sₗₘ_∂r̂z(2, -1, -vec111), -√(15 / 4π) / √(3))
+		# l = 2, m = 2, 0
+		@test isapprox(∂Sₗₘ_∂r̂z(2, 2, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, 2, [-1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, 2, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, 2, [0, -1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, 2, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, 2, [0, 0, -1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, 2, vec111), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, 2, -vec111), 0)
+		# l = 2, m = -2, 0
+		@test isapprox(∂Sₗₘ_∂r̂z(2, -2, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, -2, [-1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, -2, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, -2, [0, -1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, -2, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, -2, [0, 0, -1]), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, -2, vec111), 0)
+		@test isapprox(∂Sₗₘ_∂r̂z(2, -2, -vec111), 0)
+	end
+
+	@testset "ssₗₘ" begin
+		vec111 = 1 / √(3) * [1, 1, 1]
+		# l = 0, m = 0, 0
+		@test isapprox(ssₗₘ(0, 0, [1, 0, 0]), 0)
+		@test isapprox(ssₗₘ(0, 0, [0, 1, 0]), 0)
+		@test isapprox(ssₗₘ(0, 0, [0, 0, 1]), 0)
+		@test isapprox(ssₗₘ(0, 0, vec111), 0)
+		@test isapprox(ssₗₘ(0, 0, -vec111), 0)
+
+		# l = 1, m = 0, √(3/4π)*r̂z
+		@test isapprox(ssₗₘ(1, 0, [1, 0, 0]), 0)
+		@test isapprox(ssₗₘ(1, 0, [-1, 0, 0]), 0)
+		@test isapprox(ssₗₘ(1, 0, [0, 1, 0]), 0)
+		@test isapprox(ssₗₘ(1, 0, [0, -1, 0]), 0)
+		@test isapprox(ssₗₘ(1, 0, [0, 0, 1]), √(3 / 4π))
+		@test isapprox(ssₗₘ(1, 0, [0, 0, -1]), -√(3 / 4π))
+		@test isapprox(ssₗₘ(1, 0, vec111), √(1 / 4π))
+		@test isapprox(ssₗₘ(1, 0, -vec111), -√(1 / 4π))
+		# l = 1, m = 1, √(3/4π)*r̂x
+		@test isapprox(ssₗₘ(1, 1, [1, 0, 0]), √(3 / 4π))
+		@test isapprox(ssₗₘ(1, 1, [-1, 0, 0]), -√(3 / 4π))
+		@test isapprox(ssₗₘ(1, 1, [0, 1, 0]), 0)
+		@test isapprox(ssₗₘ(1, 1, [0, -1, 0]), 0)
+		@test isapprox(ssₗₘ(1, 1, [0, 0, 1]), 0)
+		@test isapprox(ssₗₘ(1, 1, [0, 0, -1]), 0)
+		@test isapprox(ssₗₘ(1, 1, vec111), √(1 / 4π))
+		@test isapprox(ssₗₘ(1, 1, -vec111), -√(1 / 4π))
+		# l = 1, m = -1, √(3/4π)*r̂y
+		@test isapprox(ssₗₘ(1, -1, [1, 0, 0]), 0)
+		@test isapprox(ssₗₘ(1, -1, [-1, 0, 0]), 0)
+		@test isapprox(ssₗₘ(1, -1, [0, 1, 0]), √(3 / 4π))
+		@test isapprox(ssₗₘ(1, -1, [0, -1, 0]), -√(3 / 4π))
+		@test isapprox(ssₗₘ(1, -1, [0, 0, 1]), 0)
+		@test isapprox(ssₗₘ(1, -1, [0, 0, -1]), 0)
+		@test isapprox(ssₗₘ(1, -1, vec111), √(1 / 4π))
+		@test isapprox(ssₗₘ(1, -1, -vec111), -√(1 / 4π))
+		# l = 2, m = 0, √(5/16π)*6r̂z^2
+		@test isapprox(ssₗₘ(2, 0, [1, 0, 0]), 0)
+		@test isapprox(ssₗₘ(2, 0, [0, 1, 0]), 0)
+		@test isapprox(ssₗₘ(2, 0, [0, 0, 1]), √(5 / 16π) * 6)
+		@test isapprox(ssₗₘ(2, 0, [0, 0, -1]), √(5 / 16π) * 6)
+		@test isapprox(ssₗₘ(2, 0, vec111), √(5 / 16π) * 6 / 3)
+		@test isapprox(ssₗₘ(2, 0, -vec111), √(5 / 16π) * 6 / 3)
+		# l = 2, m = 1, √(15/π)*r̂x*r̂z
+		@test isapprox(ssₗₘ(2, 1, [1, 0, 0]), 0)
+		@test isapprox(ssₗₘ(2, 1, [-1, 0, 0]), 0)
+		@test isapprox(ssₗₘ(2, 1, [0, 1, 0]), 0)
+		@test isapprox(ssₗₘ(2, 1, [0, -1, 0]), 0)
+		@test isapprox(ssₗₘ(2, 1, [0, 0, 1]), 0)
+		@test isapprox(ssₗₘ(2, 1, [0, 0, -1]), 0)
+		@test isapprox(ssₗₘ(2, 1, vec111), √(15 / π) / 3)
+		@test isapprox(ssₗₘ(2, 1, -vec111), √(15 / π) / 3)
+		@test isapprox(ssₗₘ(2, 1, [1 / √2, 0, 1 / √2]), √(15 / π) / 2)
+		@test isapprox(ssₗₘ(2, 1, [-1 / √2, 0, 1 / √2]), -√(15 / π) / 2)
+		@test isapprox(ssₗₘ(2, 1, [1 / √2, 0, -1 / √2]), -√(15 / π) / 2)
+		@test isapprox(ssₗₘ(2, 1, [-1 / √2, 0, -1 / √2]), √(15 / π) / 2)
+		# l = 2, m = -1, √(15/π)*r̂y*r̂z
+		@test isapprox(ssₗₘ(2, -1, [1, 0, 0]), 0)
+		@test isapprox(ssₗₘ(2, -1, [-1, 0, 0]), 0)
+		@test isapprox(ssₗₘ(2, -1, [0, 1, 0]), 0)
+		@test isapprox(ssₗₘ(2, -1, [0, -1, 0]), 0)
+		@test isapprox(ssₗₘ(2, -1, [0, 0, 1]), 0)
+		@test isapprox(ssₗₘ(2, -1, [0, 0, -1]), 0)
+		@test isapprox(ssₗₘ(2, -1, vec111), √(15 / π) / 3)
+		@test isapprox(ssₗₘ(2, -1, -vec111), √(15 / π) / 3)
+		@test isapprox(ssₗₘ(2, -1, [0, 1 / √2, -1 / √2]), -√(15 / π) / 2)
+		# l = 2, m = 2, √(15/4π)*(r̂x^2-r̂y^2)
+		@test isapprox(ssₗₘ(2, 2, [1, 0, 0]), √(15 / 4π))
+		@test isapprox(ssₗₘ(2, 2, [-1, 0, 0]), √(15 / 4π))
+		@test isapprox(ssₗₘ(2, 2, [0, 1, 0]), -√(15 / 4π))
+		@test isapprox(ssₗₘ(2, 2, [0, -1, 0]), -√(15 / 4π))
+		@test isapprox(ssₗₘ(2, 2, [0, 0, 1]), 0)
+		@test isapprox(ssₗₘ(2, 2, [0, 0, -1]), 0)
+		@test isapprox(ssₗₘ(2, 2, vec111), 0)
+		@test isapprox(ssₗₘ(2, 2, -vec111), 0)
+		@test isapprox(ssₗₘ(2, 2, [1 / √2, 0, 1 / √2]), √(15 / 4π) / 2)
+		# l = 2, m = -2, √(15/π)*(r̂x*r̂y)
+		@test isapprox(ssₗₘ(2, -2, [1, 0, 0]), 0)
+		@test isapprox(ssₗₘ(2, -2, [0, 1, 0]), 0)
+		@test isapprox(ssₗₘ(2, -2, [0, 0, 1]), 0)
+		@test isapprox(ssₗₘ(2, -2, vec111), √(15 / π) / 3)
+		@test isapprox(ssₗₘ(2, -2, -vec111), √(15 / π) / 3)
+		@test isapprox(ssₗₘ(2, -2, [1 / √2, 1 / √2, 0]), √(15 / π) / 2)
+		@test isapprox(ssₗₘ(2, -2, [-1 / √2, 1 / √2, 0]), -√(15 / π) / 2)
+	end
+
+	@testset "∂Sₗₘ_∂x" begin
+		vec111 = 1 / √(3) * [1, 1, 1]
+		# l = 0, m = 0, 0
+		@test isapprox(∂Sₗₘ_∂x(0, 0, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂x(0, 0, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂x(0, 0, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂x(0, 0, vec111), 0)
+
+		# l = 1, m = 0, -√(3/4π)*r̂z*r̂x
+		@test isapprox(∂Sₗₘ_∂x(1, 0, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂x(1, 0, [-1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂x(1, 0, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂x(1, 0, [0, -1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂x(1, 0, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂x(1, 0, [0, 0, -1]), 0)
+		@test isapprox(∂Sₗₘ_∂x(1, 0, vec111), -√(3 / 4π) / 3)
+		@test isapprox(∂Sₗₘ_∂x(1, 0, -vec111), -√(3 / 4π) / 3)
+		@test isapprox(∂Sₗₘ_∂x(1, 0, [1 / √2, 0, 1 / √2]), -√(3 / 4π) / 2)
+		@test isapprox(∂Sₗₘ_∂x(1, 0, [-1 / √2, 0, 1 / √2]), √(3 / 4π) / 2)
+		@test isapprox(∂Sₗₘ_∂x(1, 0, [1 / √2, 0, -1 / √2]), √(3 / 4π) / 2)
+		@test isapprox(∂Sₗₘ_∂x(1, 0, [-1 / √2, 0, -1 / √2]), -√(3 / 4π) / 2)
+		# l = 1, m = 1, √(3/4π)*(1-r̂x^2)
+		@test isapprox(∂Sₗₘ_∂x(1, 1, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂x(1, 1, [-1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂x(1, 1, [0, 1, 0]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂x(1, 1, [0, -1, 0]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂x(1, 1, [0, 0, 1]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂x(1, 1, [0, 0, -1]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂x(1, 1, vec111), √(3 / 4π) * (1 - 1 / 3))
+		@test isapprox(∂Sₗₘ_∂x(1, 1, -vec111), √(3 / 4π) * (1 - 1 / 3))
+		# l = 1, m = -1, -√(3/4π)*r̂x*r̂y
+		@test isapprox(∂Sₗₘ_∂x(1, -1, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂x(1, -1, [-1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂x(1, -1, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂x(1, -1, [0, -1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂x(1, -1, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂x(1, -1, [0, 0, -1]), 0)
+		@test isapprox(∂Sₗₘ_∂x(1, -1, vec111), -√(3 / 4π) / 3)
+		@test isapprox(∂Sₗₘ_∂x(1, -1, -vec111), -√(3 / 4π) / 3)
+		@test isapprox(∂Sₗₘ_∂x(1, -1, [1 / √2, 0, 1 / √2]), 0)
+		@test isapprox(∂Sₗₘ_∂x(1, -1, [1 / √2, 1 / √2, 0]), -√(3 / 4π) / 2)
+		@test isapprox(∂Sₗₘ_∂x(1, -1, [-1 / √2, -1 / √2, 0]), -√(3 / 4π) / 2)
+		@test isapprox(∂Sₗₘ_∂x(1, -1, [-1 / √2, 1 / √2, 0]), √(3 / 4π) / 2)
+		# l = 2, m = 0, -6√(5/16π)*r̂x*r̂z^2
+		@test isapprox(∂Sₗₘ_∂x(2, 0, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂x(2, 0, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂x(2, 0, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂x(2, 0, vec111), -6 * √(5 / 16π) * (1 / 3√3))
+		@test isapprox(∂Sₗₘ_∂x(2, 0, -vec111), 6 * √(5 / 16π) * (1 / 3√3))
+		@test isapprox(∂Sₗₘ_∂x(2, 0, [1 / √2, 0, 1 / √2]), -6 * √(5 / 16π) * (1 / 2√2))
+		@test isapprox(∂Sₗₘ_∂x(2, 0, [-1 / √2, 0, 1 / √2]), 6 * √(5 / 16π) * (1 / 2√2))
+		# l = 2, m = 1,  √(15 / π)*r̂z*(1/√4-r̂x^2)
+		@test isapprox(∂Sₗₘ_∂x(2, 1, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂x(2, 1, [-1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂x(2, 1, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂x(2, 1, [0, -1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂x(2, 1, [0, 0, 1]), √(15 / 4π))
+		@test isapprox(∂Sₗₘ_∂x(2, 1, [0, 0, -1]), -√(15 / 4π))
+		@test isapprox(∂Sₗₘ_∂x(2, 1, vec111), √(15 / π) / √3 * (1 / √4 - 1 / 3))
+		@test isapprox(∂Sₗₘ_∂x(2, 1, -vec111), -√(15 / π) / √3 * (1 / √4 - 1 / 3))
+	end
+
+	@testset "∂Sₗₘ_∂y" begin
+		vec111 = 1 / √(3) * [1, 1, 1]
+		# l = 0, m = 0, 0
+		@test isapprox(∂Sₗₘ_∂y(0, 0, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂y(0, 0, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂y(0, 0, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂y(0, 0, vec111), 0)
+		# l = 1, m = 0, -√(3/4π)*r̂z*r̂y
+		@test isapprox(∂Sₗₘ_∂y(1, 0, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂y(1, 0, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂y(1, 0, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂y(1, 0, vec111), -√(3 / 4π) / 3)
+		@test isapprox(∂Sₗₘ_∂y(1, 0, -vec111), -√(3 / 4π) / 3)
+		@test isapprox(∂Sₗₘ_∂y(1, 0, [0, 1 / √2, 1 / √2]), -√(3 / 4π) / 2)
+		@test isapprox(∂Sₗₘ_∂y(1, 0, [0, -1 / √2, 1 / √2]), √(3 / 4π) / 2)
+		@test isapprox(∂Sₗₘ_∂y(1, 0, [0, 1 / √2, -1 / √2]), √(3 / 4π) / 2)
+		@test isapprox(∂Sₗₘ_∂y(1, 0, [0, -1 / √2, -1 / √2]), -√(3 / 4π) / 2)
+		# l = 1, m = 1, -√(3/4π)*r̂x*r̂y
+		@test isapprox(∂Sₗₘ_∂y(1, 1, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂y(1, 1, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂y(1, 1, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂y(1, 1, vec111), -√(3 / 4π) / 3)
+		@test isapprox(∂Sₗₘ_∂y(1, 1, -vec111), -√(3 / 4π) / 3)
+		@test isapprox(∂Sₗₘ_∂y(1, 1, [1 / √2, 1 / √2, 0]), -√(3 / 4π) / 2)
+		@test isapprox(∂Sₗₘ_∂y(1, 1, [-1 / √2, -1 / √2, 0]), -√(3 / 4π) / 2)
+		@test isapprox(∂Sₗₘ_∂y(1, 1, [1 / √2, -1 / √2, 0]), √(3 / 4π) / 2)
+		@test isapprox(∂Sₗₘ_∂y(1, 1, [-1 / √2, 1 / √2, 0]), √(3 / 4π) / 2)
+		# l = 1, m = -1, √(3/4π)*(1-r̂y^2)
+		@test isapprox(∂Sₗₘ_∂y(1, -1, [1, 0, 0]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂y(1, -1, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂y(1, -1, [0, 0, 1]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂y(1, -1, vec111), √(3 / 4π) * (1 - 1 / 3))
+		@test isapprox(∂Sₗₘ_∂y(1, -1, -vec111), √(3 / 4π) * (1 - 1 / 3))
+		@test isapprox(∂Sₗₘ_∂y(1, -1, [1 / √2, 1 / √2, 0]), √(3 / 4π) / 2)
+		@test isapprox(∂Sₗₘ_∂y(1, -1, [-1 / √2, -1 / √2, 0]), √(3 / 4π) / 2)
+	end
+
+	@testset "∂Sₗₘ_∂z" begin
+		vec111 = 1 / √(3) * [1, 1, 1]
+		# l = 0, m = 0, 0
+		@test isapprox(∂Sₗₘ_∂z(0, 0, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂z(0, 0, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂z(0, 0, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂z(0, 0, vec111), 0)
+
+		# l = 1, m = 0, √(3/4π)*(1-r̂z^2)
+		@test isapprox(∂Sₗₘ_∂z(1, 0, [1, 0, 0]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂z(1, 0, [0, 1, 0]), √(3 / 4π))
+		@test isapprox(∂Sₗₘ_∂z(1, 0, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂z(1, 0, vec111), √(3 / 4π) * (1 - 1 / 3))
+		@test isapprox(∂Sₗₘ_∂z(1, 0, -vec111), √(3 / 4π) * (1 - 1 / 3))
+		# l = 1, m = 1, -√(3/4π)*r̂x*r̂z
+		@test isapprox(∂Sₗₘ_∂z(1, 1, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂z(1, 1, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂z(1, 1, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂z(1, 1, vec111), -√(3 / 4π) / 3)
+		@test isapprox(∂Sₗₘ_∂z(1, 1, -vec111), -√(3 / 4π) / 3)
+		@test isapprox(∂Sₗₘ_∂z(1, 1, [1 / √2, 1 / √2, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂z(1, 1, [-1 / √2, 0, 1 / √2]), √(3 / 4π) / 2)
+		# l = 1, m = -1, -√(3/4π)*r̂y*r̂z
+		@test isapprox(∂Sₗₘ_∂z(1, -1, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂z(1, -1, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂z(1, -1, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂z(1, -1, vec111), -√(3 / 4π) / 3)
+		@test isapprox(∂Sₗₘ_∂z(1, -1, -vec111), -√(3 / 4π) / 3)
+		@test isapprox(∂Sₗₘ_∂z(1, -1, [1 / √2, 1 / √2, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂z(1, -1, [0, 1 / √2, 1 / √2]), -√(3 / 4π) / 2)
+		@test isapprox(∂Sₗₘ_∂z(1, -1, [0, -1 / √2, 1 / √2]), √(3 / 4π) / 2)
+		# l = 2, m = 0, 3/2*√(5/π)*r̂z*(1-r̂z^2)
+		@test isapprox(∂Sₗₘ_∂z(2, 0, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂z(2, 0, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂z(2, 0, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂z(2, 0, vec111), 3 / 2 * √(5 / π) * (1 / √3) * (1 - 1 / 3))
+		@test isapprox(∂Sₗₘ_∂z(2, 0, -vec111), -3 / 2 * √(5 / π) * (1 / √3) * (1 - 1 / 3))
+		@test isapprox(∂Sₗₘ_∂z(2, 0, [0, 1 / √2, 1 / √2]), 3 / 2 * √(5 / π) * (1 / √2) * (1 - 1 / 2))
+		@test isapprox(∂Sₗₘ_∂z(2, 0, [0, 1 / √2, -1 / √2]), -3 / 2 * √(5 / π) * (1 / √2) * (1 - 1 / 2))
+		# l = 2, m = 1, √(15/π)*r̂x*(1/2-r̂z^2)
+		@test isapprox(∂Sₗₘ_∂z(2, 1, [1, 0, 0]), √(15 / π) * (1 / 2))
+		@test isapprox(∂Sₗₘ_∂z(2, 1, [-1, 0, 0]), -√(15 / π) * (1 / 2))
+		@test isapprox(∂Sₗₘ_∂z(2, 1, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂z(2, 1, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂z(2, 1, vec111), √(15 / π) * (1 / √3) * (1/2 - 1 / 3))
+		@test isapprox(∂Sₗₘ_∂z(2, 1, -vec111), -√(15 / π) * (1 / √3) * (1/2 - 1 / 3))
+		# l = 2, m = -1, √(15/π)*r̂y*(1/2-r̂z^2)
+		@test isapprox(∂Sₗₘ_∂z(2, -1, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂z(2, -1, [0, 1, 0]), √(15 / π) * (1 / 2))
+		@test isapprox(∂Sₗₘ_∂z(2, -1, [0, -1, 0]), -√(15 / π) * (1 / 2))
+		@test isapprox(∂Sₗₘ_∂z(2, -1, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂z(2, -1, vec111), √(15 / π) * (1 / √3) * (1/2 - 1 / 3))
+		@test isapprox(∂Sₗₘ_∂z(2, -1, -vec111), -√(15 / π) * (1 / √3) * (1/2 - 1 / 3))
+		# l = 2, m = 2, -√(15/4π)*r̂z*(r̂x^2-r̂y^2)
+		@test isapprox(∂Sₗₘ_∂z(2, 2, [1, 0, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂z(2, 2, [0, 1, 0]), 0)
+		@test isapprox(∂Sₗₘ_∂z(2, 2, [0, 0, 1]), 0)
+		@test isapprox(∂Sₗₘ_∂z(2, 2, vec111), 0)
+		@test isapprox(∂Sₗₘ_∂z(2, 2, -vec111), 0)
+		@test isapprox(∂Sₗₘ_∂z(2, 2, [1 / √2, 0, 1 / √2]), -√(15 / 4π) * (1 / √2) * (1 / 2))
+		@test isapprox(∂Sₗₘ_∂z(2, 2, [1 / √2, 0, -1 / √2]), √(15 / 4π) * (1 / √2) * (1 / 2))
+		@test isapprox(∂Sₗₘ_∂z(2, 2, [-1 / √2, 0, 1 / √2]), -√(15 / 4π) * (1 / √2) * (1 / 2))
+		@test isapprox(∂Sₗₘ_∂z(2, 2, [0, 1 / √2, 1 / √2]), √(15 / 4π) * (1 / √2) * (1 / 2))
+		@test isapprox(∂Sₗₘ_∂z(2, 2, [0, -1 / √2, 1 / √2]), √(15 / 4π) * (1 / √2) * (1 / 2))
+		@test isapprox(∂Sₗₘ_∂z(2, 2, [0, 1 / √2, -1 / √2]), -√(15 / 4π) * (1 / √2) * (1 / 2))
 	end
 end
