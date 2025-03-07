@@ -222,7 +222,13 @@ function is_translationally_equiv_basis(
 	tol::Real = 1e-5,
 )::Bool
 
+	# Early return if the atomlist is the same
 	if get_atomlist(basis_target) == get_atomlist(basis_ref)
+		return false
+	end
+
+	# Early return if the first atom is the same
+	if get_atomlist(basis_target)[1] == get_atomlist(basis_ref)[1]
 		return false
 	end
 
@@ -249,9 +255,9 @@ function is_translationally_equiv_basis(
 			push!(moved_celllist, crrsp_cell)
 		end
 
-		if length(intersect(moved_atomlist, get_atomlist(basis_target))) != 0
-			return false
-		end
+		# if length(intersect(moved_atomlist, get_atomlist(basis_target))) != 0
+		# 	return false
+		# end
 
 		iul = IndicesUniqueList()
 		for (idx, (atom, cell)) in enumerate(zip(moved_atomlist, moved_celllist))
