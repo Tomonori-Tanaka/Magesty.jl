@@ -33,8 +33,15 @@ function SCEOptimizer(
 	SCE, energy_list = ols_energy(basisset.salc_list, spinconfig_list, symmetry)
 	SCE_torque = ols_torque(basisset.salc_list, spinconfig_list, system.supercell.num_atoms, symmetry)
 
-	display(SCE)
-	display(SCE_torque)
+	println("SCE by energy ols: ")
+	for (i, sce) in enumerate(SCE)
+		println("$(i-1): $sce")
+	end
+
+	println("SCE by torque ols: ")
+	for (i, sce) in enumerate(SCE_torque)
+		println("$(i): $sce")
+	end
 
 	return SCEOptimizer(SCE, energy_list)
 end
@@ -147,6 +154,7 @@ function ols_torque(
 			calc_torque_list_of_spinconfig(spinconfig_list[i], num_atoms)
 	end
 	observed_torque_flattened = vcat(observed_torque_list...)
+	observed_torque_flattened = -1*observed_torque_flattened
 
 
 	# construct design matrix A in Ax = b
@@ -168,7 +176,6 @@ function ols_torque(
 		end
 	end
 
-	# display(design_matrix_list[end])
 	design_matrix = vcat(design_matrix_list...)
 
 	ols_coeffs = design_matrix \ observed_torque_flattened
@@ -208,7 +215,8 @@ function calc_torque_list_of_spinconfig(
 
 		# Calculate torque and store in preallocated vector
 		idx = (iatom - 1) * 3 + 1
-		torque_list[idx:idx+2] .= cross(magmom, magfield)
+		# torque_list[idx:idx+2] .= cross(magmom, magfield)
+		torque_list[idx:idx+2] .= spinconfig.magmom_size[iatom] .* magfield
 	end
 
 	return torque_list
@@ -285,13 +293,13 @@ function calc_derivative_of_salc(
 		atom ∉ get_atomlist(basis) && continue
 
 		# Calculate product of spherical harmonics and their derivatives
-		product = mapreduce(*, basis) do indices
+		product = 1.0
+		for indices in basis
 			spin_dir = @view spin_directions[:, indices.atom]
-
 			if indices.atom == atom
-				derivative_function(indices.l, indices.m, spin_dir)
+				product *= derivative_function(indices.l, indices.m, spin_dir)
 			else
-				Sₗₘ(indices.l, indices.m, spin_dir)
+				product *= Sₗₘ(indices.l, indices.m, spin_dir)
 			end
 		end
 
