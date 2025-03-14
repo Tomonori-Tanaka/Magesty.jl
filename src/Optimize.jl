@@ -6,6 +6,8 @@ This module contains functions for optimizing the SCE coefficients.
 module Optimize
 
 using LinearAlgebra
+using StatsBase
+using Statistics
 using ..MySphericalHarmonics
 using ..SALCs
 using ..AtomicIndices
@@ -32,16 +34,6 @@ function SCEOptimizer(
 )
 	SCE, energy_list = ols_energy(basisset.salc_list, spinconfig_list, symmetry)
 	SCE_torque = ols_torque(basisset.salc_list, spinconfig_list, system.supercell.num_atoms, symmetry)
-
-	println("SCE by energy ols: ")
-	for (i, sce) in enumerate(SCE)
-		println("$(i-1): $sce")
-	end
-
-	println("SCE by torque ols: ")
-	for (i, sce) in enumerate(SCE_torque)
-		println("$(i): $sce")
-	end
 
 	return SCEOptimizer(SCE, energy_list)
 end
@@ -86,9 +78,6 @@ function ols_energy(
 					spinconfig_list[j].spin_directions,
 					symmetry,
 				)
-			# if i == 1
-			# 	design_matrix[j, i+1] = 0.0
-			# end
 			initialize_check[j, i+1] = true
 		end
 	end
@@ -104,8 +93,14 @@ function ols_energy(
 
 	predicted_energy_list::Vector{Float64} = design_matrix * ols_coeffs
 
-	# end
-	open("energy_comparison.txt", "w") do file
+	rmse = rmsd(energy_list, predicted_energy_list)
+	println("RMSE in ols_energy: $rmse")
+
+	for (i, sce) in enumerate(ols_coeffs)
+		println("$(i): $sce")
+	end
+
+	open("energy_comparison_ols_energy.txt", "w") do file
 		for i in 1:num_spinconfigs
 			println(file, "$(energy_list[i])\t$(predicted_energy_list[i])")
 		end
@@ -179,6 +174,39 @@ function ols_torque(
 	design_matrix = vcat(design_matrix_list...)
 
 	ols_coeffs = design_matrix \ observed_torque_flattened
+
+	# calculate bias term
+	design_matrix_energy = zeros(Float64, num_spinconfigs, num_salcs)
+	initialize_check = falses(num_spinconfigs, num_salcs)
+	for i in 1:num_salcs
+		for j in 1:num_spinconfigs
+			design_matrix_energy[j, i] = calc_design_matrix_element(salc_list[i], spinconfig_list[j].spin_directions, symmetry)
+			initialize_check[j, i] = true
+		end
+	end
+	if false in initialize_check
+		error("Failed to initialize the design_matrix_energy.")
+	end
+
+	energy_list = [spinconfig.energy for spinconfig in spinconfig_list]
+
+	bias_term = mean(energy_list .- design_matrix_energy * ols_coeffs)
+
+	rmse_energy = rmsd(energy_list, design_matrix_energy * ols_coeffs .+ bias_term)
+	println("RMSE in ols_torque: $rmse_energy")
+
+	ols_coeffs_with_bias = vcat(bias_term, ols_coeffs)
+	for (i, sce) in enumerate(ols_coeffs_with_bias)
+		println("$(i): $sce")
+	end
+	
+	predicted_energy_list = design_matrix_energy * ols_coeffs .+ bias_term
+	open("energy_comparison_ols_torque.txt", "w") do file
+		for i in 1:num_spinconfigs
+			println(file, "$(energy_list[i])\t$(predicted_energy_list[i])")
+		end
+	end
+	
 
 	return ols_coeffs
 
