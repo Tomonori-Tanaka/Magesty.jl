@@ -49,7 +49,6 @@ function BasisSet(
 	# println(basislist)
 	classified_basisdict::AbstractDict{Int, SortedCountingUniqueVector} =
 		classify_basislist(basislist, symmetry.map_sym)
-	# println(classified_basisdict)
 
 	projection_dict::Dict{Int, Matrix{Float64}},
 	each_projection_dict =
@@ -71,7 +70,9 @@ function BasisSet(
 		# collect indices of basis with eigenvalue 1
 		eigenval_1_list = findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenval)
 		for idx_eigenval in eigenval_1_list
-			push!(salc_list, SALC(classified_basisdict[idx], eigenvec[:, idx_eigenval]))
+			eigenvec_real = to_real_vector(eigenvec[:, idx_eigenval])
+			# push!(salc_list, SALC(classified_basisdict[idx], eigenvec[:, idx_eigenval]))
+			push!(salc_list, SALC(classified_basisdict[idx], eigenvec_real))
 		end
 	end
 
@@ -321,6 +322,20 @@ function check_eigenval(eigenval::AbstractVector; tol = 1e-8)::Bool
 		end
 	end
 	return true
+end
+
+function to_real_vector(v::AbstractVector{T}, atol::Real=1e-12) where T<:Real
+    return copy(v)  # real vector is returned as is
+end
+
+function to_real_vector(z::AbstractVector{Complex{T}}, atol::Real=1e-12) where T<:Real
+    # Check all imaginary parts at once
+    if any(zi -> !isapprox(imag(zi), zero(T), atol=atol), z)
+        idx = findfirst(zi -> !isapprox(imag(zi), zero(T), atol=atol), z)
+        throw(DomainError(z[idx], 
+            "Vector contains complex numbers with significant imaginary parts"))
+    end
+    return real.(z)
 end
 
 end

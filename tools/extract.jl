@@ -10,6 +10,7 @@ function extract_energy_magmom(
 	magmom_temp_listoflist = Vector{Vector{Float64}}()
 
 	energy::Float64 = 0.0
+	energy_found = false
 	open(file, "r") do f
 		collecting = false
 		for line in eachline(f)
@@ -45,11 +46,16 @@ function extract_energy_magmom(
 			if occursin("F=", line)
 				if energy_kind == "f"
 					energy = parse(Float64, split(line)[3])
+					energy_found = true
 				elseif energy_kind == "e0"
 					energy = parse(Float64, split(line)[5])
+					energy_found = true
 				end
 			end
 		end
+	end
+	if !energy_found
+		error("energy not found in $file")
 	end
 	magmom_matrix::Matrix{Float64} = reduce(vcat, magmom_listoflist')
 	return energy, magmom_matrix
