@@ -62,9 +62,15 @@ function BasisSet(
 	for idx in 1:maximum(keys(projection_dict))
 		eigenval, eigenvec = eigen(projection_dict[idx])
 		eigenval = real.(round.(eigenval, digits = 6))
-		eigenvec = round.(eigenvec, digits = 6)
+		# eigenvec = round.(eigenvec, digits = 6)
+		eigenvec[abs.(eigenvec) .< 1e-5] .= 0.0
+		eigenvec = round.(eigenvec, digits = 10)
 		if !check_eigenval(eigenval)
-			throw(DomainError("Critical error: Eigenvalues must be either 0 or 1. index: $idx"))
+			throw(
+				DomainError(
+					"Critical error: Eigenvalues must be either 0 or 1. index: $idx",
+				),
+			)
 		end
 
 		# collect indices of basis with eigenvalue 1
@@ -78,7 +84,13 @@ function BasisSet(
 
 	# @show salc_list
 
-	return BasisSet(basislist, classified_basisdict, projection_dict, each_projection_dict, salc_list)
+	return BasisSet(
+		basislist,
+		classified_basisdict,
+		projection_dict,
+		each_projection_dict,
+		salc_list,
+	)
 
 end
 
@@ -324,18 +336,20 @@ function check_eigenval(eigenval::AbstractVector; tol = 1e-8)::Bool
 	return true
 end
 
-function to_real_vector(v::AbstractVector{T}, atol::Real=1e-12) where T<:Real
-    return copy(v)  # real vector is returned as is
+function to_real_vector(v::AbstractVector{T}, atol::Real = 1e-12) where T <: Real
+	return copy(v)  # real vector is returned as is
 end
 
-function to_real_vector(z::AbstractVector{Complex{T}}, atol::Real=1e-12) where T<:Real
-    # Check all imaginary parts at once
-    if any(zi -> !isapprox(imag(zi), zero(T), atol=atol), z)
-        idx = findfirst(zi -> !isapprox(imag(zi), zero(T), atol=atol), z)
-        throw(DomainError(z[idx], 
-            "Vector contains complex numbers with significant imaginary parts"))
-    end
-    return real.(z)
+function to_real_vector(z::AbstractVector{Complex{T}}, atol::Real = 1e-12) where T <: Real
+	# Check all imaginary parts at once
+	if any(zi -> !isapprox(imag(zi), zero(T), atol = atol), z)
+		idx = findfirst(zi -> !isapprox(imag(zi), zero(T), atol = atol), z)
+		throw(
+			DomainError(z[idx],
+				"Vector contains complex numbers with significant imaginary parts"),
+		)
+	end
+	return real.(z)
 end
 
 end
