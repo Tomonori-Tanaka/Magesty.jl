@@ -21,7 +21,27 @@ include("./utils/Projection.jl")
 export BasisSet
 
 """
- - 'salc_coeffs:', coefficient vectors to represent symmetry-adapted linear combinations.
+	struct BasisSet
+
+Represents a set of basis functions for atomic interactions in a crystal structure.
+
+# Fields
+- `basislist::SortedCountingUniqueVector{IndicesUniqueList}`: List of unique basis indices
+- `classified_basisdict::Dict{Int, SortedCountingUniqueVector}`: Dictionary mapping symmetry labels to basis sets
+- `projection_dict::Dict{Int, Matrix{Float64}}`: Dictionary of projection matrices for each symmetry label
+- `each_projection_dict::Any`: Dictionary containing individual projection information
+- `salc_list::Vector{SALC}`: List of symmetry-adapted linear combinations
+
+# Constructor
+	BasisSet(system::System, symmetry::Symmetry, cluster::Cluster, lmax::AbstractMatrix{<:Integer}, bodymax::Integer)
+
+Creates a new `BasisSet` instance based on the provided system, symmetry, cluster information, and maximum angular momentum values.
+
+# Examples
+```julia
+# Create a basis set for a system with 2 atoms and 3-body interactions
+basis = BasisSet(system, symmetry, cluster, lmax_matrix, 3)
+```
 """
 struct BasisSet
 	basislist::SortedCountingUniqueVector{IndicesUniqueList}

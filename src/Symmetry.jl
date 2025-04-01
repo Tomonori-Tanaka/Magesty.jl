@@ -32,10 +32,23 @@ Represents a symmetry operation, including rotation and translation components.
 # Fields
 - `rotation_frac::SMatrix{3, 3, Float64, 9}`: The 3x3 rotation matrix in fractional coordinates.
 - `rotation_cart::SMatrix{3, 3, Float64, 9}`: The 3x3 rotation matrix in Cartesian coordinates.
-- `translation_frac::SMatrix{3, 1, Float64, 3}`: The 3x1 translation vector in fractional coordinates.
+- `translation_frac::SVector{3, Float64}`: The 3x1 translation vector in fractional coordinates.
 - `is_translation::Bool`: True if the operation is a pure translation.
 - `is_translation_included::Bool`: True if the operation includes a translation.
-- `is_compatible_cartesian::Bool`: True if the rotation is compatible with Cartesian axes.
+- `is_proper::Bool`: True if the rotation is proper (determinant > 0).
+
+# Examples
+```julia
+# Create a symmetry operation
+symop = SymmetryOperation(
+    rotation_frac = [1 0 0; 0 1 0; 0 0 1],
+    rotation_cart = [1 0 0; 0 1 0; 0 0 1],
+    translation_frac = [0.0, 0.0, 0.0],
+    is_translation = true,
+    is_translation_included = false,
+    is_proper = true
+)
+```
 """
 struct SymmetryOperation
 	rotation_frac::SMatrix{3, 3, Float64, 9}
@@ -123,11 +136,14 @@ struct Symmetry
 end
 
 function Symmetry(system::System, tol::Real)
+	if tol <= 0
+		throw(ArgumentError("Tolerance must be positive, got $tol"))
+	end
+
 	println("""
 	========
 	SYMMETRY
 	========
-
 	""")
 	cell = system.supercell
 	spglib_cell = Spglib.Cell(cell.lattice_vectors, cell.x_frac, cell.kd_int_list)
@@ -306,32 +322,23 @@ function Symmetry(system::System, tol::Real)
 end
 
 """
-	find_matching_image_cell(symop::SymmetryOperation, x_image::AbstractArray{<:Real, 3}, atom::Integer, cell::Integer) -> Union{Nothing, Int}
+	find_matching_image_cell(symop::SymmetryOperation, x_image::AbstractArray{<:Real, 3}, atom::Integer, cell::Integer) -> Int
 
 Finds the matching image cell index for a given symmetry operation applied to an atom within a supercell.
 
 # Arguments
-
-- `symop::SymmetryOperation`: The symmetry operation to be applied, containing rotation and translation matrices.
-- `x_image::AbstractArray{<:Real, 3}`: A 3D array containing fractional coordinates of atoms in different images.
-- `atom::Integer`: The index of the atom to which the symmetry operation is applied.
-- `cell::Integer`: The image cell index of the atom.
+- `symop::SymmetryOperation`: The symmetry operation to be applied
+- `x_image::AbstractArray{<:Real, 3}`: Fractional coordinates of atoms in different images
+- `atom::Integer`: Index of the atom to apply symmetry operation to
+- `cell::Integer`: Image cell index of the atom
+- `tol::Real`: Tolerance for floating point comparisons (default: 1e-5)
 
 # Returns
+- `Int`: The matching image cell index if found, -1 if not found
 
-- `Union{Nothing, Int}`: Returns the matching image cell index `m` if a unique match is found. Returns `nothing` if no match is found. Throws an error if multiple matches are found.
-
-# Examples
-
-```julia
-# Assuming appropriate definitions for SymmetryOperation and x_image
-symop = SymmetryOperation(rotation=eye(3), translation=[0.0, 0.0, 0.0])
-x_image = rand(Float64, 3, 5, 5)  # Example 3D array
-atom = 1
-cell = 1
-
-result = find_matching_image_cell(symop, x_image, atom, cell)
-println(result)  # Example output: nothing or an integer index
+# Throws
+- `ArgumentError`: If atom or cell indices are out of bounds
+- `ErrorException`: If multiple matches are found
 """
 function find_matching_image_cell(
 	symop::SymmetryOperation,
@@ -341,21 +348,28 @@ function find_matching_image_cell(
 	;
 	tol::Real = 1e-5,
 )::Int
-	# Apply the symmetry operation to the specified atom and image cell
-	x_moved = symop.rotation_frac * x_image[:, atom, cell] + symop.translation_frac
-	matches = [
-		(n, m) for n in 1:size(x_image, 2), m in 1:size(x_image, 3) if
-		isapprox(x_image[:, n, m], x_moved; atol = tol)
-	]
+	# Input validation
+	if !(1 ≤ atom ≤ size(x_image, 2))
+		throw(ArgumentError("Atom index $atom is out of bounds"))
+	end
+	if !(1 ≤ cell ≤ size(x_image, 3))
+		throw(ArgumentError("Cell index $cell is out of bounds"))
+	end
 
-	if length(matches) == 0
+	# Pre-allocate arrays for better performance
+	x_moved = similar(x_image, 3)
+	x_moved .= symop.rotation_frac * @view(x_image[:, atom, cell]) .+ symop.translation_frac
+
+	# Use views for better performance
+	matches = [(n, m) for n in 1:size(x_image, 2), m in 1:size(x_image, 3) 
+			  if isapprox(@view(x_image[:, n, m]), x_moved; atol = tol)]
+
+	if isempty(matches)
 		return -1
 	elseif length(matches) == 1
-		return matches[1][2]# cell_moved
+		return matches[1][2]
 	else
-		error(
-			"Multiple matching image cells found for atom $atom in image cell $cell: $matches",
-		)
+		error("Multiple matching image cells found for atom $atom in image cell $cell: $matches")
 	end
 end
 
@@ -394,21 +408,19 @@ function __write_symdata(
 	mkpath(dir)
 	path = joinpath(dir, filename)
 	open(path, "w") do io
-		for (i, symdata) in enumerate(symdata)
+		for (i, symop) in enumerate(symdata)
 			write(io, "operation: $i\n")
 			write(io, "rotation (fractional)\n")
+			
+			# Pre-allocate vector for better performance
+			vec = Vector{Float64}(undef, 3)
 			for line in 1:3
-				vec = Vector(symdata.rotation_frac[line, :])
-				vec1 = vec[1]
-				vec2 = vec[2]
-				vec3 = vec[3]
-				write(io, "$vec1\t$vec2\t$vec3\n")
+				vec .= symop.rotation_frac[line, :]
+				write(io, "$(vec[1])\t$(vec[2])\t$(vec[3])\n")
 			end
+			
 			write(io, "translation (fractional)\n")
-			write(
-				io,
-				"$(symdata.translation_frac[1])\t$(symdata.translation_frac[2])\t$(symdata.translation_frac[3])\n",
-			)
+			write(io, "$(symop.translation_frac[1])\t$(symop.translation_frac[2])\t$(symop.translation_frac[3])\n")
 			write(io, "\n")
 		end
 	end
