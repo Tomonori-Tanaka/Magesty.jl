@@ -10,8 +10,8 @@ A module for managing crystal structures and periodic systems. It defines `Cell`
 """
 
 module Systems
-
 using LinearAlgebra
+using Printf
 using StaticArrays
 
 import Base: show
@@ -136,12 +136,6 @@ function System(
 	kd_int_list::AbstractVector{<:Integer},
 	x_frac::AbstractMatrix{<:Real},
 )
-	println("""
-	======
-	SYSTEM
-	======
-
-	""")
 	supercell = Cell(lattice_vectors, kd_int_list, x_frac)
 	x_image_frac, x_image_cart = calc_x_images(lattice_vectors, x_frac)
 	exist_image::Vector{Bool} = calc_exist_image(is_periodic)
@@ -256,4 +250,41 @@ function show(io::IO, system::System)
 	println(io, "atomtype_group: ", system.atomtype_group)
 end
 
+function print_info(system::System)
+	supercell = system.supercell
+	println("""
+	======
+	SYSTEM
+	======
+	""")
+	println("Total Number of atoms: ", supercell.num_atoms)
+	println("Number of atomic species: \n", supercell.num_elements)
+
+	println("Lattice vector (in Angstrom):")
+	for (i, label) in enumerate(["a1", "a2", "a3"])
+		println(@sprintf("  %12.8e   %12.8e   %12.8e : %s", 
+			supercell.lattice_vectors[:, i]..., label))
+	end
+	println("")
+	println("Periodicity: ", Int.(system.is_periodic), "\n")
+	
+	digits = length(string(abs(supercell.num_atoms))) + 1
+	println("Atomic species:")
+	for (i, species) in enumerate(system.kd_name)
+		println(@sprintf("  %*d: %s", digits, i, species))
+	end
+	println("")
+	
+	println("Atomic positions in fractional coordinates and atomic species:")
+	for i in 1:supercell.num_atoms
+		println(@sprintf("  %*d: %12.8e   %12.8e   %12.8e   %*d",
+			digits, i,
+			supercell.x_frac[1, i],
+			supercell.x_frac[2, i],
+			supercell.x_frac[3, i],
+			digits, supercell.kd_int_list[i]))
+	end
+	println("")
+	println("-------------------------------------------------------------------")
+end
 end

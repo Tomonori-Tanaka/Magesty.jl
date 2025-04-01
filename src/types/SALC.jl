@@ -5,6 +5,7 @@ This module provides a data structure for symmetry-adapted linear combinations (
 """
 module SALCs
 
+using Printf
 using LinearAlgebra
 using ..SortedContainer
 using ..AtomicIndices
@@ -52,9 +53,9 @@ function SALC(
 end
 
 function show(io::IO, salc::SALC)
-	println(io, "number of SALCs: ", length(salc.basisset))
+	println(io, "number of terms: ", length(salc.basisset))
 	for (basis, coeff, multiplicity) in zip(salc.basisset, salc.coeffs, salc.multiplicity)
-		println(io, multiplicity, "\t", coeff, "\t", basis)
+		println(@sprintf("%2d  % 15.10f  %s", multiplicity, coeff, basis))
 	end
 end
 

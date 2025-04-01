@@ -140,11 +140,6 @@ function Symmetry(system::System, tol::Real)
 		throw(ArgumentError("Tolerance must be positive, got $tol"))
 	end
 
-	println("""
-	========
-	SYMMETRY
-	========
-	""")
 	cell = system.supercell
 	spglib_cell = Spglib.Cell(cell.lattice_vectors, cell.x_frac, cell.kd_int_list)
 	spglib_data::Spglib.Dataset = get_dataset(spglib_cell)
@@ -316,8 +311,6 @@ function Symmetry(system::System, tol::Real)
 		map_s2p,
 		symnum_translation)
 
-	print_symminfo_stdout(symmetry)
-
 	return symmetry
 end
 
@@ -375,7 +368,13 @@ end
 
 is_in_centeringcell(xf, x_image_frac) = any(xf ≈ vec for vec in x_image_frac[:, :, 1])
 
-function print_symminfo_stdout(symmetry::Symmetry)
+function print_info(symmetry::Symmetry)
+	println("""
+	========
+	SYMMETRY
+	========
+	""")
+
 	str = """
 	Space group:  $(symmetry.international_symbol)  ($(symmetry.spacegroup_number))
 	Number of symmetry operations = $(symmetry.nsym)
@@ -398,6 +397,7 @@ function print_symminfo_stdout(symmetry::Symmetry)
 		str *= str_supercell
 	end
 	println(str)
+	println("-------------------------------------------------------------------")
 end
 
 function __write_symdata(

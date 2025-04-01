@@ -22,7 +22,9 @@ export SCEOptimizer
 
 struct SCEOptimizer
 	SCE::Vector{Float64}
-	energy_list::Vector{Float64}
+	relative_error_torque::Float64
+	relative_error_energy::Float64
+	predicted_energy_list::Vector{Float64}
 end
 
 function SCEOptimizer(
@@ -33,10 +35,10 @@ function SCEOptimizer(
 	weight::Real,
 	spinconfig_list::AbstractVector{SpinConfig},
 )
-	SCE, energy_list = ols_energy(basisset.salc_list, spinconfig_list, symmetry)
-	SCE_torque = ols_torque(basisset.salc_list, spinconfig_list, system.supercell.num_atoms, symmetry)
+	# SCE, energy_list = ols_energy(basisset.salc_list, spinconfig_list, symmetry)
+	SCE, relative_error_torque, relative_error_energy, predicted_energy_list = ols_torque(basisset.salc_list, spinconfig_list, system.supercell.num_atoms, symmetry)
 
-	return SCEOptimizer(SCE, energy_list)
+	return SCEOptimizer(SCE, relative_error_torque, relative_error_energy, predicted_energy_list)
 end
 
 function SCEOptimizer(
@@ -175,6 +177,8 @@ function ols_torque(
 	design_matrix = vcat(design_matrix_list...)
 
 	ols_coeffs = design_matrix \ observed_torque_flattened
+	predicted_torque_flattened = design_matrix * ols_coeffs
+	relative_error_torque = √(sum((observed_torque_flattened - predicted_torque_flattened) .^ 2) / sum(observed_torque_flattened .^ 2))
 
 	# calculate bias term
 	design_matrix_energy = zeros(Float64, num_spinconfigs, num_salcs)
@@ -192,9 +196,10 @@ function ols_torque(
 	energy_list = [spinconfig.energy for spinconfig in spinconfig_list]
 
 	bias_term = mean(energy_list .- design_matrix_energy * ols_coeffs)
+	relative_error_energy = √(sum((energy_list .- (design_matrix_energy * ols_coeffs .+ bias_term)) .^ 2) / sum(energy_list .^ 2))
 
-	rmse_energy = rmsd(energy_list, design_matrix_energy * ols_coeffs .+ bias_term)
-	println("RMSE in ols_torque: $rmse_energy")
+	# rmse_energy = rmsd(energy_list, design_matrix_energy * ols_coeffs .+ bias_term)
+	# println("RMSE in ols_torque: $rmse_energy")
 
 	ols_coeffs_with_bias = vcat(bias_term, ols_coeffs)
 	for (i, sce) in enumerate(ols_coeffs_with_bias)
@@ -209,7 +214,7 @@ function ols_torque(
 	end
 	
 
-	return ols_coeffs
+	return ols_coeffs, relative_error_torque, relative_error_energy, predicted_energy_list
 
 end
 
@@ -373,6 +378,20 @@ function translate_atom_idx_of_salc(
 	end
 
 	return SALC(translated_basisset, salc.coeffs, salc.multiplicity)
+end
+
+function print_info(optimizer::SCEOptimizer)
+	println(
+		"""
+		============
+		OPTIMIZATION
+		============
+		""",
+	)
+	println(@sprintf("fitting error of torque: %.4f %%", optimizer.relative_error_torque * 100))
+	println(@sprintf("fitting error of energy: %.4e %%", optimizer.relative_error_energy * 100))
+
+	println("-------------------------------------------------------------------")
 end
 
 end
