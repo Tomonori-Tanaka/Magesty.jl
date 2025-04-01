@@ -98,7 +98,7 @@ function ols_energy(
 	println("RMSE in ols_energy: $rmse")
 
 	for (i, sce) in enumerate(ols_coeffs)
-		@printf("%d: %.10f\n", i, sce)
+		@printf("%d: %.10f\n", i-1, sce)
 	end
 
 	open("energy_comparison_ols_energy.txt", "w") do file
@@ -198,7 +198,7 @@ function ols_torque(
 
 	ols_coeffs_with_bias = vcat(bias_term, ols_coeffs)
 	for (i, sce) in enumerate(ols_coeffs_with_bias)
-		@printf("%d: %.10f\n", i, sce)
+		@printf("%d: %.10f\n", i-1, sce)
 	end
 	
 	predicted_energy_list = design_matrix_energy * ols_coeffs .+ bias_term

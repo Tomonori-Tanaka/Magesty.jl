@@ -62,4 +62,9 @@ function SpinCluster(toml_file::AbstractString)
 	end
 end
 
+function write_xml(sc::SpinCluster)
+	system = sc.system
+
+end
+	
 end
