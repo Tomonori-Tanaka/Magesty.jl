@@ -143,9 +143,10 @@ end
 # Show method for IndicesUniqueList
 function show(io::IO, iul::IndicesUniqueList)
 	for indices in iul
+		# (atom, l, m, cell) with fixed width
 		print(
 			io,
-			"(atom: $(indices.atom), l: $(indices.l), m: $(indices.m), cell: $(indices.cell))",
+			"($(lpad(indices.atom, 5)),$(lpad(indices.l, 2)),$(lpad(indices.m, 3)), $(lpad(indices.cell, 2)))",
 		)
 	end
 end

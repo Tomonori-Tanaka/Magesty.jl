@@ -66,5 +66,21 @@ function write_xml(sc::SpinCluster)
 	system = sc.system
 
 end
-	
+
+function print_info(sc::SpinCluster)
+	println(
+		"""
+		+-----------------------------------+
+		|          Magesty v0.1.0           |
+		+-----------------------------------+
+
+		""",
+	)
+
+	Systems.print_info(sc.system)
+	Symmetries.print_info(sc.symmetry)
+	BasisSets.print_info(sc.basisset)
+	Optimize.print_info(sc.optimize)
+end
+
 end

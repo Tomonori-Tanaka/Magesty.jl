@@ -35,13 +35,35 @@ Represents a set of basis functions for atomic interactions in a crystal structu
 # Constructor
 	BasisSet(system::System, symmetry::Symmetry, cluster::Cluster, lmax::AbstractMatrix{<:Integer}, bodymax::Integer)
 
-Creates a new `BasisSet` instance based on the provided system, symmetry, cluster information, and maximum angular momentum values.
+Constructs a new `BasisSet` instance for atomic interactions in a crystal structure.
+
+# Arguments
+- `system::System`: System information containing atomic positions and species
+- `symmetry::Symmetry`: Symmetry information for the crystal structure
+- `cluster::Cluster`: Cluster information for atomic interactions
+- `lmax::AbstractMatrix{<:Integer}`: Matrix of maximum angular momentum values for each atomic species and body [nkd × nbody]
+- `bodymax::Integer`: Maximum number of bodies in interactions
+
+# Returns
+- `BasisSet`: A new basis set instance containing:
+  - List of unique basis functions
+  - Symmetry-classified basis dictionary
+  - Projection matrices
+  - Symmetry-adapted linear combinations
 
 # Examples
 ```julia
-# Create a basis set for a system with 2 atoms and 3-body interactions
+# Create a basis set for a system with 2 atomic species and 3-body interactions
+lmax_matrix = [2 3; 3 2]  # lmax for each species and body
 basis = BasisSet(system, symmetry, cluster, lmax_matrix, 3)
 ```
+
+# Note
+The constructor performs the following steps:
+1. Constructs the basis list
+2. Classifies basis functions by symmetry
+3. Constructs projection matrices
+4. Generates symmetry-adapted linear combinations
 """
 struct BasisSet
 	basislist::SortedCountingUniqueVector{IndicesUniqueList}
@@ -83,7 +105,7 @@ function BasisSet(
 		eigenval, eigenvec = eigen(projection_dict[idx])
 		eigenval = real.(round.(eigenval, digits = 6))
 		# eigenvec = round.(eigenvec, digits = 6)
-		eigenvec[abs.(eigenvec) .< 1e-5] .= 0.0
+		eigenvec[abs.(eigenvec).<1e-5] .= 0.0
 		eigenvec = round.(eigenvec, digits = 10)
 		if !check_eigenval(eigenval)
 			throw(
@@ -97,8 +119,8 @@ function BasisSet(
 		eigenval_1_list = findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenval)
 		for idx_eigenval in eigenval_1_list
 			eigenvec_real = to_real_vector(eigenvec[:, idx_eigenval])
-			# push!(salc_list, SALC(classified_basisdict[idx], eigenvec[:, idx_eigenval]))
-			push!(salc_list, SALC(classified_basisdict[idx], eigenvec_real))
+			eigenvec_real_normalized = eigenvec_real / norm(eigenvec_real)
+			push!(salc_list, SALC(classified_basisdict[idx], eigenvec_real_normalized))
 		end
 	end
 
@@ -346,7 +368,33 @@ function find_corresponding_atom(
 	No matching (atom, cell) indices found.")
 end
 
-# check whether the given eigenvalues consists of 0 or 1 only
+"""
+	check_eigenval(eigenval::AbstractVector; tol = 1e-8)::Bool
+
+Checks whether all eigenvalues in the given vector are approximately 0 or 1.
+
+# Arguments
+- `eigenval::AbstractVector`: Vector of eigenvalues to check
+- `tol::Real = 1e-8`: Tolerance for floating-point comparisons
+
+# Returns
+- `Bool`: `true` if all eigenvalues are approximately 0 or 1, `false` otherwise
+
+# Examples
+```julia
+# Check eigenvalues from a projection matrix
+eigenvals = [0.0, 1.0, 0.0, 1.0]
+is_valid = check_eigenval(eigenvals)  # true
+
+# With some tolerance
+eigenvals = [0.0, 1.0 + 1e-9, 0.0, 1.0]
+is_valid = check_eigenval(eigenvals)  # true
+
+# Invalid eigenvalues
+eigenvals = [0.0, 1.0, 0.5, 1.0]
+is_valid = check_eigenval(eigenvals)  # false
+```
+"""
 function check_eigenval(eigenval::AbstractVector; tol = 1e-8)::Bool
 	for value in eigenval
 		if !isapprox(value, 0, atol = tol) && !isapprox(value, 1, atol = tol)
@@ -370,6 +418,24 @@ function to_real_vector(z::AbstractVector{Complex{T}}, atol::Real = 1e-12) where
 		)
 	end
 	return real.(z)
+end
+
+function print_info(basis::BasisSet)
+	println(
+		"""
+		=========
+		BASIS SET
+		=========
+		""",
+	)
+	println("Number of symmetry-adapted basis functions: $(length(basis.salc_list))")
+	println("# multiplicity  coefficient  basis")
+	for (i, salc) in enumerate(basis.salc_list)
+		println("$i-th salc")
+		display(salc)
+	end
+	println("-------------------------------------------------------------------")
+
 end
 
 end

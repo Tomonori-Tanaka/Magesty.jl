@@ -36,7 +36,7 @@ function construct_projectionmatrix(
 	result_projection = Dict{Int, Matrix{Float64}}()
 	result_each_matrix = Dict{Int, Vector{SparseMatrixCSC{Float64, Int}}}()
 	for (idx::Int, basislist::SortedCountingUniqueVector) in basisdict
-		println("calculating projection matrix of $idx-th basis list.")
+		# println("calculating projection matrix of $idx-th basis list.")
 		dim = length(basislist)
 		projection_mat = spzeros(Float64, dim, dim)
 		result_each_matrix[idx] = []
