@@ -40,14 +40,23 @@ export Cluster
 Represents distance information between an atom in the central cell and an atom in a central or virtual neighboring cell.
 
 # Fields
-- `cell::Int`: The virtual cell index of the second atom.
-- `distance::Float64`: The Cartesian distance between the two atoms.
-- `relvec::Vector{Float64}`: The relative Cartesian vector from the first atom to the second atom.
+- `cell::Int`: The virtual cell index of the second atom (1-27 for 3x3x3 supercell).
+- `distance::Float64`: The Cartesian distance between the two atoms in Angstroms.
+- `relvec::Vector{Float64}`: The relative Cartesian vector from the first atom to the second atom in Angstroms.
 
 # Constructor
 	DistInfo(cell::Int, distance::Real, relvec::Vector{<:Real})
 
 Creates a new `DistInfo` instance. Ensures that `relvec` has a length of 3.
+
+# Examples
+```julia
+# Create a DistInfo instance for atoms in the same cell
+dist = DistInfo(1, 2.5, [1.0, 0.0, 0.0])
+
+# Create a DistInfo instance for atoms in different cells
+dist = DistInfo(2, 3.0, [2.0, 1.0, 0.0])
+```
 """
 struct DistInfo
 	cell::Int   # virtual cell index of atom j
@@ -65,10 +74,23 @@ end
 isless(distinfo1::DistInfo, distinfo2::DistInfo) = distinfo1.distance < distinfo2.distance
 
 """
-Cluster of interactiong atoms. Note that this structure contains only partner atoms.
-- `atom_list::Vector{Int}`: [≤ body-1]
-- `cell_list::`: [≤ body-1][icell ≤ the number of equivalent atoms]
-- `distmax::Float64`:
+	struct InteractionCluster
+
+Represents a cluster of interacting atoms within a crystal structure.
+
+# Fields
+- `atoms::Vector{Int}`: List of partner atom indices (length ≤ body-1)
+- `cells::Vector{Vector{Int}}`: List of cell indices for each partner atom (length ≤ body-1)
+- `distmax::Float64`: Maximum distance between any pair of atoms in the cluster
+
+# Examples
+```julia
+# Create a 2-body interaction cluster
+cluster = InteractionCluster([2], [[1]], 2.5)
+
+# Create a 3-body interaction cluster
+cluster = InteractionCluster([2, 3], [[1], [2]], 3.0)
+```
 """
 struct InteractionCluster
 	atoms::Vector{Int}
@@ -430,7 +452,29 @@ function generate_pairs_with_icells(
 end
 
 """
-classify the atoms in the primitive cell into equivalent group.
+	classify_equivalent_atoms(atoms_in_prim::AbstractVector{<:Integer}, map_sym::AbstractMatrix{<:Integer}) -> Vector{Vector{Int}}
+
+Classifies atoms in the primitive cell into equivalent groups based on symmetry operations.
+
+# Arguments
+- `atoms_in_prim::AbstractVector{<:Integer}`: List of atom indices in the primitive cell
+- `map_sym::AbstractMatrix{<:Integer}`: Symmetry mapping matrix where map_sym[i,j] gives the image of atom i under symmetry operation j
+
+# Returns
+- `Vector{Vector{Int}}`: List of equivalent atom groups, where each group contains atoms that are related by symmetry operations
+
+# Examples
+```julia
+# For a system with 4 atoms and 2 symmetry operations
+atoms = [1, 2, 3, 4]
+map_sym = [1 2; 2 1; 3 4; 4 3]  # Example symmetry mapping
+
+# Classify equivalent atoms
+groups = classify_equivalent_atoms(atoms, map_sym)
+
+# Result will be:
+# [[1, 2], [3, 4]]  # Atoms 1,2 are equivalent and 3,4 are equivalent
+```
 """
 function classify_equivalent_atoms(
 	atoms_in_prim::AbstractVector{<:Integer},
@@ -479,37 +523,25 @@ end
 Generates all possible combinations by pairing each element of `vec` with each element of the corresponding sublist in `vecofvec`.
 
 # Arguments
-
-- `vec::AbstractVector{<:Any}`: A vector containing elements to be paired.
-- `vecofvec::AbstractVector{<:AbstractVector{<:Any}}`: A vector of vectors, where each subvector contains elements to be paired with the corresponding element in `vec`.
+- `vec::AbstractVector{<:Any}`: A vector containing elements to be paired
+- `vecofvec::AbstractVector{<:AbstractVector{<:Any}}`: A vector of vectors, where each subvector contains elements to be paired with the corresponding element in `vec`
 
 # Returns
-
-- `Vector{Tuple}`: A vector of tuples, where each tuple contains paired elements from `vec` and `vecofvec`. Each tuple consists of pairs corresponding to the elements in `vec` and each subvector in `vecofvec`.
-
-# Errors
-
-- Throws an `ArgumentError` if the lengths of `vec` and `vecofvec` are not equal.
+- `Vector{Tuple}`: A vector of tuples, where each tuple contains paired elements from `vec` and `vecofvec`
 
 # Examples
-
 ```julia
 # Define the vectors
-A = [1, 2]
-B = [['a', 'b', 'c'], ['d', 'e']]
+atoms = [1, 2]
+cells = [[1, 2], [3]]
 
 # Generate combinations
-result = generate_combinations(A, B)
+result = generate_combinations(atoms, cells)
 
-# Display the result
-println(result)
-# Output:
-# [((1, 'a'), (2, 'd')),
-#  ((1, 'a'), (2, 'e')),
-#  ((1, 'b'), (2, 'd')),
-#  ((1, 'b'), (2, 'e')),
-#  ((1, 'c'), (2, 'd')),
-#  ((1, 'c'), (2, 'e'))]
+# Result will be:
+# [((1, 1), (2, 3)),
+#  ((1, 2), (2, 3))]
+```
 """
 function generate_combinations(
 	vec::AbstractVector,
@@ -522,6 +554,31 @@ function generate_combinations(
 	return [Tuple(zip(vec, comb)) for comb in combinations]
 end
 
+"""
+	all_atomlist_by_symop(atomlist::AbstractVector{<:Integer}, map_sym::AbstractMatrix{<:Integer}) -> Vector{Vector{Int}}
+
+Generates all possible atom lists by applying symmetry operations to the input atom list.
+
+# Arguments
+- `atomlist::AbstractVector{<:Integer}`: List of atom indices to transform
+- `map_sym::AbstractMatrix{<:Integer}`: Symmetry mapping matrix where map_sym[i,j] gives the image of atom i under symmetry operation j
+
+# Returns
+- `Vector{Vector{Int}}`: List of unique atom lists obtained by applying all symmetry operations
+
+# Examples
+```julia
+# For a system with 3 atoms and 2 symmetry operations
+atoms = [1, 2, 3]
+map_sym = [1 2; 2 1; 3 3]  # Example symmetry mapping
+
+# Generate all possible atom lists
+lists = all_atomlist_by_symop(atoms, map_sym)
+
+# Result will be:
+# [[1, 2, 3], [2, 1, 3]]  # Two unique configurations
+```
+"""
 function all_atomlist_by_symop(
 	atomlist::AbstractVector{<:Integer},
 	map_sym::AbstractMatrix{<:Integer},
