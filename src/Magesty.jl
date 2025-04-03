@@ -83,4 +83,18 @@ function print_info(sc::SpinCluster)
 	Optimize.print_info(sc.optimize)
 end
 
+function write_energy_list(sc::SpinCluster, filename::AbstractString = "energy_list.txt")
+	open(filename, "w") do io
+		for i in 1:length(sc.optimize.spinconfig_list)
+			println(io, "$(sc.optimize.spinconfig_list[i].energy)\t$(sc.optimize.predicted_energy_list[i])")
+		end
+	end
+end
+
+function write_magfield_list(sc::SpinCluster)
+end
+
+function write_sce(sc::SpinCluster)
+end
+
 end

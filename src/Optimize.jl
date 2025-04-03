@@ -22,9 +22,11 @@ export SCEOptimizer
 
 struct SCEOptimizer
 	SCE::Vector{Float64}
+	bias_term::Float64
 	relative_error_torque::Float64
 	relative_error_energy::Float64
 	predicted_energy_list::Vector{Float64}
+	spinconfig_list::Vector{SpinConfig}
 end
 
 function SCEOptimizer(
@@ -36,9 +38,9 @@ function SCEOptimizer(
 	spinconfig_list::AbstractVector{SpinConfig},
 )
 	# SCE, energy_list = ols_energy(basisset.salc_list, spinconfig_list, symmetry)
-	SCE, relative_error_torque, relative_error_energy, predicted_energy_list = ols_torque(basisset.salc_list, spinconfig_list, system.supercell.num_atoms, symmetry)
+	SCE, bias_term,relative_error_torque, relative_error_energy, predicted_energy_list = ols_torque(basisset.salc_list, spinconfig_list, system.supercell.num_atoms, symmetry)
 
-	return SCEOptimizer(SCE, relative_error_torque, relative_error_energy, predicted_energy_list)
+	return SCEOptimizer(SCE, bias_term, relative_error_torque, relative_error_energy, predicted_energy_list, spinconfig_list)
 end
 
 function SCEOptimizer(
@@ -101,12 +103,6 @@ function ols_energy(
 
 	for (i, sce) in enumerate(ols_coeffs)
 		@printf("%d: %.10f\n", i-1, sce)
-	end
-
-	open("energy_comparison_ols_energy.txt", "w") do file
-		for i in 1:num_spinconfigs
-			println(file, "$(energy_list[i])\t$(predicted_energy_list[i])")
-		end
 	end
 
 	return ols_coeffs, energy_list
@@ -201,20 +197,9 @@ function ols_torque(
 	# rmse_energy = rmsd(energy_list, design_matrix_energy * ols_coeffs .+ bias_term)
 	# println("RMSE in ols_torque: $rmse_energy")
 
-	ols_coeffs_with_bias = vcat(bias_term, ols_coeffs)
-	for (i, sce) in enumerate(ols_coeffs_with_bias)
-		@printf("%d: %.10f\n", i-1, sce)
-	end
-	
 	predicted_energy_list = design_matrix_energy * ols_coeffs .+ bias_term
-	open("energy_comparison_ols_torque.txt", "w") do file
-		for i in 1:num_spinconfigs
-			println(file, "$(energy_list[i])\t$(predicted_energy_list[i])")
-		end
-	end
-	
 
-	return ols_coeffs, relative_error_torque, relative_error_energy, predicted_energy_list
+	return ols_coeffs, bias_term, relative_error_torque, relative_error_energy, predicted_energy_list
 
 end
 
@@ -388,7 +373,11 @@ function print_info(optimizer::SCEOptimizer)
 		============
 		""",
 	)
-	println(@sprintf("fitting error of torque: %.4f %%", optimizer.relative_error_torque * 100))
+	println(@sprintf("bias term: %.10f", optimizer.bias_term))
+	for (i, sce) in enumerate(optimizer.SCE)
+		println(@sprintf("%9d: %15.10f", i, sce))
+	end
+	println(@sprintf("fitting error of force: %.4f %%", optimizer.relative_error_torque * 100))
 	println(@sprintf("fitting error of energy: %.4e %%", optimizer.relative_error_energy * 100))
 
 	println("-------------------------------------------------------------------")
