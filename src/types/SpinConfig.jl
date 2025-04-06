@@ -19,12 +19,14 @@ A configuration of spins.
 - `magmom_size::Vector{Float64}`: The size of the magnetic moments. [3, num_atoms]
 - `spin_directions::Matrix{Float64}`: The direction cosines (unit vectors) of the spins. [3, num_atoms]
 - `local_magfield::Matrix{Float64}`: The local magnetic field. [3, num_atoms]
+- `torque::Matrix{Float64}`: The torque acting on each spin, calculated as cross product of spin direction and local magnetic field. [3, num_atoms]
 """
 struct SpinConfig
 	energy::Float64
 	magmom_size::Vector{Float64}
 	spin_directions::Matrix{Float64}
 	local_magfield::Matrix{Float64}
+	torque::Matrix{Float64}
 end
 
 function SpinConfig(
@@ -32,7 +34,7 @@ function SpinConfig(
 	magmom_size::AbstractVector{<:Real},
 	spin_directions::AbstractMatrix{<:Real},
 	local_magfield::AbstractMatrix{<:Real},
-)
+)::SpinConfig
 	num_atoms = length(magmom_size)
 
 	if num_atoms != size(spin_directions, 2)
@@ -49,10 +51,12 @@ function SpinConfig(
 		)
 	end
 
-	return SpinConfig(energy, magmom_size, spin_directions, local_magfield)
+	torque = calc_torque(spin_directions, local_magfield)
+
+	return SpinConfig(energy, magmom_size, spin_directions, local_magfield, torque)
 end
 
-function show(io::IO, config::SpinConfig)
+function show(io::IO, config::SpinConfig)::Nothing
 	println(io, "energy (eV): $(config.energy)")
 	num_atoms = length(config.magmom_size)
 	for i in 1:num_atoms
@@ -72,6 +76,12 @@ function show(io::IO, config::SpinConfig)
 			lpad(@sprintf("%.5e", config.local_magfield[2, i]), 12),
 			" ",
 			lpad(@sprintf("%.5e", config.local_magfield[3, i]), 12),
+			" ",
+			lpad(@sprintf("%.5e", config.torque[1, i]), 12),
+			" ",
+			lpad(@sprintf("%.5e", config.torque[2, i]), 12),
+			" ",
+			lpad(@sprintf("%.5e", config.torque[3, i]), 12),
 		)
 	end
 end
@@ -124,6 +134,17 @@ function separate_embset(
 	end
 
 	return SpinConfig(energy, magmom_size, spin_directions, local_magfield)
+end
+
+function calc_torque(
+	spin_directions::Matrix{Float64},
+	local_magfield::Matrix{Float64}
+)::Matrix{Float64}
+	torque = zeros(3, size(local_magfield, 2))
+	for i in 1:size(local_magfield, 2)
+		torque[:, i] = cross(spin_directions[:, i], local_magfield[:, i])
+	end
+	return torque
 end
 
 end
