@@ -42,7 +42,7 @@ function main(files::Vector{String};
              aspect_ratio = 1)
 
     # Plot the reference line (y = x)
-    plot!(p, [-1000, 1000], [-1000, 1000],
+    plot!(p, [-100000, 100000], [-100000, 100000],
           line = (:black, 1),
           label = "y = x")
 
@@ -172,7 +172,7 @@ s = ArgParseSettings(
         arg_type = String
         default = nothing
 
-    "--lim"
+    "--lim", "-l"
         help = "Axis limits for X and Y axes (min max)"
         arg_type = Float64
         default = nothing
