@@ -85,50 +85,11 @@ function print_info(sc::SpinCluster)
 end
 
 function write_energy_lists(sc::SpinCluster, filename::AbstractString = "energy_lists.txt")
-	optimizer = sc.optimize
-	# Input validation
-	if isempty(optimizer.spinconfig_list)
-		@warn "No spin configurations found in optimizer"
-		return
-	end
-
-	# Prepare data
-	spinconfig_list = optimizer.spinconfig_list
-	observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_list]
-	predicted_energy_list = optimizer.predicted_energy_list
-
-	# Check array lengths
-	if length(observed_energy_list) != length(predicted_energy_list)
-		error("Length mismatch between observed and predicted energy lists")
-	end
-
-	# Format settings
-	digits_index = length(string(length(observed_energy_list)))
-	header = "# Index:" * " "^(digits_index-1) * "Observed_Energy" * " "^4 * "Predicted_Energy"
-
-	# Write to file
-	try
-		open(filename, "w") do f
-			# Write header
-			println(f, header)
-
-			# Write data
-			for (i, (obs_energy, pred_energy)) in enumerate(zip(observed_energy_list, predicted_energy_list))
-				str = @sprintf("%*d    %15.10f    %15.10f\n", digits_index, i, obs_energy, pred_energy)
-				write(f, str)
-			end
-		end
-	catch e
-		@error "Failed to write energy lists to file" exception=(e, catch_backtrace())
-		rethrow(e)
-	end
+	Optimize.write_energy_lists(sc.optimize, filename)
 end
 
-function write_torque_list(sc::SpinCluster, filename::AbstractString = "torque_list.txt")
-	optimizer = sc.optimize
-end
-
-function write_sce(sc::SpinCluster)
+function write_magfield_vertical_list(sc::SpinCluster, filename::AbstractString = "magfield_vertical_list.txt")
+	Optimize.write_magfield_vertical_list(sc.optimize, filename)
 end
 
 end
