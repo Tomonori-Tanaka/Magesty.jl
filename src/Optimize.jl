@@ -21,12 +21,15 @@ using ..SpinConfigs
 export SCEOptimizer
 
 struct SCEOptimizer
+	spinconfig_list::Vector{SpinConfig}
 	SCE::Vector{Float64}
 	bias_term::Float64
 	relative_error_torque::Float64
 	relative_error_energy::Float64
 	predicted_energy_list::Vector{Float64}
-	spinconfig_list::Vector{SpinConfig}
+	observed_energy_list::Vector{Float64}
+	predicted_magfield_vertical_list::Vector{Float64}
+	observed_magfield_vertical_list::Vector{Float64}
 end
 
 function SCEOptimizer(
@@ -37,10 +40,20 @@ function SCEOptimizer(
 	weight::Real,
 	spinconfig_list::AbstractVector{SpinConfig},
 )
-	# SCE, energy_list = ols_energy(basisset.salc_list, spinconfig_list, symmetry)
-	SCE, bias_term,relative_error_torque, relative_error_energy, predicted_energy_list = ols_torque(basisset.salc_list, spinconfig_list, system.supercell.num_atoms, symmetry)
+	SCE, bias_term, relative_error_torque, relative_error_energy, predicted_energy_list, observed_energy_list, predicted_magfield_vertical_list, observed_magfield_vertical_list =
+		ols_magfield_vertical(basisset.salc_list, spinconfig_list, system.supercell.num_atoms, symmetry)
 
-	return SCEOptimizer(SCE, bias_term, relative_error_torque, relative_error_energy, predicted_energy_list, spinconfig_list)
+	return SCEOptimizer(
+		spinconfig_list,
+		SCE,
+		bias_term,
+		relative_error_torque,
+		relative_error_energy,
+		predicted_energy_list,
+		observed_energy_list,
+		predicted_magfield_vertical_list,
+		observed_magfield_vertical_list,
+	)
 end
 
 function SCEOptimizer(
@@ -102,7 +115,7 @@ function ols_energy(
 	println("RMSE in ols_energy: $rmse")
 
 	for (i, sce) in enumerate(ols_coeffs)
-		@printf("%d: %.10f\n", i-1, sce)
+		@printf("%d: %.10f\n", i - 1, sce)
 	end
 
 	return ols_coeffs, energy_list
@@ -131,7 +144,7 @@ function calc_design_matrix_element(
 	return result
 end
 
-function ols_torque(
+function ols_magfield_vertical(
 	salc_list::AbstractVector{SALC},
 	spinconfig_list::AbstractVector{SpinConfig},
 	num_atoms::Integer,
@@ -141,14 +154,14 @@ function ols_torque(
 	num_salcs = length(salc_list)
 	num_spinconfigs = length(spinconfig_list)
 
-	# observed torque
-	observed_torque_list = Vector{Vector{Float64}}(undef, num_spinconfigs)
+	# observed magfield_vertical
+	observed_magfield_vertical_list = Vector{Vector{Float64}}(undef, num_spinconfigs)
 	for i in 1:num_spinconfigs
-		observed_torque_list[i] =
-			calc_torque_list_of_spinconfig(spinconfig_list[i], num_atoms)
+		observed_magfield_vertical_list[i] =
+			calc_magfield_vertical_list_of_spinconfig(spinconfig_list[i], num_atoms)
 	end
-	observed_torque_flattened = vcat(observed_torque_list...)
-	observed_torque_flattened = -1*observed_torque_flattened
+	observed_magfield_vertical_flattened = vcat(observed_magfield_vertical_list...)
+	observed_magfield_vertical_flattened = -1 * observed_magfield_vertical_flattened
 
 
 	# construct design matrix A in Ax = b
@@ -172,16 +185,23 @@ function ols_torque(
 
 	design_matrix = vcat(design_matrix_list...)
 
-	ols_coeffs = design_matrix \ observed_torque_flattened
-	predicted_torque_flattened = design_matrix * ols_coeffs
-	relative_error_torque = √(sum((observed_torque_flattened - predicted_torque_flattened) .^ 2) / sum(observed_torque_flattened .^ 2))
+	ols_coeffs = design_matrix \ observed_magfield_vertical_flattened
+	predicted_magfield_vertical_flattened = design_matrix * ols_coeffs
+	relative_error_magfield_vertical = √(
+		sum((observed_magfield_vertical_flattened - predicted_magfield_vertical_flattened) .^ 2) /
+		sum(observed_magfield_vertical_flattened .^ 2),
+	)
 
 	# calculate bias term
 	design_matrix_energy = zeros(Float64, num_spinconfigs, num_salcs)
 	initialize_check = falses(num_spinconfigs, num_salcs)
 	for i in 1:num_salcs
 		for j in 1:num_spinconfigs
-			design_matrix_energy[j, i] = calc_design_matrix_element(salc_list[i], spinconfig_list[j].spin_directions, symmetry)
+			design_matrix_energy[j, i] = calc_design_matrix_element(
+				salc_list[i],
+				spinconfig_list[j].spin_directions,
+				symmetry,
+			)
 			initialize_check[j, i] = true
 		end
 	end
@@ -189,50 +209,59 @@ function ols_torque(
 		error("Failed to initialize the design_matrix_energy.")
 	end
 
-	energy_list = [spinconfig.energy for spinconfig in spinconfig_list]
+	observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_list]
 
-	bias_term = mean(energy_list .- design_matrix_energy * ols_coeffs)
-	relative_error_energy = √(sum((energy_list .- (design_matrix_energy * ols_coeffs .+ bias_term)) .^ 2) / sum(energy_list .^ 2))
+	bias_term = mean(observed_energy_list .- design_matrix_energy * ols_coeffs)
+	relative_error_energy = √(
+		sum((observed_energy_list .- (design_matrix_energy * ols_coeffs .+ bias_term)) .^ 2) /
+		sum(observed_energy_list .^ 2),
+	)
 
 	predicted_energy_list = design_matrix_energy * ols_coeffs .+ bias_term
 
-	return ols_coeffs, bias_term, relative_error_torque, relative_error_energy, predicted_energy_list
-
+	return ols_coeffs,
+	bias_term,
+	relative_error_magfield_vertical,
+	relative_error_energy,
+	predicted_energy_list,
+	observed_energy_list,
+	predicted_magfield_vertical_flattened,
+	observed_magfield_vertical_flattened
 end
 
 """
-	calc_torque_list_of_spinconfig(spinconfig, num_atoms) -> Vector{Float64}
+	calc_magfield_vertical_list_of_spinconfig(spinconfig, num_atoms) -> Vector{Float64}
 
-Calculate the torque vectors for each atom in the spin configuration.
+Calculate the magfield_vertical vectors for each atom in the spin configuration.
 
 # Arguments
 - `spinconfig::SpinConfig`: Spin configuration containing magnetic moments and fields
 - `num_atoms::Integer`: Number of atoms in the system
 
 # Returns
-A flattened vector of length 3*num_atoms containing the torque components:
-[τ₁ₓ, τ₁ᵧ, τ₁ᵣ, τ₂ₓ, τ₂ᵧ, τ₂ᵣ, ...]
+A flattened vector of length 3*num_atoms containing the magfield_vertical components:
+[B₁ₓ, B₁ᵧ, B₁ᵣ, B₂ₓ, B₂ᵧ, B₂ᵣ, ...]
 
-where τᵢ = μᵢ × Bᵢ (torque = magnetic moment × local magnetic field)
+where Bᵢ = μᵢ × Hᵢ (magfield_vertical = magnetic moment × local magnetic field)
 """
-function calc_torque_list_of_spinconfig(
+function calc_magfield_vertical_list_of_spinconfig(
 	spinconfig::SpinConfig,
 	num_atoms::Int,
 )::Vector{Float64}
 	# Preallocate the result vector
-	torque_list = zeros(3 * num_atoms)
+	magfield_vertical_list = zeros(3 * num_atoms)
 
 	for iatom in 1:num_atoms
 
 		# Get local magnetic field
-		magfield = @view spinconfig.local_magfield_vertical[:, iatom]
+		magfield_vertical = @view spinconfig.local_magfield_vertical[:, iatom]
 
-		# Calculate torque and store in preallocated vector
+		# Calculate magfield_vertical and store in preallocated vector
 		idx = (iatom - 1) * 3 + 1
-		torque_list[idx:idx+2] .= spinconfig.magmom_size[iatom] .* magfield
+		magfield_vertical_list[idx:idx+2] .= spinconfig.magmom_size[iatom] .* magfield_vertical
 	end
 
-	return torque_list
+	return magfield_vertical_list
 end
 
 
@@ -359,6 +388,91 @@ function translate_atom_idx_of_salc(
 	return SALC(translated_basisset, salc.coeffs, salc.multiplicity)
 end
 
+"""
+	write_list_to_file(data_list::AbstractVector, predicted_list::AbstractVector, filename::AbstractString, header::AbstractString)
+
+Write observed and predicted data to a file with a common format.
+
+# Arguments
+- `data_list`: Vector of observed data
+- `predicted_list`: Vector of predicted data
+- `filename`: Output file name
+- `header`: Header string for the output file
+"""
+function write_list_to_file(
+	data_list::AbstractVector,
+	predicted_list::AbstractVector,
+	filename::AbstractString,
+	header::AbstractString,
+)
+	# Check array lengths
+	if length(data_list) != length(predicted_list)
+		error("Length mismatch between observed and predicted lists")
+	end
+
+	# Format settings
+	digits_index = length(string(length(data_list)))
+
+	# Write to file
+	try
+		open(filename, "w") do f
+			# Write header
+			println(f, header)
+
+			# Write data
+			for (i, (obs, pred)) in enumerate(zip(data_list, predicted_list))
+				str = @sprintf(
+					"%*d    %15.10f    %15.10f\n",
+					digits_index,
+					i,
+					obs,
+					pred
+				)
+				write(f, str)
+			end
+		end
+	catch e
+		@error "Failed to write lists to file" exception = (e, catch_backtrace())
+		rethrow(e)
+	end
+end
+
+function write_energy_lists(optimizer::SCEOptimizer, filename::AbstractString = "energy_lists.txt")
+	# Input validation
+	if isempty(optimizer.spinconfig_list)
+		@warn "No spin configurations found in optimizer"
+		return
+	end
+
+	# Prepare data
+	observed_energy_list = [spinconfig.energy for spinconfig in optimizer.spinconfig_list]
+	predicted_energy_list = optimizer.predicted_energy_list
+
+	# Format header
+	digits_index = length(string(length(observed_energy_list)))
+	header = "# Index:" * " "^(digits_index - 1) * "Observed_Energy" * " "^4 * "Predicted_Energy"
+
+	write_list_to_file(observed_energy_list, predicted_energy_list, filename, header)
+end
+
+function write_magfield_vertical_list(optimizer::SCEOptimizer, filename::AbstractString = "magfield_vertical_list.txt")
+	# Input validation
+	if isempty(optimizer.spinconfig_list)
+		@warn "No spin configurations found in optimizer"
+		return
+	end
+
+	# Prepare data
+	observed_magfield_vertical_list = optimizer.observed_magfield_vertical_list
+	predicted_magfield_vertical_list = optimizer.predicted_magfield_vertical_list
+
+	# Format header
+	digits_index = length(string(length(observed_magfield_vertical_list)))
+	header = "# Index:" * " "^(digits_index - 1) * "Observed_Magfield_Vertical" * " "^4 * "Predicted_Magfield_Vertical"
+
+	write_list_to_file(observed_magfield_vertical_list, predicted_magfield_vertical_list, filename, header)
+end
+
 function print_info(optimizer::SCEOptimizer)
 	println(
 		"""
@@ -371,7 +485,7 @@ function print_info(optimizer::SCEOptimizer)
 	for (i, sce) in enumerate(optimizer.SCE)
 		println(@sprintf("%9d: %15.10f", i, sce))
 	end
-	println(@sprintf("fitting error of force: %.4f %%", optimizer.relative_error_torque * 100))
+	println(@sprintf("fitting error of force: %.4f %%", optimizer.relative_error_magfield_vertical * 100))
 	println(@sprintf("fitting error of energy: %.4e %%", optimizer.relative_error_energy * 100))
 
 	println("-------------------------------------------------------------------")
