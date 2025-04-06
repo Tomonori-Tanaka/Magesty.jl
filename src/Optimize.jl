@@ -24,7 +24,7 @@ struct SCEOptimizer
 	spinconfig_list::Vector{SpinConfig}
 	SCE::Vector{Float64}
 	bias_term::Float64
-	relative_error_torque::Float64
+	relative_error_magfield_vertical::Float64
 	relative_error_energy::Float64
 	predicted_energy_list::Vector{Float64}
 	observed_energy_list::Vector{Float64}
@@ -40,14 +40,39 @@ function SCEOptimizer(
 	weight::Real,
 	spinconfig_list::AbstractVector{SpinConfig},
 )
-	SCE, bias_term, relative_error_torque, relative_error_energy, predicted_energy_list, observed_energy_list, predicted_magfield_vertical_list, observed_magfield_vertical_list =
-		ols_magfield_vertical(basisset.salc_list, spinconfig_list, system.supercell.num_atoms, symmetry)
+	if weight > 0.5
+		SCE,
+		bias_term,
+		relative_error_magfield_vertical,
+		relative_error_energy,
+		predicted_energy_list,
+		observed_energy_list,
+		predicted_magfield_vertical_list,
+		observed_magfield_vertical_list =
+			ols_energy(basisset.salc_list, spinconfig_list, system.supercell.num_atoms, symmetry)
+	else
+		SCE,
+		bias_term,
+		relative_error_magfield_vertical,
+		relative_error_energy,
+		predicted_energy_list,
+		observed_energy_list,
+		predicted_magfield_vertical_list,
+		observed_magfield_vertical_list =
+			ols_magfield_vertical(
+				basisset.salc_list,
+				spinconfig_list,
+				system.supercell.num_atoms,
+				symmetry,
+			)
+	end
+
 
 	return SCEOptimizer(
 		spinconfig_list,
 		SCE,
 		bias_term,
-		relative_error_torque,
+		relative_error_magfield_vertical,
 		relative_error_energy,
 		predicted_energy_list,
 		observed_energy_list,
@@ -74,8 +99,9 @@ end
 function ols_energy(
 	salc_list::AbstractVector{SALC},
 	spinconfig_list::AbstractVector{SpinConfig},
+	num_atoms::Integer,
 	symmetry::Symmetry,
-)::Tuple{Vector{Float64}, Vector{Float64}}
+)
 	# dimensions
 	num_salcs = length(salc_list)
 	num_spinconfigs = length(spinconfig_list)
@@ -105,20 +131,62 @@ function ols_energy(
 	end
 
 
-	energy_list::Vector{Float64} = [spinconfig.energy for spinconfig in spinconfig_list]
+	observed_energy_list::Vector{Float64} = [spinconfig.energy for spinconfig in spinconfig_list]
 	# solve Ax = b
-	ols_coeffs = design_matrix \ energy_list
+	ols_coeffs = design_matrix \ observed_energy_list
 
 	predicted_energy_list::Vector{Float64} = design_matrix * ols_coeffs
 
-	rmse = rmsd(energy_list, predicted_energy_list)
-	println("RMSE in ols_energy: $rmse")
+	# construct design matrix for magfield_vertical
+	design_matrix_list = Vector{Matrix{Float64}}(undef, num_spinconfigs)
 
-	for (i, sce) in enumerate(ols_coeffs)
-		@printf("%d: %.10f\n", i - 1, sce)
+	for i in 1:num_spinconfigs
+		design_matrix_list[i] = zeros(Float64, 3 * num_atoms, num_salcs)
+		for row_idx in 1:3*num_atoms
+			for isalc in 1:num_salcs
+				design_matrix_list[i][row_idx, isalc] =
+					calc_X_matrix_element(
+						salc_list[isalc],
+						spinconfig_list[i].spin_directions,
+						symmetry,
+						row_idx,
+					)
+			end
+		end
 	end
 
-	return ols_coeffs, energy_list
+	observed_magfield_vertical_list = Vector{Vector{Float64}}(undef, num_spinconfigs)
+	for i in 1:num_spinconfigs
+		observed_magfield_vertical_list[i] =
+			calc_magfield_vertical_list_of_spinconfig(
+				spinconfig_list[i],
+				num_atoms,
+			)
+	end
+	observed_magfield_vertical_flattened::Vector{Float64} = vcat(observed_magfield_vertical_list...)
+	observed_magfield_vertical_flattened = -1 * observed_magfield_vertical_flattened
+
+	bias_term::Float64 = ols_coeffs[1]
+	ols_coeffs_wo_bias::Vector{Float64} = ols_coeffs[2:end]
+	design_matrix::Matrix{Float64} = vcat(design_matrix_list...)
+	predicted_magfield_vertical_list::Vector{Float64} = design_matrix * ols_coeffs_wo_bias
+	relative_error_energy::Float64 = √(
+		sum((observed_energy_list - predicted_energy_list) .^ 2) /
+		sum(observed_energy_list .^ 2),
+	)
+	relative_error_magfield_vertical::Float64 = √(
+		sum((observed_magfield_vertical_flattened - predicted_magfield_vertical_list) .^ 2) /
+		sum(observed_magfield_vertical_flattened .^ 2),
+	)
+
+	return ols_coeffs_wo_bias,
+		bias_term,
+        relative_error_magfield_vertical,
+        relative_error_energy,
+		predicted_energy_list,
+		observed_energy_list,
+		predicted_magfield_vertical_list,
+		observed_magfield_vertical_flattened
 end
 
 function calc_design_matrix_element(
@@ -455,7 +523,10 @@ function write_energy_lists(optimizer::SCEOptimizer, filename::AbstractString = 
 	write_list_to_file(observed_energy_list, predicted_energy_list, filename, header)
 end
 
-function write_magfield_vertical_list(optimizer::SCEOptimizer, filename::AbstractString = "magfield_vertical_list.txt")
+function write_magfield_vertical_list(
+	optimizer::SCEOptimizer,
+	filename::AbstractString = "magfield_vertical_list.txt",
+)
 	# Input validation
 	if isempty(optimizer.spinconfig_list)
 		@warn "No spin configurations found in optimizer"
@@ -468,9 +539,16 @@ function write_magfield_vertical_list(optimizer::SCEOptimizer, filename::Abstrac
 
 	# Format header
 	digits_index = length(string(length(observed_magfield_vertical_list)))
-	header = "# Index:" * " "^(digits_index - 1) * "Observed_Magfield_Vertical" * " "^4 * "Predicted_Magfield_Vertical"
+	header =
+		"# Index:" * " "^(digits_index - 1) * "Observed_Magfield_Vertical" * " "^4 *
+		"Predicted_Magfield_Vertical"
 
-	write_list_to_file(observed_magfield_vertical_list, predicted_magfield_vertical_list, filename, header)
+	write_list_to_file(
+		observed_magfield_vertical_list,
+		predicted_magfield_vertical_list,
+		filename,
+		header,
+	)
 end
 
 function print_info(optimizer::SCEOptimizer)
@@ -485,7 +563,12 @@ function print_info(optimizer::SCEOptimizer)
 	for (i, sce) in enumerate(optimizer.SCE)
 		println(@sprintf("%9d: %15.10f", i, sce))
 	end
-	println(@sprintf("fitting error of force: %.4f %%", optimizer.relative_error_magfield_vertical * 100))
+	println(
+		@sprintf(
+			"fitting error of force: %.4f %%",
+			optimizer.relative_error_magfield_vertical * 100
+		)
+	)
 	println(@sprintf("fitting error of energy: %.4e %%", optimizer.relative_error_energy * 100))
 
 	println("-------------------------------------------------------------------")
