@@ -26,7 +26,7 @@ struct SpinConfig
 	magmom_size::Vector{Float64}
 	spin_directions::Matrix{Float64}
 	local_magfield::Matrix{Float64}
-	torque::Matrix{Float64}
+	local_magfield_vertical::Matrix{Float64}
 end
 
 function SpinConfig(
@@ -51,9 +51,9 @@ function SpinConfig(
 		)
 	end
 
-	torque = calc_torque(spin_directions, local_magfield)
+	local_magfield_vertical = calc_local_magfield_vertical(spin_directions, local_magfield)
 
-	return SpinConfig(energy, magmom_size, spin_directions, local_magfield, torque)
+	return SpinConfig(energy, magmom_size, spin_directions, local_magfield, local_magfield_vertical)
 end
 
 function show(io::IO, config::SpinConfig)::Nothing
@@ -77,11 +77,11 @@ function show(io::IO, config::SpinConfig)::Nothing
 			" ",
 			lpad(@sprintf("%.5e", config.local_magfield[3, i]), 12),
 			" ",
-			lpad(@sprintf("%.5e", config.torque[1, i]), 12),
+			lpad(@sprintf("%.5e", config.local_magfield_vertical[1, i]), 12),
 			" ",
-			lpad(@sprintf("%.5e", config.torque[2, i]), 12),
+			lpad(@sprintf("%.5e", config.local_magfield_vertical[2, i]), 12),
 			" ",
-			lpad(@sprintf("%.5e", config.torque[3, i]), 12),
+			lpad(@sprintf("%.5e", config.local_magfield_vertical[3, i]), 12),
 		)
 	end
 end
@@ -136,15 +136,16 @@ function separate_embset(
 	return SpinConfig(energy, magmom_size, spin_directions, local_magfield)
 end
 
-function calc_torque(
+function calc_local_magfield_vertical(
 	spin_directions::Matrix{Float64},
 	local_magfield::Matrix{Float64}
 )::Matrix{Float64}
-	torque = zeros(3, size(local_magfield, 2))
+	local_magfield_vertical = zeros(3, size(local_magfield, 2))
 	for i in 1:size(local_magfield, 2)
-		torque[:, i] = cross(spin_directions[:, i], local_magfield[:, i])
+		proj_B::Vector{Float64} = dot(local_magfield[:, i], spin_directions[:, i]) * spin_directions[:, i]
+		local_magfield_vertical[:, i] = local_magfield[:, i] - proj_B
 	end
-	return torque
+	return local_magfield_vertical
 end
 
 end

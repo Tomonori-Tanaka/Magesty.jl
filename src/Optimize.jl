@@ -194,9 +194,6 @@ function ols_torque(
 	bias_term = mean(energy_list .- design_matrix_energy * ols_coeffs)
 	relative_error_energy = √(sum((energy_list .- (design_matrix_energy * ols_coeffs .+ bias_term)) .^ 2) / sum(energy_list .^ 2))
 
-	# rmse_energy = rmsd(energy_list, design_matrix_energy * ols_coeffs .+ bias_term)
-	# println("RMSE in ols_torque: $rmse_energy")
-
 	predicted_energy_list = design_matrix_energy * ols_coeffs .+ bias_term
 
 	return ols_coeffs, bias_term, relative_error_torque, relative_error_energy, predicted_energy_list
@@ -226,15 +223,12 @@ function calc_torque_list_of_spinconfig(
 	torque_list = zeros(3 * num_atoms)
 
 	for iatom in 1:num_atoms
-		# Calculate magnetic moment vector
-		magmom = @view(spinconfig.spin_directions[:, iatom]) * spinconfig.magmom_size[iatom]
 
 		# Get local magnetic field
-		magfield = @view spinconfig.local_magfield[:, iatom]
+		magfield = @view spinconfig.local_magfield_vertical[:, iatom]
 
 		# Calculate torque and store in preallocated vector
 		idx = (iatom - 1) * 3 + 1
-		# torque_list[idx:idx+2] .= cross(magmom, magfield)
 		torque_list[idx:idx+2] .= spinconfig.magmom_size[iatom] .* magfield
 	end
 
