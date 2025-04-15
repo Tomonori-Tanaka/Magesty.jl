@@ -400,7 +400,7 @@ function calc_derivative_of_salc(
 	# Iterate through each basis and coefficient
 	for (basis, coeff, multiplicity) in zip(basislist, coeffs, multiplicity_list)
 		# Skip if atom is not in the basis
-		atom ∉ get_atomlist(basis) && continue
+		atom ∉ [indices.atom for indices in basis] && continue
 
 		# Calculate product of spherical harmonics and their derivatives
 		product = 1.0

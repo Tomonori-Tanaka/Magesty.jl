@@ -140,11 +140,14 @@ function calc_projection(
 			error("Failed to find moved basis in basis projection.")
 		end
 
+		atom_list = [indices.atom for indices in moved_rbasis]
+		l_list = [indices.l for indices in moved_rbasis]
+		cell_list = [indices.cell for indices in moved_rbasis]
 		partial_moved_basis::Vector{IndicesUniqueList} =
-			AtomicIndices.product_indices_fixed_l(
-				get_atomlist(moved_rbasis),
-				get_llist(moved_rbasis),
-				get_celllist(moved_rbasis),
+			AtomicIndices.product_indices(
+				atom_list,
+				l_list,
+				cell_list,
 			)
 		partial_r_idx = findfirst(x -> equivalent(x, moved_rbasis), partial_moved_basis)
 		if isnothing(partial_r_idx)
@@ -158,11 +161,11 @@ function calc_projection(
 			rotmat = symop.rotation_cart
 		else
 			rotmat = -1 * symop.rotation_cart
-			multiplier = (-1)^(get_totalL(moved_rbasis))
+			multiplier = (-1)^(get_total_L(moved_rbasis))
 		end
 
 		if time_reversal_sym
-			multiplier *= (-1)^(get_totalL(moved_rbasis))
+			multiplier *= (-1)^(get_total_L(moved_rbasis))
 		end
 
 		euler_angles::Tuple{Float64, Float64, Float64} = rotmat2euler(rotmat)
@@ -203,8 +206,8 @@ function apply_symop_to_basis(
 	isym::Integer,
 	map_sym_cell::AbstractArray{AtomCell},
 )::NTuple{2, Vector{Int}}
-	atom_list = get_atomlist(basis)
-	cell_list = get_celllist(basis)
+	atom_list = [indices.atom for indices in basis]
+	cell_list = [indices.cell for indices in basis]
 
 	moved_atom_list = Vector{Int}()
 	moved_cell_list = Vector{Int}()
@@ -235,8 +238,8 @@ function apply_symop_to_basis_with_shift(
 	tol::Real = 1e-5,
 )::NTuple{2, Vector{Int}}
 
-	atom_list = get_atomlist(basis)
-	cell_list = get_celllist(basis)
+	atom_list = [indices.atom for indices in basis]
+	cell_list = [indices.cell for indices in basis]
 
 	header_atom = atom_list[begin]
 	header_cell = cell_list[begin]

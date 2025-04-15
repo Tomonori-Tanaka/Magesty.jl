@@ -167,7 +167,7 @@ function construct_basislist(
 		for cluster in cluster_list[body-1]
 			atomlist, llist, celllist =
 				get_atomsls_from_cluster(cluster, lmax_mat, kd_int_list)
-			for iul in product_indices(atomlist, llist, celllist)
+			for iul in product_indices_of_all_comb(atomlist, llist, celllist)
 				for basis in basislist
 					if equivalent(basis, iul)
 						basislist.counts[basis] += 1
@@ -278,18 +278,18 @@ function is_translationally_equiv_basis(
 )::Bool
 
 	# Early return if the atomlist is the same
-	if get_atomlist(basis_target) == get_atomlist(basis_ref)
+	if [indices.atom for indices in basis_target] == [indices.atom for indices in basis_ref]
 		return false
 	end
 
 	# Early return if the first atom is the same
-	if get_atomlist(basis_target)[1] == get_atomlist(basis_ref)[1]
+	if basis_target[1].atom == basis_ref[1].atom
 		return false
 	end
 
-	for i in 2:length(basis_target)
-		iatom = get_atomlist(basis_target)[i]
-		icell = get_celllist(basis_target)[i]
+	for i in eachindex(basis_target)
+		iatom = basis_target[i].atom
+		icell = basis_target[i].cell
 		iatom_in_prim = atoms_in_prim[map_s2p[iatom].atom]
 
 		# cartesian relative vector b/w iatom and iatom_in_prim
@@ -309,10 +309,6 @@ function is_translationally_equiv_basis(
 			push!(moved_atomlist, crrsp_atom)
 			push!(moved_celllist, crrsp_cell)
 		end
-
-		# if length(intersect(moved_atomlist, get_atomlist(basis_target))) != 0
-		# 	return false
-		# end
 
 		iul = IndicesUniqueList()
 		for (idx, (atom, cell)) in enumerate(zip(moved_atomlist, moved_celllist))
