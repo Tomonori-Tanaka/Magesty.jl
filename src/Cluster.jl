@@ -15,7 +15,6 @@ This module provides data structures and functions for managing and analyzing cl
 - `set_interaction_clusters(nat_prim::Int, kd_int_list::AbstractVector{Int}, map_p2s::AbstractMatrix{Int}, x_image_cart::AbstractArray{Float64, 3}, exist_image::AbstractVector{Bool}, interaction_pairs::Vector{<:Vector{Int}}, cutoff_radii::AbstractArray{Float64, 3}, mindist_pairs::Matrix{<:Vector{<:DistInfo}}, nbody::Int)`: Organizes interaction clusters.
 - `is_within_cutoff(atoms::AbstractVector{<:Int}, kd_int::AbstractVector{<:Int}, rc::AbstractArray{Float64, 3}, mindist_pairs::Matrix{<:AbstractVector{<:DistInfo}})`: Checks if a cluster is within cutoff radii.
 - `calc_distmax(atoms::AbstractVector{<:Int}, mindist_pairs::Matrix{<:AbstractVector{<:DistInfo}})`: Calculates the maximum distance within a cluster.
-- `generate_pairs(nat_prim::Int, map_p2s::Matrix{<:Int}, interaction_clusters::Matrix{OrderedSet{InteractionCluster}}, nbody::Int)`: Generates a list of interaction clusters.
 
 """
 
@@ -140,8 +139,7 @@ struct Cluster
 	cutoff_radii::Array{Float64, 3}
 	mindist_pairs::Matrix{Vector{DistInfo}} # [≤ num_atoms, ≤ num_atoms]
 	interaction_clusters::Matrix{OrderedSet{InteractionCluster}}# [≤ nat_prim, ≤ nbody-1]
-	cluster_list::Vector{SortedVector{Vector{Int}}}# [≤ nbody-1][≤ number of clusters][≤ nbody]
-	cluster_list_with_cell::Vector{SortedVector{Vector{AtomCell}}} # [≤ nbody-1][≤ number of clusters][≤ nbody]
+	cluster_list::Vector{SortedVector{Vector{AtomCell}}} # [≤ nbody-1][≤ number of clusters][≤ nbody]
 	equivalent_atom_list::Vector{Vector{Int}}
 
 	function Cluster(
@@ -178,14 +176,8 @@ struct Cluster
 			mindist_pairs,
 			nbody,
 		)
-		cluster_list = generate_pairs(
-			symmetry.nat_prim,
-			symmetry.map_p2s,
-			interaction_clusters,
-			nbody,
-		)
-		cluster_list_with_cell =
-			generate_pairs_with_icells(symmetry.atoms_in_prim, interaction_clusters, nbody)
+		cluster_list =
+			generate_pairs(symmetry.atoms_in_prim, interaction_clusters, nbody)
 
 		equivalent_atom_list =
 			classify_equivalent_atoms(symmetry.atoms_in_prim, symmetry.map_sym)
@@ -196,7 +188,6 @@ struct Cluster
 			mindist_pairs,
 			interaction_clusters,
 			cluster_list,
-			cluster_list_with_cell,
 			equivalent_atom_list,
 		)
 	end
@@ -267,7 +258,7 @@ function set_interaction_by_cutoff(
 	map_p2s::AbstractMatrix{<:Integer},
 	cutoff_radii::AbstractArray{<:Real, 3},
 	nbody::Integer,
-	mindist_pairs::Matrix{<:Vector{<:DistInfo}},
+	mindist_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
 )::Vector{Vector{Int}}
 
 	interaction_pairs = Vector{Vector{Int}}()
@@ -360,9 +351,9 @@ function set_interaction_clusters(
 		end
 	end
 
-	undef_indices = findall(x -> x == false, initialized)
-	if length(undef_indices) >= 1
-		error("undef is detected in `interaction_clusters` variable: $undef_indices")
+	unassigned_indices = findall(x -> x == false, initialized)
+	if length(unassigned_indices) >= 1
+		error("unassigned indices in `interaction_clusters` variable: $unassigned_indices")
 	end
 	return interaction_clusters
 end
@@ -400,34 +391,11 @@ function calc_distmax(
 end
 
 function generate_pairs(
-	nat_prim::Integer,
-	map_p2s::AbstractMatrix{<:Integer},
-	interaction_clusters::AbstractMatrix{<:AbstractSet{InteractionCluster}},# [≤ nat_prim, ≤ nbody-1]
-	nbody::Integer,
-)::Vector{SortedVector{Vector{Int}}}
-	cluster_list = Vector{SortedVector{Vector{Int}}}()
-	for body in 2:nbody
-		ordered_set = SortedVector{Vector{Int}}()
-		for iat_prim in 1:nat_prim
-			iat = map_p2s[iat_prim][1]
-			for inter_clus::InteractionCluster in interaction_clusters[iat_prim, body-1]
-				partners_tmp = sort(inter_clus.atoms)
-				vcated = vcat(iat, partners_tmp)
-
-				push!(ordered_set, vcated)
-			end
-		end
-		push!(cluster_list, ordered_set)
-	end
-	return cluster_list
-end
-
-function generate_pairs_with_icells(
 	atoms_in_prim::AbstractVector{<:Integer},
 	interactoin_clusters::AbstractMatrix{<:AbstractSet{InteractionCluster}},# [≤ nat_prim, ≤ nbody-1]
 	nbody::Integer,
 )::Vector{SortedVector{Vector{AtomCell}}}
-	cluster_list_with_cell = Vector{SortedVector{Vector{AtomCell}}}()
+	cluster_list = Vector{SortedVector{Vector{AtomCell}}}()
 	vsv = Vector{SortedVector{Vector{AtomCell}}}()
 	for body in 2:nbody
 		sv = SortedVector{Vector{AtomCell}}()
