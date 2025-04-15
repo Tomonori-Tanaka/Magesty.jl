@@ -7,7 +7,7 @@ input = TOML.parse(
 	),
 )
 sclus = SpinCluster(input)
-@show sclus.cluster.cluster_list_with_cell
+@show sclus.cluster.cluster_list
 @show sclus.basisset.basislist
 display(sclus.basisset.classified_basisdict)
 display(sclus.basisset.salc_list)

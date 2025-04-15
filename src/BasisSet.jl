@@ -148,7 +148,7 @@ function construct_basislist(
 
 	# aliases
 	kd_int_list = system.supercell.kd_int_list
-	cluster_list = cluster.cluster_list_with_cell
+	cluster_list = cluster.cluster_list
 
 	# firstly treat 1-body case which needs special treatments.
 	for iat in symmetry.atoms_in_prim
