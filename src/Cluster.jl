@@ -475,16 +475,6 @@ function classify_equivalent_atoms(
 	return group
 end
 
-function classify_equivalent_clusters(
-	interactoin_clusters::AbstractMatrix{<:AbstractSet{InteractionCluster}},
-	kd_int_list::AbstractVector{<:Integer},
-	atoms_in_prim::AbstractVector{<:Integer},
-	map_sym::AbstractMatrix{<:Integer},
-	lmax::AbstractMatrix{<:Integer},
-)
-
-end
-
 """
 	generate_combinations(vec::AbstractVector{<:Any}, vecofvec::AbstractVector{<:AbstractVector{<:Any}}) -> Vector{Tuple}
 

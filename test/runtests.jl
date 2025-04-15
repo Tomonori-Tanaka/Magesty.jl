@@ -14,7 +14,7 @@ using Test
 	include("./component_test/test_MySphericalHarmonics.jl")
 	include("./component_test/test_SortedContainer.jl")
 	include("./component_test/test_CountingContainer.jl")
-	# include("./component_test/test_AtomicIndices.jl")
+	include("./component_test/test_AtomicIndices.jl")
 	include("./component_test/test_UnitaryMatrixCl.jl")
 	include("./component_test/test_RotationMatrix.jl")
 	include("./component_test/test_SpinConfig.jl")

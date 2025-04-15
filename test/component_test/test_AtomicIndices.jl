@@ -3,145 +3,182 @@ using .AtomicIndices
 
 @testset "AtomicIndices" begin
 	@testset "Indices" begin
-		indices1 = Indices(3, 1, -1)
-		indices2 = Indices(4, 2, 1)
-		indices3 = Indices(4, 2, -1)
-		indices4 = Indices(4, 1, 0)
-		@test indices1 == indices1
-		@test indices1 == (3, 1, -1)
-		@test (3, 1, -1) == indices1
-		@test indices1 != indices2
-		@test indices3 < indices2
-		@test indices1 < indices2
-		@test indices4 < indices3
+		@testset "constructor" begin
+			# Normal cases
+			@test Indices(1, 1, 0, 1) isa Indices
+			@test Indices(1, 2, -2, 1) isa Indices
+			@test Indices(1, 2, 2, 1) isa Indices
+		end
+
+		@testset "domain errors" begin
+			# l value errors
+			@test_throws DomainError Indices(1, 0, -1, 1)
+			@test_throws DomainError Indices(1, -1, 0, 1)
+			
+			# m value errors
+			@test_throws DomainError Indices(1, 1, 2, 1)
+			@test_throws DomainError Indices(1, 1, -2, 1)
+			
+			# cell value errors
+			@test_throws DomainError Indices(1, 1, 0, 30)
+			@test_throws DomainError Indices(1, 1, 0, 0)
+			@test_throws DomainError Indices(1, 1, 0, -1)
+		end
+
+		@testset "comparison" begin
+			# Equality
+			@test Indices(1, 1, 0, 1) == Indices(1, 1, 0, 1)
+			
+			# Atom comparison
+			@test Indices(1, 1, 0, 1) < Indices(2, 1, 0, 1)
+			
+			# l value comparison
+			@test Indices(1, 1, 0, 1) < Indices(1, 2, 0, 1)
+			
+			# m value comparison
+			@test Indices(1, 1, -1, 1) < Indices(1, 1, 0, 1)
+			@test Indices(1, 1, 0, 1) < Indices(1, 1, 1, 1)
+			
+			# Cell comparison
+			@test Indices(1, 1, 0, 1) < Indices(1, 1, 0, 2)
+		end
+
+		@testset "hash" begin
+			# Same values should have same hash
+			@test hash(Indices(1, 1, 0, 1)) == hash(Indices(1, 1, 0, 1))
+			# Different values should have different hash
+			@test hash(Indices(1, 1, 0, 1)) != hash(Indices(1, 1, 1, 1))
+		end
 	end
 
 	@testset "IndicesUniqueList" begin
-		indices1 = Indices(3, 1, -1)
-		indices2 = Indices(4, 2, 1)
-		indices3 = Indices(4, 2, -1)
-
-		iul1 = IndicesUniqueList([indices1, indices2])
-		@test length(iul1) == 2
-		@test eltype(iul1) == Indices
-		for val in iul1
+		@testset "constructor" begin
+			# Empty list
+			iul = IndicesUniqueList()
+			@test isempty(iul)
+			@test length(iul) == 0
+			
+			# Single element list
+			indices = Indices(1, 1, 0, 1)
+			iul = IndicesUniqueList(indices)
+			@test length(iul) == 1
+			@test indices in iul
+			
+			# Multiple elements list
+			indices1 = Indices(1, 1, 0, 1)
+			indices2 = Indices(2, 1, 0, 1)
+			iul = IndicesUniqueList([indices1, indices2])
+			@test length(iul) == 2
+			@test indices1 in iul
+			@test indices2 in iul
 		end
-		@test indices1 in iul1
-		@test !(indices3 in iul1)
-		@test get_atomlist(iul1) == [3, 4]
-		@test get_atomlist(iul1) != [4, 4]
-		@test get_totalL(iul1) == 3
-		@test get_totalL(iul1) != 4
-		@test iul1 == iul1
-		iul2 = IndicesUniqueList([indices1, indices3])
-		@test iul2 < iul1
 
-		iul3 = IndicesUniqueList()
-		@test isempty(iul3)
-		push!(iul3, indices2)
-		push!(iul3, indices2)# ignored this operation because of the uniqueness
-		@test iul3 < iul1
-		push!(iul3, indices1)
-		@test equivalent(iul1, iul3)
-		@test iul1 < iul3
-		@test !(isempty(iul3))
-		iul3_copy = copy(iul3)
-		@test iul3 == iul3_copy
-		@test iul3 != iul1
-		@test sort(iul3) == iul1
-		@test iul3[1] == indices2
-		@test iul3[2] == indices1
+		@testset "operations" begin
+			indices1 = Indices(1, 1, 0, 1)
+			indices2 = Indices(2, 1, 0, 1)
+			indices3 = Indices(3, 1, 0, 1)
+			
+			iul = IndicesUniqueList()
+			
+			# push! operation
+			push!(iul, indices1)
+			@test length(iul) == 1
+			@test indices1 in iul
+			
+			# Duplicate element addition
+			push!(iul, indices1)
+			@test length(iul) == 1
+			
+			# append! operation
+			append!(iul, [indices2, indices3])
+			@test length(iul) == 3
+			@test indices2 in iul
+			@test indices3 in iul
+			
+			# append! with duplicate elements
+			append!(iul, [indices1, indices2])
+			@test length(iul) == 3
+		end
 
-		append!(iul3, iul2)
-		@test iul3 == IndicesUniqueList([indices2, indices1, indices3])
-		@test length(iul3) == 3
+		@testset "getters" begin
+			indices1 = Indices(1, 1, 0, 1)
+			indices2 = Indices(2, 2, 0, 1)
+			iul = IndicesUniqueList([indices1, indices2])
+			
+			@test get_total_L(iul) == 3
+			@test get_atom_l_list(iul) == [[1, 1], [2, 2]]
+		end
 
-		@test indices_singleatom(3, 1) ==
-			  [Indices(3, 1, -1), Indices(3, 1, 0), Indices(3, 1, 1)]
-		@test indices_singleatom(4, 2) ==
-			  [
-			Indices(4, 2, -2),
-			Indices(4, 2, -1),
-			Indices(4, 2, 0),
-			Indices(4, 2, 1),
-			Indices(4, 2, 2),
-		]
+		@testset "product_indices_of_all_comb" begin
+			# Simple case
+			result = product_indices_of_all_comb([1], [1], [1])
+			@test length(result) == 3  # m = -1, 0, 1
+			
+			# Multiple atoms case
+			result = product_indices_of_all_comb([1, 2], [1, 1], [1, 1])
+			@test length(result) == 9  # 3 * 3
+			
+			# Different l values case
+			result = product_indices_of_all_comb([1, 2], [1, 2], [1, 1])
+			@test length(result) == 24  # 3 * (3+5)
 
-		iul_product = product_indices([4, 5], [1, 1])
-		@test length(iul_product) == 3 * 3
-		@test iul_product == [
-			IndicesUniqueList([Indices(4, 1, -1), Indices(5, 1, -1)]),
-			IndicesUniqueList([Indices(4, 1, -1), Indices(5, 1, 0)]),
-			IndicesUniqueList([Indices(4, 1, -1), Indices(5, 1, 1)]),
-			IndicesUniqueList([Indices(4, 1, 0), Indices(5, 1, -1)]),
-			IndicesUniqueList([Indices(4, 1, 0), Indices(5, 1, 0)]),
-			IndicesUniqueList([Indices(4, 1, 0), Indices(5, 1, 1)]),
-			IndicesUniqueList([Indices(4, 1, 1), Indices(5, 1, -1)]),
-			IndicesUniqueList([Indices(4, 1, 1), Indices(5, 1, 0)]),
-			IndicesUniqueList([Indices(4, 1, 1), Indices(5, 1, 1)]),
-		]
+			# Error case: different length inputs
+			@test_throws ErrorException product_indices_of_all_comb([1, 2], [1], [1, 1])
+		end
 
-		iul_product = product_indices([4, 5], [1, 2])
-		@test length(iul_product) == 3 * (3 + 5)
-		@test iul_product == [
-			IndicesUniqueList([Indices(4, 1, -1), Indices(5, 1, -1)]),
-			IndicesUniqueList([Indices(4, 1, -1), Indices(5, 1, 0)]),
-			IndicesUniqueList([Indices(4, 1, -1), Indices(5, 1, 1)]),
-			IndicesUniqueList([Indices(4, 1, -1), Indices(5, 2, -2)]),
-			IndicesUniqueList([Indices(4, 1, -1), Indices(5, 2, -1)]),
-			IndicesUniqueList([Indices(4, 1, -1), Indices(5, 2, 0)]),
-			IndicesUniqueList([Indices(4, 1, -1), Indices(5, 2, 1)]),
-			IndicesUniqueList([Indices(4, 1, -1), Indices(5, 2, 2)]),
-			IndicesUniqueList([Indices(4, 1, 0), Indices(5, 1, -1)]),
-			IndicesUniqueList([Indices(4, 1, 0), Indices(5, 1, 0)]),
-			IndicesUniqueList([Indices(4, 1, 0), Indices(5, 1, 1)]),
-			IndicesUniqueList([Indices(4, 1, 0), Indices(5, 2, -2)]),
-			IndicesUniqueList([Indices(4, 1, 0), Indices(5, 2, -1)]),
-			IndicesUniqueList([Indices(4, 1, 0), Indices(5, 2, 0)]),
-			IndicesUniqueList([Indices(4, 1, 0), Indices(5, 2, 1)]),
-			IndicesUniqueList([Indices(4, 1, 0), Indices(5, 2, 2)]),
-			IndicesUniqueList([Indices(4, 1, 1), Indices(5, 1, -1)]),
-			IndicesUniqueList([Indices(4, 1, 1), Indices(5, 1, 0)]),
-			IndicesUniqueList([Indices(4, 1, 1), Indices(5, 1, 1)]),
-			IndicesUniqueList([Indices(4, 1, 1), Indices(5, 2, -2)]),
-			IndicesUniqueList([Indices(4, 1, 1), Indices(5, 2, -1)]),
-			IndicesUniqueList([Indices(4, 1, 1), Indices(5, 2, 0)]),
-			IndicesUniqueList([Indices(4, 1, 1), Indices(5, 2, 1)]),
-			IndicesUniqueList([Indices(4, 1, 1), Indices(5, 2, 2)]),
-		]
+		@testset "product_indices" begin
+			# Simple case
+			result = product_indices([1], [1], [1])
+			@test length(result) == 3  # m = -1, 0, 1
+			
+			# Multiple atoms case
+			result = product_indices([1, 2], [1, 1], [1, 1])
+			@test length(result) == 9  # 3 * 3
+			
+			# Different l values case
+			result = product_indices([1, 2], [1, 2], [1, 1])
+			@test length(result) == 15  # 3 * 5
 
-		iul_product = product_indices([4, 5, 6], [1, 1, 1])
-		@test length(iul_product) == 3 * 3 * 3
-		@test iul_product == [
-			IndicesUniqueList([Indices(4, 1, -1), Indices(5, 1, -1), Indices(6, 1, -1)]),
-			IndicesUniqueList([Indices(4, 1, -1), Indices(5, 1, -1), Indices(6, 1, 0)]),
-			IndicesUniqueList([Indices(4, 1, -1), Indices(5, 1, -1), Indices(6, 1, 1)]),
-			IndicesUniqueList([Indices(4, 1, -1), Indices(5, 1, 0), Indices(6, 1, -1)]),
-			IndicesUniqueList([Indices(4, 1, -1), Indices(5, 1, 0), Indices(6, 1, 0)]),
-			IndicesUniqueList([Indices(4, 1, -1), Indices(5, 1, 0), Indices(6, 1, 1)]),
-			IndicesUniqueList([Indices(4, 1, -1), Indices(5, 1, 1), Indices(6, 1, -1)]),
-			IndicesUniqueList([Indices(4, 1, -1), Indices(5, 1, 1), Indices(6, 1, 0)]),
-			IndicesUniqueList([Indices(4, 1, -1), Indices(5, 1, 1), Indices(6, 1, 1)]),
-			IndicesUniqueList([Indices(4, 1, 0), Indices(5, 1, -1), Indices(6, 1, -1)]),
-			IndicesUniqueList([Indices(4, 1, 0), Indices(5, 1, -1), Indices(6, 1, 0)]),
-			IndicesUniqueList([Indices(4, 1, 0), Indices(5, 1, -1), Indices(6, 1, 1)]),
-			IndicesUniqueList([Indices(4, 1, 0), Indices(5, 1, 0), Indices(6, 1, -1)]),
-			IndicesUniqueList([Indices(4, 1, 0), Indices(5, 1, 0), Indices(6, 1, 0)]),
-			IndicesUniqueList([Indices(4, 1, 0), Indices(5, 1, 0), Indices(6, 1, 1)]),
-			IndicesUniqueList([Indices(4, 1, 0), Indices(5, 1, 1), Indices(6, 1, -1)]),
-			IndicesUniqueList([Indices(4, 1, 0), Indices(5, 1, 1), Indices(6, 1, 0)]),
-			IndicesUniqueList([Indices(4, 1, 0), Indices(5, 1, 1), Indices(6, 1, 1)]),
-			IndicesUniqueList([Indices(4, 1, 1), Indices(5, 1, -1), Indices(6, 1, -1)]),
-			IndicesUniqueList([Indices(4, 1, 1), Indices(5, 1, -1), Indices(6, 1, 0)]),
-			IndicesUniqueList([Indices(4, 1, 1), Indices(5, 1, -1), Indices(6, 1, 1)]),
-			IndicesUniqueList([Indices(4, 1, 1), Indices(5, 1, 0), Indices(6, 1, -1)]),
-			IndicesUniqueList([Indices(4, 1, 1), Indices(5, 1, 0), Indices(6, 1, 0)]),
-			IndicesUniqueList([Indices(4, 1, 1), Indices(5, 1, 0), Indices(6, 1, 1)]),
-			IndicesUniqueList([Indices(4, 1, 1), Indices(5, 1, 1), Indices(6, 1, -1)]),
-			IndicesUniqueList([Indices(4, 1, 1), Indices(5, 1, 1), Indices(6, 1, 0)]),
-			IndicesUniqueList([Indices(4, 1, 1), Indices(5, 1, 1), Indices(6, 1, 1)])]
+			# Error case: different length inputs
+			@test_throws ErrorException product_indices([1, 2], [1], [1, 1])
 
+			# Verify the order of combinations
+			result = product_indices([1, 2], [1, 1], [1, 1])
+			expected = [
+				IndicesUniqueList([Indices(1, 1, -1, 1), Indices(2, 1, -1, 1)]),
+				IndicesUniqueList([Indices(1, 1, -1, 1), Indices(2, 1, 0, 1)]),
+				IndicesUniqueList([Indices(1, 1, -1, 1), Indices(2, 1, 1, 1)]),
+				IndicesUniqueList([Indices(1, 1, 0, 1), Indices(2, 1, -1, 1)]),
+				IndicesUniqueList([Indices(1, 1, 0, 1), Indices(2, 1, 0, 1)]),
+				IndicesUniqueList([Indices(1, 1, 0, 1), Indices(2, 1, 1, 1)]),
+				IndicesUniqueList([Indices(1, 1, 1, 1), Indices(2, 1, -1, 1)]),
+				IndicesUniqueList([Indices(1, 1, 1, 1), Indices(2, 1, 0, 1)]),
+				IndicesUniqueList([Indices(1, 1, 1, 1), Indices(2, 1, 1, 1)])
+			]
+			@test result == expected
+		end
+
+		@testset "indices_singleatom" begin
+			# l=1 case
+			result = indices_singleatom(1, 1, 1)
+			@test length(result) == 3
+			@test result == [
+				Indices(1, 1, -1, 1),
+				Indices(1, 1, 0, 1),
+				Indices(1, 1, 1, 1)
+			]
+			
+			# l=2 case
+			result = indices_singleatom(1, 2, 1)
+			@test length(result) == 5
+			@test result == [
+				Indices(1, 2, -2, 1),
+				Indices(1, 2, -1, 1),
+				Indices(1, 2, 0, 1),
+				Indices(1, 2, 1, 1),
+				Indices(1, 2, 2, 1)
+			]
+		end
 	end
-
 end
 
