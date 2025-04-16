@@ -1,5 +1,7 @@
 """
-This module provides functionality for storing and handling of basis set.
+This module provides functionality for handling basis sets in crystal structure calculations.
+It includes tools for constructing, classifying, and manipulating basis functions that are
+adapted to the symmetry of the crystal structure.
 """
 module BasisSets
 
@@ -24,15 +26,16 @@ export BasisSet
 	struct BasisSet
 
 Represents a set of basis functions for atomic interactions in a crystal structure.
+This structure is used to store and manage basis functions that are adapted to the symmetry of the crystal.
 
 # Fields
-- `basislist::SortedCountingUniqueVector{IndicesUniqueList}`: List of unique basis indices
+- `basislist::SortedCountingUniqueVector{IndicesUniqueList}`: List of unique basis indices with their counts
 - `classified_basisdict::Dict{Int, SortedCountingUniqueVector}`: Dictionary mapping symmetry labels to basis sets
 - `projection_dict::Dict{Int, Matrix{Float64}}`: Dictionary of projection matrices for each symmetry label
 - `each_projection_dict::Any`: Dictionary containing individual projection information
 - `salc_list::Vector{SALC}`: List of symmetry-adapted linear combinations
 
-# Constructor
+# Constructors
 	BasisSet(system::System, symmetry::Symmetry, cluster::Cluster, lmax::AbstractMatrix{<:Integer}, bodymax::Integer)
 
 Constructs a new `BasisSet` instance for atomic interactions in a crystal structure.
@@ -60,10 +63,10 @@ basis = BasisSet(system, symmetry, cluster, lmax_matrix, 3)
 
 # Note
 The constructor performs the following steps:
-1. Constructs the basis list
-2. Classifies basis functions by symmetry
-3. Constructs projection matrices
-4. Generates symmetry-adapted linear combinations
+1. Constructs the basis list by considering all possible combinations of atoms and angular momenta
+2. Classifies basis functions by symmetry operations
+3. Constructs projection matrices for each symmetry label
+4. Generates symmetry-adapted linear combinations (SALCs)
 """
 struct BasisSet
 	basislist::SortedCountingUniqueVector{IndicesUniqueList}
@@ -71,69 +74,72 @@ struct BasisSet
 	projection_dict::Dict{Int, Matrix{Float64}}
 	each_projection_dict::Any
 	salc_list::Vector{SALC}
-end
 
-function BasisSet(
-	system::System,
-	symmetry::Symmetry,
-	cluster::Cluster,
-	lmax::AbstractMatrix{<:Integer},    # [≤ nkd, ≤ nbody]
-	bodymax::Integer)
-
-	basislist = construct_basislist(
-		system,
-		symmetry,
-		cluster,
-		lmax,
-		bodymax,
+	function BasisSet(
+		system::System,
+		symmetry::Symmetry,
+		cluster::Cluster,
+		lmax::AbstractMatrix{<:Integer},    # [≤ nkd, ≤ nbody]
+		bodymax::Integer,
 	)
+		# Validate input parameters
+		nkd, nbody = size(lmax)
+		bodymax > 0 || throw(ArgumentError("bodymax must be positive"))
+		nbody ≥ bodymax || throw(ArgumentError("lmax matrix must have at least bodymax columns"))
 
-	# println(basislist)
-	classified_basisdict::AbstractDict{Int, SortedCountingUniqueVector} =
-		classify_basislist(basislist, symmetry.map_sym)
+		# Construct basis list
+		# basislist consists of all possible basis functions which is the product of spherical harmonics.
+		basislist = construct_basislist(
+			system,
+			symmetry,
+			cluster,
+			lmax,
+			bodymax,
+		)
 
-	projection_dict::Dict{Int, Matrix{Float64}},
-	each_projection_dict =
-		construct_projectionmatrix(
+		# Classify basis functions by symmetry
+		classified_basisdict = classify_basislist(basislist, symmetry.map_sym)
+
+		# Construct projection matrices
+		projection_dict, each_projection_dict = construct_projectionmatrix(
 			classified_basisdict,
 			system,
 			symmetry,
 		)
 
-	salc_list = Vector{SALC}()
-	for idx in 1:maximum(keys(projection_dict))
-		eigenval, eigenvec = eigen(projection_dict[idx])
-		eigenval = real.(round.(eigenval, digits = 6))
-		# eigenvec = round.(eigenvec, digits = 6)
-		eigenvec[abs.(eigenvec).<1e-5] .= 0.0
-		eigenvec = round.(eigenvec, digits = 10)
-		if !check_eigenval(eigenval)
-			throw(
-				DomainError(
-					"Critical error: Eigenvalues must be either 0 or 1. index: $idx",
-				),
-			)
+		# Generate symmetry-adapted linear combinations
+		salc_list = Vector{SALC}()
+		for idx in 1:maximum(keys(projection_dict))
+			eigenval, eigenvec = eigen(projection_dict[idx])
+			eigenval = real.(round.(eigenval, digits = 6))
+			eigenvec[abs.(eigenvec).<1e-5] .= 0.0
+			eigenvec = round.(eigenvec, digits = 10)
+
+			if !check_eigenval(eigenval)
+				throw(
+					DomainError(
+						"Critical error: Eigenvalues must be either 0 or 1. index: $idx",
+					),
+				)
+			end
+
+			# Collect indices of basis with eigenvalue 1
+			eigenval_1_list = findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenval)
+			for idx_eigenval in eigenval_1_list
+				eigenvec_real = to_real_vector(eigenvec[:, idx_eigenval])
+				eigenvec_real_normalized = eigenvec_real / norm(eigenvec_real)
+				push!(salc_list, SALC(classified_basisdict[idx], eigenvec_real_normalized))
+			end
 		end
 
-		# collect indices of basis with eigenvalue 1
-		eigenval_1_list = findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenval)
-		for idx_eigenval in eigenval_1_list
-			eigenvec_real = to_real_vector(eigenvec[:, idx_eigenval])
-			eigenvec_real_normalized = eigenvec_real / norm(eigenvec_real)
-			push!(salc_list, SALC(classified_basisdict[idx], eigenvec_real_normalized))
-		end
+		return new(
+			basislist,
+			classified_basisdict,
+			projection_dict,
+			each_projection_dict,
+			salc_list,
+		)
 	end
-
-	# @show salc_list
-
-	return BasisSet(
-		basislist,
-		classified_basisdict,
-		projection_dict,
-		each_projection_dict,
-		salc_list,
-	)
-
 end
 
 function construct_basislist(
@@ -146,11 +152,11 @@ function construct_basislist(
 
 	basislist = SortedCountingUniqueVector{IndicesUniqueList}()
 
-	# aliases
+	# aliases for better readability
 	kd_int_list = system.supercell.kd_int_list
 	cluster_list = cluster.cluster_list
 
-	# firstly treat 1-body case which needs special treatments.
+	# Handle 1-body case separately as it requires special treatment
 	for iat in symmetry.atoms_in_prim
 		lmax = lmax_mat[kd_int_list[iat], 1]
 
@@ -162,16 +168,20 @@ function construct_basislist(
 		end
 	end
 
-	# multi-body cases
+	# Process multi-body cases
 	for body in 2:bodymax
 		for cluster in cluster_list[body-1]
+			# Convert cluster into atomlist, llist, and celllist
 			atomlist, llist, celllist =
 				get_atomsls_from_cluster(cluster, lmax_mat, kd_int_list)
 			for iul in product_indices_of_all_comb(atomlist, llist, celllist)
 				for basis in basislist
+					# Clusters consisting only of atoms in the primitive cell appear multiple times
 					if equivalent(basis, iul)
 						basislist.counts[basis] += 1
 						@goto skip
+					# To ensure the projection operator matrix becomes symmetric,
+					# translationally equivalent clusters are treated as the same cluster
 					elseif is_translationally_equiv_basis(
 						iul,
 						basis,
@@ -189,7 +199,6 @@ function construct_basislist(
 			end
 		end
 	end
-
 
 	return basislist
 end
@@ -267,6 +276,19 @@ function map_atom_l_list(
 	return mapped_atom_l_list
 end
 
+"""
+Checks if two basis sets are translationally equivalent.
+
+# Arguments
+- `basis_target::IndicesUniqueList`: The target basis set to check
+- `basis_ref::IndicesUniqueList`: The reference basis set
+- `atoms_in_prim::AbstractVector{<:Integer}`: List of atoms in the primitive cell
+- `map_s2p::AbstractVector`: Mapping from supercell to primitive cell
+- `x_image_cart::AbstractArray{<:Real, 3}`: Cartesian coordinates of atoms in the supercell
+- `tol::Real = 1e-5`: Tolerance for floating-point comparisons
+
+
+"""
 function is_translationally_equiv_basis(
 	basis_target::IndicesUniqueList,
 	basis_ref::IndicesUniqueList,
@@ -277,13 +299,12 @@ function is_translationally_equiv_basis(
 	tol::Real = 1e-5,
 )::Bool
 
-	# Early return if the atomlist is the same
+	# Early return if the atomlist is the same including the order
 	if [indices.atom for indices in basis_target] == [indices.atom for indices in basis_ref]
 		return false
-	end
-
 	# Early return if the first atom is the same
-	if basis_target[1].atom == basis_ref[1].atom
+	# because this function is intended to be used for different first atoms but translationally equivalent clusters
+	elseif basis_target[1].atom == basis_ref[1].atom
 		return false
 	end
 
