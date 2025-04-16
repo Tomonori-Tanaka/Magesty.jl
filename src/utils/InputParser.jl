@@ -1,9 +1,39 @@
+"""
+    Module InputParser
+
+This module provides functionality for parsing input data and constructing a Parser object.
+The Parser object contains all necessary information for the simulation, including
+system structure, symmetry, interaction parameters, and regression settings.
+"""
 module InputParser
 
 export Parser
 
+"""
+    struct Parser
+
+A structure that holds all input parameters for the simulation.
+
+# Fields
+- `name::String`: Name of the system
+- `mode::String`: Operation mode (default: "optimize")
+- `num_atoms::Int`: Number of atoms in the system
+- `kd_name::Vector{String}`: List of chemical species names
+- `is_periodic::Vector{Bool}`: Periodicity flags for each direction
+- `j_zero_thr::Float64`: Threshold for zero interaction (default: 1e-8)
+- `tolerance_sym::Float64`: Symmetry tolerance (default: 1e-3)
+- `nbody::Int`: Maximum number of bodies in interactions
+- `lmax::Matrix{Int}`: Maximum angular momentum values [nkd × nbody]
+- `cutoff_radii::Array{Float64, 3}`: Cutoff radii for interactions [nkd × nkd × nbody]
+- `weight::Float64`: Weight parameter for regression
+- `datafile::String`: Path to data file
+- `scale::Float64`: Scale factor for lattice vectors
+- `lattice_vectors::Matrix{Float64}`: Lattice vectors (3×3 matrix)
+- `kd_int_list::Vector{Int}`: List of chemical species indices
+- `x_fractional::Matrix{Float64}`: Fractional coordinates of atoms
+"""
 mutable struct Parser
-	# general
+	# general parameters
 	name::String
 	mode::String
 	num_atoms::Int
@@ -11,25 +41,39 @@ mutable struct Parser
 	is_periodic::Vector{Bool}
 	j_zero_thr::Float64
 
-	# symmetry
+	# symmetry parameters
 	tolerance_sym::Float64
 
-	# interaction
+	# interaction parameters
 	nbody::Int
 	lmax::Matrix{Int}# [≤kd, ≤nbody]
 	cutoff_radii::Array{Float64, 3}
 
-	# regression
+	# regression parameters
 	weight::Float64
 	datafile::String
 
-	# structure
+	# structure parameters
 	scale::Float64
 	lattice_vectors::Matrix{Float64}
 	kd_int_list::Vector{Int}
 	x_fractional::Matrix{Float64}
 end
 
+"""
+    Parser(input_dict::AbstractDict{<:AbstractString, Any})
+
+Construct a Parser object from an input dictionary.
+
+# Arguments
+- `input_dict::AbstractDict{<:AbstractString, Any}`: Dictionary containing input parameters
+
+# Returns
+- `Parser`: A new Parser instance
+
+# Throws
+- `ErrorException` if required fields are missing or invalid
+"""
 function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 
 	if !haskey(input_dict, "general")
@@ -136,6 +180,18 @@ function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 	)
 end
 
+"""
+    check_interaction_field(interaction_dict::AbstractDict{<:AbstractString, Any}, kd_name::AbstractVector{<:AbstractString})
+
+Validate the interaction field parameters.
+
+# Arguments
+- `interaction_dict::AbstractDict`: Dictionary containing interaction parameters
+- `kd_name::AbstractVector`: List of chemical species names
+
+# Throws
+- `ErrorException` if parameters are invalid
+"""
 function check_interaction_field(
 	interaction_dict::AbstractDict{<:AbstractString, Any},
 	kd_name::AbstractVector{<:AbstractString},
@@ -169,6 +225,22 @@ function check_interaction_field(
 	return nothing
 end
 
+"""
+    parse_lmax(lmax_dict::AbstractDict{<:AbstractString, Any}, kd_name::AbstractVector{<:AbstractString}, nbody::Integer)
+
+Parse and validate maximum angular momentum values.
+
+# Arguments
+- `lmax_dict::AbstractDict`: Dictionary of lmax values
+- `kd_name::AbstractVector`: List of chemical species names
+- `nbody::Integer`: Maximum number of bodies
+
+# Returns
+- `Matrix{Int}`: Matrix of lmax values [nkd × nbody]
+
+# Throws
+- `ErrorException` if parameters are invalid
+"""
 function parse_lmax(
 	lmax_dict::AbstractDict{<:AbstractString, Any},
 	kd_name::AbstractVector{<:AbstractString},
@@ -179,31 +251,53 @@ function parse_lmax(
 	lmax_check = fill(false, kd_num, nbody)
 
 	for (kd_index, kd) in enumerate(kd_name)
+		# Check if the length of lmax values matches nbody
+		if length(lmax_dict[kd]) != nbody
+			error("""
+			Invalid lmax values for element $kd:
+			- Expected length: $nbody (matching nbody parameter)
+			- Actual length: $(length(lmax_dict[kd]))
+			Please ensure the number of lmax values matches the nbody parameter.
+			""")
+		end
 		for j in 1:nbody
 			lmax_tmp[kd_index, j] = lmax_dict[kd][j]
 			lmax_check[kd_index, j] = true
 		end
 	end
 
-	# check 
-	indices = findall(x -> x == false, lmax_check)
-	if length(indices) != 0
-		println("ERROR found in \"lmax\" tag")
-		for index in indices
-			println(
-				"element: ",
-				kd_name[index[1]],
-				", l = ",
-				index[2],
-				" is not specified.",
-			)
-		end
-		error()
+	# Check for missing values
+	missing_indices = findall(x -> x == false, lmax_check)
+	if !isempty(missing_indices)
+		error("""
+		Missing lmax values in the input:
+		$(join([
+			"Element $(kd_name[idx[1]]), l = $(idx[2])" 
+			for idx in missing_indices
+		], "\n"))
+		Please ensure all lmax values are properly specified.
+		""")
 	end
 
 	return Matrix{Int}(lmax_tmp)
 end
 
+"""
+    parse_cutoff(cutoff_dict::AbstractDict{<:AbstractString, Any}, kd_name::AbstractVector{<:AbstractString}, nbody::Integer)
+
+Parse and validate cutoff radii.
+
+# Arguments
+- `cutoff_dict::AbstractDict`: Dictionary of cutoff values
+- `kd_name::AbstractVector`: List of chemical species names
+- `nbody::Integer`: Maximum number of bodies
+
+# Returns
+- `Array{Float64, 3}`: Array of cutoff radii [nkd × nkd × nbody]
+
+# Throws
+- `ErrorException` if parameters are invalid
+"""
 function parse_cutoff(
 	cutoff_dict::AbstractDict{<:AbstractString, Any},
 	kd_name::AbstractVector{<:AbstractString},
@@ -220,6 +314,15 @@ function parse_cutoff(
 			continue
 		end
 		for (key, value) in cutoff_dict
+			# Check if the length of cutoff values matches nbody
+			if length(value) != nbody
+				error("""
+				Invalid cutoff values for pair $key:
+				- Expected length: $nbody (matching nbody parameter)
+				- Actual length: $(length(value))
+				Please ensure the number of cutoff values matches the nbody parameter.
+				""")
+			end
 			elem1 = strip(split(key, "-")[1])
 			elem2 = strip(split(key, "-")[2])
 
@@ -229,30 +332,40 @@ function parse_cutoff(
 			cutoff_tmp[index_elem2, index_elem1, n] = value[n]
 			cutoff_check[index_elem1, index_elem2, n] = true
 			cutoff_check[index_elem2, index_elem1, n] = true
-
 		end
 	end
 
-	indices = findall(x -> x == false, cutoff_check)
-	if length(indices) != 0
-		println("ERROR found in \"cutoff\" tag")
-		for index in indices
-			println(
-				"element1: ",
-				kd_name[index[1]],
-				", element2: ",
-				kd_name[index[2]],
-				", nbody: ",
-				index[3],
-				" is not specified.",
-			)
-		end
-		exit()
+	# Check for missing values
+	missing_indices = findall(x -> x == false, cutoff_check)
+	if !isempty(missing_indices)
+		error("""
+		Missing cutoff values in the input:
+		$(join([
+			"Element1: $(kd_name[idx[1]]), Element2: $(kd_name[idx[2]]), nbody: $(idx[3])" 
+			for idx in missing_indices
+		], "\n"))
+		Please ensure all cutoff values are properly specified.
+		""")
 	end
-	# println(cutoff_tmp)
+
 	return Array{Float64}(cutoff_tmp)
 end
 
+"""
+    parse_position(position_list::AbstractVector{<:AbstractVector{<:Real}}, num_atoms::Integer)
+
+Parse and validate atomic positions.
+
+# Arguments
+- `position_list::AbstractVector`: List of position vectors
+- `num_atoms::Integer`: Number of atoms
+
+# Returns
+- `Matrix{Float64}`: Matrix of atomic positions [3 × num_atoms]
+
+# Throws
+- `ErrorException` if positions are invalid
+"""
 function parse_position(
 	position_list::AbstractVector{<:AbstractVector{<:Real}},
 	num_atoms::Integer,
