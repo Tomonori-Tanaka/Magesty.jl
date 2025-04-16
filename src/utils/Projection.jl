@@ -8,7 +8,7 @@ Construct projection matrices for basis functions
 Parameters
 ----------
 basisdict : Dictionary of basis functions
-system : System information
+structure : Structure information
 symmetry : Symmetry information
 
 Returns
@@ -18,14 +18,14 @@ Tuple{Dict{Int, Matrix{Float64}}, Dict{Int, Any}}
 """
 function construct_projectionmatrix(
 	basisdict::AbstractDict{<:Integer, <:AbstractVector},
-	system::System,
+	structure::Structure,
 	symmetry::Symmetry,
 )::Tuple{Dict{Int, Matrix{Float64}}, Dict{Int, Any}}
 
 	# aliases
-	num_atoms::Int = system.supercell.num_atoms# total number of atoms in the supercell
-	x_image_cart::Array{Float64, 3} = system.x_image_cart
-	lattice_vectors::Array{Float64, 2} = system.supercell.lattice_vectors
+	num_atoms::Int = structure.supercell.num_atoms# total number of atoms in the supercell
+	x_image_cart::Array{Float64, 3} = structure.x_image_cart
+	lattice_vectors::Array{Float64, 2} = structure.supercell.lattice_vectors
 	symdata::Vector{SymmetryOperation} = symmetry.symdata
 	map_sym::Matrix{Int} = symmetry.map_sym
 	map_sym_cell::Array{AtomCell} = symmetry.map_sym_cell

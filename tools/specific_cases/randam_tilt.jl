@@ -19,7 +19,7 @@ Generate random tilt MAGMOM and M_CONSTR patterns for a VASP calculation.
 
 # Arguments
 - `incar::String`: Path to the input INCAR file
-- `num_atoms::Integer`: Number of atoms in the system
+- `num_atoms::Integer`: Number of atoms in the structure
 - `theta_range::Tuple{Float64, Float64}`: Range of tilt angles in degrees from the original magnetic moment direction (min, max)
 - `num_patterns::Integer`: Number of random patterns to generate
 - `file_prefix::String`: Prefix for output files (default: "pattern")
@@ -138,7 +138,7 @@ function parse_commandline()
             arg_type = String
 
         "--num-atoms", "-n"
-            help = "Number of atoms in the system"
+            help = "Number of atoms in the structure"
             required = true
             arg_type = Int
 

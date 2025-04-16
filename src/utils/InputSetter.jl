@@ -1,5 +1,5 @@
 function set_system(parser)
-	system = System(
+	structure = Structure(
 		parser.lattice_vectors,
 		parser.is_periodic,
 		parser.kd_name,
@@ -7,24 +7,24 @@ function set_system(parser)
 		parser.x_fractional)
 end
 
-function set_symmetry(parser, system)
+function set_symmetry(parser, structure)
 	symmetry = Symmetry(
-		system,
+		structure,
 		parser.tolerance_sym,
 	)
 end
 
-function set_cluster(parser, system, symmetry)
-	cluster = Cluster(system, symmetry, parser.nbody, parser.cutoff_radii)
+function set_cluster(parser, structure, symmetry)
+	cluster = Cluster(structure, symmetry, parser.nbody, parser.cutoff_radii)
 end
 
-function set_basisset(parser, system, symmetry, cluster)
-	basisset = BasisSet(system, symmetry, cluster, parser.lmax, parser.nbody)
+function set_basisset(parser, structure, symmetry, cluster)
+	basisset = BasisSet(structure, symmetry, cluster, parser.lmax, parser.nbody)
 end
 
-function set_optimize(parser, system, symmetry, basisset)
+function set_optimize(parser, structure, symmetry, basisset)
 	optimize = SCEOptimizer(
-		system,
+		structure,
 		symmetry,
 		basisset,
 		parser.j_zero_thr,

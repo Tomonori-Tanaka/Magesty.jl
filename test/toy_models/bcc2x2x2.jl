@@ -59,7 +59,7 @@ using TOML
 	sclus = SpinCluster(parsed)
 
 	# the number of atoms
-	num_atoms = sclus.system.supercell.num_atoms
+	num_atoms = sclus.structure.supercell.num_atoms
 	# the number of independent basis functions
 	num_basis = length(sclus.basisset.salc_list)
 	# assign SCE values using random numbers
@@ -104,7 +104,7 @@ using TOML
 	# test the result
 	parsed["general"]["mode"] = "optimize"
 	optimize = Magesty.Optimize.SCEOptimizer(
-		sclus.system,
+		sclus.structure,
 		sclus.symmetry,
 		sclus.basisset,
 		sclus.config.j_zero_thr,
@@ -113,7 +113,7 @@ using TOML
 	)
 	sclus_new = SpinCluster(
 		sclus.config,
-		sclus.system,
+		sclus.structure,
 		sclus.symmetry,
 		sclus.cluster,
 		sclus.basisset,

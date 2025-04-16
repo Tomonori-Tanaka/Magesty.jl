@@ -5,11 +5,11 @@ A module for handling symmetry operations in crystal structures using `Spglib`. 
 
 # Types
 - **`SymmetryOperation`**: Represents a single symmetry operation with rotation and translation components.
-- **`Symmetry`**: Represents the symmetry information of a system, including symmetry operations, mappings, and metadata.
+- **`Symmetry`**: Represents the symmetry information of a structure, including symmetry operations, mappings, and metadata.
 
 # Functions
 - `is_compatible_cart(rot_cart)`: Check if a rotation matrix is compatible with Cartesian axes.
-- `Symmetry(system, tol)`: Generate a `Symmetry` object for a given system with a specified tolerance.
+- `Symmetry(structure, tol)`: Generate a `Symmetry` object for a given structure with a specified tolerance.
 """
 module Symmetries
 
@@ -18,7 +18,7 @@ using StaticArrays
 using Spglib
 
 using ..AtomCells
-using ..Systems
+using ..Structures
 
 import Base: isless, show
 
@@ -99,7 +99,7 @@ end
 """
 	struct Symmetry
 
-Contains the symmetry information of a system.
+Contains the symmetry information of a structure.
 
 # Fields
 - `international_symbol::String`: International symbol of the space group.
@@ -114,9 +114,9 @@ Contains the symmetry information of a system.
 - `symnum_translation::Vector{Int}`: Indices of pure translation operations.
 
 # Constructor
-	Symmetry(system, tol::Float64)
+	Symmetry(structure, tol::Float64)
 
-Generate symmetry information for the given system using the specified tolerance.
+Generate symmetry information for the given structure using the specified tolerance.
 """
 struct Symmetry
 	international_symbol::String
@@ -135,12 +135,12 @@ struct Symmetry
 	symnum_translation::Vector{Int} # contains the indice of translational only operations
 end
 
-function Symmetry(system::System, tol::Real)
+function Symmetry(structure::Structure, tol::Real)
 	if tol <= 0
 		throw(ArgumentError("Tolerance must be positive, got $tol"))
 	end
 
-	cell = system.supercell
+	cell = structure.supercell
 	spglib_cell = Spglib.Cell(cell.lattice_vectors, cell.x_frac, cell.kd_int_list)
 	spglib_data::Spglib.Dataset = get_dataset(spglib_cell)
 
@@ -197,7 +197,7 @@ function Symmetry(system::System, tol::Real)
 	end
 
 	# construct mapping data
-	natomtypes::Int = length(system.atomtype_group)
+	natomtypes::Int = length(structure.atomtype_group)
 	map_sym = zeros(Int, cell.num_atoms, spglib_data.n_operations)
 	map_sym_cell = Array{AtomCell}(
 		undef,
@@ -212,11 +212,11 @@ function Symmetry(system::System, tol::Real)
 
 	for isym in 1:spglib_data.n_operations
 		for itype in 1:natomtypes
-			for iat in system.atomtype_group[itype]
+			for iat in structure.atomtype_group[itype]
 				x_new = Vector(spglib_data.rotations[isym] * cell.x_frac[:, iat])
 				x_new = x_new + Vector(spglib_data.translations[isym])
 
-				for jat in system.atomtype_group[itype]
+				for jat in structure.atomtype_group[itype]
 					tmp = (abs.(cell.x_frac[:, jat] - x_new)) .% 1.0
 
 					for (i, val) in enumerate(tmp)
@@ -228,7 +228,7 @@ function Symmetry(system::System, tol::Real)
 						for cell in 1:27# 27 is the total number of neighboring imaginary (virtual) cell including the central cell
 							matched_cell = find_matching_image_cell(
 								symdata[isym],
-								system.x_image_frac,
+								structure.x_image_frac,
 								iat,
 								cell,
 								tol = tol,
@@ -382,14 +382,14 @@ function print_info(symmetry::Symmetry)
 	"""
 	if symmetry.ntran == 1
 		str_prim = """
-		Given system is a primitive cell.
+		Given structure is a primitive cell.
 		Primitive cell contains $(symmetry.nat_prim) atoms.
 
 		"""
 		str *= str_prim
 	else
 		str_supercell = """
-		Given system is not a primitive cell.
+		Given structure is not a primitive cell.
 		There are $(symmetry.ntran) translation operations.
 		Primitive cell contains $(symmetry.nat_prim) atoms.
 

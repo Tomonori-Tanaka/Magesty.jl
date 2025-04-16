@@ -20,7 +20,7 @@ export SpinConfig, read_embset
 """
 	SpinConfig
 
-A configuration of spins in a magnetic system.
+A configuration of spins in a magnetic structure.
 
 # Fields
 - `energy::Float64`: The energy of the spin configuration [eV]
@@ -130,7 +130,7 @@ Read spin configurations from an EMBSET file.
 
 # Arguments
 - `filepath::AbstractString`: Path to the EMBSET file
-- `num_atoms::Integer`: Number of atoms in the system
+- `num_atoms::Integer`: Number of atoms in the structure
 
 # Returns
 - `Vector{SpinConfig}`: Array of spin configurations
@@ -176,7 +176,7 @@ Extract a single spin configuration from filtered EMBSET lines.
 
 # Arguments
 - `filtered_lines::AbstractVector{<:AbstractString}`: Filtered lines from EMBSET file
-- `num_atoms::Integer`: Number of atoms in the system
+- `num_atoms::Integer`: Number of atoms in the structure
 - `data_index::Integer`: Index of the configuration to extract
 
 # Returns
