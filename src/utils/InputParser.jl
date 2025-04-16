@@ -3,7 +3,7 @@
 
 This module provides functionality for parsing input data and constructing a Parser object.
 The Parser object contains all necessary information for the simulation, including
-system structure, symmetry, interaction parameters, and regression settings.
+structure structure, symmetry, interaction parameters, and regression settings.
 """
 module InputParser
 
@@ -15,9 +15,9 @@ export Parser
 A structure that holds all input parameters for the simulation.
 
 # Fields
-- `name::String`: Name of the system
+- `name::String`: Name of the structure
 - `mode::String`: Operation mode (default: "optimize")
-- `num_atoms::Int`: Number of atoms in the system
+- `num_atoms::Int`: Number of atoms in the structure
 - `kd_name::Vector{String}`: List of chemical species names
 - `is_periodic::Vector{Bool}`: Periodicity flags for each direction
 - `j_zero_thr::Float64`: Threshold for zero interaction (default: 1e-8)

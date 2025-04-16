@@ -13,7 +13,7 @@ using DelimitedFiles# for test
 using ..SortedContainer
 using ..AtomCells
 using ..AtomicIndices
-using ..Systems
+using ..Structures
 using ..Symmetries
 using ..Clusters
 using ..SALCs
@@ -36,12 +36,12 @@ This structure is used to store and manage basis functions that are adapted to t
 - `salc_list::Vector{SALC}`: List of symmetry-adapted linear combinations
 
 # Constructors
-	BasisSet(system::System, symmetry::Symmetry, cluster::Cluster, lmax::AbstractMatrix{<:Integer}, bodymax::Integer)
+	BasisSet(structure::Structure, symmetry::Symmetry, cluster::Cluster, lmax::AbstractMatrix{<:Integer}, bodymax::Integer)
 
 Constructs a new `BasisSet` instance for atomic interactions in a crystal structure.
 
 # Arguments
-- `system::System`: System information containing atomic positions and species
+- `structure::Structure`: Structure information containing atomic positions and species
 - `symmetry::Symmetry`: Symmetry information for the crystal structure
 - `cluster::Cluster`: Cluster information for atomic interactions
 - `lmax::AbstractMatrix{<:Integer}`: Matrix of maximum angular momentum values for each atomic species and body [nkd × nbody]
@@ -56,9 +56,9 @@ Constructs a new `BasisSet` instance for atomic interactions in a crystal struct
 
 # Examples
 ```julia
-# Create a basis set for a system with 2 atomic species and 3-body interactions
+# Create a basis set for a structure with 2 atomic species and 3-body interactions
 lmax_matrix = [2 3; 3 2]  # lmax for each species and body
-basis = BasisSet(system, symmetry, cluster, lmax_matrix, 3)
+basis = BasisSet(structure, symmetry, cluster, lmax_matrix, 3)
 ```
 
 # Note
@@ -76,7 +76,7 @@ struct BasisSet
 	salc_list::Vector{SALC}
 
 	function BasisSet(
-		system::System,
+		structure::Structure,
 		symmetry::Symmetry,
 		cluster::Cluster,
 		lmax::AbstractMatrix{<:Integer},    # [≤ nkd, ≤ nbody]
@@ -90,7 +90,7 @@ struct BasisSet
 		# Construct basis list
 		# basislist consists of all possible basis functions which is the product of spherical harmonics.
 		basislist = construct_basislist(
-			system,
+			structure,
 			symmetry,
 			cluster,
 			lmax,
@@ -103,7 +103,7 @@ struct BasisSet
 		# Construct projection matrices
 		projection_dict, each_projection_dict = construct_projectionmatrix(
 			classified_basisdict,
-			system,
+			structure,
 			symmetry,
 		)
 
@@ -143,7 +143,7 @@ struct BasisSet
 end
 
 function construct_basislist(
-	system::System,
+	structure::Structure,
 	symmetry::Symmetry,
 	cluster::Cluster,
 	lmax_mat::AbstractMatrix{<:Integer},
@@ -153,7 +153,7 @@ function construct_basislist(
 	basislist = SortedCountingUniqueVector{IndicesUniqueList}()
 
 	# aliases for better readability
-	kd_int_list = system.supercell.kd_int_list
+	kd_int_list = structure.supercell.kd_int_list
 	cluster_list = cluster.cluster_list
 
 	# Handle 1-body case separately as it requires special treatment
@@ -187,7 +187,7 @@ function construct_basislist(
 						basis,
 						symmetry.atoms_in_prim,
 						symmetry.map_s2p,
-						system.x_image_cart,
+						structure.x_image_cart,
 						tol = symmetry.tol,
 					)
 						basislist.counts[basis] += 1

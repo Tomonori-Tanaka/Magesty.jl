@@ -17,13 +17,13 @@ include("utils/RotationMatrix.jl")
 include("utils/MySphericalHarmonics.jl")
 using .InputParser
 
-include("System.jl")
+include("Structure.jl")
 include("Symmetry.jl")
 include("Cluster.jl")
 include("BasisSet.jl")
 include("Optimize.jl")
 
-using .Systems
+using .Structures
 using .Symmetries
 using .Clusters
 using .BasisSets
@@ -33,7 +33,7 @@ export SpinCluster
 
 struct SpinCluster
 	config::Parser
-	system::System
+	structure::Structure
 	symmetry::Symmetry
 	cluster::Cluster
 	basisset::BasisSet
@@ -42,17 +42,17 @@ end
 
 function SpinCluster(input_dict::Dict{<:AbstractString, <:Any})
 	parser = Parser(input_dict)
-	system::System = set_system(parser)
-	symmetry::Symmetry = set_symmetry(parser, system)
-	cluster::Cluster = set_cluster(parser, system, symmetry)
-	basisset::BasisSet = set_basisset(parser, system, symmetry, cluster)
+	structure::Structure = set_system(parser)
+	symmetry::Symmetry = set_symmetry(parser, structure)
+	cluster::Cluster = set_cluster(parser, structure, symmetry)
+	basisset::BasisSet = set_basisset(parser, structure, symmetry, cluster)
 	optimize = if parser.mode == "optimize"
-		set_optimize(parser, system, symmetry, basisset)
+		set_optimize(parser, structure, symmetry, basisset)
 	else
 		nothing
 	end
 
-	return SpinCluster(parser, system, symmetry, cluster, basisset, optimize)
+	return SpinCluster(parser, structure, symmetry, cluster, basisset, optimize)
 end
 
 function SpinCluster(toml_file::AbstractString)
@@ -64,7 +64,7 @@ function SpinCluster(toml_file::AbstractString)
 end
 
 function write_xml(sc::SpinCluster)
-	system = sc.system
+	structure = sc.structure
 
 end
 
@@ -78,7 +78,7 @@ function print_info(sc::SpinCluster)
 		""",
 	)
 
-	Systems.print_info(sc.system)
+	Structures.print_info(sc.structure)
 	Symmetries.print_info(sc.symmetry)
 	BasisSets.print_info(sc.basisset)
 	Optimize.print_info(sc.optimize)

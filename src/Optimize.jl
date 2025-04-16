@@ -12,7 +12,7 @@ using Statistics
 using ..MySphericalHarmonics
 using ..SALCs
 using ..AtomicIndices
-using ..Systems
+using ..Structures
 using ..Symmetries
 using ..Clusters
 using ..BasisSets
@@ -33,7 +33,7 @@ struct SCEOptimizer
 end
 
 function SCEOptimizer(
-	system::System,
+	structure::Structure,
 	symmetry::Symmetry,
 	basisset::BasisSet,
 	j_zero_thr::Real,
@@ -49,7 +49,7 @@ function SCEOptimizer(
 		observed_energy_list,
 		predicted_magfield_vertical_list,
 		observed_magfield_vertical_list =
-			ols_energy(basisset.salc_list, spinconfig_list, system.supercell.num_atoms, symmetry)
+			ols_energy(basisset.salc_list, spinconfig_list, structure.supercell.num_atoms, symmetry)
 	else
 		SCE,
 		bias_term,
@@ -62,7 +62,7 @@ function SCEOptimizer(
 			ols_magfield_vertical(
 				basisset.salc_list,
 				spinconfig_list,
-				system.supercell.num_atoms,
+				structure.supercell.num_atoms,
 				symmetry,
 			)
 	end
@@ -82,7 +82,7 @@ function SCEOptimizer(
 end
 
 function SCEOptimizer(
-	system::System,
+	structure::Structure,
 	symmetry::Symmetry,
 	basisset::BasisSet,
 	j_zero_thr::Real,
@@ -90,9 +90,9 @@ function SCEOptimizer(
 	datafile::AbstractString,
 )
 	# read datafile
-	spinconfig_list::Vector{SpinConfig} = read_embset(datafile, system.supercell.num_atoms)
+	spinconfig_list::Vector{SpinConfig} = read_embset(datafile, structure.supercell.num_atoms)
 
-	return SCEOptimizer(system, symmetry, basisset, j_zero_thr, weight, spinconfig_list)
+	return SCEOptimizer(structure, symmetry, basisset, j_zero_thr, weight, spinconfig_list)
 end
 
 
@@ -304,7 +304,7 @@ Calculate the magfield_vertical vectors for each atom in the spin configuration.
 
 # Arguments
 - `spinconfig::SpinConfig`: Spin configuration containing magnetic moments and fields
-- `num_atoms::Integer`: Number of atoms in the system
+- `num_atoms::Integer`: Number of atoms in the structure
 
 # Returns
 A flattened vector of length 3*num_atoms containing the magfield_vertical components:
@@ -342,7 +342,7 @@ Calculate an element of the design matrix X in the case of using the derivative 
 # Arguments
 - `salc::SALC`: Symmetry-Adapted Linear Combination object
 - `spin_directions::AbstractMatrix{<:Real}`: Matrix of spin directions (3×N)
-- `symmetry::Symmetry`: Symmetry information of the system
+- `symmetry::Symmetry`: Symmetry information of the structure
 - `row_idx::Integer`: Row index corresponding to atom and direction (3*(atom-1) + dir)
 
 """

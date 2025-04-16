@@ -6,10 +6,10 @@ This module provides data structures and functions for managing and analyzing cl
 # Types
 - **`DistInfo`**: Represents distance information between two atoms.
 - **`InteractionCluster`**: Represents a cluster of interacting atoms.
-- **`Cluster`**: Manages multiple interaction clusters based on system parameters.
+- **`Cluster`**: Manages multiple interaction clusters based on structure parameters.
 
 # Functions
-- `Cluster(system, symmetry, nbody::Int, cutoff_radii)`: Constructs a `Cluster` instance based on the given system and symmetry information.
+- `Cluster(structure, symmetry, nbody::Int, cutoff_radii)`: Constructs a `Cluster` instance based on the given structure and symmetry information.
 - `set_mindist_pairs(nat::Int, xc_in::AbstractArray{<:AbstractFloat, 3}, exist_cell::AbstractVector{Bool})`: Computes minimum distance pairs between atoms.
 - `set_interaction_by_cutoff(nat::Int, nat_prim::Int, kd_int_list::AbstractVector{Int}, map_p2s::AbstractMatrix{Int}, cutoff_radii::AbstractArray{Float64, 3}, nbody::Int, mindist_pairs::Matrix{<:Vector{<:DistInfo}})`: Determines interacting pairs based on cutoff radii.
 - `set_interaction_clusters(nat_prim::Int, kd_int_list::AbstractVector{Int}, map_p2s::AbstractMatrix{Int}, x_image_cart::AbstractArray{Float64, 3}, exist_image::AbstractVector{Bool}, interaction_pairs::Vector{<:Vector{Int}}, cutoff_radii::AbstractArray{Float64, 3}, mindist_pairs::Matrix{<:Vector{<:DistInfo}}, nbody::Int)`: Organizes interaction clusters.
@@ -26,7 +26,7 @@ using LinearAlgebra
 
 using ..SortedContainer
 using ..AtomCells
-using ..Systems
+using ..Structures
 using ..Symmetries
 
 import Base: isless, ==
@@ -126,13 +126,13 @@ Represents a collection of interaction clusters based on the specified number of
 - `cluster_list::Vector{SortedVector{Vector{Int}}}`: List of interacting atom clusters for each interaction body.
 
 # Constructor
-	Cluster(system, symmetry, nbody::Int, cutoff_radii)
+	Cluster(structure, symmetry, nbody::Int, cutoff_radii)
 
-Creates a new `Cluster` instance based on the provided system, symmetry information, number of bodies, and cutoff radii.
+Creates a new `Cluster` instance based on the provided structure, symmetry information, number of bodies, and cutoff radii.
 
 # Example
 ```julia
-cluster = Cluster(system, symmetry, 3, cutoff_radii)
+cluster = Cluster(structure, symmetry, 3, cutoff_radii)
 """
 struct Cluster
 	nbody::Int
@@ -143,23 +143,23 @@ struct Cluster
 	equivalent_atom_list::Vector{Vector{Int}}
 
 	function Cluster(
-		system::System,
+		structure::Structure,
 		symmetry::Symmetry,
 		nbody::Integer,
 		cutoff_radii::AbstractArray{<:Real},
 	)
 		mindist_pairs =
 			set_mindist_pairs(
-				system.supercell.num_atoms,
-				system.x_image_cart,
-				system.exist_image,
+				structure.supercell.num_atoms,
+				structure.x_image_cart,
+				structure.exist_image,
 				tol = symmetry.tol,
 			)
 		# interaction_pairs[≤ nat_prim][nbody-1]
 		interaction_pairs::Vector{Vector{Int}} = set_interaction_by_cutoff(
-			system.supercell.num_atoms,
+			structure.supercell.num_atoms,
 			symmetry.nat_prim,
-			system.supercell.kd_int_list,
+			structure.supercell.kd_int_list,
 			symmetry.map_p2s,
 			cutoff_radii,
 			nbody,
@@ -167,10 +167,10 @@ struct Cluster
 		)
 		interaction_clusters = set_interaction_clusters(
 			symmetry.nat_prim,
-			system.supercell.kd_int_list,
+			structure.supercell.kd_int_list,
 			symmetry.map_p2s,
-			system.x_image_cart,
-			system.exist_image,
+			structure.x_image_cart,
+			structure.exist_image,
 			interaction_pairs,
 			cutoff_radii,
 			mindist_pairs,
@@ -195,7 +195,7 @@ end
 
 function set_mindist_pairs(
 	nat::Integer,
-	xc_in::AbstractArray{<:AbstractFloat, 3}, # x_image_cart in `System`
+	xc_in::AbstractArray{<:AbstractFloat, 3}, # x_image_cart in `Structure`
 	exist_cell::AbstractVector{Bool},
 	;
 	tol::Real = 1e-5,
@@ -433,7 +433,7 @@ Classifies atoms in the primitive cell into equivalent groups based on symmetry 
 
 # Examples
 ```julia
-# For a system with 4 atoms and 2 symmetry operations
+# For a structure with 4 atoms and 2 symmetry operations
 atoms = [1, 2, 3, 4]
 map_sym = [1 2; 2 1; 3 4; 4 3]  # Example symmetry mapping
 
@@ -526,7 +526,7 @@ Generates all possible atom lists by applying symmetry operations to the input a
 
 # Examples
 ```julia
-# For a system with 3 atoms and 2 symmetry operations
+# For a structure with 3 atoms and 2 symmetry operations
 atoms = [1, 2, 3]
 map_sym = [1 2; 2 1; 3 3]  # Example symmetry mapping
 
