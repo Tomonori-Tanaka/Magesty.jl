@@ -21,7 +21,7 @@ using ..SpinConfigs
 export SCEOptimizer
 
 struct SCEOptimizer
-	spinconfig_list::Vector{SpinConfig}
+	spinconfig_dataset::DataSet
 	SCE::Vector{Float64}
 	bias_term::Float64
 	relative_error_magfield_vertical::Float64
@@ -38,7 +38,7 @@ function SCEOptimizer(
 	basisset::BasisSet,
 	j_zero_thr::Real,
 	weight::Real,
-	spinconfig_list::AbstractVector{SpinConfig},
+	spinconfig_dataset::DataSet,
 )
 	if weight > 0.5
 		SCE,
@@ -49,7 +49,7 @@ function SCEOptimizer(
 		observed_energy_list,
 		predicted_magfield_vertical_list,
 		observed_magfield_vertical_list =
-			ols_energy(basisset.salc_list, spinconfig_list, structure.supercell.num_atoms, symmetry)
+			ols_energy(basisset.salc_list, spinconfig_dataset, structure.supercell.num_atoms, symmetry)
 	else
 		SCE,
 		bias_term,
@@ -61,7 +61,7 @@ function SCEOptimizer(
 		observed_magfield_vertical_list =
 			ols_magfield_vertical(
 				basisset.salc_list,
-				spinconfig_list,
+				spinconfig_dataset,
 				structure.supercell.num_atoms,
 				symmetry,
 			)
@@ -69,7 +69,7 @@ function SCEOptimizer(
 
 
 	return SCEOptimizer(
-		spinconfig_list,
+		spinconfig_dataset,
 		SCE,
 		bias_term,
 		relative_error_magfield_vertical,
@@ -87,24 +87,25 @@ function SCEOptimizer(
 	basisset::BasisSet,
 	j_zero_thr::Real,
 	weight::Real,
+	training_ratio::Real,
 	datafile::AbstractString,
 )
 	# read datafile
-	spinconfig_list::Vector{SpinConfig} = read_embset(datafile, structure.supercell.num_atoms)
+	spinconfig_dataset = parse_embset(datafile, structure.supercell.num_atoms)
 
-	return SCEOptimizer(structure, symmetry, basisset, j_zero_thr, weight, spinconfig_list)
+	return SCEOptimizer(structure, symmetry, basisset, j_zero_thr, weight, spinconfig_dataset)
 end
 
 
 function ols_energy(
 	salc_list::AbstractVector{SALC},
-	spinconfig_list::AbstractVector{SpinConfig},
+	spinconfig_dataset::DataSet,
 	num_atoms::Integer,
 	symmetry::Symmetry,
 )
 	# dimensions
 	num_salcs = length(salc_list)
-	num_spinconfigs = length(spinconfig_list)
+	num_spinconfigs = spinconfig_dataset.training_data_num
 
 	# construct design matrix A in Ax = b
 	design_matrix = zeros(Float64, num_spinconfigs, num_salcs + 1)
@@ -119,7 +120,7 @@ function ols_energy(
 			design_matrix[j, i+1] =
 				calc_design_matrix_element(
 					salc_list[i],
-					spinconfig_list[j].spin_directions,
+					spinconfig_dataset.spinconfigs[j].spin_directions,
 					symmetry,
 				)
 			initialize_check[j, i+1] = true
@@ -131,7 +132,7 @@ function ols_energy(
 	end
 
 
-	observed_energy_list::Vector{Float64} = [spinconfig.energy for spinconfig in spinconfig_list]
+	observed_energy_list::Vector{Float64} = [spinconfig.energy for spinconfig in spinconfig_dataset.spinconfigs]
 	# solve Ax = b
 	ols_coeffs = design_matrix \ observed_energy_list
 
@@ -147,7 +148,7 @@ function ols_energy(
 				design_matrix_list[i][row_idx, isalc] =
 					calc_X_matrix_element(
 						salc_list[isalc],
-						spinconfig_list[i].spin_directions,
+						spinconfig_dataset.spinconfigs[i].spin_directions,
 						symmetry,
 						row_idx,
 					)
@@ -159,7 +160,7 @@ function ols_energy(
 	for i in 1:num_spinconfigs
 		observed_magfield_vertical_list[i] =
 			calc_magfield_vertical_list_of_spinconfig(
-				spinconfig_list[i],
+				spinconfig_dataset.spinconfigs[i],
 				num_atoms,
 			)
 	end
@@ -214,19 +215,19 @@ end
 
 function ols_magfield_vertical(
 	salc_list::AbstractVector{SALC},
-	spinconfig_list::AbstractVector{SpinConfig},
+	spinconfig_dataset::DataSet,
 	num_atoms::Integer,
 	symmetry::Symmetry,
 )
 	# dimensions
 	num_salcs = length(salc_list)
-	num_spinconfigs = length(spinconfig_list)
+	num_spinconfigs = spinconfig_dataset.training_data_num
 
 	# observed magfield_vertical
 	observed_magfield_vertical_list = Vector{Vector{Float64}}(undef, num_spinconfigs)
 	for i in 1:num_spinconfigs
 		observed_magfield_vertical_list[i] =
-			calc_magfield_vertical_list_of_spinconfig(spinconfig_list[i], num_atoms)
+			calc_magfield_vertical_list_of_spinconfig(spinconfig_dataset.spinconfigs[i], num_atoms)
 	end
 	observed_magfield_vertical_flattened = vcat(observed_magfield_vertical_list...)
 	observed_magfield_vertical_flattened = -1 * observed_magfield_vertical_flattened
@@ -243,7 +244,7 @@ function ols_magfield_vertical(
 				design_matrix_list[i][row_idx, isalc] =
 					calc_X_matrix_element(
 						salc_list[isalc],
-						spinconfig_list[i].spin_directions,
+						spinconfig_dataset.spinconfigs[i].spin_directions,
 						symmetry,
 						row_idx,
 					)
@@ -267,7 +268,7 @@ function ols_magfield_vertical(
 		for j in 1:num_spinconfigs
 			design_matrix_energy[j, i] = calc_design_matrix_element(
 				salc_list[i],
-				spinconfig_list[j].spin_directions,
+				spinconfig_dataset.spinconfigs[j].spin_directions,
 				symmetry,
 			)
 			initialize_check[j, i] = true
@@ -277,7 +278,7 @@ function ols_magfield_vertical(
 		error("Failed to initialize the design_matrix_energy.")
 	end
 
-	observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_list]
+	observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_dataset.spinconfigs]
 
 	bias_term = mean(observed_energy_list .- design_matrix_energy * ols_coeffs)
 	relative_error_energy = √(
@@ -507,13 +508,13 @@ end
 
 function write_energy_lists(optimizer::SCEOptimizer, filename::AbstractString = "energy_lists.txt")
 	# Input validation
-	if isempty(optimizer.spinconfig_list)
+	if isempty(optimizer.spinconfig_dataset.spinconfigs)
 		@warn "No spin configurations found in optimizer"
 		return
 	end
 
 	# Prepare data
-	observed_energy_list = [spinconfig.energy for spinconfig in optimizer.spinconfig_list]
+	observed_energy_list = [spinconfig.energy for spinconfig in optimizer.spinconfig_dataset.spinconfigs]
 	predicted_energy_list = optimizer.predicted_energy_list
 
 	# Format header
@@ -528,7 +529,7 @@ function write_magfield_vertical_list(
 	filename::AbstractString = "magfield_vertical_list.txt",
 )
 	# Input validation
-	if isempty(optimizer.spinconfig_list)
+	if isempty(optimizer.spinconfig_dataset.spinconfigs)
 		@warn "No spin configurations found in optimizer"
 		return
 	end
