@@ -13,9 +13,10 @@ module SpinConfigs
 
 using Printf
 using LinearAlgebra
+using Random
 import Base: show
 
-export SpinConfig, read_embset
+export SpinConfig, read_embset, DataSet, parse_embset
 
 """
 	SpinConfig
@@ -46,19 +47,23 @@ struct SpinConfig
 		local_magfield::AbstractMatrix{<:Real},
 	)
 		num_atoms = length(magmom_size)
-		
+
 		# Validate dimensions
 		if num_atoms != size(spin_directions, 2)
-			throw(ArgumentError(
-				"Dimension mismatch: spin_directions has $(size(spin_directions, 2)) columns, " *
-				"but magmom_size has $num_atoms elements"
-			))
+			throw(
+				ArgumentError(
+					"Dimension mismatch: spin_directions has $(size(spin_directions, 2)) columns, " *
+					"but magmom_size has $num_atoms elements",
+				),
+			)
 		end
 		if num_atoms != size(local_magfield, 2)
-			throw(ArgumentError(
-				"Dimension mismatch: local_magfield has $(size(local_magfield, 2)) columns, " *
-				"but magmom_size has $num_atoms elements"
-			))
+			throw(
+				ArgumentError(
+					"Dimension mismatch: local_magfield has $(size(local_magfield, 2)) columns, " *
+					"but magmom_size has $num_atoms elements",
+				),
+			)
 		end
 
 		# Calculate vertical component of local magnetic field
@@ -69,7 +74,7 @@ struct SpinConfig
 			Float64.(magmom_size),
 			Float64.(spin_directions),
 			Float64.(local_magfield),
-			local_magfield_vertical
+			local_magfield_vertical,
 		)
 	end
 end
@@ -87,14 +92,17 @@ Display a spin configuration in a human-readable format.
 ```
 energy (eV): <energy>
    atom  magmom     spin_x     spin_y     spin_z     B_x         B_y         B_z         Bv_x        Bv_y        Bv_z
-      1  <value>  <value>    <value>    <value>    <value>     <value>     <value>     <value>     <value>     <value>
-      ...
+	  1  <value>  <value>    <value>    <value>    <value>     <value>     <value>     <value>     <value>     <value>
+	  ...
 ```
 """
 function show(io::IO, config::SpinConfig)
 	println(io, "energy (eV): $(config.energy)")
-	println(io, "   atom  magmom     spin_x     spin_y     spin_z     B_x         B_y         B_z         Bv_x        Bv_y        Bv_z")
-	
+	println(
+		io,
+		"   atom  magmom     spin_x     spin_y     spin_z     B_x         B_y         B_z         Bv_x        Bv_y        Bv_z",
+	)
+
 	num_atoms = length(config.magmom_size)
 	for i in 1:num_atoms
 		println(io,
@@ -118,7 +126,7 @@ function show(io::IO, config::SpinConfig)
 			" ",
 			lpad(@sprintf("%.5e", config.local_magfield_vertical[2, i]), 12),
 			" ",
-			lpad(@sprintf("%.5e", config.local_magfield_vertical[3, i]), 12)
+			lpad(@sprintf("%.5e", config.local_magfield_vertical[3, i]), 12),
 		)
 	end
 end
@@ -152,20 +160,22 @@ function read_embset(filepath::AbstractString, num_atoms::Integer)::Vector{SpinC
 
 	# Validate file format
 	if length(filtered_lines) % (num_atoms + 1) != 0
-		throw(ErrorException(
-			"Invalid EMBSET file format: Number of lines ($(length(filtered_lines))) " *
-			"is not divisible by $(num_atoms + 1)"
-		))
+		throw(
+			ErrorException(
+				"Invalid EMBSET file format: Number of lines ($(length(filtered_lines))) " *
+				"is not divisible by $(num_atoms + 1)",
+			),
+		)
 	end
 
 	# Process configurations
 	num_configs = length(filtered_lines) ÷ (num_atoms + 1)
 	configs = Vector{SpinConfig}(undef, num_configs)
-	
+
 	for i in 1:num_configs
 		configs[i] = separate_embset(filtered_lines, num_atoms, i)
 	end
-	
+
 	return configs
 end
 
@@ -224,7 +234,7 @@ Calculate the vertical component of the local magnetic field.
 """
 function calc_local_magfield_vertical(
 	spin_directions::Matrix{Float64},
-	local_magfield::Matrix{Float64}
+	local_magfield::Matrix{Float64},
 )::Matrix{Float64}
 	local_magfield_vertical = zeros(3, size(local_magfield, 2))
 	for i in 1:size(local_magfield, 2)
@@ -232,6 +242,66 @@ function calc_local_magfield_vertical(
 		local_magfield_vertical[:, i] = local_magfield[:, i] - proj_B
 	end
 	return local_magfield_vertical
+end
+
+struct DataSet
+	spinconfigs::Vector{SpinConfig}
+	training_data_num::Int
+	validation_data_num::Int
+	training_data_indices::Vector{Int}
+	validation_data_indices::Vector{Int}
+
+	function DataSet(
+		spinconfigs::Vector{SpinConfig},
+		training_data_indices::Vector{Int},
+		validation_data_indices::Vector{Int},
+	)
+		return new(
+			spinconfigs,
+			length(training_data_indices),
+			length(validation_data_indices),
+			training_data_indices,
+			validation_data_indices,
+		)
+	end
+end
+
+function DataSet(spinconfigs::Vector{SpinConfig}, training_ratio::Real = 1.0)
+	if training_ratio <= 0.0 || training_ratio > 1.0
+		throw(ArgumentError("training_ratio must be in the range (0, 1]"))
+	end
+	num_configs = length(spinconfigs)
+	if num_configs < 1
+		throw(ArgumentError("At least 1 configuration is required at least for training"))
+	end
+
+	# When training_ratio is 1.0, use all data for training
+	if training_ratio == 1.0
+		training_data_indices = collect(1:num_configs)
+		validation_data_indices = Int[]
+	else
+		training_data_num = max(1, Int(floor(num_configs * training_ratio)))
+		training_data_indices = sample(1:num_configs, training_data_num, replace = false)
+		validation_data_indices = setdiff(1:num_configs, training_data_indices)
+	end
+
+	return DataSet(spinconfigs, training_data_indices, validation_data_indices)
+end
+
+function parse_embset(filename::AbstractString, num_atoms::Integer; training_ratio::Real = 1.0)
+	spinconfigs = read_embset(filename, num_atoms)
+	return DataSet(spinconfigs, training_ratio)
+end
+
+function parse_embset(
+	filename::AbstractString,
+	num_atoms::Integer,
+	use_data_indices::Vector{Int};
+	training_ratio::Real = 1.0,
+)
+	spinconfigs_orig = read_embset(filename, num_atoms)
+	spinconfigs = spinconfigs_orig[use_data_indices]
+	return DataSet(spinconfigs, training_ratio)
 end
 
 end
