@@ -51,6 +51,7 @@ mutable struct Parser
 
 	# regression parameters
 	weight::Float64
+	training_ratio::Float64
 	datafile::String
 
 	# structure parameters
@@ -126,6 +127,11 @@ function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 	# regression
 	regression_dict = input_dict["regression"]
 	weight::Float64 = regression_dict["weight"]
+	if haskey(regression_dict, "training_ratio")
+		training_ratio::Float64 = regression_dict["training_ratio"]
+	else
+		training_ratio = 1.0
+	end
 	datafile::String = regression_dict["datafile"]
 
 	# structure
@@ -172,6 +178,7 @@ function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 		lmax,
 		cutoff_radii,
 		weight,
+		training_ratio,
 		datafile,
 		scale,
 		lattice_vectors,

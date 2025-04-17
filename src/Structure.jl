@@ -258,7 +258,7 @@ function print_info(structure::Structure)
 	======
 	""")
 	println("Total Number of atoms: ", supercell.num_atoms)
-	println("Number of atomic species: \n", supercell.num_elements)
+	println("Number of atomic species: ", supercell.num_elements)
 
 	println("Lattice vector (in Angstrom):")
 	for (i, label) in enumerate(["a1", "a2", "a3"])
