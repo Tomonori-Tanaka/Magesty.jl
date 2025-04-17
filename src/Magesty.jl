@@ -29,7 +29,40 @@ using .Clusters
 using .BasisSets
 using .Optimize
 
-export SpinCluster
+export System, SpinCluster, print_info, write_energy_lists, write_magfield_vertical_list
+
+
+"""
+System is a collection of structure, symmetry, cluster, and basisset.
+"""
+struct System
+	config::Parser
+	structure::Structure
+	symmetry::Symmetry
+	cluster::Cluster
+	basisset::BasisSet
+end
+
+function System(input_dict::Dict{<:AbstractString, <:Any})
+	parser::Parser = Parser(input_dict)
+	structure::Structure = set_system(parser)
+	symmetry::Symmetry = set_symmetry(parser, structure)
+	cluster::Cluster = set_cluster(parser, structure, symmetry)
+	basisset::BasisSet = set_basisset(parser, structure, symmetry, cluster)
+
+	return System(parser, structure, symmetry, cluster, basisset)
+end
+
+function System(toml_file::AbstractString)
+	open(toml_file) do io
+		toml = read(io, String)
+		config = TOML.parse(toml)
+		return System(config)
+	end
+end
+
+
+
 
 struct SpinCluster
 	config::Parser
@@ -63,10 +96,16 @@ function SpinCluster(toml_file::AbstractString)
 	end
 end
 
-function write_xml(sc::SpinCluster)
-	structure = sc.structure
+function SpinCluster(system::System)
+	optimize = if system.config.mode == "optimize"
+		set_optimize(system.config, system.structure, system.symmetry, system.basisset)
+	else
+		nothing
+	end
 
+	return SpinCluster(system.config, system.structure, system.symmetry, system.cluster, system.basisset, optimize)
 end
+
 
 function print_info(sc::SpinCluster)
 	println(
