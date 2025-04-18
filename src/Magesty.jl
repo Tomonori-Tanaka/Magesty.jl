@@ -282,6 +282,35 @@ function SpinCluster(system::System, verbosity::Bool = true)
 	return SpinCluster(system.config, system.structure, system.symmetry, system.cluster, system.basisset, optimize)
 end
 
+function SpinCluster(system::System, input_dict::Dict{<:AbstractString, <:Any}, verbosity::Bool = true)
+	parser = Parser(input_dict)
+	if parser.mode == "optimize"
+		optimize = set_optimize(parser, system.structure, system.symmetry, system.basisset)
+		if verbosity
+			Optimize.print_info(optimize)
+		end
+	else
+		nothing
+	end
+	return SpinCluster(system.config, system.structure, system.symmetry, system.cluster, system.basisset, optimize)
+end
+
+function SpinCluster(system::System, toml_file::AbstractString, verbosity::Bool = true)
+	try
+		open(toml_file) do io
+			toml = read(io, String)
+			config = TOML.parse(toml)
+			return SpinCluster(system, config, verbosity)
+		end
+	catch e
+		if isa(e, SystemError)
+			throw(SystemError("Failed to read file: $toml_file"))
+		else
+			throw(ErrorException("Failed to parse TOML file: $toml_file"))
+		end
+	end
+end
+
 """
 	print_info(sc::SpinCluster)
 
