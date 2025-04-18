@@ -116,86 +116,81 @@ function ols_energy(
 
 	# construct design matrix A in Ax = b
 	design_matrix = zeros(Float64, num_spinconfigs, num_salcs + 1)
-	
-	# set first column to 1 (bias term)
-	@views design_matrix[:, 1] .= 1.0
+	initialize_check = falses(num_spinconfigs, num_salcs + 1)
 
-	# Pre-allocate arrays for better performance
-	spin_directions = Matrix{Float64}(undef, 3, num_atoms)
-	
-	# Fill design matrix
+	# set first column to 1 (bias term)
+	design_matrix[:, 1] .= 1.0
+	initialize_check[:, 1] .= true
+
 	for i in 1:num_salcs
 		for j in 1:num_spinconfigs
-			@views spin_directions .= spinconfig_dataset.spinconfigs[j].spin_directions
-			design_matrix[j, i+1] = calc_design_matrix_element(
-				salc_list[i],
-				spin_directions,
-				symmetry,
-			)
+			design_matrix[j, i+1] =
+				calc_design_matrix_element(
+					salc_list[i],
+					spinconfig_dataset.spinconfigs[j].spin_directions,
+					symmetry,
+				)
+			initialize_check[j, i+1] = true
 		end
 	end
 
-	observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_dataset.spinconfigs]
-	
+	if false in initialize_check
+		error("Failed to initialize the design matrix.")
+	end
+
+
+	observed_energy_list::Vector{Float64} = [spinconfig.energy for spinconfig in spinconfig_dataset.spinconfigs]
 	# solve Ax = b
 	ols_coeffs = design_matrix \ observed_energy_list
 
-	predicted_energy_list = design_matrix * ols_coeffs
+	predicted_energy_list::Vector{Float64} = design_matrix * ols_coeffs
 
 	# construct design matrix for magfield_vertical
 	design_matrix_list = Vector{Matrix{Float64}}(undef, num_spinconfigs)
-	
-	# Pre-allocate memory for better performance
+
 	for i in 1:num_spinconfigs
 		design_matrix_list[i] = zeros(Float64, 3 * num_atoms, num_salcs)
-	end
-
-	# Fill magfield_vertical design matrix
-	for i in 1:num_spinconfigs
-		@views spin_directions .= spinconfig_dataset.spinconfigs[i].spin_directions
 		for row_idx in 1:3*num_atoms
 			for isalc in 1:num_salcs
-				design_matrix_list[i][row_idx, isalc] = calc_X_matrix_element(
-					salc_list[isalc],
-					spin_directions,
-					symmetry,
-					row_idx,
-				)
+				design_matrix_list[i][row_idx, isalc] =
+					calc_X_matrix_element(
+						salc_list[isalc],
+						spinconfig_dataset.spinconfigs[i].spin_directions,
+						symmetry,
+						row_idx,
+					)
 			end
 		end
 	end
 
-	# Pre-allocate arrays for observed magfield_vertical
 	observed_magfield_vertical_list = Vector{Vector{Float64}}(undef, num_spinconfigs)
 	for i in 1:num_spinconfigs
-		observed_magfield_vertical_list[i] = calc_magfield_vertical_list_of_spinconfig(
-			spinconfig_dataset.spinconfigs[i],
-			num_atoms,
-		)
+		observed_magfield_vertical_list[i] =
+			calc_magfield_vertical_list_of_spinconfig(
+				spinconfig_dataset.spinconfigs[i],
+				num_atoms,
+			)
 	end
+	observed_magfield_vertical_flattened::Vector{Float64} = vcat(observed_magfield_vertical_list...)
+	observed_magfield_vertical_flattened = -1 * observed_magfield_vertical_flattened
 
-	observed_magfield_vertical_flattened = -1 * vcat(observed_magfield_vertical_list...)
-
-	bias_term = ols_coeffs[1]
-	ols_coeffs_wo_bias = ols_coeffs[2:end]
-	design_matrix = vcat(design_matrix_list...)
-	predicted_magfield_vertical_list = design_matrix * ols_coeffs_wo_bias
-
-	# Calculate relative errors using dot product for better performance
-	relative_error_energy = √(
-		dot(observed_energy_list - predicted_energy_list, observed_energy_list - predicted_energy_list) /
-		dot(observed_energy_list, observed_energy_list)
+	bias_term::Float64 = ols_coeffs[1]
+	ols_coeffs_wo_bias::Vector{Float64} = ols_coeffs[2:end]
+	design_matrix::Matrix{Float64} = vcat(design_matrix_list...)
+	predicted_magfield_vertical_list::Vector{Float64} = design_matrix * ols_coeffs_wo_bias
+	relative_error_energy::Float64 = √(
+		sum((observed_energy_list - predicted_energy_list) .^ 2) /
+		sum(observed_energy_list .^ 2),
 	)
-	relative_error_magfield_vertical = √(
-		dot(observed_magfield_vertical_flattened - predicted_magfield_vertical_list, 
-			observed_magfield_vertical_flattened - predicted_magfield_vertical_list) /
-		dot(observed_magfield_vertical_flattened, observed_magfield_vertical_flattened)
+	relative_error_magfield_vertical::Float64 = √(
+		sum((observed_magfield_vertical_flattened - predicted_magfield_vertical_list) .^ 2) /
+		sum(observed_magfield_vertical_flattened .^ 2),
 	)
 
 	return ols_coeffs_wo_bias,
 		bias_term,
-		relative_error_magfield_vertical,
-		relative_error_energy,
+        relative_error_magfield_vertical,
+        relative_error_energy,
 		predicted_energy_list,
 		observed_energy_list,
 		predicted_magfield_vertical_list,
@@ -207,19 +202,16 @@ function calc_design_matrix_element(
 	spin_directions::AbstractMatrix{<:Real},
 	symmetry::Symmetry,
 )::Float64
-	result = 0.0
-	product_tmp = 1.0
-	
-	# Pre-allocate arrays for better performance
-	spin_dir = Vector{Float64}(undef, 3)
-	
+
+	result::Float64 = 0.0
 	for itrans in symmetry.symnum_translation
-		product_tmp = 1.0
 		for (basis_idx, basis::IndicesUniqueList) in enumerate(salc.basisset)
+			product_tmp::Float64 = 1.0
 			for ibasis::Indices in basis
-				atom = symmetry.map_sym[ibasis.atom, itrans]
-				@views spin_dir .= spin_directions[:, atom]
-				product_tmp *= Sₗₘ(ibasis.l, ibasis.m, spin_dir)
+				atom::Int = symmetry.map_sym[ibasis.atom, itrans]
+				l::Int = ibasis.l
+				m::Int = ibasis.m
+				product_tmp *= Sₗₘ(l, m, spin_directions[:, atom])
 			end
 			result += salc.coeffs[basis_idx] * salc.multiplicity[basis_idx] * product_tmp
 		end
@@ -334,17 +326,15 @@ function calc_magfield_vertical_list_of_spinconfig(
 )::Vector{Float64}
 	# Preallocate the result vector
 	magfield_vertical_list = zeros(3 * num_atoms)
-	
-	# Pre-allocate views for better performance
-	magfield_vertical = Vector{Float64}(undef, 3)
-	
+
 	for iatom in 1:num_atoms
-		# Get local magnetic field using views
-		@views magfield_vertical .= spinconfig.local_magfield_vertical[:, iatom]
-		
+
+		# Get local magnetic field
+		magfield_vertical = @view spinconfig.local_magfield_vertical[:, iatom]
+
 		# Calculate magfield_vertical and store in preallocated vector
 		idx = (iatom - 1) * 3 + 1
-		@views magfield_vertical_list[idx:idx+2] .= spinconfig.magmom_size[iatom] .* magfield_vertical
+		magfield_vertical_list[idx:idx+2] .= spinconfig.magmom_size[iatom] .* magfield_vertical
 	end
 
 	return magfield_vertical_list
