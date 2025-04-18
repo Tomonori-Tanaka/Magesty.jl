@@ -1,5 +1,6 @@
 [general]
 name = "bccfe"
+mode = "optimize"
 kd = ["Fe"]
 nat = 16
 periodicity = [true, true, true]
@@ -13,10 +14,10 @@ nbody = 2
 [interaction.lmax]
 Fe = [0, 1] # the number of elements shoud be the same with "nbody" value.
 [interaction.cutoff] # unit is bohr
-Fe-Fe = [0.0, 2.7] # first element is just dummy to align wigh lmax array
+Fe-Fe = [-1, -1] # first element is just dummy to align wigh lmax array
 
 [regression]
-datafile = "/Users/tomorin/Packages/Magesty/test/examples/febcc_2x2x2_fm/EMBSET.txt"
+datafile = "EMBSET"
 training_ratio = 1.0
 weight = 0.0 # 1.0: only use the energy info. 0.0: only use torque info (0 <= weight_ratio <= 1)
 

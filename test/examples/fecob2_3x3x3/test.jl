@@ -3,9 +3,8 @@ using TOML
 input = TOML.parse(open("/Users/tomorin/Packages/Magesty/test/examples/fecob2_3x3x3/input.toml", "r"))
 system = System(input)
 sclus = SpinCluster(system)
-
-@show sclus.cluster.cluster_list
-@show sclus.basisset.basislist
-display(sclus.basisset.classified_basisdict)
-display(sclus.basisset.salc_list)
 display(sclus.optimize.SCE)
+input["regression"]["weight"] = 1.0
+system_torque = System(input)
+sclus_torque = SpinCluster(system_torque)
+display(sclus_torque.optimize.SCE)
