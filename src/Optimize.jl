@@ -137,9 +137,8 @@ function ols_energy(
 
 	observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_dataset.spinconfigs]
 	
-	# solve Ax = b using QR decomposition for better numerical stability
-	F = qr(design_matrix)
-	ols_coeffs = F \ observed_energy_list
+	# solve Ax = b
+	ols_coeffs = design_matrix \ observed_energy_list
 
 	predicted_energy_list = design_matrix * ols_coeffs
 
