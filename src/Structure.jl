@@ -117,6 +117,9 @@ A structure that represents a periodic structure constructed from a `Cell`.
 - `atomtype_group::Vector{Vector{Int}}`  
   Groups of atom indices categorized by their types. Each sub-vector contains the indices of atoms belonging to a specific element type.
 
+- `creation_time::Float64`  
+  Time taken to create the structure in seconds.
+
 """
 struct Structure
 	supercell::Cell
@@ -126,6 +129,7 @@ struct Structure
 	x_image_cart::Array{Float64, 3}  # Cartesian coordinates of atoms in neighboring cells [3, num_atoms, 27]
 	exist_image::Vector{Bool}  # Flags indicating existence of neighboring cells based on periodicity
 	atomtype_group::Vector{Vector{Int}}  # Groups of atom indices by element type
+	elapsed_time::Float64  # Time taken to create the structure in seconds
 
 end
 
@@ -136,10 +140,17 @@ function Structure(
 	kd_int_list::AbstractVector{<:Integer},
 	x_frac::AbstractMatrix{<:Real},
 )
+	# 時間測定開始
+	start_time = time_ns()
+	
 	supercell = Cell(lattice_vectors, kd_int_list, x_frac)
 	x_image_frac, x_image_cart = calc_x_images(lattice_vectors, x_frac)
 	exist_image::Vector{Bool} = calc_exist_image(is_periodic)
 	atomtype_group::Vector{Vector{Int}} = calc_atomtype_group(kd_int_list)
+	
+	# 時間測定終了
+	elapsed_time = (time_ns() - start_time) / 1e9  # 秒単位に変換
+	
 	return Structure(
 		supercell,
 		is_periodic,
@@ -148,6 +159,7 @@ function Structure(
 		x_image_cart,
 		exist_image,
 		atomtype_group,
+		elapsed_time
 	)
 end
 
@@ -285,6 +297,7 @@ function print_info(structure::Structure)
 			digits, supercell.kd_int_list[i]))
 	end
 	println("")
+	println(@sprintf("Elapsed time: %.6f seconds", structure.elapsed_time))
 	println("-------------------------------------------------------------------")
 end
 end

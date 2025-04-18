@@ -272,6 +272,7 @@ function print_info(sc::SpinCluster)
 
 	Structures.print_info(sc.structure)
 	Symmetries.print_info(sc.symmetry)
+	Clusters.print_info(sc.cluster)
 	BasisSets.print_info(sc.basisset)
 	Optimize.print_info(sc.optimize)
 end
