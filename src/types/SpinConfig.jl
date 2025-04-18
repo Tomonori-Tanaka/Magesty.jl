@@ -15,7 +15,7 @@ module SpinConfigs
 
 using Printf
 using LinearAlgebra
-using Random
+using StatsBase
 import Base: show
 
 export SpinConfig, read_embset, DataSet, parse_embset
