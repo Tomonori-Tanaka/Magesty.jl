@@ -5,9 +5,11 @@ A module for handling spin configurations in magnetic systems.
 
 # Types
 - `SpinConfig`: A structure representing a spin configuration with associated properties
+- `DataSet`: A structure for managing training and validation data sets
 
 # Functions
 - `read_embset`: Read spin configurations from an EMBSET file
+- `parse_embset`: Parse EMBSET file and create a DataSet with specified training ratio
 """
 module SpinConfigs
 
@@ -17,6 +19,30 @@ using Random
 import Base: show
 
 export SpinConfig, read_embset, DataSet, parse_embset
+
+"""
+	calc_local_magfield_vertical(spin_directions, local_magfield) -> Matrix{Float64}
+
+Calculate the vertical component of the local magnetic field.
+
+# Arguments
+- `spin_directions::Matrix{Float64}`: Spin direction vectors [3 × num_atoms]
+- `local_magfield::Matrix{Float64}`: Local magnetic field vectors [3 × num_atoms]
+
+# Returns
+- `Matrix{Float64}`: Vertical component of the local magnetic field [3 × num_atoms]
+"""
+function calc_local_magfield_vertical(
+	spin_directions::Matrix{Float64},
+	local_magfield::Matrix{Float64},
+)::Matrix{Float64}
+	local_magfield_vertical = zeros(3, size(local_magfield, 2))
+	for i in 1:size(local_magfield, 2)
+		proj_B = dot(local_magfield[:, i], spin_directions[:, i]) * spin_directions[:, i]
+		local_magfield_vertical[:, i] = local_magfield[:, i] - proj_B
+	end
+	return local_magfield_vertical
+end
 
 """
 	SpinConfig
@@ -32,6 +58,9 @@ A configuration of spins in a magnetic structure.
 
 # Constructors
 - `SpinConfig(energy, magmom_size, spin_directions, local_magfield)`: Create a spin configuration
+
+# Throws
+- `ArgumentError` if dimensions of input arrays do not match
 """
 struct SpinConfig
 	energy::Float64
@@ -132,6 +161,128 @@ function show(io::IO, config::SpinConfig)
 end
 
 """
+	DataSet
+
+A structure for managing training and validation data sets.
+
+# Fields
+- `spinconfigs::Vector{SpinConfig}`: All spin configurations
+- `training_data_num::Int`: Number of training data points
+- `validation_data_num::Int`: Number of validation data points
+- `training_data_indices::Vector{Int}`: Indices of training data points
+- `validation_data_indices::Vector{Int}`: Indices of validation data points
+"""
+struct DataSet
+	spinconfigs::Vector{SpinConfig}
+	training_data_num::Int
+	validation_data_num::Int
+	training_data_indices::Vector{Int}
+	validation_data_indices::Vector{Int}
+
+	function DataSet(
+		spinconfigs::Vector{SpinConfig},
+		training_data_indices::Vector{Int},
+		validation_data_indices::Vector{Int},
+	)
+		return new(
+			spinconfigs,
+			length(training_data_indices),
+			length(validation_data_indices),
+			training_data_indices,
+			validation_data_indices,
+		)
+	end
+end
+
+"""
+	DataSet(spinconfigs::Vector{SpinConfig}, training_ratio::Real = 1.0)
+
+Create a DataSet with specified training ratio.
+
+# Arguments
+- `spinconfigs::Vector{SpinConfig}`: Vector of spin configurations
+- `training_ratio::Real`: Ratio of data to use for training (0.0 < ratio ≤ 1.0, default: 1.0)
+
+# Returns
+- `DataSet`: A DataSet containing the configurations split into training and validation sets
+
+# Throws
+- `ArgumentError` if training_ratio is not in the range (0, 1]
+- `ArgumentError` if no configurations are provided
+"""
+function DataSet(spinconfigs::Vector{SpinConfig}, training_ratio::Real = 1.0)
+	if training_ratio <= 0.0 || training_ratio > 1.0
+		throw(ArgumentError("training_ratio must be in the range (0, 1]"))
+	end
+	num_configs = length(spinconfigs)
+	if num_configs < 1
+		throw(ArgumentError("At least one configuration is required"))
+	end
+
+	# When training_ratio is 1.0, use all data for training
+	if training_ratio == 1.0
+		training_data_indices = collect(1:num_configs)
+		validation_data_indices = Int[]
+	else
+		training_data_num = max(1, Int(floor(num_configs * training_ratio)))
+		training_data_indices = sample(1:num_configs, training_data_num, replace = false)
+		validation_data_indices = setdiff(1:num_configs, training_data_indices)
+	end
+
+	return DataSet(spinconfigs, training_data_indices, validation_data_indices)
+end
+
+"""
+	parse_embset(filename::AbstractString, num_atoms::Integer; training_ratio::Real = 1.0)
+
+Parse EMBSET file and create a DataSet with specified training ratio.
+
+# Arguments
+- `filename::AbstractString`: Path to the EMBSET file
+- `num_atoms::Integer`: Number of atoms in the system
+- `training_ratio::Real`: Ratio of data to use for training (default: 1.0)
+
+# Returns
+- `DataSet`: A DataSet containing the parsed configurations
+
+# Throws
+- `ErrorException` if the file format is invalid
+"""
+function parse_embset(filename::AbstractString, num_atoms::Integer; training_ratio::Real = 1.0)
+	spinconfigs = read_embset(filename, num_atoms)
+	return DataSet(spinconfigs, training_ratio)
+end
+
+"""
+	parse_embset(filename::AbstractString, num_atoms::Integer, use_data_indices::Vector{Int}; training_ratio::Real = 1.0)
+
+Parse EMBSET file and create a DataSet using only specified configurations.
+
+# Arguments
+- `filename::AbstractString`: Path to the EMBSET file
+- `num_atoms::Integer`: Number of atoms in the system
+- `use_data_indices::Vector{Int}`: Indices of configurations to use
+- `training_ratio::Real`: Ratio of data to use for training (default: 1.0)
+
+# Returns
+- `DataSet`: A DataSet containing the selected configurations
+
+# Throws
+- `ErrorException` if the file format is invalid
+- `BoundsError` if any index in use_data_indices is out of range
+"""
+function parse_embset(
+	filename::AbstractString,
+	num_atoms::Integer,
+	use_data_indices::Vector{Int};
+	training_ratio::Real = 1.0,
+)
+	spinconfigs_orig = read_embset(filename, num_atoms)
+	spinconfigs = spinconfigs_orig[use_data_indices]
+	return DataSet(spinconfigs, training_ratio)
+end
+
+"""
 	read_embset(filepath::AbstractString, num_atoms::Integer) -> Vector{SpinConfig}
 
 Read spin configurations from an EMBSET file.
@@ -218,90 +369,6 @@ function separate_embset(
 	end
 
 	return SpinConfig(energy, magmom_size, spin_directions, local_magfield)
-end
-
-"""
-	calc_local_magfield_vertical(spin_directions, local_magfield) -> Matrix{Float64}
-
-Calculate the vertical component of the local magnetic field.
-
-# Arguments
-- `spin_directions::Matrix{Float64}`: Spin direction vectors [3 × num_atoms]
-- `local_magfield::Matrix{Float64}`: Local magnetic field vectors [3 × num_atoms]
-
-# Returns
-- `Matrix{Float64}`: Vertical component of the local magnetic field [3 × num_atoms]
-"""
-function calc_local_magfield_vertical(
-	spin_directions::Matrix{Float64},
-	local_magfield::Matrix{Float64},
-)::Matrix{Float64}
-	local_magfield_vertical = zeros(3, size(local_magfield, 2))
-	for i in 1:size(local_magfield, 2)
-		proj_B = dot(local_magfield[:, i], spin_directions[:, i]) * spin_directions[:, i]
-		local_magfield_vertical[:, i] = local_magfield[:, i] - proj_B
-	end
-	return local_magfield_vertical
-end
-
-struct DataSet
-	spinconfigs::Vector{SpinConfig}
-	training_data_num::Int
-	validation_data_num::Int
-	training_data_indices::Vector{Int}
-	validation_data_indices::Vector{Int}
-
-	function DataSet(
-		spinconfigs::Vector{SpinConfig},
-		training_data_indices::Vector{Int},
-		validation_data_indices::Vector{Int},
-	)
-		return new(
-			spinconfigs,
-			length(training_data_indices),
-			length(validation_data_indices),
-			training_data_indices,
-			validation_data_indices,
-		)
-	end
-end
-
-function DataSet(spinconfigs::Vector{SpinConfig}, training_ratio::Real = 1.0)
-	if training_ratio <= 0.0 || training_ratio > 1.0
-		throw(ArgumentError("training_ratio must be in the range (0, 1]"))
-	end
-	num_configs = length(spinconfigs)
-	if num_configs < 1
-		throw(ArgumentError("At least 1 configuration is required at least for training"))
-	end
-
-	# When training_ratio is 1.0, use all data for training
-	if training_ratio == 1.0
-		training_data_indices = collect(1:num_configs)
-		validation_data_indices = Int[]
-	else
-		training_data_num = max(1, Int(floor(num_configs * training_ratio)))
-		training_data_indices = sample(1:num_configs, training_data_num, replace = false)
-		validation_data_indices = setdiff(1:num_configs, training_data_indices)
-	end
-
-	return DataSet(spinconfigs, training_data_indices, validation_data_indices)
-end
-
-function parse_embset(filename::AbstractString, num_atoms::Integer; training_ratio::Real = 1.0)
-	spinconfigs = read_embset(filename, num_atoms)
-	return DataSet(spinconfigs, training_ratio)
-end
-
-function parse_embset(
-	filename::AbstractString,
-	num_atoms::Integer,
-	use_data_indices::Vector{Int};
-	training_ratio::Real = 1.0,
-)
-	spinconfigs_orig = read_embset(filename, num_atoms)
-	spinconfigs = spinconfigs_orig[use_data_indices]
-	return DataSet(spinconfigs, training_ratio)
 end
 
 end
