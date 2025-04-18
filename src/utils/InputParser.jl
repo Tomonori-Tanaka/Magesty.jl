@@ -112,6 +112,9 @@ function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 	# symmetry variables
 	symmetry_dict = input_dict["symmetry"]
 	if haskey(symmetry_dict, "tolerance")
+		if symmetry_dict["tolerance"] <= 0
+			error("The tolerance must be positive, got $(symmetry_dict["tolerance"]).")
+		end
 		tolerance_sym::Float64 = symmetry_dict["tolerance"]
 	else
 		tolerance_sym = 1e-3
