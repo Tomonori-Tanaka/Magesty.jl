@@ -576,7 +576,8 @@ function print_info(cluster::Cluster)
 	""")
 	println("Number of bodies: ", cluster.nbody)
 	println("Number of interaction clusters: ", length(cluster.cluster_list))
-	println(@sprintf("Elapsed time: %.6f seconds", cluster.elapsed_time))
+	println("")
+	println("Elapsed time: ", cluster.elapsed_time, " seconds")
 	println("-------------------------------------------------------------------")
 end
 

@@ -16,7 +16,6 @@ module Symmetries
 using LinearAlgebra
 using StaticArrays
 using Spglib
-using Printf
 
 using ..AtomCells
 using ..Structures
@@ -397,7 +396,6 @@ function print_info(symmetry::Symmetry)
 		str_prim = """
 		Given structure is a primitive cell.
 		Primitive cell contains $(symmetry.nat_prim) atoms.
-
 		"""
 		str *= str_prim
 	else
@@ -405,12 +403,11 @@ function print_info(symmetry::Symmetry)
 		Given structure is not a primitive cell.
 		There are $(symmetry.ntran) translation operations.
 		Primitive cell contains $(symmetry.nat_prim) atoms.
-
 		"""
 		str *= str_supercell
 	end
 	println(str)
-	println(@sprintf("Elapsed time: %.6f seconds", symmetry.elapsed_time))
+	println("Elapsed time: ", symmetry.elapsed_time, " seconds")
 	println("-------------------------------------------------------------------")
 end
 
