@@ -107,12 +107,24 @@ Create a System from a dictionary of input parameters.
 # Throws
 - `ErrorException` if required parameters are missing or invalid
 """
-function System(input_dict::Dict{<:AbstractString, <:Any})
+function System(input_dict::Dict{<:AbstractString, <:Any}, verbosity::Bool = true)
 	parser::Parser = Parser(input_dict)
 	structure::Structure = set_system(parser)
+	if verbosity
+		Structures.print_info(structure)
+	end
 	symmetry::Symmetry = set_symmetry(parser, structure)
+	if verbosity
+		Symmetries.print_info(symmetry)
+	end
 	cluster::Cluster = set_cluster(parser, structure, symmetry)
+	if verbosity
+		Clusters.print_info(cluster)
+	end
 	basisset::BasisSet = set_basisset(parser, structure, symmetry, cluster)
+	if verbosity
+		BasisSets.print_info(basisset)
+	end
 
 	return System(parser, structure, symmetry, cluster, basisset)
 end
@@ -132,12 +144,12 @@ Create a System from a TOML configuration file.
 - `SystemError` if the file cannot be read
 - `ErrorException` if the TOML parsing fails
 """
-function System(toml_file::AbstractString)
+function System(toml_file::AbstractString, verbosity::Bool = true)
 	try
 		open(toml_file) do io
 			toml = read(io, String)
 			config = TOML.parse(toml)
-			return System(config)
+			return System(config, verbosity)
 		end
 	catch e
 		if isa(e, SystemError)
@@ -185,14 +197,29 @@ Differ from System in that it also sets the optimizer.
 # Throws
 - `ErrorException` if required parameters are missing or invalid
 """
-function SpinCluster(input_dict::Dict{<:AbstractString, <:Any})
+function SpinCluster(input_dict::Dict{<:AbstractString, <:Any}, verbosity::Bool = true)
 	parser = Parser(input_dict)
 	structure::Structure = set_system(parser)
+	if verbosity
+		Structures.print_info(structure)
+	end
 	symmetry::Symmetry = set_symmetry(parser, structure)
+	if verbosity
+		Symmetries.print_info(symmetry)
+	end
 	cluster::Cluster = set_cluster(parser, structure, symmetry)
+	if verbosity
+		Clusters.print_info(cluster)
+	end
 	basisset::BasisSet = set_basisset(parser, structure, symmetry, cluster)
+	if verbosity
+		BasisSets.print_info(basisset)
+	end
 	optimize = if parser.mode == "optimize"
 		set_optimize(parser, structure, symmetry, basisset)
+		if verbosity
+			Optimize.print_info(optimize)
+		end
 	else
 		nothing
 	end
@@ -215,12 +242,12 @@ Create a SpinCluster from a TOML configuration file.
 - `SystemError` if the file cannot be read
 - `ErrorException` if the TOML parsing fails
 """
-function SpinCluster(toml_file::AbstractString)
+function SpinCluster(toml_file::AbstractString, verbosity::Bool = true)
 	try
 		open(toml_file) do io
 			toml = read(io, String)
 			config = TOML.parse(toml)
-			return SpinCluster(config)
+			return SpinCluster(config, verbosity)
 		end
 	catch e
 		if isa(e, SystemError)
@@ -242,9 +269,12 @@ Create a SpinCluster from an existing System.
 # Returns
 - `SpinCluster`: A new SpinCluster instance
 """
-function SpinCluster(system::System)
-	optimize = if system.config.mode == "optimize"
-		set_optimize(system.config, system.structure, system.symmetry, system.basisset)
+function SpinCluster(system::System, verbosity::Bool = true)
+	if system.config.mode == "optimize"
+		optimize = set_optimize(system.config, system.structure, system.symmetry, system.basisset)
+		if verbosity
+			Optimize.print_info(optimize)
+		end
 	else
 		nothing
 	end

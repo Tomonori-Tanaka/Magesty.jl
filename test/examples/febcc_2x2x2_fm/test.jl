@@ -5,7 +5,6 @@ input = TOML.parse(
 )
 system_energy = System(input)
 sclus = SpinCluster(system_energy)
-print_info(sclus)
 display(sclus.optimize.SCE)
 input["regression"]["weight"] = 1.0
 system_torque = System(input)
