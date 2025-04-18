@@ -23,6 +23,7 @@ module Clusters
 using Combinatorics
 using DataStructures
 using LinearAlgebra
+using Printf
 
 using ..SortedContainer
 using ..AtomCells
@@ -123,7 +124,9 @@ Represents a collection of interaction clusters based on the specified number of
 - `cutoff_radii::Array{Float64, 3}`: Cutoff radii for each atomic element pair and interaction body. Dimensions: [nkd, nkd, nbody].
 - `mindist_pairs::Matrix{Vector{DistInfo}}`: Matrix containing the minimum distance pairs between atoms. Dimensions: [num_atoms, num_atoms].
 - `interaction_clusters::Matrix{OrderedSet{InteractionCluster}}`: Matrix of interaction clusters for each primitive atom and interaction body. Dimensions: [nat_prim, nbody-1].
-- `cluster_list::Vector{SortedVector{Vector{Int}}}`: List of interacting atom clusters for each interaction body.
+- `cluster_list::Vector{SortedVector{Vector{AtomCell}}}`: List of interacting atom clusters for each interaction body.
+- `equivalent_atom_list::Vector{Vector{Int}}`: List of equivalent atom groups based on symmetry operations.
+- `elapsed_time::Float64`: Time taken to create the cluster in seconds.
 
 # Constructor
 	Cluster(structure, symmetry, nbody::Int, cutoff_radii)
@@ -141,6 +144,7 @@ struct Cluster
 	interaction_clusters::Matrix{OrderedSet{InteractionCluster}}# [≤ nat_prim, ≤ nbody-1]
 	cluster_list::Vector{SortedVector{Vector{AtomCell}}} # [≤ nbody-1][≤ number of clusters][≤ nbody]
 	equivalent_atom_list::Vector{Vector{Int}}
+	elapsed_time::Float64  # Time taken to create the cluster in seconds
 
 	function Cluster(
 		structure::Structure,
@@ -148,6 +152,9 @@ struct Cluster
 		nbody::Integer,
 		cutoff_radii::AbstractArray{<:Real},
 	)
+		# Start timing
+		start_time = time_ns()
+		
 		mindist_pairs =
 			set_mindist_pairs(
 				structure.supercell.num_atoms,
@@ -182,6 +189,9 @@ struct Cluster
 		equivalent_atom_list =
 			classify_equivalent_atoms(symmetry.atoms_in_prim, symmetry.map_sym)
 
+		# End timing
+		elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
+
 		return new(
 			nbody,
 			cutoff_radii,
@@ -189,6 +199,7 @@ struct Cluster
 			interaction_clusters,
 			cluster_list,
 			equivalent_atom_list,
+			elapsed_time
 		)
 	end
 end
@@ -555,6 +566,18 @@ function all_atomlist_by_symop(
 
 	return unique(atomlist_list)
 
+end
+
+function print_info(cluster::Cluster)
+	println("""
+	========
+	CLUSTER
+	========
+	""")
+	println("Number of bodies: ", cluster.nbody)
+	println("Number of interaction clusters: ", length(cluster.cluster_list))
+	println(@sprintf("Elapsed time: %.6f seconds", cluster.elapsed_time))
+	println("-------------------------------------------------------------------")
 end
 
 end

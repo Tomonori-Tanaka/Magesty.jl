@@ -16,6 +16,7 @@ module Symmetries
 using LinearAlgebra
 using StaticArrays
 using Spglib
+using Printf
 
 using ..AtomCells
 using ..Structures
@@ -103,12 +104,16 @@ Contains the symmetry information of a structure.
 
 # Fields
 - `international_symbol::String`: International symbol of the space group.
+- `spacegroup_number::Int`: Space group number.
 - `nsym::Int`: Number of symmetry operations.
 - `ntran::Int`: Number of pure translation operations.
 - `nat_prim::Int`: Number of atoms in the primitive cell.
 - `tol::Float64`: Tolerance for symmetry detection.
+- `atoms_in_prim::Vector{Int}`: Indices of atoms in the primitive cell.
+- `elapsed_time::Float64`: Time taken to create the symmetry in seconds.
 - `symdata::Vector{SymmetryOperation}`: List of symmetry operations.
 - `map_sym::Matrix{Int}`: Maps atoms in the supercell to corresponding atoms under symmetry operations.
+- `map_sym_cell::Array{AtomCell}`: Maps atoms in the supercell to corresponding AtomCell instances.
 - `map_p2s::Matrix{Int}`: Maps atoms in the primitive cell to the supercell.
 - `map_s2p::Vector{Maps}`: Maps atoms in the supercell to the primitive cell.
 - `symnum_translation::Vector{Int}`: Indices of pure translation operations.
@@ -126,6 +131,7 @@ struct Symmetry
 	nat_prim::Int   # the number of atoms in a primitive cell
 	tol::Float64
 	atoms_in_prim::Vector{Int}
+	elapsed_time::Float64  # Time taken to create the symmetry in seconds
 
 	symdata::Vector{SymmetryOperation}
 	map_sym::Matrix{Int}    # [num_atoms, nsym] -> corresponding atom index
@@ -136,6 +142,9 @@ struct Symmetry
 end
 
 function Symmetry(structure::Structure, tol::Real)
+	# Start timing
+	start_time = time_ns()
+	
 	if tol <= 0
 		throw(ArgumentError("Tolerance must be positive, got $tol"))
 	end
@@ -296,6 +305,9 @@ function Symmetry(structure::Structure, tol::Real)
 	atoms_in_prim = Int[map_p2s[i, 1] for i in 1:nat_prim]
 	atoms_in_prim = sort(atoms_in_prim)
 
+	# End timing
+	elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
+
 	symmetry = Symmetry(
 		spglib_data.international_symbol,
 		spglib_data.spacegroup_number,
@@ -304,6 +316,7 @@ function Symmetry(structure::Structure, tol::Real)
 		nat_prim,
 		tol,
 		atoms_in_prim,
+		elapsed_time,
 		symdata,
 		map_sym,
 		map_sym_cell,
@@ -397,6 +410,7 @@ function print_info(symmetry::Symmetry)
 		str *= str_supercell
 	end
 	println(str)
+	println(@sprintf("Elapsed time: %.6f seconds", symmetry.elapsed_time))
 	println("-------------------------------------------------------------------")
 end
 

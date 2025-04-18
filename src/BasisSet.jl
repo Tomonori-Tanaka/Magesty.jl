@@ -8,7 +8,7 @@ module BasisSets
 using Combinatorics
 using DataStructures
 using LinearAlgebra
-using DelimitedFiles# for test
+using Printf
 
 using ..SortedContainer
 using ..AtomCells
@@ -34,6 +34,7 @@ This structure is used to store and manage basis functions that are adapted to t
 - `projection_dict::Dict{Int, Matrix{Float64}}`: Dictionary of projection matrices for each symmetry label
 - `each_projection_dict::Any`: Dictionary containing individual projection information
 - `salc_list::Vector{SALC}`: List of symmetry-adapted linear combinations
+- `elapsed_time::Float64`: Time taken to create the basis set in seconds
 
 # Constructors
 	BasisSet(structure::Structure, symmetry::Symmetry, cluster::Cluster, lmax::AbstractMatrix{<:Integer}, bodymax::Integer)
@@ -74,6 +75,7 @@ struct BasisSet
 	projection_dict::Dict{Int, Matrix{Float64}}
 	each_projection_dict::Any
 	salc_list::Vector{SALC}
+	elapsed_time::Float64  # Time taken to create the basis set in seconds
 
 	function BasisSet(
 		structure::Structure,
@@ -82,6 +84,9 @@ struct BasisSet
 		lmax::AbstractMatrix{<:Integer},    # [≤ nkd, ≤ nbody]
 		bodymax::Integer,
 	)
+		# Start timing
+		start_time = time_ns()
+		
 		# Validate input parameters
 		nkd, nbody = size(lmax)
 		bodymax > 0 || throw(ArgumentError("bodymax must be positive"))
@@ -132,12 +137,16 @@ struct BasisSet
 			end
 		end
 
+		# End timing
+		elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
+
 		return new(
 			basislist,
 			classified_basisdict,
 			projection_dict,
 			each_projection_dict,
 			salc_list,
+			elapsed_time
 		)
 	end
 end
@@ -451,6 +460,8 @@ function print_info(basis::BasisSet)
 		println("$i-th salc")
 		display(salc)
 	end
+
+	println(@sprintf("Elapsed time: %.6f seconds", basis.elapsed_time))
 	println("-------------------------------------------------------------------")
 
 end
