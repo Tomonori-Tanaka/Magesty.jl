@@ -21,5 +21,5 @@ using Test
 end
 
 @testset "examples" begin
-	include("./examples/febcc_2x2x2_fm/test.jl")
+	include("./examples/fecob2_3x3x3/test.jl")
 end
