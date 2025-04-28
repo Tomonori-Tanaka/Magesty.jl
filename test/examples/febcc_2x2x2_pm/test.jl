@@ -1,4 +1,5 @@
 using TOML
+using Printf
 
 input = TOML.parse(
 	open("/Users/tomorin/Packages/Magesty/test/examples/febcc_2x2x2_pm/input.toml", "r"),
@@ -9,5 +10,10 @@ sclus_torque = SpinCluster(system)
 input["regression"]["weight"] = 1.0
 sclus_energy = SpinCluster(system, input, false)
 
-display(sclus_torque.optimize.SCE)
-display(sclus_energy.optimize.SCE)
+println("1NN (torque): ", sclus_torque.optimize.SCE[2])
+println("1NN (energy): ", sclus_energy.optimize.SCE[2])
+println(@sprintf("elapsed_time (structure): %10.6f", sclus_torque.structure.elapsed_time))
+println(@sprintf("elapsed_time (symmetry):  %10.6f", sclus_torque.symmetry.elapsed_time))
+println(@sprintf("elapsed_time (cluster):   %10.6f", sclus_torque.cluster.elapsed_time))
+println(@sprintf("elapsed_time (basisset):  %10.6f", sclus_torque.basisset.elapsed_time))
+println(@sprintf("elapsed_time (optimize):  %10.6f", sclus_torque.optimize.elapsed_time))
