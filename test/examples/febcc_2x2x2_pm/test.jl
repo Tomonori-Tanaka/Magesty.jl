@@ -5,8 +5,8 @@ input = TOML.parse(
 	open("/Users/tomorin/Packages/Magesty/test/examples/febcc_2x2x2_pm/input.toml", "r"),
 )
 input["regression"]["weight"] = 0.0
-system = System(input)
-sclus_torque = SpinCluster(system)
+system = System(input, false)
+sclus_torque = SpinCluster(system, false)
 input["regression"]["weight"] = 1.0
 sclus_energy = SpinCluster(system, input, false)
 
