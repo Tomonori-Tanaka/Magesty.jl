@@ -39,13 +39,14 @@ function SCEOptimizer(
 	symmetry::Symmetry,
 	basisset::BasisSet,
 	j_zero_thr::Real,
-	weight::Real,
+	weight::Union{Real, String},
 	spinconfig_dataset::DataSet,
 )
 	# Start timing
 	start_time = time_ns()
-	
-	if weight > 0.5
+	if weight == "auto"
+		println("developing...")
+	elseif weight > 0.5
 		SCE,
 		bias_term,
 		relative_error_magfield_vertical,
@@ -54,7 +55,12 @@ function SCEOptimizer(
 		observed_energy_list,
 		predicted_magfield_vertical_list,
 		observed_magfield_vertical_list =
-			ols_energy(basisset.salc_list, spinconfig_dataset, structure.supercell.num_atoms, symmetry)
+			ols_energy(
+				basisset.salc_list,
+				spinconfig_dataset,
+				structure.supercell.num_atoms,
+				symmetry,
+			)
 	else
 		SCE,
 		bias_term,
@@ -85,7 +91,7 @@ function SCEOptimizer(
 		observed_energy_list,
 		predicted_magfield_vertical_list,
 		observed_magfield_vertical_list,
-		elapsed_time
+		elapsed_time,
 	)
 end
 
@@ -140,7 +146,8 @@ function ols_energy(
 	end
 
 
-	observed_energy_list::Vector{Float64} = [spinconfig.energy for spinconfig in spinconfig_dataset.spinconfigs]
+	observed_energy_list::Vector{Float64} =
+		[spinconfig.energy for spinconfig in spinconfig_dataset.spinconfigs]
 	# solve Ax = b
 	ols_coeffs = design_matrix \ observed_energy_list
 
@@ -151,7 +158,7 @@ function ols_energy(
 
 	@threads for i in 1:num_spinconfigs
 		design_matrix_list[i] = zeros(Float64, 3 * num_atoms, num_salcs)
-		for row_idx in 1:3*num_atoms
+		for row_idx in 1:(3*num_atoms)
 			for isalc in 1:num_salcs
 				design_matrix_list[i][row_idx, isalc] =
 					calc_X_matrix_element(
@@ -179,23 +186,25 @@ function ols_energy(
 	ols_coeffs_wo_bias::Vector{Float64} = ols_coeffs[2:end]
 	design_matrix::Matrix{Float64} = vcat(design_matrix_list...)
 	predicted_magfield_vertical_list::Vector{Float64} = design_matrix * ols_coeffs_wo_bias
-	relative_error_energy::Float64 = √(
+	relative_error_energy::Float64 =
+		√(
 		sum((observed_energy_list - predicted_energy_list) .^ 2) /
 		sum(observed_energy_list .^ 2),
 	)
-	relative_error_magfield_vertical::Float64 = √(
+	relative_error_magfield_vertical::Float64 =
+		√(
 		sum((observed_magfield_vertical_flattened - predicted_magfield_vertical_list) .^ 2) /
 		sum(observed_magfield_vertical_flattened .^ 2),
 	)
 
 	return ols_coeffs_wo_bias,
-		bias_term,
-        relative_error_magfield_vertical,
-        relative_error_energy,
-		predicted_energy_list,
-		observed_energy_list,
-		predicted_magfield_vertical_list,
-		observed_magfield_vertical_flattened
+	bias_term,
+	relative_error_magfield_vertical,
+	relative_error_energy,
+	predicted_energy_list,
+	observed_energy_list,
+	predicted_magfield_vertical_list,
+	observed_magfield_vertical_flattened
 end
 
 function calc_design_matrix_element(
@@ -247,7 +256,7 @@ function ols_magfield_vertical(
 
 	@threads for i in 1:num_spinconfigs
 		design_matrix_list[i] = zeros(Float64, 3 * num_atoms, num_salcs)
-		for row_idx in 1:3*num_atoms
+		for row_idx in 1:(3*num_atoms)
 			for isalc in 1:num_salcs
 				design_matrix_list[i][row_idx, isalc] =
 					calc_X_matrix_element(
@@ -264,7 +273,8 @@ function ols_magfield_vertical(
 
 	ols_coeffs = design_matrix \ observed_magfield_vertical_flattened
 	predicted_magfield_vertical_flattened = design_matrix * ols_coeffs
-	relative_error_magfield_vertical = √(
+	relative_error_magfield_vertical =
+		√(
 		sum((observed_magfield_vertical_flattened - predicted_magfield_vertical_flattened) .^ 2) /
 		sum(observed_magfield_vertical_flattened .^ 2),
 	)
@@ -289,7 +299,8 @@ function ols_magfield_vertical(
 	observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_dataset.spinconfigs]
 
 	bias_term = mean(observed_energy_list .- design_matrix_energy * ols_coeffs)
-	relative_error_energy = √(
+	relative_error_energy =
+		√(
 		sum((observed_energy_list .- (design_matrix_energy * ols_coeffs .+ bias_term)) .^ 2) /
 		sum(observed_energy_list .^ 2),
 	)
@@ -335,7 +346,7 @@ function calc_magfield_vertical_list_of_spinconfig(
 
 		# Calculate magfield_vertical and store in preallocated vector
 		idx = (iatom - 1) * 3 + 1
-		magfield_vertical_list[idx:idx+2] .= spinconfig.magmom_size[iatom] .* magfield_vertical
+		magfield_vertical_list[idx:(idx+2)] .= spinconfig.magmom_size[iatom] .* magfield_vertical
 	end
 
 	return magfield_vertical_list
@@ -522,7 +533,8 @@ function write_energy_lists(optimizer::SCEOptimizer, filename::AbstractString = 
 	end
 
 	# Prepare data
-	observed_energy_list = [spinconfig.energy for spinconfig in optimizer.spinconfig_dataset.spinconfigs]
+	observed_energy_list =
+		[spinconfig.energy for spinconfig in optimizer.spinconfig_dataset.spinconfigs]
 	predicted_energy_list = optimizer.predicted_energy_list
 
 	# Format header
