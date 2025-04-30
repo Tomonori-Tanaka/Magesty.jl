@@ -1,22 +1,22 @@
 """
-	module Systems
+	module Structures
 
-A module for managing crystal structures and periodic systems. It defines `Cell` and `System` types to handle lattice vectors, atomic positions, and related properties.
+A module for managing crystal structures and periodic systems. It defines `Cell` and `Structure` types to handle lattice vectors, atomic positions, and related properties.
 
 # Types
 - **`Cell`**: Represents the unit cell of a crystal structure.
-- **`System`**: Represents a periodic system built from a `Cell`, with additional information about periodicity, atom types, and neighboring images.
+- **`Structure`**: Represents a periodic structure built from a `Cell`, with additional information about periodicity, atom types, and neighboring images.
 
 """
 
-module Systems
+module Structures
 using LinearAlgebra
 using Printf
 using StaticArrays
 
 import Base: show
 
-export System
+export Structure
 
 """
 	Cell
@@ -90,20 +90,20 @@ function calc_reciprocal_vectors(lattice_vectors::AbstractMatrix{<:Real})
 end
 
 """
-   System(lattice_vectors, is_periodic, kd_name, kd_int_list, x_frac)
+   Structure(lattice_vectors, is_periodic, kd_name, kd_int_list, x_frac)
 
-A structure that represents a periodic system constructed from a `Cell`.
+A structure that represents a periodic structure constructed from a `Cell`.
 
 # Fields
 
 - `supercell::Cell`  
-  The unit cell of the system, containing lattice vectors, reciprocal vectors, atomic positions, and magnetic moments.
+  The unit cell of the structure, containing lattice vectors, reciprocal vectors, atomic positions, and magnetic moments.
 
 - `is_periodic::Vector{Bool}`  
-  A vector indicating periodicity along each of the three principal axes. Each element corresponds to whether the system is periodic (`true`) or non-periodic (`false`) along that axis.
+  A vector indicating periodicity along each of the three principal axes. Each element corresponds to whether the structure is periodic (`true`) or non-periodic (`false`) along that axis.
 
 - `kd_name::Vector{String}`  
-  A list of element names present in the system (e.g., `["Fe", "Co", "Ni"]`).
+  A list of element names present in the structure (e.g., `["Fe", "Co", "Ni"]`).
 
 - `x_image_frac::Array{Float64, 3}`  
   Fractional coordinates of atoms in neighboring (imaginary) cells. The dimensions typically represent the number of images, number of atoms, and the three fractional coordinates.
@@ -112,13 +112,16 @@ A structure that represents a periodic system constructed from a `Cell`.
   Cartesian coordinates of atoms in neighboring (imaginary) cells. Similar to `x_image_frac`, the dimensions represent the number of images, number of atoms, and the three Cartesian coordinates.
 
 - `exist_image::Vector{Bool}`  
-  Indicates the existence of neighboring cells based on the system's periodicity. Each element corresponds to whether a particular neighboring cell exists (`true`) or not (`false`).
+  Indicates the existence of neighboring cells based on the structure's periodicity. Each element corresponds to whether a particular neighboring cell exists (`true`) or not (`false`).
 
 - `atomtype_group::Vector{Vector{Int}}`  
   Groups of atom indices categorized by their types. Each sub-vector contains the indices of atoms belonging to a specific element type.
 
+- `creation_time::Float64`  
+  Time taken to create the structure in seconds.
+
 """
-struct System
+struct Structure
 	supercell::Cell
 	is_periodic::Vector{Bool}  # Periodicity flags for x, y, z directions
 	kd_name::Vector{String}    # Element names (e.g., ["Fe", "Co", "Ni"])
@@ -126,21 +129,29 @@ struct System
 	x_image_cart::Array{Float64, 3}  # Cartesian coordinates of atoms in neighboring cells [3, num_atoms, 27]
 	exist_image::Vector{Bool}  # Flags indicating existence of neighboring cells based on periodicity
 	atomtype_group::Vector{Vector{Int}}  # Groups of atom indices by element type
+	elapsed_time::Float64  # Time taken to create the structure in seconds
 
 end
 
-function System(
+function Structure(
 	lattice_vectors::AbstractMatrix{<:Real},
 	is_periodic::AbstractVector{Bool},
 	kd_name::AbstractVector{<:AbstractString},
 	kd_int_list::AbstractVector{<:Integer},
 	x_frac::AbstractMatrix{<:Real},
 )
+	# 時間測定開始
+	start_time = time_ns()
+	
 	supercell = Cell(lattice_vectors, kd_int_list, x_frac)
 	x_image_frac, x_image_cart = calc_x_images(lattice_vectors, x_frac)
 	exist_image::Vector{Bool} = calc_exist_image(is_periodic)
 	atomtype_group::Vector{Vector{Int}} = calc_atomtype_group(kd_int_list)
-	return System(
+	
+	# 時間測定終了
+	elapsed_time = (time_ns() - start_time) / 1e9  # 秒単位に変換
+	
+	return Structure(
 		supercell,
 		is_periodic,
 		kd_name,
@@ -148,6 +159,7 @@ function System(
 		x_image_cart,
 		exist_image,
 		atomtype_group,
+		elapsed_time
 	)
 end
 
@@ -240,25 +252,25 @@ function calc_exist_image(is_periodic::AbstractVector{Bool})::Vector{Bool}
 	return exist_image
 end
 
-function show(io::IO, system::System)
-	println(io, "supercell:\n ", system.supercell)
-	println(io, "is_periodic: ", system.is_periodic)
-	println(io, "kd_name: ", system.kd_name)
-	println(io, "x_image_frac: \n", system.x_image_frac)
-	println(io, "x_image_cart: \n", system.x_image_cart)
-	println(io, "exist_image: ", system.exist_image)
-	println(io, "atomtype_group: ", system.atomtype_group)
+function show(io::IO, structure::Structure)
+	println(io, "supercell:\n ", structure.supercell)
+	println(io, "is_periodic: ", structure.is_periodic)
+	println(io, "kd_name: ", structure.kd_name)
+	println(io, "x_image_frac: \n", structure.x_image_frac)
+	println(io, "x_image_cart: \n", structure.x_image_cart)
+	println(io, "exist_image: ", structure.exist_image)
+	println(io, "atomtype_group: ", structure.atomtype_group)
 end
 
-function print_info(system::System)
-	supercell = system.supercell
+function print_info(structure::Structure)
+	supercell = structure.supercell
 	println("""
 	======
 	SYSTEM
 	======
 	""")
 	println("Total Number of atoms: ", supercell.num_atoms)
-	println("Number of atomic species: \n", supercell.num_elements)
+	println("Number of atomic species: ", supercell.num_elements)
 
 	println("Lattice vector (in Angstrom):")
 	for (i, label) in enumerate(["a1", "a2", "a3"])
@@ -266,11 +278,11 @@ function print_info(system::System)
 			supercell.lattice_vectors[:, i]..., label))
 	end
 	println("")
-	println("Periodicity: ", Int.(system.is_periodic), "\n")
+	println("Periodicity: ", Int.(structure.is_periodic), "\n")
 	
 	digits = length(string(abs(supercell.num_atoms))) + 1
 	println("Atomic species:")
-	for (i, species) in enumerate(system.kd_name)
+	for (i, species) in enumerate(structure.kd_name)
 		println(@sprintf("  %*d: %s", digits, i, species))
 	end
 	println("")
@@ -285,6 +297,7 @@ function print_info(system::System)
 			digits, supercell.kd_int_list[i]))
 	end
 	println("")
+	println(@sprintf("Elapsed time: %.6f seconds", structure.elapsed_time))
 	println("-------------------------------------------------------------------")
 end
 end

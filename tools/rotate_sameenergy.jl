@@ -99,7 +99,7 @@ Rotate the spin directions and magnetic fields in EMBSET with keeping the same e
 
 Arguments:
 	embset: The path to the EMBSET file
-	num_atoms: The number of atoms in the system
+	num_atoms: The number of atoms in the structure
 	saxis: The reference axis of the spin quantization
 	n_points: The number of points to generate on the Fibonacci sphere
 """
@@ -167,7 +167,7 @@ s = ArgParseSettings()
 	required = true
 
 	"--num_atoms", "-n"
-	help = "The number of atoms in the system"
+	help = "The number of atoms in the structure"
 	required = true
 	arg_type = Int
 

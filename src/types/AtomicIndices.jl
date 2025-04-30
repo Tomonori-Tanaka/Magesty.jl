@@ -4,8 +4,9 @@ import Base:
 	append!, eltype, getindex, hash, in, isempty, isless, iterate, length, push!, show,
 	size, sort, ==
 
-export Indices, IndicesUniqueList, get_atomlist, get_llist, get_celllist, get_totalL, get_atom_l_list,
+export Indices, IndicesUniqueList, get_total_L, get_atom_l_list,
 	equivalent,
+	product_indices_of_all_comb,
 	product_indices,
 	indices_singleatom
 
@@ -13,56 +14,72 @@ export Indices, IndicesUniqueList, get_atomlist, get_llist, get_celllist, get_to
 # Indices
 # ─────────────────────────────────────────────────────────────────────────────
 """
-	Indices(atom::Int, l::Int, m::Int)
+	Indices(atom::Int, l::Int, m::Int, cell::Int)
 
-Represents the indices of an atom along with its associated labels (l and m) in a real spherical harmonics basis.
+Represents the indices of an atom along with its associated quantum numbers (l and m) and cell index
+in a real spherical harmonics basis.
 
 ### Fields
 - `atom::Int`: The index of the atom.
-- `l::Int`: The quantum number ( l ).
-- `m::Int`: The quantum number ( m ).
+- `l::Int`: The quantum number (l).
+- `m::Int`: The quantum number (m).
+- `cell::Int`: The cell index (1 ≤ cell ≤ 27).
 
 ### Constructor
-- `Indices(atom::Int,  l::Int, m::Int)`: Creates a new `Indices` instance after validating that ( l ) is positive and ( |m| \\leq l ).
+- `Indices(atom::Int, l::Int, m::Int, cell::Int)`: Creates a new `Indices` instance after validating:
+  - l must be positive
+  - |m| must not exceed l
+  - cell must be between 1 and 27 (inclusive)
 """
 struct Indices
 	atom::Int
 	l::Int
 	m::Int
 	cell::Int
-end
 
-function Indices(atom::Integer, l::Integer, m::Integer, cell::Integer)
-	if l < 1
-		throw(DomainError("l: $l, l should be positive."))
-	elseif abs(m) > l
-		throw(DomainError("l: $l, m: $m, |m| must not exceed l."))
-	elseif cell <= 0 || cell > 27
-		throw(DomainError("cell: $cell, it should be in 1 <= cell <= 27. "))
+	function Indices(atom::Integer, l::Integer, m::Integer, cell::Integer)
+		if l < 1
+			throw(DomainError("l must be positive, got l = $l"))
+		elseif abs(m) > l
+			throw(DomainError("|m| must not exceed l, got m = $m for l = $l"))
+		elseif cell <= 0 || cell > 27
+			throw(DomainError("cell must be between 1 and 27, got cell = $cell"))
+		end
+		new(atom, l, m, cell)
 	end
-	return Indices(atom, l, m, cell)
 end
 
 function Indices(tuple::NTuple{4, Integer})
 	return Indices(tuple...)
 end
 
+# Comparison operations
 isless(atom_1::Indices, atom_2::Indices) =
 	(atom_1.atom, atom_1.l, atom_1.m, atom_1.cell) <
 	(atom_2.atom, atom_2.l, atom_2.m, atom_2.cell)
+
 isless(atom_1::Indices, tuple::NTuple{4, Integer}) =
 	(atom_1.atom, atom_1.l, atom_1.m, atom_1.cell) < tuple
+
 isless(tuple::NTuple{4, Integer}, atom_2::Indices) =
 	tuple < (atom_2.atom, atom_2.l, atom_2.m, atom_2.cell)
+
+# Equality operations
 ==(atom_1::Indices, atom_2::Indices) =
 	(atom_1.atom, atom_1.l, atom_1.m, atom_1.cell) ==
 	(atom_2.atom, atom_2.l, atom_2.m, atom_2.cell)
+
 ==(atom_1::Indices, tuple::NTuple{4, Integer}) =
 	(atom_1.atom, atom_1.l, atom_1.m, atom_1.cell) == tuple
+
 ==(tuple::NTuple{4, Integer}, atom_2::Indices) =
 	tuple == (atom_2.atom, atom_2.l, atom_2.m, atom_2.cell)
+
+# Hashing
 hash(atom_1::Indices, h::UInt) =
 	hash((atom_1.atom, atom_1.l, atom_1.m, atom_1.cell), h)
+
+# Display
 function show(io::IO, indices::Indices)
 	print(
 		io,
@@ -74,6 +91,12 @@ end
 # ─────────────────────────────────────────────────────────────────────────────
 # IndicesUniqueList
 # ─────────────────────────────────────────────────────────────────────────────
+"""
+	IndicesUniqueList
+
+A mutable collection of unique `Indices` objects that implements the `AbstractVector` interface.
+Maintains uniqueness of elements and provides specialized operations for handling atomic indices.
+"""
 mutable struct IndicesUniqueList <: AbstractVector{Indices}
 	data::Vector{Indices}
 
@@ -90,6 +113,7 @@ mutable struct IndicesUniqueList <: AbstractVector{Indices}
 	end
 end
 
+# AbstractVector interface implementation
 getindex(iul::IndicesUniqueList, idx::Int) = iul.data[idx]
 length(iul::IndicesUniqueList) = length(iul.data)
 eltype(::Type{IndicesUniqueList}) = Indices
@@ -101,7 +125,7 @@ size(iul::IndicesUniqueList) = size(iul.data)
 in(val::Indices, iul::IndicesUniqueList) = val in iul.data
 
 """
-	isless(iul1::IndicesUniqueList, iul2::IndicesUniqueList)
+	isless(iul1::IndicesUniqueList, iul2::IndicesUniqueList) -> Bool
 
 Compare two `IndicesUniqueList`s based on their lengths first and then lexicographically.
 """
@@ -109,17 +133,21 @@ function isless(iul1::IndicesUniqueList, iul2::IndicesUniqueList)
 	return length(iul1.data) < length(iul2.data) || iul1.data < iul2.data
 end
 
+"""
+	sort(iul::IndicesUniqueList) -> IndicesUniqueList
+
+Return a new sorted `IndicesUniqueList` containing the same elements as `iul`.
+"""
 function sort(iul::IndicesUniqueList)
 	IndicesUniqueList(sort(iul.data))
 end
 
 """
-	push!(iul::IndicesUniqueList, indices::Indices)
+	push!(iul::IndicesUniqueList, indices::Indices) -> IndicesUniqueList
 
 Add `indices` to `iul` only if it does not already exist in `iul`.
 """
 function push!(iul::IndicesUniqueList, indices::Indices)
-	# guarantees the uniqueness
 	if indices in iul
 		return iul
 	else
@@ -129,7 +157,7 @@ function push!(iul::IndicesUniqueList, indices::Indices)
 end
 
 """
-	append!(iul::IndicesUniqueList, vec::AbstractVector{Indices})
+	append!(iul::IndicesUniqueList, vec::AbstractVector{Indices}) -> IndicesUniqueList
 
 Append all elements of `vec` to `iul`, keeping them unique.
 """
@@ -140,7 +168,7 @@ function append!(iul::IndicesUniqueList, vec::AbstractVector{Indices})
 	return iul
 end
 
-# Show method for IndicesUniqueList
+# Display
 function show(io::IO, iul::IndicesUniqueList)
 	for indices in iul
 		# (atom, l, m, cell) with fixed width
@@ -155,63 +183,17 @@ end
 # Getter functions
 # ─────────────────────────────────────────────────────────────────────────────
 """
-	get_atomlist(iul::IndicesUniqueList) -> Vector{Int}
+	get_total_L(iul::IndicesUniqueList) -> Int
 
-Extracts the atom indices from `IndicesUniqueList` and returns them as a Vector.
-
-# Arguments
-- `iul::IndicesUniqueList`: The `IndicesUniqueList` instance.
-
-# Returns
-- A Vector containing the atom indices.
+Return the sum of all l values in `IndicesUniqueList`.
 """
-function get_atomlist(iul::IndicesUniqueList)::Vector{Int}
-	[indices.atom for indices in iul]
-end
-
-"""
-	get_llist(iul::IndicesUniqueList) -> Vector{Int}
-
-Extracts the l indices from `IndicesUniqueList` and returns them as a Vector.
-
-# Arguments
-- `iul::IndicesUniqueList`: The `IndicesUniqueList` instance.
-
-# Returns
-- A Vector containing the l indices.
-"""
-function get_llist(iul::IndicesUniqueList)::Vector{Int}
-	[indices.l for indices in iul]
-end
-
-"""
-	get_celllist(iul::IndicesUniqueList) -> Vector{Int}
-
-Extracts the cell indices from `IndicesUniqueList` and returns them as a Vector.
-
-# Arguments
-- `iul::IndicesUniqueList`: The `IndicesUniqueList` instance.
-
-# Returns
-- A Vector containing the cell indices.
-"""
-function get_celllist(iul::IndicesUniqueList)::Vector{Int}
-	[indices.cell for indices in iul]
-end
-
-
-"""
-	get_totalL(iul::IndicesUniqueList) -> Int
-
-Returns the sum of all l values in `IndicesUniqueList`.
-"""
-function get_totalL(iul::IndicesUniqueList)::Int
-	return sum(get_llist(iul))
+function get_total_L(iul::IndicesUniqueList)::Int
+	return sum([indices.l for indices in iul])
 end
 
 function get_atom_l_list(iul::IndicesUniqueList)::Vector{Vector{Int}}
-	atom_list = get_atomlist(iul)
-	l_list = get_llist(iul)
+	atom_list = [indices.atom for indices in iul]
+	l_list = [indices.l for indices in iul]
 	vec = Vector{Vector{Int}}()
 	for (atom, l) in zip(atom_list, l_list)
 		push!(vec, Int[atom, l])
@@ -222,7 +204,16 @@ end
 
 """
 	equivalent(iul1::IndicesUniqueList, iul2::IndicesUniqueList) -> Bool
-judge whether given 2 IndicesUniqueList are equivalent or not.
+
+Determine whether two `IndicesUniqueList`s are equivalent, i.e., contain the same elements
+regardless of order.
+
+# Arguments
+- `iul1::IndicesUniqueList`: First `IndicesUniqueList` to compare.
+- `iul2::IndicesUniqueList`: Second `IndicesUniqueList` to compare.
+
+# Returns
+- `true` if the lists contain the same elements, `false` otherwise.
 """
 function equivalent(iul1::IndicesUniqueList, iul2::IndicesUniqueList)::Bool
 	return sort(iul1) == sort(iul2)
@@ -231,16 +222,36 @@ end
 # ─────────────────────────────────────────────────────────────────────────────
 # Functions for generating Indices and their combinations
 # ─────────────────────────────────────────────────────────────────────────────
+"""
+	product_indices_of_all_comb(atom_list::AbstractVector{<:Integer},
+				   lmax_list::AbstractVector{<:Integer},
+				   cell_list::AbstractVector{<:Integer}) -> Vector{IndicesUniqueList}
 
-function product_indices(
+Generate all possible combinations of `Indices` for given atoms, maximum l values, and cells.
+
+# Arguments
+- `atom_list::AbstractVector{<:Integer}`: List of atom indices.
+- `lmax_list::AbstractVector{<:Integer}`: List of maximum l values for each atom.
+- `cell_list::AbstractVector{<:Integer}`: List of cell indices for each atom.
+
+# Returns
+- A Vector of `IndicesUniqueList` containing all possible combinations.
+
+# Throws
+- `ErrorException` if the input vectors have different lengths.
+"""
+function product_indices_of_all_comb(
 	atom_list::AbstractVector{<:Integer},
 	lmax_list::AbstractVector{<:Integer},
 	cell_list::AbstractVector{<:Integer},
 )::Vector{IndicesUniqueList}
 	if length(atom_list) != length(lmax_list) != length(cell_list)
-		error(
-			"Different vector lengths detected. atom_list, l_list, and cell_list must have the same length.",
-		)
+		throw(ErrorException(
+			"Input vectors must have the same length. Got lengths: " *
+			"atom_list=$(length(atom_list)), " *
+			"lmax_list=$(length(lmax_list)), " *
+			"cell_list=$(length(cell_list))"
+		))
 	end
 
 	list_tmp = Vector{Vector{Indices}}()
@@ -249,8 +260,9 @@ function product_indices(
 		for l in 1:lmax
 			append!(singleatom_list, indices_singleatom(atom, l, cell))
 		end
-		# Examle for (atom=3, lmax=2),
-		# singleatom_list = [Indices(3, 1, -1), Indices(3, 1, 0), Indices(3, 1, 1), Indices(3, 2, -2), Indices(3, 2, -1), ..., Indices(3, 2, 2)]
+		# Examle for (atom=3, lmax=2, cell=1),
+		# singleatom_list = [Indices(3, 1, -1, 1), Indices(3, 1, 0, 1), Indices(3, 1, 1, 1), Indices(3, 2, -2, 1), Indices(3, 2, -1, 1), ..., Indices(3, 2, 2, 1)]
+		# the length of singleatom_list in this case is 8
 		push!(list_tmp, singleatom_list)
 	end
 
@@ -269,11 +281,11 @@ function product_indices(
 	return sort(combined_vec)
 end
 
-function product_indices_fixed_l(
+function product_indices(
 	atom_list::AbstractVector{<:Integer},
 	l_list::AbstractVector{<:Integer},
 	cell_list::AbstractVector{<:Integer},
-)
+)::Vector{IndicesUniqueList}
 	if length(atom_list) != length(l_list) != length(cell_list)
 		error(
 			"Different vector lengths detected. atom_list, l_list, and cell_list must have the same length.",
@@ -299,8 +311,17 @@ function product_indices_fixed_l(
 end
 
 """
-	indices_singleatom(atom::Integer,  l::Integer, cell::Integer) :: Vector{Indices}
+	indices_singleatom(atom::Integer, l::Integer, cell::Integer) -> Vector{Indices}
 
+Generate all possible `Indices` for a single atom with given l value and cell index.
+
+# Arguments
+- `atom::Integer`: The atom index.
+- `l::Integer`: The quantum number l.
+- `cell::Integer`: The cell index.
+
+# Returns
+- A Vector of `Indices` containing all possible combinations for the given parameters.
 """
 function indices_singleatom(atom::Integer, l::Integer, cell::Integer)::Vector{Indices}
 	vec = Vector{Indices}()

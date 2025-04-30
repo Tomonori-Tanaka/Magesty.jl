@@ -5,11 +5,11 @@ A module for handling symmetry operations in crystal structures using `Spglib`. 
 
 # Types
 - **`SymmetryOperation`**: Represents a single symmetry operation with rotation and translation components.
-- **`Symmetry`**: Represents the symmetry information of a system, including symmetry operations, mappings, and metadata.
+- **`Symmetry`**: Represents the symmetry information of a structure, including symmetry operations, mappings, and metadata.
 
 # Functions
 - `is_compatible_cart(rot_cart)`: Check if a rotation matrix is compatible with Cartesian axes.
-- `Symmetry(system, tol)`: Generate a `Symmetry` object for a given system with a specified tolerance.
+- `Symmetry(structure, tol)`: Generate a `Symmetry` object for a given structure with a specified tolerance.
 """
 module Symmetries
 
@@ -18,7 +18,7 @@ using StaticArrays
 using Spglib
 
 using ..AtomCells
-using ..Systems
+using ..Structures
 
 import Base: isless, show
 
@@ -41,12 +41,12 @@ Represents a symmetry operation, including rotation and translation components.
 ```julia
 # Create a symmetry operation
 symop = SymmetryOperation(
-    rotation_frac = [1 0 0; 0 1 0; 0 0 1],
-    rotation_cart = [1 0 0; 0 1 0; 0 0 1],
-    translation_frac = [0.0, 0.0, 0.0],
-    is_translation = true,
-    is_translation_included = false,
-    is_proper = true
+	rotation_frac = [1 0 0; 0 1 0; 0 0 1],
+	rotation_cart = [1 0 0; 0 1 0; 0 0 1],
+	translation_frac = [0.0, 0.0, 0.0],
+	is_translation = true,
+	is_translation_included = false,
+	is_proper = true
 )
 ```
 """
@@ -99,24 +99,28 @@ end
 """
 	struct Symmetry
 
-Contains the symmetry information of a system.
+Contains the symmetry information of a structure.
 
 # Fields
 - `international_symbol::String`: International symbol of the space group.
+- `spacegroup_number::Int`: Space group number.
 - `nsym::Int`: Number of symmetry operations.
 - `ntran::Int`: Number of pure translation operations.
 - `nat_prim::Int`: Number of atoms in the primitive cell.
 - `tol::Float64`: Tolerance for symmetry detection.
+- `atoms_in_prim::Vector{Int}`: Indices of atoms in the primitive cell.
+- `elapsed_time::Float64`: Time taken to create the symmetry in seconds.
 - `symdata::Vector{SymmetryOperation}`: List of symmetry operations.
 - `map_sym::Matrix{Int}`: Maps atoms in the supercell to corresponding atoms under symmetry operations.
+- `map_sym_cell::Array{AtomCell}`: Maps atoms in the supercell to corresponding AtomCell instances.
 - `map_p2s::Matrix{Int}`: Maps atoms in the primitive cell to the supercell.
 - `map_s2p::Vector{Maps}`: Maps atoms in the supercell to the primitive cell.
 - `symnum_translation::Vector{Int}`: Indices of pure translation operations.
 
 # Constructor
-	Symmetry(system, tol::Float64)
+	Symmetry(structure, tol::Float64)
 
-Generate symmetry information for the given system using the specified tolerance.
+Generate symmetry information for the given structure using the specified tolerance.
 """
 struct Symmetry
 	international_symbol::String
@@ -126,6 +130,7 @@ struct Symmetry
 	nat_prim::Int   # the number of atoms in a primitive cell
 	tol::Float64
 	atoms_in_prim::Vector{Int}
+	elapsed_time::Float64  # Time taken to create the symmetry in seconds
 
 	symdata::Vector{SymmetryOperation}
 	map_sym::Matrix{Int}    # [num_atoms, nsym] -> corresponding atom index
@@ -135,34 +140,85 @@ struct Symmetry
 	symnum_translation::Vector{Int} # contains the indice of translational only operations
 end
 
-function Symmetry(system::System, tol::Real)
+function Symmetry(structure::Structure, tol::Real)
+	# Start timing
+	start_time = time_ns()
+
 	if tol <= 0
 		throw(ArgumentError("Tolerance must be positive, got $tol"))
 	end
 
-	cell = system.supercell
-	spglib_cell = Spglib.Cell(cell.lattice_vectors, cell.x_frac, cell.kd_int_list)
-	spglib_data::Spglib.Dataset = get_dataset(spglib_cell)
+	cell = structure.supercell
+	spglib_data::Spglib.Dataset =
+		get_dataset(Spglib.Cell(cell.lattice_vectors, cell.x_frac, cell.kd_int_list))
 
-	nsym::Int = spglib_data.n_operations
-	if nsym == 0
+	if spglib_data.n_operations == 0
 		error(
 			"Error in symmetry search: No symmetry operations found. Please check the input structure or tolerance setting.",
 		)
 	end
 
-	ntran::Int = 0
+	# construct symnum_translation and ntran
+	symnum_translation = construct_symnum_translation(spglib_data, tol)
+	ntran = length(symnum_translation)
+
+	# construct symdata
+	symdata = construct_symdata(spglib_data, tol, symnum_translation, cell)
+
+	# construct mapping data
+	map_sym, map_sym_cell = construct_map_sym(spglib_data, tol, symdata, structure)
+
+	# generate map_p2s (primitive cell --> supercell)
+	map_p2s = construct_map_p2s(spglib_data, cell, map_sym, symnum_translation)
+
+	nat_prim = max(spglib_data.mapping_to_primitive...)
+	# generate map_s2p (supercell -> primitive cell)
+	map_s2p = construct_map_s2p(cell, map_p2s, nat_prim, ntran)
+
+	# collect atom indices in primitive cell from map_p2s
+	atoms_in_prim = Int[map_p2s[i, 1] for i in 1:nat_prim]
+	atoms_in_prim = sort(atoms_in_prim)
+
+	# End timing
+	elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
+
+	symmetry = Symmetry(
+		spglib_data.international_symbol,
+		spglib_data.spacegroup_number,
+		spglib_data.n_operations,
+		ntran,
+		nat_prim,
+		tol,
+		atoms_in_prim,
+		elapsed_time,
+		symdata,
+		map_sym,
+		map_sym_cell,
+		map_p2s,
+		map_s2p,
+		symnum_translation)
+
+	return symmetry
+end
+
+function construct_symnum_translation(spglib_data::Spglib.Dataset, tol::Real)::Vector{Int}
 	symnum_translation = Int[]
-	for i in 1:nsym
+	for i in 1:spglib_data.n_operations
 		if isapprox(spglib_data.rotations[i], I, atol = tol)
-			ntran += 1
 			append!(symnum_translation, i)
 		end
 	end
+	return symnum_translation
+end
 
-	# construct symdata
-	symdata = Vector{SymmetryOperation}(undef, nsym)
-	for i in 1:nsym
+function construct_symdata(
+	spglib_data::Spglib.Dataset,
+	tol::Real,
+	symnum_translation::Vector{Int},
+	cell::Structures.Cell,
+)::Vector{SymmetryOperation}
+	symdata = Vector{SymmetryOperation}(undef, spglib_data.n_operations)
+	for i in 1:spglib_data.n_operations
 		rotation_cart =
 			cell.lattice_vectors * spglib_data.rotations[i] * cell.reciprocal_vectors
 
@@ -195,29 +251,33 @@ function Symmetry(system::System, tol::Real)
 		)
 		symdata[i] = symdata_elem
 	end
+	return symdata
+end
 
-	# construct mapping data
-	natomtypes::Int = length(system.atomtype_group)
-	map_sym = zeros(Int, cell.num_atoms, spglib_data.n_operations)
-	map_sym_cell = Array{AtomCell}(
-		undef,
-		cell.num_atoms,
-		27,# the number of total image cells
-		spglib_data.n_operations,
-	)
+function construct_map_sym(
+	spglib_data::Spglib.Dataset,
+	tol::Real,
+	symdata::AbstractVector{SymmetryOperation},
+	structure::Structure,
+)::Tuple{Matrix{Int}, Array{AtomCell}}
+	natomtypes = length(structure.atomtype_group)
+	map_sym = Matrix{Int}(undef, structure.supercell.num_atoms, spglib_data.n_operations)
+	map_sym_cell =
+		Array{AtomCell}(undef, structure.supercell.num_atoms, 27, spglib_data.n_operations)
+	# 27 is the total number of neighboring imaginary (virtual) cell including the central cell
 	initialized = falses(size(map_sym_cell))
 
-	x_new::Vector{Float64} = Vector{Float64}(undef, 3)
-	tmp::Vector{Float64} = Vector{Float64}(undef, 3)
+	x_new = Vector{Float64}(undef, 3)
+	tmp = Vector{Float64}(undef, 3)
 
 	for isym in 1:spglib_data.n_operations
 		for itype in 1:natomtypes
-			for iat in system.atomtype_group[itype]
-				x_new = Vector(spglib_data.rotations[isym] * cell.x_frac[:, iat])
+			for iat in structure.atomtype_group[itype]
+				x_new = Vector(spglib_data.rotations[isym] * structure.supercell.x_frac[:, iat])
 				x_new = x_new + Vector(spglib_data.translations[isym])
 
-				for jat in system.atomtype_group[itype]
-					tmp = (abs.(cell.x_frac[:, jat] - x_new)) .% 1.0
+				for jat in structure.atomtype_group[itype]
+					tmp = (abs.(structure.supercell.x_frac[:, jat] - x_new)) .% 1.0
 
 					for (i, val) in enumerate(tmp)
 						tmp[i] = min(val, 1 - val)
@@ -228,7 +288,7 @@ function Symmetry(system::System, tol::Real)
 						for cell in 1:27# 27 is the total number of neighboring imaginary (virtual) cell including the central cell
 							matched_cell = find_matching_image_cell(
 								symdata[isym],
-								system.x_image_frac,
+								structure.x_image_frac,
 								iat,
 								cell,
 								tol = tol,
@@ -250,9 +310,34 @@ function Symmetry(system::System, tol::Real)
 			end
 		end
 	end
+	return map_sym, map_sym_cell
+end
 
-	# generate map_p2s (primitive cell --> supercell)
+"""
+	construct_map_p2s(spglib_data::Spglib.Dataset, cell::Structures.Cell, map_sym::Matrix{Int}, symnum_translation::Vector{Int}) -> Matrix{Int}
+
+Constructs the mapping from primitive cell to supercell.
+
+# Arguments
+- `spglib_data::Spglib.Dataset`: Spglib dataset containing symmetry information
+- `cell::Structures.Cell`: Cell information
+- `map_sym::Matrix{Int}`: Symmetry mapping matrix
+- `symnum_translation::Vector{Int}`: Indices of pure translation operations
+
+# Returns
+- `Matrix{Int}`: Mapping matrix from primitive cell to supercell
+
+# Throws
+- `ErrorException` if the mapping cannot be constructed properly
+"""
+function construct_map_p2s(
+	spglib_data::Spglib.Dataset,
+	cell::Structures.Cell,
+	map_sym::AbstractMatrix{<:Integer},
+	symnum_translation::AbstractVector{<:Integer},
+)::Matrix{Int}
 	nat_prim = max(spglib_data.mapping_to_primitive...)
+	ntran = length(symnum_translation)
 	map_p2s = zeros(Int, nat_prim, ntran)
 	is_checked = fill(false, cell.num_atoms)
 
@@ -271,9 +356,32 @@ function Symmetry(system::System, tol::Real)
 	if 0 in map_p2s
 		error("something wrong in generating map_p2s")
 	end
+	return map_p2s
+end
 
+"""
+	construct_map_s2p(cell::Structures.Cell, map_p2s::Matrix{Int}, nat_prim::Int, ntran::Int) -> Vector{Maps}
 
-	# generate map_s2p (supercell -> primitive cell)
+Constructs the mapping from supercell to primitive cell.
+
+# Arguments
+- `cell::Structures.Cell`: Cell information
+- `map_p2s::Matrix{Int}`: Mapping matrix from primitive cell to supercell
+- `nat_prim::Int`: Number of atoms in primitive cell
+- `ntran::Int`: Number of pure translation operations
+
+# Returns
+- `Vector{Maps}`: Mapping vector from supercell to primitive cell
+
+# Throws
+- `ErrorException` if the mapping cannot be constructed properly
+"""
+function construct_map_s2p(
+	cell::Structures.Cell,
+	map_p2s::AbstractMatrix{<:Integer},
+	nat_prim::Integer,
+	ntran::Integer,
+)::Vector{Maps}
 	map_s2p = Vector{Maps}(undef, cell.num_atoms)
 	initialized = falses(size(map_s2p))
 	for iat in 1:nat_prim
@@ -287,31 +395,7 @@ function Symmetry(system::System, tol::Real)
 	if length(undef_indices) >= 1
 		error("undef is detected in `map_s2p` variable: $undef_indices")
 	end
-
-
-	if 0 in map_s2p
-		error("something wrong in generating map_s2p")
-	end
-
-	atoms_in_prim = Int[map_p2s[i, 1] for i in 1:nat_prim]
-	atoms_in_prim = sort(atoms_in_prim)
-
-	symmetry = Symmetry(
-		spglib_data.international_symbol,
-		spglib_data.spacegroup_number,
-		spglib_data.n_operations,
-		ntran,
-		nat_prim,
-		tol,
-		atoms_in_prim,
-		symdata,
-		map_sym,
-		map_sym_cell,
-		map_p2s,
-		map_s2p,
-		symnum_translation)
-
-	return symmetry
+	return map_s2p
 end
 
 """
@@ -354,8 +438,10 @@ function find_matching_image_cell(
 	x_moved .= symop.rotation_frac * @view(x_image[:, atom, cell]) .+ symop.translation_frac
 
 	# Use views for better performance
-	matches = [(n, m) for n in 1:size(x_image, 2), m in 1:size(x_image, 3) 
-			  if isapprox(@view(x_image[:, n, m]), x_moved; atol = tol)]
+	matches = [
+		(n, m) for n in 1:size(x_image, 2), m in 1:size(x_image, 3)
+		if isapprox(@view(x_image[:, n, m]), x_moved; atol = tol)
+	]
 
 	if isempty(matches)
 		return -1
@@ -382,21 +468,20 @@ function print_info(symmetry::Symmetry)
 	"""
 	if symmetry.ntran == 1
 		str_prim = """
-		Given system is a primitive cell.
+		Given structure is a primitive cell.
 		Primitive cell contains $(symmetry.nat_prim) atoms.
-
 		"""
 		str *= str_prim
 	else
 		str_supercell = """
-		Given system is not a primitive cell.
+		Given structure is not a primitive cell.
 		There are $(symmetry.ntran) translation operations.
 		Primitive cell contains $(symmetry.nat_prim) atoms.
-
 		"""
 		str *= str_supercell
 	end
 	println(str)
+	println("Elapsed time: ", symmetry.elapsed_time, " seconds")
 	println("-------------------------------------------------------------------")
 end
 
@@ -411,16 +496,19 @@ function __write_symdata(
 		for (i, symop) in enumerate(symdata)
 			write(io, "operation: $i\n")
 			write(io, "rotation (fractional)\n")
-			
+
 			# Pre-allocate vector for better performance
 			vec = Vector{Float64}(undef, 3)
 			for line in 1:3
 				vec .= symop.rotation_frac[line, :]
 				write(io, "$(vec[1])\t$(vec[2])\t$(vec[3])\n")
 			end
-			
+
 			write(io, "translation (fractional)\n")
-			write(io, "$(symop.translation_frac[1])\t$(symop.translation_frac[2])\t$(symop.translation_frac[3])\n")
+			write(
+				io,
+				"$(symop.translation_frac[1])\t$(symop.translation_frac[2])\t$(symop.translation_frac[3])\n",
+			)
 			write(io, "\n")
 		end
 	end

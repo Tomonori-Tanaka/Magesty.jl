@@ -6,16 +6,15 @@ This module provides data structures and functions for managing and analyzing cl
 # Types
 - **`DistInfo`**: Represents distance information between two atoms.
 - **`InteractionCluster`**: Represents a cluster of interacting atoms.
-- **`Cluster`**: Manages multiple interaction clusters based on system parameters.
+- **`Cluster`**: Manages multiple interaction clusters based on structure parameters.
 
 # Functions
-- `Cluster(system, symmetry, nbody::Int, cutoff_radii)`: Constructs a `Cluster` instance based on the given system and symmetry information.
+- `Cluster(structure, symmetry, nbody::Int, cutoff_radii)`: Constructs a `Cluster` instance based on the given structure and symmetry information.
 - `set_mindist_pairs(nat::Int, xc_in::AbstractArray{<:AbstractFloat, 3}, exist_cell::AbstractVector{Bool})`: Computes minimum distance pairs between atoms.
 - `set_interaction_by_cutoff(nat::Int, nat_prim::Int, kd_int_list::AbstractVector{Int}, map_p2s::AbstractMatrix{Int}, cutoff_radii::AbstractArray{Float64, 3}, nbody::Int, mindist_pairs::Matrix{<:Vector{<:DistInfo}})`: Determines interacting pairs based on cutoff radii.
 - `set_interaction_clusters(nat_prim::Int, kd_int_list::AbstractVector{Int}, map_p2s::AbstractMatrix{Int}, x_image_cart::AbstractArray{Float64, 3}, exist_image::AbstractVector{Bool}, interaction_pairs::Vector{<:Vector{Int}}, cutoff_radii::AbstractArray{Float64, 3}, mindist_pairs::Matrix{<:Vector{<:DistInfo}}, nbody::Int)`: Organizes interaction clusters.
 - `is_within_cutoff(atoms::AbstractVector{<:Int}, kd_int::AbstractVector{<:Int}, rc::AbstractArray{Float64, 3}, mindist_pairs::Matrix{<:AbstractVector{<:DistInfo}})`: Checks if a cluster is within cutoff radii.
 - `calc_distmax(atoms::AbstractVector{<:Int}, mindist_pairs::Matrix{<:AbstractVector{<:DistInfo}})`: Calculates the maximum distance within a cluster.
-- `generate_pairs(nat_prim::Int, map_p2s::Matrix{<:Int}, interaction_clusters::Matrix{OrderedSet{InteractionCluster}}, nbody::Int)`: Generates a list of interaction clusters.
 
 """
 
@@ -24,10 +23,11 @@ module Clusters
 using Combinatorics
 using DataStructures
 using LinearAlgebra
+using Printf
 
 using ..SortedContainer
 using ..AtomCells
-using ..Systems
+using ..Structures
 using ..Symmetries
 
 import Base: isless, ==
@@ -124,44 +124,49 @@ Represents a collection of interaction clusters based on the specified number of
 - `cutoff_radii::Array{Float64, 3}`: Cutoff radii for each atomic element pair and interaction body. Dimensions: [nkd, nkd, nbody].
 - `mindist_pairs::Matrix{Vector{DistInfo}}`: Matrix containing the minimum distance pairs between atoms. Dimensions: [num_atoms, num_atoms].
 - `interaction_clusters::Matrix{OrderedSet{InteractionCluster}}`: Matrix of interaction clusters for each primitive atom and interaction body. Dimensions: [nat_prim, nbody-1].
-- `cluster_list::Vector{SortedVector{Vector{Int}}}`: List of interacting atom clusters for each interaction body.
+- `cluster_list::Vector{SortedVector{Vector{AtomCell}}}`: List of interacting atom clusters for each interaction body.
+- `equivalent_atom_list::Vector{Vector{Int}}`: List of equivalent atom groups based on symmetry operations.
+- `elapsed_time::Float64`: Time taken to create the cluster in seconds.
 
 # Constructor
-	Cluster(system, symmetry, nbody::Int, cutoff_radii)
+	Cluster(structure, symmetry, nbody::Int, cutoff_radii)
 
-Creates a new `Cluster` instance based on the provided system, symmetry information, number of bodies, and cutoff radii.
+Creates a new `Cluster` instance based on the provided structure, symmetry information, number of bodies, and cutoff radii.
 
 # Example
 ```julia
-cluster = Cluster(system, symmetry, 3, cutoff_radii)
+cluster = Cluster(structure, symmetry, 3, cutoff_radii)
 """
 struct Cluster
 	nbody::Int
 	cutoff_radii::Array{Float64, 3}
 	mindist_pairs::Matrix{Vector{DistInfo}} # [≤ num_atoms, ≤ num_atoms]
 	interaction_clusters::Matrix{OrderedSet{InteractionCluster}}# [≤ nat_prim, ≤ nbody-1]
-	cluster_list::Vector{SortedVector{Vector{Int}}}# [≤ nbody-1][≤ number of clusters][≤ nbody]
-	cluster_list_with_cell::Vector{SortedVector{Vector{AtomCell}}} # [≤ nbody-1][≤ number of clusters][≤ nbody]
+	cluster_list::Vector{SortedVector{Vector{AtomCell}}} # [≤ nbody-1][≤ number of clusters][≤ nbody]
 	equivalent_atom_list::Vector{Vector{Int}}
+	elapsed_time::Float64  # Time taken to create the cluster in seconds
 
 	function Cluster(
-		system::System,
+		structure::Structure,
 		symmetry::Symmetry,
 		nbody::Integer,
 		cutoff_radii::AbstractArray{<:Real},
 	)
+		# Start timing
+		start_time = time_ns()
+		
 		mindist_pairs =
 			set_mindist_pairs(
-				system.supercell.num_atoms,
-				system.x_image_cart,
-				system.exist_image,
+				structure.supercell.num_atoms,
+				structure.x_image_cart,
+				structure.exist_image,
 				tol = symmetry.tol,
 			)
 		# interaction_pairs[≤ nat_prim][nbody-1]
 		interaction_pairs::Vector{Vector{Int}} = set_interaction_by_cutoff(
-			system.supercell.num_atoms,
+			structure.supercell.num_atoms,
 			symmetry.nat_prim,
-			system.supercell.kd_int_list,
+			structure.supercell.kd_int_list,
 			symmetry.map_p2s,
 			cutoff_radii,
 			nbody,
@@ -169,26 +174,23 @@ struct Cluster
 		)
 		interaction_clusters = set_interaction_clusters(
 			symmetry.nat_prim,
-			system.supercell.kd_int_list,
+			structure.supercell.kd_int_list,
 			symmetry.map_p2s,
-			system.x_image_cart,
-			system.exist_image,
+			structure.x_image_cart,
+			structure.exist_image,
 			interaction_pairs,
 			cutoff_radii,
 			mindist_pairs,
 			nbody,
 		)
-		cluster_list = generate_pairs(
-			symmetry.nat_prim,
-			symmetry.map_p2s,
-			interaction_clusters,
-			nbody,
-		)
-		cluster_list_with_cell =
-			generate_pairs_with_icells(symmetry.atoms_in_prim, interaction_clusters, nbody)
+		cluster_list =
+			generate_pairs(symmetry.atoms_in_prim, interaction_clusters, nbody)
 
 		equivalent_atom_list =
 			classify_equivalent_atoms(symmetry.atoms_in_prim, symmetry.map_sym)
+
+		# End timing
+		elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
 
 		return new(
 			nbody,
@@ -196,15 +198,15 @@ struct Cluster
 			mindist_pairs,
 			interaction_clusters,
 			cluster_list,
-			cluster_list_with_cell,
 			equivalent_atom_list,
+			elapsed_time
 		)
 	end
 end
 
 function set_mindist_pairs(
 	nat::Integer,
-	xc_in::AbstractArray{<:AbstractFloat, 3}, # x_image_cart in `System`
+	xc_in::AbstractArray{<:AbstractFloat, 3}, # x_image_cart in `Structure`
 	exist_cell::AbstractVector{Bool},
 	;
 	tol::Real = 1e-5,
@@ -267,7 +269,7 @@ function set_interaction_by_cutoff(
 	map_p2s::AbstractMatrix{<:Integer},
 	cutoff_radii::AbstractArray{<:Real, 3},
 	nbody::Integer,
-	mindist_pairs::Matrix{<:Vector{<:DistInfo}},
+	mindist_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
 )::Vector{Vector{Int}}
 
 	interaction_pairs = Vector{Vector{Int}}()
@@ -360,9 +362,9 @@ function set_interaction_clusters(
 		end
 	end
 
-	undef_indices = findall(x -> x == false, initialized)
-	if length(undef_indices) >= 1
-		error("undef is detected in `interaction_clusters` variable: $undef_indices")
+	unassigned_indices = findall(x -> x == false, initialized)
+	if length(unassigned_indices) >= 1
+		error("unassigned indices in `interaction_clusters` variable: $unassigned_indices")
 	end
 	return interaction_clusters
 end
@@ -400,34 +402,11 @@ function calc_distmax(
 end
 
 function generate_pairs(
-	nat_prim::Integer,
-	map_p2s::AbstractMatrix{<:Integer},
-	interaction_clusters::AbstractMatrix{<:AbstractSet{InteractionCluster}},# [≤ nat_prim, ≤ nbody-1]
-	nbody::Integer,
-)::Vector{SortedVector{Vector{Int}}}
-	cluster_list = Vector{SortedVector{Vector{Int}}}()
-	for body in 2:nbody
-		ordered_set = SortedVector{Vector{Int}}()
-		for iat_prim in 1:nat_prim
-			iat = map_p2s[iat_prim][1]
-			for inter_clus::InteractionCluster in interaction_clusters[iat_prim, body-1]
-				partners_tmp = sort(inter_clus.atoms)
-				vcated = vcat(iat, partners_tmp)
-
-				push!(ordered_set, vcated)
-			end
-		end
-		push!(cluster_list, ordered_set)
-	end
-	return cluster_list
-end
-
-function generate_pairs_with_icells(
 	atoms_in_prim::AbstractVector{<:Integer},
 	interactoin_clusters::AbstractMatrix{<:AbstractSet{InteractionCluster}},# [≤ nat_prim, ≤ nbody-1]
 	nbody::Integer,
 )::Vector{SortedVector{Vector{AtomCell}}}
-	cluster_list_with_cell = Vector{SortedVector{Vector{AtomCell}}}()
+	cluster_list = Vector{SortedVector{Vector{AtomCell}}}()
 	vsv = Vector{SortedVector{Vector{AtomCell}}}()
 	for body in 2:nbody
 		sv = SortedVector{Vector{AtomCell}}()
@@ -465,7 +444,7 @@ Classifies atoms in the primitive cell into equivalent groups based on symmetry 
 
 # Examples
 ```julia
-# For a system with 4 atoms and 2 symmetry operations
+# For a structure with 4 atoms and 2 symmetry operations
 atoms = [1, 2, 3, 4]
 map_sym = [1 2; 2 1; 3 4; 4 3]  # Example symmetry mapping
 
@@ -505,16 +484,6 @@ function classify_equivalent_atoms(
 	end
 
 	return group
-end
-
-function classify_equivalent_clusters(
-	interactoin_clusters::AbstractMatrix{<:AbstractSet{InteractionCluster}},
-	kd_int_list::AbstractVector{<:Integer},
-	atoms_in_prim::AbstractVector{<:Integer},
-	map_sym::AbstractMatrix{<:Integer},
-	lmax::AbstractMatrix{<:Integer},
-)
-
 end
 
 """
@@ -568,7 +537,7 @@ Generates all possible atom lists by applying symmetry operations to the input a
 
 # Examples
 ```julia
-# For a system with 3 atoms and 2 symmetry operations
+# For a structure with 3 atoms and 2 symmetry operations
 atoms = [1, 2, 3]
 map_sym = [1 2; 2 1; 3 3]  # Example symmetry mapping
 
@@ -597,6 +566,19 @@ function all_atomlist_by_symop(
 
 	return unique(atomlist_list)
 
+end
+
+function print_info(cluster::Cluster)
+	println("""
+	========
+	CLUSTER
+	========
+	""")
+	println("Number of bodies: ", cluster.nbody)
+	println("Number of interaction clusters: ", length(cluster.cluster_list))
+	println("")
+	println("Elapsed time: ", cluster.elapsed_time, " seconds")
+	println("-------------------------------------------------------------------")
 end
 
 end
