@@ -72,8 +72,7 @@ The constructor performs the following steps:
 struct BasisSet
 	basislist::SortedCountingUniqueVector{IndicesUniqueList}
 	classified_basisdict::Dict{Int, SortedCountingUniqueVector}
-	projection_dict::Dict{Int, Matrix{Float64}}
-	each_projection_dict::Any
+	projection_list::Vector{Matrix{Float64}}
 	salc_list::Vector{SALC}
 	elapsed_time::Float64  # Time taken to create the basis set in seconds
 
@@ -106,7 +105,7 @@ struct BasisSet
 		classified_basisdict = classify_basislist(basislist, symmetry.map_sym)
 
 		# Construct projection matrices
-		projection_dict, each_projection_dict = construct_projectionmatrix(
+		projection_list = construct_projectionmatrix(
 			classified_basisdict,
 			structure,
 			symmetry,
@@ -114,8 +113,8 @@ struct BasisSet
 
 		# Generate symmetry-adapted linear combinations
 		salc_list = Vector{SALC}()
-		for idx in 1:maximum(keys(projection_dict))
-			eigenval, eigenvec = eigen(projection_dict[idx])
+		for idx in eachindex(projection_list)
+			eigenval, eigenvec = eigen(projection_list[idx])
 			eigenval = real.(round.(eigenval, digits = 6))
 			eigenvec[abs.(eigenvec).<1e-5] .= 0.0
 			eigenvec = round.(eigenvec, digits = 10)
@@ -143,8 +142,7 @@ struct BasisSet
 		return new(
 			basislist,
 			classified_basisdict,
-			projection_dict,
-			each_projection_dict,
+			projection_list,
 			salc_list,
 			elapsed_time
 		)

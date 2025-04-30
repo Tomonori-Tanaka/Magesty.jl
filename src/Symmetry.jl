@@ -261,16 +261,15 @@ function construct_map_sym(
 	structure::Structure,
 )::Tuple{Matrix{Int}, Array{AtomCell}}
 	natomtypes = length(structure.atomtype_group)
-	map_sym = Matrix{Int}(undef, structure.supercell.num_atoms, spglib_data.n_operations)
+	map_sym = zeros(Int, structure.supercell.num_atoms, Int(spglib_data.n_operations))
 	map_sym_cell =
 		Array{AtomCell}(undef, structure.supercell.num_atoms, 27, spglib_data.n_operations)
 	# 27 is the total number of neighboring imaginary (virtual) cell including the central cell
 	initialized = falses(size(map_sym_cell))
 
-	x_new = Vector{Float64}(undef, 3)
-	tmp = Vector{Float64}(undef, 3)
-
-	for isym in 1:spglib_data.n_operations
+	Threads.@threads for isym in 1:spglib_data.n_operations
+		x_new = Vector{Float64}(undef, 3)
+		tmp = Vector{Float64}(undef, 3)
 		for itype in 1:natomtypes
 			for iat in structure.atomtype_group[itype]
 				x_new = Vector(spglib_data.rotations[isym] * structure.supercell.x_frac[:, iat])
@@ -285,7 +284,9 @@ function construct_map_sym(
 
 					if norm(tmp) < tol
 						map_sym[iat, isym] = jat
-						for cell in 1:27# 27 is the total number of neighboring imaginary (virtual) cell including the central cell
+						
+						# Find matching image cells
+						for cell in 1:27
 							matched_cell = find_matching_image_cell(
 								symdata[isym],
 								structure.x_image_frac,
@@ -515,3 +516,4 @@ function __write_symdata(
 end
 
 end
+
