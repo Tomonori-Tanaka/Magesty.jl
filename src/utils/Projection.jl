@@ -1,4 +1,5 @@
 using SparseArrays
+using Base.Threads
 
 using ..RotationMatrices
 
@@ -20,72 +21,58 @@ function construct_projectionmatrix(
 	basisdict::AbstractDict{<:Integer, <:AbstractVector},
 	structure::Structure,
 	symmetry::Symmetry,
-)::Tuple{Dict{Int, Matrix{Float64}}, Dict{Int, Any}}
+)::Vector{Matrix{Float64}}
 
 	# aliases
-	num_atoms::Int = structure.supercell.num_atoms# total number of atoms in the supercell
 	x_image_cart::Array{Float64, 3} = structure.x_image_cart
 	lattice_vectors::Array{Float64, 2} = structure.supercell.lattice_vectors
 	symdata::Vector{SymmetryOperation} = symmetry.symdata
-	map_sym::Matrix{Int} = symmetry.map_sym
 	map_sym_cell::Array{AtomCell} = symmetry.map_sym_cell
 	map_s2p::Vector{Maps} = symmetry.map_s2p
 	atoms_in_prim::Vector{Int} = symmetry.atoms_in_prim# atoms in the primitive cell
-	symnum_translation::Vector{Int} = symmetry.symnum_translation
 	tol::Real = symmetry.tol
-	result_projection = Dict{Int, Matrix{Float64}}()
-	result_each_matrix = Dict{Int, Vector{SparseMatrixCSC{Float64, Int}}}()
-	for (idx::Int, basislist::SortedCountingUniqueVector) in basisdict
-		# println("calculating projection matrix of $idx-th basis list.")
-		dim = length(basislist)
-		projection_mat = spzeros(Float64, dim, dim)
-		result_each_matrix[idx] = []
+	result_projection = Vector{Matrix{Float64}}(undef, length(basisdict))
 
+	idx_list = collect(keys(basisdict))
+	@threads for idx in idx_list
+		basislist = basisdict[idx]
+		dim = length(basislist)
+		projection_mat = zeros(Float64, dim, dim)
 		num_nonzero_projections = 0
 
-		for time_rev_sym in [false, true]
-			for (n, symop) in enumerate(symdata)
-				projection_mat_per_symop =
-					calc_projection(
-						basislist,
-						num_atoms,
-						symop,
-						n,
-						map_sym,
-						map_s2p,
-						atoms_in_prim,
-						symnum_translation,
-						map_sym_cell,
-						x_image_cart,
-						lattice_vectors,
-						threshold_digits = 10,
-						tol = tol,
-						time_reversal_sym = time_rev_sym,
-					)
-				push!(result_each_matrix[idx], projection_mat_per_symop)
-				if nnz(projection_mat_per_symop) != 0
-					num_nonzero_projections += 1
-					projection_mat += projection_mat_per_symop
-				end
+		for (n, symop) in enumerate(symdata), time_rev_sym in [false, true]
+			projection_mat_per_symop =
+				calc_projection(
+					basislist,
+					symop,
+					n,
+					map_s2p,
+					atoms_in_prim,
+					map_sym_cell,
+					x_image_cart,
+					lattice_vectors,
+					threshold_digits = 10,
+					tol = tol,
+					time_reversal_sym = time_rev_sym,
+				)
+			if nnz(projection_mat_per_symop) != 0
+				num_nonzero_projections += 1
+				projection_mat += projection_mat_per_symop
 			end
 		end
 
-		projection_mat = projection_mat / num_nonzero_projections
-		result_projection[idx] = projection_mat
+		result_projection[idx] = projection_mat / num_nonzero_projections
 	end
 
-	return result_projection, result_each_matrix
+	return result_projection
 end
 
 function calc_projection(
 	basislist::AbstractVector{IndicesUniqueList},
-	num_atoms::Integer,
 	symop::SymmetryOperation,
 	isym::Integer,
-	map_sym::AbstractMatrix{<:Integer},
 	map_s2p,
 	atoms_in_prim,
-	symnum_translation,
 	map_sym_cell::AbstractArray{AtomCell},
 	x_image_cart,
 	lattice_vectors,
@@ -100,7 +87,7 @@ function calc_projection(
 		return projection_matrix
 	end
 	for (ir, rbasis::IndicesUniqueList) in enumerate(basislist)  # right-hand basis
-	
+
 		moved_atomlist, moved_celllist =
 			apply_symop_to_basis_with_shift(
 				rbasis,
@@ -126,7 +113,14 @@ function calc_projection(
 				moved_rbasis = basis
 				found = true
 				break
-			elseif is_translationally_equiv_basis(moved_rbasis, basis, atoms_in_prim, map_s2p, x_image_cart, tol=tol)
+			elseif is_translationally_equiv_basis(
+				moved_rbasis,
+				basis,
+				atoms_in_prim,
+				map_s2p,
+				x_image_cart,
+				tol = tol,
+			)
 				moved_rbasis = basis
 				found = true
 				break
@@ -179,8 +173,6 @@ function calc_projection(
 
 
 		for (il, lbasis::IndicesUniqueList) in enumerate(basislist)  # left-hand basis
-			# @show lbasis
-			# @show moved_rbasis
 			partial_l_idx = findfirst(x -> equivalent(x, lbasis), partial_moved_basis)
 			if isnothing(partial_l_idx)
 				continue
@@ -194,7 +186,6 @@ function calc_projection(
 		println("symmetry operation index: $isym")
 		println(symop)
 		display(projection_matrix)
-		# display(Matrix(projection_matrix))
 		error("not orthogonal")
 	end
 
