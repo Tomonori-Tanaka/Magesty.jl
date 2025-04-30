@@ -183,17 +183,11 @@ function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 
 	# Parse regression parameters
 	regression_dict = input_dict["regression"]
-	weight = get(regression_dict, "weight", 0.0)
-	if weight isa String
-		if weight != "auto"
-			error("Invalid weight value: $weight. Must be a number or \"auto\".")
-		end
-	elseif weight isa Real
-		if !(0 <= weight <= 1)
-			error("Weight must be between 0 and 1, got $weight.")
-		end
-	else
-		error("Weight must be a number or \"auto\", got $(typeof(weight)).")
+	weight = get(regression_dict, "weight", 0.0)::Real
+	if weight < 0.0
+		error("Weight must be non-negative, got $weight.")
+	elseif weight > 1.0
+		weight = ceil(weight)
 	end
 
 	training_ratio = get(regression_dict, "training_ratio", 1.0)::Float64
