@@ -3,9 +3,24 @@
 
 This module provides functionality for parsing input data and constructing a Parser object.
 The Parser object contains all necessary information for the simulation, including
-structure structure, symmetry, interaction parameters, and regression settings.
+structure, symmetry, interaction parameters, and regression settings.
+
+# Overview
+The module handles the parsing of input parameters from a dictionary format into a structured
+Parser object. It performs validation of input parameters and ensures all required fields
+are present and properly formatted.
+
+# Key Components
+- `Parser` struct: Holds all simulation parameters
+- Input validation functions
+- Parameter parsing utilities
 """
 module InputParser
+
+using Base.Threads
+using LinearAlgebra
+using Printf
+using Statistics
 
 export Parser
 
@@ -16,21 +31,27 @@ A structure that holds all input parameters for the simulation.
 
 # Fields
 - `name::String`: Name of the structure
-- `mode::String`: Operation mode (default: "optimize")
+- `mode::String`: Operation mode ("optimize" by default)
 - `num_atoms::Int`: Number of atoms in the structure
 - `kd_name::Vector{String}`: List of chemical species names
 - `is_periodic::Vector{Bool}`: Periodicity flags for each direction
-- `j_zero_thr::Float64`: Threshold for zero interaction (default: 1e-8)
-- `tolerance_sym::Float64`: Symmetry tolerance (default: 1e-3)
+- `j_zero_thr::Float64`: Threshold for zero interaction (1e-8 by default)
+- `tolerance_sym::Float64`: Symmetry tolerance (1e-3 by default)
 - `nbody::Int`: Maximum number of bodies in interactions
 - `lmax::Matrix{Int}`: Maximum angular momentum values [nkd × nbody]
 - `cutoff_radii::Array{Float64, 3}`: Cutoff radii for interactions [nkd × nkd × nbody]
-- `weight::Float64`: Weight parameter for regression
+- `weight::Union{Float64, String}`: Weight parameter for regression or "auto" for automatic tuning
+- `training_ratio::Float64`: Ratio of data to use for training (1.0 by default)
 - `datafile::String`: Path to data file
 - `scale::Float64`: Scale factor for lattice vectors
 - `lattice_vectors::Matrix{Float64}`: Lattice vectors (3×3 matrix)
 - `kd_int_list::Vector{Int}`: List of chemical species indices
 - `x_fractional::Matrix{Float64}`: Fractional coordinates of atoms
+
+# Examples
+```julia
+parser = Parser(input_dict)
+```
 """
 mutable struct Parser
 	# general parameters
@@ -50,7 +71,7 @@ mutable struct Parser
 	cutoff_radii::Array{Float64, 3}
 
 	# regression parameters
-	weight::Float64
+	weight::Union{Float64, String}
 	training_ratio::Float64
 	datafile::String
 
@@ -68,106 +89,154 @@ Construct a Parser object from an input dictionary.
 
 # Arguments
 - `input_dict::AbstractDict{<:AbstractString, Any}`: Dictionary containing input parameters
+  with the following required sections:
+  - "general": General simulation parameters
+  - "symmetry": Symmetry-related parameters
+  - "interaction": Interaction parameters
+  - "regression": Regression parameters
+  - "structure": Structure parameters
 
 # Returns
-- `Parser`: A new Parser instance
+- `Parser`: A new Parser instance with validated parameters
 
 # Throws
-- `ErrorException` if required fields are missing or invalid
+- `ErrorException` if:
+  - Required fields are missing
+  - Parameters are invalid
+  - Data format is incorrect
+
+# Examples
+```julia
+input_dict = Dict(
+    "general" => Dict(
+        "name" => "Fe",
+        "nat" => 2,
+        "kd" => ["Fe"],
+        "periodicity" => [true, true, true]
+    ),
+    # ... other sections ...
+)
+parser = Parser(input_dict)
+```
 """
 function Parser(input_dict::AbstractDict{<:AbstractString, Any})
-
-	if !haskey(input_dict, "general")
-		error("\"general\" field is not found in the input.")
-	elseif !haskey(input_dict, "symmetry")
-		error("\"symmetry\" field is not found in the input.")
-	elseif !haskey(input_dict, "interaction")
-		error("\"interaction\" field is not found in the input.")
-	elseif !haskey(input_dict, "regression")
-		error("\"regression\" field is not found in the input.")
-	elseif !haskey(input_dict, "structure")
-		error("\"structure\" field is not found in the input.")
-	end
-
-	# general variables
-	general_dict = input_dict["general"]
-	name::String = general_dict["name"]
-	if haskey(general_dict, "mode")
-		mode::String = general_dict["mode"]
-	else
-		mode = "optimize"
-	end
-	num_atoms::Int = general_dict["nat"]
-	if length(general_dict["kd"]) != length(Set(general_dict["kd"]))
-		error("Duplication is detected in \"kd\" tag.")
-	end
-	kd_name::Vector{String} = general_dict["kd"]
-	is_periodic::Vector{Bool} = general_dict["periodicity"]
-	if haskey(general_dict, "j_zero_thr")
-		j_zero_thr::Float64 = general_dict["j_zero_thr"]
-	else
-		j_zero_thr = 1e-8
-	end
-
-	# symmetry variables
-	symmetry_dict = input_dict["symmetry"]
-	if haskey(symmetry_dict, "tolerance")
-		if symmetry_dict["tolerance"] <= 0
-			error("The tolerance must be positive, got $(symmetry_dict["tolerance"]).")
+	# Check required sections
+	required_sections = ["general", "symmetry", "interaction", "regression", "structure"]
+	for section in required_sections
+		if !haskey(input_dict, section)
+			error("Required section \"$section\" is missing in the input dictionary.")
 		end
-		tolerance_sym::Float64 = symmetry_dict["tolerance"]
-	else
-		tolerance_sym = 1e-3
 	end
 
-	# interaction variables
+	# Parse general parameters
+	general_dict = input_dict["general"]
+	name = get(general_dict, "name", "")::String
+	if isempty(name)
+		error("Structure name is required in the \"general\" section.")
+	end
+
+	mode = get(general_dict, "mode", "optimize")::String
+	if !(mode in ["optimize", "predict"])
+		error("Invalid mode: $mode. Must be either \"optimize\" or \"predict\".")
+	end
+
+	num_atoms = get(general_dict, "nat", 0)::Int
+	if num_atoms <= 0
+		error("Number of atoms (nat) must be positive, got $num_atoms.")
+	end
+
+	kd_name = get(general_dict, "kd", String[])::Vector{String}
+	if isempty(kd_name)
+		error("Chemical species list (kd) is required in the \"general\" section.")
+	end
+	if length(kd_name) != length(Set(kd_name))
+		error("Duplicate chemical species found in \"kd\" list.")
+	end
+
+	is_periodic = get(general_dict, "periodicity", [true, true, true])::Vector{Bool}
+	if length(is_periodic) != 3
+		error("Periodicity must be specified for all three directions.")
+	end
+
+	j_zero_thr = get(general_dict, "j_zero_thr", 1e-8)::Float64
+	if j_zero_thr < 0
+		error("j_zero_thr must be non-negative, got $j_zero_thr.")
+	end
+
+	# Parse symmetry parameters
+	symmetry_dict = input_dict["symmetry"]
+	tolerance_sym = get(symmetry_dict, "tolerance", 1e-3)::Float64
+	if tolerance_sym <= 0
+		error("Symmetry tolerance must be positive, got $tolerance_sym.")
+	end
+
+	# Parse interaction parameters
 	interaction_dict = input_dict["interaction"]
 	check_interaction_field(interaction_dict, kd_name)
-	nbody = interaction_dict["nbody"]
-	lmax::Matrix{Int} = parse_lmax(interaction_dict["lmax"], kd_name, nbody)
-	cutoff_radii::Array{Float64} = parse_cutoff(interaction_dict["cutoff"], kd_name, nbody)
+	nbody = get(interaction_dict, "nbody", 0)::Int
+	if nbody <= 0
+		error("nbody must be positive, got $nbody.")
+	end
 
-	# regression
+	lmax = parse_lmax(interaction_dict["lmax"], kd_name, nbody)
+	cutoff_radii = parse_cutoff(interaction_dict["cutoff"], kd_name, nbody)
+
+	# Parse regression parameters
 	regression_dict = input_dict["regression"]
-	weight::Float64 = regression_dict["weight"]
-	if haskey(regression_dict, "training_ratio")
-		training_ratio::Float64 = regression_dict["training_ratio"]
+	weight = get(regression_dict, "weight", 0.0)
+	if weight isa String
+		if weight != "auto"
+			error("Invalid weight value: $weight. Must be a number or \"auto\".")
+		end
+	elseif weight isa Real
+		if !(0 <= weight <= 1)
+			error("Weight must be between 0 and 1, got $weight.")
+		end
 	else
-		training_ratio = 1.0
+		error("Weight must be a number or \"auto\", got $(typeof(weight)).")
 	end
-	datafile::String = regression_dict["datafile"]
 
-	# structure
+	training_ratio = get(regression_dict, "training_ratio", 1.0)::Float64
+	if !(0 < training_ratio <= 1)
+		error("Training ratio must be between 0 and 1, got $training_ratio.")
+	end
+
+	datafile = get(regression_dict, "datafile", "")::String
+	if isempty(datafile)
+		error("Data file path is required in the \"regression\" section.")
+	end
+
+	# Parse structure parameters
 	structure_dict = input_dict["structure"]
-	scale = structure_dict["scale"]
-	lattice_vectors::Matrix{Float64} = scale * hcat(structure_dict["lattice"]...)
+	scale = get(structure_dict, "scale", 1.0)::Real
+	if scale <= 0
+		error("Scale factor must be positive, got $scale.")
+	end
+
+	lattice_vectors = scale * hcat(structure_dict["lattice"]...)
 	if size(lattice_vectors) != (3, 3)
-		error(
-			"The size of \"lattice\":$(size(lattice_vectors)) is different with the correct size:(3, 3).",
-		)
+		error("Lattice vectors must be a 3×3 matrix, got $(size(lattice_vectors)).")
 	end
-	kd_int_list::Vector{Int} = structure_dict["kd_list"]
+
+	kd_int_list = get(structure_dict, "kd_list", Int[])::Vector{Int}
 	if length(kd_int_list) != num_atoms
-		error(
-			"The length of \"kd_list\":$(length(kd_int_list)) is diffrent with that of \"nat\":$(num_atoms).",
-		)
+		error("Length of kd_list ($(length(kd_int_list))) must match number of atoms ($num_atoms).")
 	end
-	kd_int_set = Set(kd_int_list)# temporaly variable
+
+	kd_int_set = Set(kd_int_list)
 	nkd = length(kd_name)
 	if nkd != length(kd_int_set)
-		error(
-			"The number of elements: $nkd is different with that obtained from \"kd_list\".",
-		)
+		error("Number of chemical species ($nkd) doesn't match kd_list entries.")
 	elseif any(x -> (x < 1 || nkd < x), kd_int_set)
-		error("The integers in \"kd_list\" must be consecutive numbers starting from 1.")
-	end
-	if length(structure_dict["position"]) != num_atoms
-		error(
-			"The length of \"position\":$(length(structure_dict["position"])) is different with that of \"nat\":$(num_atoms).",
-		)
+		error("Chemical species indices must be consecutive numbers starting from 1.")
 	end
 
-	x_fractional::Matrix{Float64} = parse_position(structure_dict["position"], num_atoms)
+	positions = get(structure_dict, "position", Vector{Float64}[])::Vector{Vector{Float64}}
+	if length(positions) != num_atoms
+		error("Number of positions ($(length(positions))) must match number of atoms ($num_atoms).")
+	end
+
+	x_fractional = parse_position(positions, num_atoms)
 
 	return Parser(
 		name,
@@ -197,38 +266,68 @@ Validate the interaction field parameters.
 
 # Arguments
 - `interaction_dict::AbstractDict`: Dictionary containing interaction parameters
+  - "nbody": Maximum number of bodies
+  - "lmax": Dictionary of maximum angular momentum values
+  - "cutoff": Dictionary of cutoff radii
 - `kd_name::AbstractVector`: List of chemical species names
 
 # Throws
-- `ErrorException` if parameters are invalid
+- `ErrorException` if:
+  - Length of lmax values doesn't match nbody
+  - Length of cutoff values doesn't match nbody
+  - Invalid chemical species names are used
+  - Duplicate entries are found
+
+# Examples
+```julia
+interaction_dict = Dict(
+    "nbody" => 2,
+    "lmax" => Dict("Fe" => [2, 2]),
+    "cutoff" => Dict("Fe-Fe" => [0.0, 5.0])
+)
+check_interaction_field(interaction_dict, ["Fe"])
+```
 """
 function check_interaction_field(
 	interaction_dict::AbstractDict{<:AbstractString, Any},
 	kd_name::AbstractVector{<:AbstractString},
 )
-
-	nbody = interaction_dict["nbody"]
-	lmax_dict::Dict{String, Any} = interaction_dict["lmax"]
-	cutoff_dict::Dict{String, Any} = interaction_dict["cutoff"]
-
-	# length check
-	for (key, value) in lmax_dict
-		if length(value) != nbody
-			error("The size of $key in \"lmax\" tag is different from \"nbody\" tag.")
-		end
-		if !(key in kd_name)
-			error("Specified element $key in \"lmax\" tag is not in \"kd\"")
+	# Check required fields
+	required_fields = ["nbody", "lmax", "cutoff"]
+	for field in required_fields
+		if !haskey(interaction_dict, field)
+			error("Required field \"$field\" is missing in interaction parameters.")
 		end
 	end
-	for (key, value) in cutoff_dict
-		if length(value) != nbody
-			error("The size of $key in \"cutoff\" tag is different from \"nbody\" tag.")
+
+	nbody = interaction_dict["nbody"]
+	lmax_dict = interaction_dict["lmax"]
+	cutoff_dict = interaction_dict["cutoff"]
+
+	# Validate lmax values
+	for (key, value) in lmax_dict
+		if !(key in kd_name)
+			error("Invalid chemical species \"$key\" in lmax dictionary.")
 		end
+		if length(value) != nbody
+			error("Length of lmax values for $key ($(length(value))) doesn't match nbody ($nbody).")
+		end
+		if any(x -> x < 0, value)
+			error("Negative lmax values are not allowed for $key.")
+		end
+	end
+
+	# Validate cutoff values
+	for (key, value) in cutoff_dict
 		key1, key2 = split(key, "-")
 		if !(key1 in kd_name) && key1 != "*"
-			error("Specified element $key1 in \"cutoff\" tag is not in \"kd\"")
-		elseif !(key2 in kd_name) && key2 != "*"
-			error("Specified element $key2 in \"cutoff\" tag is not in \"kd\"")
+			error("Invalid chemical species \"$key1\" in cutoff dictionary.")
+		end
+		if !(key2 in kd_name) && key2 != "*"
+			error("Invalid chemical species \"$key2\" in cutoff dictionary.")
+		end
+		if length(value) != nbody
+			error("Length of cutoff values for $key ($(length(value))) doesn't match nbody ($nbody).")
 		end
 	end
 
@@ -241,7 +340,7 @@ end
 Parse and validate maximum angular momentum values.
 
 # Arguments
-- `lmax_dict::AbstractDict`: Dictionary of lmax values
+- `lmax_dict::AbstractDict`: Dictionary of lmax values for each chemical species
 - `kd_name::AbstractVector`: List of chemical species names
 - `nbody::Integer`: Maximum number of bodies
 
@@ -249,29 +348,43 @@ Parse and validate maximum angular momentum values.
 - `Matrix{Int}`: Matrix of lmax values [nkd × nbody]
 
 # Throws
-- `ErrorException` if parameters are invalid
+- `ErrorException` if:
+  - Length of lmax values doesn't match nbody
+  - Missing values for any chemical species
+  - Invalid lmax values
+
+# Examples
+```julia
+lmax_dict = Dict("Fe" => [2, 2], "Ni" => [2, 2])
+lmax = parse_lmax(lmax_dict, ["Fe", "Ni"], 2)
+```
 """
 function parse_lmax(
 	lmax_dict::AbstractDict{<:AbstractString, Any},
 	kd_name::AbstractVector{<:AbstractString},
 	nbody::Integer,
-)
+)::Matrix{Int}
 	kd_num = length(kd_name)
 	lmax_tmp = fill(-1, kd_num, nbody)
 	lmax_check = fill(false, kd_num, nbody)
 
+	# Parse lmax values
 	for (kd_index, kd) in enumerate(kd_name)
-		# Check if the length of lmax values matches nbody
-		if length(lmax_dict[kd]) != nbody
-			error("""
-			Invalid lmax values for element $kd:
-			- Expected length: $nbody (matching nbody parameter)
-			- Actual length: $(length(lmax_dict[kd]))
-			Please ensure the number of lmax values matches the nbody parameter.
-			""")
+		if !haskey(lmax_dict, kd)
+			error("Missing lmax values for chemical species \"$kd\".")
 		end
+
+		values = lmax_dict[kd]
+		if length(values) != nbody
+			error("Length of lmax values for $kd ($(length(values))) doesn't match nbody ($nbody).")
+		end
+
 		for j in 1:nbody
-			lmax_tmp[kd_index, j] = lmax_dict[kd][j]
+			value = values[j]
+			if value < 0
+				error("Negative lmax value ($value) is not allowed for $kd.")
+			end
+			lmax_tmp[kd_index, j] = value
 			lmax_check[kd_index, j] = true
 		end
 	end
@@ -279,14 +392,10 @@ function parse_lmax(
 	# Check for missing values
 	missing_indices = findall(x -> x == false, lmax_check)
 	if !isempty(missing_indices)
-		error("""
-		Missing lmax values in the input:
-		$(join([
-			"Element $(kd_name[idx[1]]), l = $(idx[2])" 
+		error("Missing lmax values for: " * join([
+			"$(kd_name[idx[1]]) (l = $(idx[2]))"
 			for idx in missing_indices
-		], "\n"))
-		Please ensure all lmax values are properly specified.
-		""")
+		], ", "))
 	end
 
 	return Matrix{Int}(lmax_tmp)
@@ -295,10 +404,10 @@ end
 """
     parse_cutoff(cutoff_dict::AbstractDict{<:AbstractString, Any}, kd_name::AbstractVector{<:AbstractString}, nbody::Integer)
 
-Parse and validate cutoff radii.
+Parse and validate cutoff radii for interactions.
 
 # Arguments
-- `cutoff_dict::AbstractDict`: Dictionary of cutoff values
+- `cutoff_dict::AbstractDict`: Dictionary of cutoff values for each pair of chemical species
 - `kd_name::AbstractVector`: List of chemical species names
 - `nbody::Integer`: Maximum number of bodies
 
@@ -306,40 +415,50 @@ Parse and validate cutoff radii.
 - `Array{Float64, 3}`: Array of cutoff radii [nkd × nkd × nbody]
 
 # Throws
-- `ErrorException` if parameters are invalid
+- `ErrorException` if:
+  - Length of cutoff values doesn't match nbody
+  - Missing values for any pair of chemical species
+  - Invalid cutoff values
+
+# Examples
+```julia
+cutoff_dict = Dict("Fe-Fe" => [0.0, 5.0], "Fe-Ni" => [0.0, 4.5])
+cutoff = parse_cutoff(cutoff_dict, ["Fe", "Ni"], 2)
+```
 """
 function parse_cutoff(
 	cutoff_dict::AbstractDict{<:AbstractString, Any},
 	kd_name::AbstractVector{<:AbstractString},
 	nbody::Integer,
-)
+)::Array{Float64, 3}
 	kd_num = length(kd_name)
 	cutoff_tmp = fill(0.0, kd_num, kd_num, nbody)
 	cutoff_check = fill(false, kd_num, kd_num, nbody)
 
+	# Parse cutoff values
 	for n in 1:nbody
 		if n == 1
 			cutoff_tmp[:, :, n] .= 0.0
 			cutoff_check[:, :, n] .= true
 			continue
 		end
-		for (key, value) in cutoff_dict
-			# Check if the length of cutoff values matches nbody
-			if length(value) != nbody
-				error("""
-				Invalid cutoff values for pair $key:
-				- Expected length: $nbody (matching nbody parameter)
-				- Actual length: $(length(value))
-				Please ensure the number of cutoff values matches the nbody parameter.
-				""")
-			end
-			elem1 = strip(split(key, "-")[1])
-			elem2 = strip(split(key, "-")[2])
 
-			index_elem1 = findall(x -> x == elem1, kd_name)[1]
-			index_elem2 = findall(x -> x == elem2, kd_name)[1]
-			cutoff_tmp[index_elem1, index_elem2, n] = value[n]
-			cutoff_tmp[index_elem2, index_elem1, n] = value[n]
+		for (key, value) in cutoff_dict
+			if length(value) != nbody
+				error("Length of cutoff values for $key ($(length(value))) doesn't match nbody ($nbody).")
+			end
+
+			elem1, elem2 = split(key, "-")
+			index_elem1 = elem1 == "*" ? 1 : findfirst(x -> x == elem1, kd_name)
+			index_elem2 = elem2 == "*" ? 1 : findfirst(x -> x == elem2, kd_name)
+
+			if isnothing(index_elem1) || isnothing(index_elem2)
+				error("Invalid chemical species pair \"$key\" in cutoff dictionary.")
+			end
+
+			cutoff_value = value[n]
+			cutoff_tmp[index_elem1, index_elem2, n] = cutoff_value
+			cutoff_tmp[index_elem2, index_elem1, n] = cutoff_value
 			cutoff_check[index_elem1, index_elem2, n] = true
 			cutoff_check[index_elem2, index_elem1, n] = true
 		end
@@ -348,14 +467,10 @@ function parse_cutoff(
 	# Check for missing values
 	missing_indices = findall(x -> x == false, cutoff_check)
 	if !isempty(missing_indices)
-		error("""
-		Missing cutoff values in the input:
-		$(join([
-			"Element1: $(kd_name[idx[1]]), Element2: $(kd_name[idx[2]]), nbody: $(idx[3])" 
+		error("Missing cutoff values for: " * join([
+			"$(kd_name[idx[1]])-$(kd_name[idx[2]]) (nbody = $(idx[3]))"
 			for idx in missing_indices
-		], "\n"))
-		Please ensure all cutoff values are properly specified.
-		""")
+		], ", "))
 	end
 
 	return Array{Float64}(cutoff_tmp)
@@ -367,14 +482,23 @@ end
 Parse and validate atomic positions.
 
 # Arguments
-- `position_list::AbstractVector`: List of position vectors
+- `position_list::AbstractVector`: List of position vectors for each atom
 - `num_atoms::Integer`: Number of atoms
 
 # Returns
 - `Matrix{Float64}`: Matrix of atomic positions [3 × num_atoms]
 
 # Throws
-- `ErrorException` if positions are invalid
+- `ErrorException` if:
+  - Number of positions doesn't match num_atoms
+  - Invalid position values
+  - Missing position data
+
+# Examples
+```julia
+positions = [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]]
+x_fractional = parse_position(positions, 2)
+```
 """
 function parse_position(
 	position_list::AbstractVector{<:AbstractVector{<:Real}},
@@ -383,19 +507,21 @@ function parse_position(
 	position_tmp = fill(-1.0, 3, num_atoms)
 	position_check = fill(false, 3, num_atoms)
 
+	# Parse positions
 	for (i, vec) in enumerate(position_list)
+		if length(vec) != 3
+			error("Position vector for atom $i must have 3 components, got $(length(vec)).")
+		end
 		position_tmp[:, i] = vec
 		position_check[:, i] .= true
 	end
 
-	# check missing
-	if false in position_check
-		error("Error in \"coords\" list in position field.")
+	# Check for missing values
+	if any(x -> x == false, position_check)
+		error("Missing or invalid position data for some atoms.")
 	end
 
-	position = Matrix{Float64}(position_tmp)
-
-	return position
+	return Matrix{Float64}(position_tmp)
 end
 
 end # module

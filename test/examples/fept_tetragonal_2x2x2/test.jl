@@ -4,11 +4,14 @@ input = TOML.parse(
 	open("/Users/tomorin/Packages/Magesty/test/examples/fept_tetragonal_2x2x2/input.toml", "r"),
 )
 input["regression"]["weight"] = 0.0
-system_energy = System(input)
-sclus_energy = SpinCluster(system_energy)
+system = System(input, false)
+sclus_energy = SpinCluster(system, false)
 input["regression"]["weight"] = 1.0
-system_torque = System(input, false)
-sclus_torque = SpinCluster(system_torque, false)
+sclus_torque = SpinCluster(system, false)
 
-display(sclus_energy.optimize.SCE)
-display(sclus_torque.optimize.SCE)
+println(@sprintf("elapsed_time (structure): %10.6f", sclus_torque.structure.elapsed_time))
+println(@sprintf("elapsed_time (symmetry):  %10.6f", sclus_torque.symmetry.elapsed_time))
+println(@sprintf("elapsed_time (cluster):   %10.6f", sclus_torque.cluster.elapsed_time))
+println(@sprintf("elapsed_time (basisset):  %10.6f", sclus_torque.basisset.elapsed_time))
+println(@sprintf("elapsed_time (optimize):  %10.6f", sclus_torque.optimize.elapsed_time))
+display(sclus_torque.optimize.SCE[5])

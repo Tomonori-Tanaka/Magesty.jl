@@ -22,7 +22,7 @@ Fe-Fe = [-1, -1] # first element is just dummy to align wigh lmax array
 # negative cutoff means all of the possible interaction will be considered.
 
 [regression]
-datafile = "/Users/tomorin/Packages/Magesty/test/examples/fecob2_3x3x3/EMBSET.dat"
+datafile = "/Users/tomorin/Packages/Magesty/test/examples/fecob2_3x3x3/EMBSET.dat" 
 weight = 0.0 # 1.0: only use the energy info. 0.0: only use torque info (0 <= weight_ratio <= 1)
 
 [structure]
