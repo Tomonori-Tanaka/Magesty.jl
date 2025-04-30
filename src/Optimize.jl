@@ -39,12 +39,12 @@ function SCEOptimizer(
 	symmetry::Symmetry,
 	basisset::BasisSet,
 	j_zero_thr::Real,
-	weight::Union{Real, String},
+	weight::Real,
 	spinconfig_dataset::DataSet,
 )
 	# Start timing
 	start_time = time_ns()
-	if weight == "auto"
+	if weight > 1	# use weight-fold cross validation
 		println("developing...")
 	elseif weight > 0.5
 		SCE,
