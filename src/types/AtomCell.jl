@@ -3,9 +3,20 @@ module AtomCells
 import Base: isless, ==, hash, show
 
 export AtomCell
+
 """
 	AtomCell(atom::Int, cell::Int)
-A structure that stores atom index and imaginary (virtual) cell index
+A structure that stores atom index and imaginary (virtual) cell index.
+
+# Fields
+- `atom::Int`: Index of the atom
+- `cell::Int`: Index of the imaginary cell
+
+# Examples
+```julia
+julia> ac = AtomCell(1, 2)
+(atom: 1, cell: 2)
+```
 """
 struct AtomCell
 	atom::Int

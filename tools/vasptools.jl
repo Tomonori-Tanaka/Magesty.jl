@@ -6,6 +6,7 @@ A module for handling VASP-related file operations.
 module VaspTools
 
 using OrderedCollections
+using Printf
 
 export parse_incar, write_incar
 
@@ -98,11 +99,11 @@ function parse_incar(filename::String)::OrderedDict{Symbol, Any}
 			end
 			
 			# Handle line continuation
-			if endswith(line, '\\')
-				current_line *= rstrip(line[1:end-1])
+			if endswith(rstrip(line), '\\')
+				current_line *= rstrip(line[1:end-1]) * " "
 				continue
 			else
-				current_line *= line
+				current_line *= line * " "
 			end
 			
 			# Process the complete line (including continued lines)
@@ -130,7 +131,7 @@ function parse_incar(filename::String)::OrderedDict{Symbol, Any}
 						# Expand patterns like "3*0" to "0 0 0"
 						expanded_value = replace(value, r"(\d+)\*([\d\.\-]+)" => s"\1 * \2")
 						# Split into individual numbers and parse
-						numbers = split(expanded_value)
+						numbers = filter(!isempty, split(expanded_value, r"\s+"))
 						if all(occursin(r"^-?\d+\.?\d*$", n) for n in numbers)
 							# Always treat RWIGS, MAGMOM, M_CONSTR as vectors
 							if param_name in [:RWIGS, :MAGMOM, :M_CONSTR]
@@ -212,9 +213,17 @@ function write_incar(filename::String, params::OrderedDict{Symbol, Any}; wrap_ve
 							print(io, "  ")  # Add indentation for continuation lines
 						end
 						if first_chunk
-							print(io, "$param_name = $(join(chunk, " "))")
+							if param_name in [:MAGMOM, :M_CONSTR]
+								print(io, "$param_name = $(join([@sprintf("%.9f", x) for x in chunk], " "))")
+							else
+								print(io, "$param_name = $(join(chunk, " "))")
+							end
 						else
-							print(io, "$(join(chunk, " "))")
+							if param_name in [:MAGMOM, :M_CONSTR]
+								print(io, "$(join([@sprintf("%.9f", x) for x in chunk], " "))")
+							else
+								print(io, "$(join(chunk, " "))")
+							end
 						end
 						if length(chunk) == 30
 							println(io, " \\")
@@ -224,7 +233,11 @@ function write_incar(filename::String, params::OrderedDict{Symbol, Any}; wrap_ve
 						first_chunk = false
 					end
 				else
-					println(io, "$param_name = $(join(value, " "))")
+					if param_name in [:MAGMOM, :M_CONSTR]
+						println(io, "$param_name = $(join([@sprintf("%.9f", x) for x in value], " "))")
+					else
+						println(io, "$param_name = $(join(value, " "))")
+					end
 				end
 			elseif value isa Bool
 				# Handle boolean values

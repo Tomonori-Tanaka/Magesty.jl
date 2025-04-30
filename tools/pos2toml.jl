@@ -265,7 +265,7 @@ function create_toml(data::NamedTuple, output_file::String)
             write(io, "]\n")
             
             write(io, "kd_list = [\n")
-            # 20原子ごと、または数値が変わったときに改行
+            # Break line every 20 atoms or when the value changes
             current_line = Int[]
             current_value = kd_list[1]
             
@@ -280,7 +280,7 @@ function create_toml(data::NamedTuple, output_file::String)
                 push!(current_line, value)
             end
             
-            # 最後の行を出力
+            # Output the last line
             if !isempty(current_line)
                 write(io, "        $(join(current_line, ", ")),\n")
             end

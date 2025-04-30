@@ -1,3 +1,45 @@
+"""
+	Magesty
+
+The main module of the Magesty package, providing the entry point for spin cluster expansion analysis and optimization.
+
+This module provides the following main features:
+- Magnetic structure setup and management
+- Symmetry analysis
+- Cluster expansion
+- Basis function generation
+- Spin configuration optimization
+
+# Usage
+```julia
+using Magesty
+
+# Load configuration from a TOML file
+sc = SpinCluster("config.toml")
+
+# Display system information
+print_info(sc)
+
+# Output energy lists
+write_energy_lists(sc)
+```
+
+# Main Types
+- `System`: Collection of structure, symmetry, cluster, and basis set
+- `SpinCluster`: Extension of System with optimization capabilities
+
+# Main Functions
+- `print_info`: Display detailed system information
+- `write_energy_lists`: Output energy lists to a file
+- `write_magfield_vertical_list`: Output magnetic field vertical components to a file
+
+# Submodules
+- `Structures`: Crystal structure processing
+- `Symmetries`: Symmetry operations processing
+- `Clusters`: Cluster expansion processing
+- `BasisSets`: Basis function generation
+- `Optimize`: Spin configuration optimization
+"""
 module Magesty
 
 using Printf
@@ -17,57 +59,266 @@ include("utils/RotationMatrix.jl")
 include("utils/MySphericalHarmonics.jl")
 using .InputParser
 
-include("System.jl")
+include("Structure.jl")
 include("Symmetry.jl")
 include("Cluster.jl")
 include("BasisSet.jl")
 include("Optimize.jl")
 
-using .Systems
+using .Structures
 using .Symmetries
 using .Clusters
 using .BasisSets
 using .Optimize
 
-export SpinCluster
+export System, SpinCluster, print_info, write_energy_lists, write_magfield_vertical_list
 
+"""
+	System
+
+A collection of structure, symmetry, cluster, and basis set.
+
+# Fields
+- `config::Parser`: Configuration parser
+- `structure::Structure`: Crystal structure information
+- `symmetry::Symmetry`: Symmetry operations
+- `cluster::Cluster`: Cluster information
+- `basisset::BasisSet`: Basis set information
+"""
+struct System
+	config::Parser
+	structure::Structure
+	symmetry::Symmetry
+	cluster::Cluster
+	basisset::BasisSet
+end
+
+"""
+	System(input_dict::Dict{<:AbstractString, <:Any})
+
+Create a System from a dictionary of input parameters.
+
+# Arguments
+- `input_dict::Dict{<:AbstractString, <:Any}`: Dictionary containing input parameters
+
+# Returns
+- `System`: A new System instance
+
+# Throws
+- `ErrorException` if required parameters are missing or invalid
+"""
+function System(input_dict::Dict{<:AbstractString, <:Any}, verbosity::Bool = true)
+	parser::Parser = Parser(input_dict)
+	structure::Structure = set_system(parser)
+	if verbosity
+		Structures.print_info(structure)
+	end
+	symmetry::Symmetry = set_symmetry(parser, structure)
+	if verbosity
+		Symmetries.print_info(symmetry)
+	end
+	cluster::Cluster = set_cluster(parser, structure, symmetry)
+	if verbosity
+		Clusters.print_info(cluster)
+	end
+	basisset::BasisSet = set_basisset(parser, structure, symmetry, cluster)
+	if verbosity
+		BasisSets.print_info(basisset)
+	end
+
+	return System(parser, structure, symmetry, cluster, basisset)
+end
+
+"""
+	System(toml_file::AbstractString)
+
+Create a System from a TOML configuration file.
+
+# Arguments
+- `toml_file::AbstractString`: Path to the TOML configuration file
+
+# Returns
+- `System`: A new System instance
+
+# Throws
+- `SystemError` if the file cannot be read
+- `ErrorException` if the TOML parsing fails
+"""
+function System(toml_file::AbstractString, verbosity::Bool = true)
+	try
+		open(toml_file) do io
+			toml = read(io, String)
+			config = TOML.parse(toml)
+			return System(config, verbosity)
+		end
+	catch e
+		if isa(e, SystemError)
+			throw(SystemError("Failed to read file: $toml_file"))
+		else
+			throw(ErrorException("Failed to parse TOML file: $toml_file"))
+		end
+	end
+end
+
+"""
+	SpinCluster
+
+An extension of System with optimization capabilities.
+
+# Fields
+- `config::Parser`: Configuration parser
+- `structure::Structure`: Crystal structure information
+- `symmetry::Symmetry`: Symmetry operations
+- `cluster::Cluster`: Cluster information
+- `basisset::BasisSet`: Basis set information
+- `optimize::Union{SCEOptimizer, Nothing}`: Optimizer instance or nothing
+"""
 struct SpinCluster
 	config::Parser
-	system::System
+	structure::Structure
 	symmetry::Symmetry
 	cluster::Cluster
 	basisset::BasisSet
 	optimize::Union{SCEOptimizer, Nothing}
 end
 
-function SpinCluster(input_dict::Dict{<:AbstractString, <:Any})
+"""
+	SpinCluster(input_dict::Dict{<:AbstractString, <:Any})
+
+Create a SpinCluster from a dictionary of input parameters.
+Differ from System in that it also sets the optimizer.
+
+# Arguments
+- `input_dict::Dict{<:AbstractString, <:Any}`: Dictionary containing input parameters
+
+# Returns
+- `SpinCluster`: A new SpinCluster instance
+
+# Throws
+- `ErrorException` if required parameters are missing or invalid
+"""
+function SpinCluster(input_dict::Dict{<:AbstractString, <:Any}, verbosity::Bool = true)
 	parser = Parser(input_dict)
-	system::System = set_system(parser)
-	symmetry::Symmetry = set_symmetry(parser, system)
-	cluster::Cluster = set_cluster(parser, system, symmetry)
-	basisset::BasisSet = set_basisset(parser, system, symmetry, cluster)
+	structure::Structure = set_system(parser)
+	if verbosity
+		Structures.print_info(structure)
+	end
+	symmetry::Symmetry = set_symmetry(parser, structure)
+	if verbosity
+		Symmetries.print_info(symmetry)
+	end
+	cluster::Cluster = set_cluster(parser, structure, symmetry)
+	if verbosity
+		Clusters.print_info(cluster)
+	end
+	basisset::BasisSet = set_basisset(parser, structure, symmetry, cluster)
+	if verbosity
+		BasisSets.print_info(basisset)
+	end
 	optimize = if parser.mode == "optimize"
-		set_optimize(parser, system, symmetry, basisset)
+		set_optimize(parser, structure, symmetry, basisset)
+		if verbosity
+			Optimize.print_info(optimize)
+		end
 	else
 		nothing
 	end
 
-	return SpinCluster(parser, system, symmetry, cluster, basisset, optimize)
+	return SpinCluster(parser, structure, symmetry, cluster, basisset, optimize)
 end
 
-function SpinCluster(toml_file::AbstractString)
-	open(toml_file) do io
-		toml = read(io, String)
-		config = TOML.parse(toml)
-		return SpinCluster(config)
+"""
+	SpinCluster(toml_file::AbstractString)
+
+Create a SpinCluster from a TOML configuration file.
+
+# Arguments
+- `toml_file::AbstractString`: Path to the TOML configuration file
+
+# Returns
+- `SpinCluster`: A new SpinCluster instance
+
+# Throws
+- `SystemError` if the file cannot be read
+- `ErrorException` if the TOML parsing fails
+"""
+function SpinCluster(toml_file::AbstractString, verbosity::Bool = true)
+	try
+		open(toml_file) do io
+			toml = read(io, String)
+			config = TOML.parse(toml)
+			return SpinCluster(config, verbosity)
+		end
+	catch e
+		if isa(e, SystemError)
+			throw(SystemError("Failed to read file: $toml_file"))
+		else
+			throw(ErrorException("Failed to parse TOML file: $toml_file"))
+		end
 	end
 end
 
-function write_xml(sc::SpinCluster)
-	system = sc.system
+"""
+	SpinCluster(system::System)
 
+Create a SpinCluster from an existing System.
+
+# Arguments
+- `system::System`: An existing System instance
+
+# Returns
+- `SpinCluster`: A new SpinCluster instance
+"""
+function SpinCluster(system::System, verbosity::Bool = true)
+	if system.config.mode == "optimize"
+		optimize = set_optimize(system.config, system.structure, system.symmetry, system.basisset)
+		if verbosity
+			Optimize.print_info(optimize)
+		end
+	else
+		nothing
+	end
+
+	return SpinCluster(system.config, system.structure, system.symmetry, system.cluster, system.basisset, optimize)
 end
 
+function SpinCluster(system::System, input_dict::Dict{<:AbstractString, <:Any}, verbosity::Bool = true)
+	parser = Parser(input_dict)
+	if parser.mode == "optimize"
+		optimize = set_optimize(parser, system.structure, system.symmetry, system.basisset)
+		if verbosity
+			Optimize.print_info(optimize)
+		end
+	else
+		nothing
+	end
+	return SpinCluster(system.config, system.structure, system.symmetry, system.cluster, system.basisset, optimize)
+end
+
+function SpinCluster(system::System, toml_file::AbstractString, verbosity::Bool = true)
+	try
+		open(toml_file) do io
+			toml = read(io, String)
+			config = TOML.parse(toml)
+			return SpinCluster(system, config, verbosity)
+		end
+	catch e
+		if isa(e, SystemError)
+			throw(SystemError("Failed to read file: $toml_file"))
+		else
+			throw(ErrorException("Failed to parse TOML file: $toml_file"))
+		end
+	end
+end
+
+"""
+	print_info(sc::SpinCluster)
+
+Print detailed information about the SpinCluster.
+
+# Arguments
+- `sc::SpinCluster`: The SpinCluster to display information about
+"""
 function print_info(sc::SpinCluster)
 	println(
 		"""
@@ -78,17 +329,48 @@ function print_info(sc::SpinCluster)
 		""",
 	)
 
-	Systems.print_info(sc.system)
+	Structures.print_info(sc.structure)
 	Symmetries.print_info(sc.symmetry)
+	Clusters.print_info(sc.cluster)
 	BasisSets.print_info(sc.basisset)
 	Optimize.print_info(sc.optimize)
 end
 
+"""
+	write_energy_lists(sc::SpinCluster, filename::AbstractString = "energy_lists.txt")
+
+Write energy lists to a file.
+
+# Arguments
+- `sc::SpinCluster`: The SpinCluster containing energy data
+- `filename::AbstractString`: Output file name (default: "energy_lists.txt")
+
+# Throws
+- `ErrorException` if the optimizer is not set
+"""
 function write_energy_lists(sc::SpinCluster, filename::AbstractString = "energy_lists.txt")
+	if sc.optimize === nothing
+		throw(ErrorException("Optimizer is not set"))
+	end
 	Optimize.write_energy_lists(sc.optimize, filename)
 end
 
+"""
+	write_magfield_vertical_list(sc::SpinCluster, filename::AbstractString = "magfield_vertical_list.txt")
+
+Write magnetic field vertical components to a file.
+
+# Arguments
+- `sc::SpinCluster`: The SpinCluster containing magnetic field data
+- `filename::AbstractString`: Output file name (default: "magfield_vertical_list.txt")
+
+# Throws
+- `ErrorException` if the optimizer is not set
+"""
 function write_magfield_vertical_list(sc::SpinCluster, filename::AbstractString = "magfield_vertical_list.txt")
+	if sc.optimize === nothing
+		throw(ErrorException("Optimizer is not set"))
+	end
 	Optimize.write_magfield_vertical_list(sc.optimize, filename)
 end
 
