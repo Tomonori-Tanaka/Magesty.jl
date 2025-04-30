@@ -157,21 +157,28 @@ function construct_basislist(
 	bodymax::Integer,
 )::SortedCountingUniqueVector{IndicesUniqueList}
 
-	basislist = SortedCountingUniqueVector{IndicesUniqueList}()
+	result_basislist = SortedCountingUniqueVector{IndicesUniqueList}()
+	thread_basislists = [SortedCountingUniqueVector{IndicesUniqueList}() for _ in 1:nthreads()]
 
 	# aliases for better readability
 	kd_int_list = structure.supercell.kd_int_list
 	cluster_list = cluster.cluster_list
 
 	# Handle 1-body case separately as it requires special treatment
-	for iat in symmetry.atoms_in_prim
+	@threads for iat in symmetry.atoms_in_prim
 		lmax = lmax_mat[kd_int_list[iat], 1]
 
 		for l in 1:lmax
 			iul::Vector{Indices} = indices_singleatom(iat, l, 1)
 			for indices::Indices in iul
-				push!(basislist, IndicesUniqueList(indices))
+				push!(thread_basislists[threadid()], IndicesUniqueList(indices))
 			end
+		end
+	end
+
+	for thread_basis in thread_basislists
+		for basis in thread_basis
+			push!(result_basislist, basis)
 		end
 	end
 
@@ -182,10 +189,10 @@ function construct_basislist(
 			atomlist, llist, celllist =
 				get_atomsls_from_cluster(cluster, lmax_mat, kd_int_list)
 			for iul in product_indices_of_all_comb(atomlist, llist, celllist)
-				for basis in basislist
+				for basis in result_basislist
 					# Clusters consisting only of atoms in the primitive cell appear multiple times
 					if equivalent(basis, iul)
-						basislist.counts[basis] += 1
+						result_basislist.counts[basis] += 1
 						@goto skip
 					# To ensure the projection operator matrix becomes symmetric,
 					# translationally equivalent clusters are treated as the same cluster
@@ -197,17 +204,17 @@ function construct_basislist(
 						structure.x_image_cart,
 						tol = symmetry.tol,
 					)
-						basislist.counts[basis] += 1
+						result_basislist.counts[basis] += 1
 						@goto skip
 					end
 				end
-				push!(basislist, iul)
+				push!(result_basislist, iul)
 				@label skip
 			end
 		end
 	end
 
-	return basislist
+	return result_basislist
 end
 
 function get_atomsls_from_cluster(
