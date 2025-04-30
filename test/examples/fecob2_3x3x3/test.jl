@@ -7,7 +7,7 @@ input = TOML.parse(open("/Users/tomorin/Packages/Magesty/test/examples/fecob2_3x
 input["regression"]["weight"] = 1.0
 system_torque = System(input, false)
 sclus_torque = SpinCluster(system_torque, false)
-println("1NN (torque): ", sclus_torque.optimize.SCE[2])
+println("SCE: ", sclus_torque.optimize.SCE)
 println(@sprintf("elapsed_time (structure): %10.6f", sclus_torque.structure.elapsed_time))
 println(@sprintf("elapsed_time (symmetry):  %10.6f", sclus_torque.symmetry.elapsed_time))
 println(@sprintf("elapsed_time (cluster):   %10.6f", sclus_torque.cluster.elapsed_time))

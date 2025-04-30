@@ -13,6 +13,7 @@ A module for handling symmetry operations in crystal structures using `Spglib`. 
 """
 module Symmetries
 
+using Base.Threads
 using LinearAlgebra
 using StaticArrays
 using Spglib
@@ -262,12 +263,10 @@ function construct_map_sym(
 )::Tuple{Matrix{Int}, Array{AtomCell}}
 	natomtypes = length(structure.atomtype_group)
 	map_sym = zeros(Int, structure.supercell.num_atoms, Int(spglib_data.n_operations))
-	map_sym_cell =
-		Array{AtomCell}(undef, structure.supercell.num_atoms, 27, spglib_data.n_operations)
-	# 27 is the total number of neighboring imaginary (virtual) cell including the central cell
+	map_sym_cell = Array{AtomCell}(undef, structure.supercell.num_atoms, 27, spglib_data.n_operations)
 	initialized = falses(size(map_sym_cell))
 
-	Threads.@threads for isym in 1:spglib_data.n_operations
+	@threads for isym in 1:spglib_data.n_operations
 		x_new = Vector{Float64}(undef, 3)
 		tmp = Vector{Float64}(undef, 3)
 		for itype in 1:natomtypes
@@ -294,23 +293,24 @@ function construct_map_sym(
 								cell,
 								tol = tol,
 							)
-							map_sym_cell[iat, cell, isym] =
-								AtomCell(jat, matched_cell)
+							map_sym_cell[iat, cell, isym] = AtomCell(jat, matched_cell)
 							initialized[iat, cell, isym] = true
 						end
 						break
 					end
 				end
-				if map_sym[iat, isym] == 0
-					error(
-						"gen_mapping_info: cannot find symmetry for operation number $isym, atom index $iat.",
-					)
-				elseif false in initialized[iat, :, isym]
-					error("false is found in map_sym_cell at $iat, :, $cell")
-				end
 			end
 		end
 	end
+
+	# Verify results
+	zero_pos = CartesianIndices(map_sym)[map_sym .== 0]
+	if !isempty(zero_pos)
+		error("zero is found in map_sym at $zero_pos")
+	elseif false in initialized
+		error("false is found in map_sym_cell")
+	end
+
 	return map_sym, map_sym_cell
 end
 
