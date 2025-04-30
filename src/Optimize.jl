@@ -44,9 +44,35 @@ function SCEOptimizer(
 )
 	# Start timing
 	start_time = time_ns()
-	if weight > 1	# use weight-fold cross validation
-		println("developing...")
-	elseif weight > 0.5
+
+	# construct design matrix for energy and magfield_vertical
+	design_matrix_energy = construct_design_matrix_energy(
+		basisset.salc_list,
+		spinconfig_dataset,
+		symmetry,
+	)
+	design_matrix_magfield_vertical = construct_design_matrix_magfield_vertical(
+		basisset.salc_list,
+		spinconfig_dataset,
+		structure.supercell.num_atoms,
+		symmetry,
+	)
+
+	# construct observed_energy_list and observed_magfield_vertical_list
+	observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_dataset.spinconfigs]
+	observed_magfield_vertical_list =
+		Vector{Vector{Float64}}(undef, length(spinconfig_dataset.spinconfigs))
+	@threads for i in 1:length(spinconfig_dataset.spinconfigs)
+		observed_magfield_vertical_list[i] =
+			calc_magfield_vertical_list_of_spinconfig(
+				spinconfig_dataset.spinconfigs[i],
+				structure.supercell.num_atoms,
+			)
+	end
+
+	if weight > 1# use weight-fold cross validation
+		error("developing...")
+	elseif isapprox(weight, 1.0, atol = 1e-6)
 		SCE,
 		bias_term,
 		relative_error_magfield_vertical,
@@ -56,12 +82,12 @@ function SCEOptimizer(
 		predicted_magfield_vertical_list,
 		observed_magfield_vertical_list =
 			ols_energy(
-				basisset.salc_list,
-				spinconfig_dataset,
-				structure.supercell.num_atoms,
-				symmetry,
+				design_matrix_energy,
+				design_matrix_magfield_vertical,
+				observed_energy_list,
+				observed_magfield_vertical_list,
 			)
-	else
+	elseif isapprox(weight, 0.0, atol = 1e-6)
 		SCE,
 		bias_term,
 		relative_error_magfield_vertical,
@@ -71,11 +97,13 @@ function SCEOptimizer(
 		predicted_magfield_vertical_list,
 		observed_magfield_vertical_list =
 			ols_magfield_vertical(
-				basisset.salc_list,
-				spinconfig_dataset,
-				structure.supercell.num_atoms,
-				symmetry,
+				design_matrix_energy,
+				design_matrix_magfield_vertical,
+				observed_energy_list,
+				observed_magfield_vertical_list,
 			)
+	else
+		error("developing...")
 	end
 
 	# End timing
@@ -110,14 +138,25 @@ function SCEOptimizer(
 	return SCEOptimizer(structure, symmetry, basisset, j_zero_thr, weight, spinconfig_dataset)
 end
 
+"""
+	construct_design_matrix_energy(salc_list, spinconfig_dataset, symmetry) -> Matrix{Float64}
 
-function ols_energy(
+Construct the design matrix for energy prediction.
+
+# Arguments
+- `salc_list::AbstractVector{SALC}`: List of SALC objects
+- `spinconfig_dataset::DataSet`: Dataset containing spin configurations
+- `symmetry::Symmetry`: Symmetry information
+
+# Returns
+- `Matrix{Float64}`: Design matrix for energy prediction
+
+"""
+function construct_design_matrix_energy(
 	salc_list::AbstractVector{SALC},
 	spinconfig_dataset::DataSet,
-	num_atoms::Integer,
 	symmetry::Symmetry,
-)
-	# dimensions
+)::Matrix{Float64}
 	num_salcs = length(salc_list)
 	num_spinconfigs = spinconfig_dataset.training_data_num
 
@@ -132,7 +171,7 @@ function ols_energy(
 	@threads for i in 1:num_salcs
 		for j in 1:num_spinconfigs
 			design_matrix[j, i+1] =
-				calc_design_matrix_element(
+				calc_X_element_energy(
 					salc_list[i],
 					spinconfig_dataset.spinconfigs[j].spin_directions,
 					symmetry,
@@ -145,69 +184,23 @@ function ols_energy(
 		error("Failed to initialize the design matrix.")
 	end
 
-
-	observed_energy_list::Vector{Float64} =
-		[spinconfig.energy for spinconfig in spinconfig_dataset.spinconfigs]
-	# solve Ax = b
-	ols_coeffs = design_matrix \ observed_energy_list
-
-	predicted_energy_list::Vector{Float64} = design_matrix * ols_coeffs
-
-	# construct design matrix for magfield_vertical
-	design_matrix_list = Vector{Matrix{Float64}}(undef, num_spinconfigs)
-
-	@threads for i in 1:num_spinconfigs
-		design_matrix_list[i] = zeros(Float64, 3 * num_atoms, num_salcs)
-		for row_idx in 1:(3*num_atoms)
-			for isalc in 1:num_salcs
-				design_matrix_list[i][row_idx, isalc] =
-					calc_X_matrix_element(
-						salc_list[isalc],
-						spinconfig_dataset.spinconfigs[i].spin_directions,
-						symmetry,
-						row_idx,
-					)
-			end
-		end
-	end
-
-	observed_magfield_vertical_list = Vector{Vector{Float64}}(undef, num_spinconfigs)
-	@threads for i in 1:num_spinconfigs
-		observed_magfield_vertical_list[i] =
-			calc_magfield_vertical_list_of_spinconfig(
-				spinconfig_dataset.spinconfigs[i],
-				num_atoms,
-			)
-	end
-	observed_magfield_vertical_flattened::Vector{Float64} = vcat(observed_magfield_vertical_list...)
-	observed_magfield_vertical_flattened = -1 * observed_magfield_vertical_flattened
-
-	bias_term::Float64 = ols_coeffs[1]
-	ols_coeffs_wo_bias::Vector{Float64} = ols_coeffs[2:end]
-	design_matrix::Matrix{Float64} = vcat(design_matrix_list...)
-	predicted_magfield_vertical_list::Vector{Float64} = design_matrix * ols_coeffs_wo_bias
-	relative_error_energy::Float64 =
-		√(
-		sum((observed_energy_list - predicted_energy_list) .^ 2) /
-		sum(observed_energy_list .^ 2),
-	)
-	relative_error_magfield_vertical::Float64 =
-		√(
-		sum((observed_magfield_vertical_flattened - predicted_magfield_vertical_list) .^ 2) /
-		sum(observed_magfield_vertical_flattened .^ 2),
-	)
-
-	return ols_coeffs_wo_bias,
-	bias_term,
-	relative_error_magfield_vertical,
-	relative_error_energy,
-	predicted_energy_list,
-	observed_energy_list,
-	predicted_magfield_vertical_list,
-	observed_magfield_vertical_flattened
+	return design_matrix
 end
 
-function calc_design_matrix_element(
+"""
+	calc_X_element_energy(salc, spin_directions, symmetry) -> Float64
+
+calculate an element of the design matrix X in the case of using the energy information.
+
+# Arguments
+- `salc::SALC`: Symmetry-Adapted Linear Combination object
+- `spin_directions::AbstractMatrix{<:Real}`: Matrix of spin directions (3×N)
+- `symmetry::Symmetry`: Symmetry information of the structure
+
+# Returns
+- `Float64`: Element of the design matrix X
+"""
+function calc_X_element_energy(
 	salc::SALC,
 	spin_directions::AbstractMatrix{<:Real},
 	symmetry::Symmetry,
@@ -230,25 +223,15 @@ function calc_design_matrix_element(
 	return result
 end
 
-function ols_magfield_vertical(
-	salc_list::AbstractVector{SALC},
-	spinconfig_dataset::DataSet,
-	num_atoms::Integer,
-	symmetry::Symmetry,
-)
+function construct_design_matrix_magfield_vertical(
+	salc_list,
+	spinconfig_dataset,
+	num_atoms,
+	symmetry,
+)::Matrix{Float64}
 	# dimensions
 	num_salcs = length(salc_list)
 	num_spinconfigs = spinconfig_dataset.training_data_num
-
-	# observed magfield_vertical
-	observed_magfield_vertical_list = Vector{Vector{Float64}}(undef, num_spinconfigs)
-	@threads for i in 1:num_spinconfigs
-		observed_magfield_vertical_list[i] =
-			calc_magfield_vertical_list_of_spinconfig(spinconfig_dataset.spinconfigs[i], num_atoms)
-	end
-	observed_magfield_vertical_flattened = vcat(observed_magfield_vertical_list...)
-	observed_magfield_vertical_flattened = -1 * observed_magfield_vertical_flattened
-
 
 	# construct design matrix A in Ax = b
 	# [num_spindconif][3*num_atoms, num_salcs]
@@ -259,7 +242,7 @@ function ols_magfield_vertical(
 		for row_idx in 1:(3*num_atoms)
 			for isalc in 1:num_salcs
 				design_matrix_list[i][row_idx, isalc] =
-					calc_X_matrix_element(
+					calc_X_element_magfield_vertical(
 						salc_list[isalc],
 						spinconfig_dataset.spinconfigs[i].spin_directions,
 						symmetry,
@@ -271,8 +254,135 @@ function ols_magfield_vertical(
 
 	design_matrix = vcat(design_matrix_list...)
 
-	ols_coeffs = design_matrix \ observed_magfield_vertical_flattened
-	predicted_magfield_vertical_flattened = design_matrix * ols_coeffs
+	return design_matrix
+end
+
+"""
+	calc_X_element_magfield_vertical(salc, spin_directions, symmetry, row_idx) -> Float64
+
+Calculate an element of the design matrix X in the case of using the derivative of SALCs.
+
+# Arguments
+- `salc::SALC`: Symmetry-Adapted Linear Combination object
+- `spin_directions::AbstractMatrix{<:Real}`: Matrix of spin directions (3×N)
+- `symmetry::Symmetry`: Symmetry information of the structure
+- `row_idx::Integer`: Row index corresponding to atom and direction (3*(atom-1) + dir)
+
+"""
+function calc_X_element_magfield_vertical(
+	salc::SALC,
+	spin_directions::AbstractMatrix{<:Real},
+	symmetry::Symmetry,
+	row_idx::Int,
+)::Float64
+	atom_idx = (row_idx - 1) ÷ 3 + 1
+	direction = mod1(row_idx, 3)# 1, 2, 3 -> x, y, z
+
+	result::Float64 = 0.0
+	for itrans in symmetry.symnum_translation
+		translated_salc = translate_atom_idx_of_salc(salc, symmetry.map_sym, itrans)
+		result +=
+			calc_derivative_of_salc(translated_salc, atom_idx, direction, spin_directions)
+	end
+
+	return result
+end
+
+"""
+	ols_energy(design_matrix_energy, design_matrix_magfield_vertical, observed_energy_list, observed_magfield_vertical_list)
+	-> Tuple{Vector{Float64}, Float64, Float64, Float64, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}
+
+Optimize SCE coefficients by using ordinary least squares method.
+
+# Arguments
+- `design_matrix_energy::AbstractMatrix{<:Real}`: Design matrix for energy prediction
+- `design_matrix_magfield_vertical::AbstractMatrix{<:Real}`: Design matrix for magfield_vertical prediction
+- `observed_energy_list::Vector{Float64}`: Observed energy list
+- `observed_magfield_vertical_list::Vector{Vector{Float64}}`: Observed magfield_vertical list
+
+# Returns
+- `Vector{Float64}`: Optimized SCE coefficients
+- `Float64`: Bias term
+- `Float64`: Relative error of magfield_vertical
+- `Float64`: Relative error of energy
+- `Vector{Float64}`: Predicted energy list
+- `Vector{Float64}`: Observed energy list
+- `Vector{Float64}`: Predicted magfield_vertical flattened list
+- `Vector{Float64}`: Observed magfield_vertical flattened list
+"""
+function ols_energy(
+	design_matrix_energy::AbstractMatrix{<:Real},
+	design_matrix_magfield_vertical::AbstractMatrix{<:Real},
+	observed_energy_list::Vector{Float64},
+	observed_magfield_vertical_list::Vector{Vector{Float64}},
+)
+	ols_coeffs = design_matrix_energy \ observed_energy_list
+
+	# predict energy using SCE coefficients from energy information
+	predicted_energy_list::Vector{Float64} = design_matrix_energy * ols_coeffs
+
+	observed_magfield_vertical_flattened::Vector{Float64} = vcat(observed_magfield_vertical_list...)
+	observed_magfield_vertical_flattened = -1 * observed_magfield_vertical_flattened
+
+	bias_term::Float64 = ols_coeffs[1]
+	ols_coeffs_wo_bias::Vector{Float64} = ols_coeffs[2:end]
+	predicted_magfield_vertical_list::Vector{Float64} =
+		design_matrix_magfield_vertical * ols_coeffs_wo_bias
+	relative_error_energy::Float64 =
+		√(
+		sum((observed_energy_list - predicted_energy_list) .^ 2) /
+		sum(observed_energy_list .^ 2),
+	)
+	relative_error_magfield_vertical::Float64 =
+		√(
+		sum((observed_magfield_vertical_flattened - predicted_magfield_vertical_list) .^ 2) /
+		sum(observed_magfield_vertical_flattened .^ 2),
+	)
+
+	return ols_coeffs_wo_bias,
+	bias_term,
+	relative_error_magfield_vertical,
+	relative_error_energy,
+	predicted_energy_list,
+	observed_energy_list,
+	predicted_magfield_vertical_list,
+	observed_magfield_vertical_flattened
+end
+
+"""
+	ols_magfield_vertical(design_matrix_energy, design_matrix_magfield_vertical, observed_energy_list, observed_magfield_vertical_list)
+	-> Tuple{Vector{Float64}, Float64, Float64, Float64, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}
+
+Optimize SCE coefficients by using ordinary least squares method.
+
+# Arguments
+- `design_matrix_energy::AbstractMatrix{<:Real}`: Design matrix for energy prediction
+- `design_matrix_magfield_vertical::AbstractMatrix{<:Real}`: Design matrix for magfield_vertical prediction
+- `observed_energy_list::Vector{Float64}`: Observed energy list
+- `observed_magfield_vertical_list::Vector{Vector{Float64}}`: Observed magfield_vertical list
+
+# Returns
+- `Vector{Float64}`: Optimized SCE coefficients
+- `Float64`: Bias term
+- `Float64`: Relative error of magfield_vertical
+- `Float64`: Relative error of energy
+- `Vector{Float64}`: Predicted energy list
+- `Vector{Float64}`: Observed energy list
+- `Vector{Float64}`: Predicted magfield_vertical flattened list
+- `Vector{Float64}`: Observed magfield_vertical flattened list
+"""
+function ols_magfield_vertical(
+	design_matrix_energy::AbstractMatrix{<:Real},
+	design_matrix_magfield_vertical::AbstractMatrix{<:Real},
+	observed_energy_list::Vector{Float64},
+	observed_magfield_vertical_list::Vector{Vector{Float64}},
+)
+	observed_magfield_vertical_flattened = vcat(observed_magfield_vertical_list...)
+	observed_magfield_vertical_flattened = -1 * observed_magfield_vertical_flattened
+
+	# calculate SCE coefficients from magfield_vertical information
+	ols_coeffs = design_matrix_magfield_vertical \ observed_magfield_vertical_flattened
+	predicted_magfield_vertical_flattened = design_matrix_magfield_vertical * ols_coeffs
 	relative_error_magfield_vertical =
 		√(
 		sum((observed_magfield_vertical_flattened - predicted_magfield_vertical_flattened) .^ 2) /
@@ -280,32 +390,18 @@ function ols_magfield_vertical(
 	)
 
 	# calculate bias term
-	design_matrix_energy = zeros(Float64, num_spinconfigs, num_salcs)
-	initialize_check = falses(num_spinconfigs, num_salcs)
-	@threads for i in 1:num_salcs
-		for j in 1:num_spinconfigs
-			design_matrix_energy[j, i] = calc_design_matrix_element(
-				salc_list[i],
-				spinconfig_dataset.spinconfigs[j].spin_directions,
-				symmetry,
-			)
-			initialize_check[j, i] = true
-		end
-	end
-	if false in initialize_check
-		error("Failed to initialize the design_matrix_energy.")
-	end
 
-	observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_dataset.spinconfigs]
-
-	bias_term = mean(observed_energy_list .- design_matrix_energy * ols_coeffs)
+	bias_term = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * ols_coeffs)
 	relative_error_energy =
 		√(
-		sum((observed_energy_list .- (design_matrix_energy * ols_coeffs .+ bias_term)) .^ 2) /
+		sum(
+			(observed_energy_list .- (design_matrix_energy[:, 2:end] * ols_coeffs .+ bias_term)) .^
+			2,
+		) /
 		sum(observed_energy_list .^ 2),
 	)
 
-	predicted_energy_list = design_matrix_energy * ols_coeffs .+ bias_term
+	predicted_energy_list = design_matrix_energy[:, 2:end] * ols_coeffs .+ bias_term
 
 	return ols_coeffs,
 	bias_term,
@@ -352,38 +448,6 @@ function calc_magfield_vertical_list_of_spinconfig(
 	return magfield_vertical_list
 end
 
-
-
-"""
-	calc_X_matrix_element(salc, spin_directions, symmetry, row_idx) -> Float64
-
-Calculate an element of the design matrix X in the case of using the derivative of SALCs.
-
-# Arguments
-- `salc::SALC`: Symmetry-Adapted Linear Combination object
-- `spin_directions::AbstractMatrix{<:Real}`: Matrix of spin directions (3×N)
-- `symmetry::Symmetry`: Symmetry information of the structure
-- `row_idx::Integer`: Row index corresponding to atom and direction (3*(atom-1) + dir)
-
-"""
-function calc_X_matrix_element(
-	salc::SALC,
-	spin_directions::AbstractMatrix{<:Real},
-	symmetry::Symmetry,
-	row_idx::Int,
-)::Float64
-	atom_idx = (row_idx - 1) ÷ 3 + 1
-	direction = mod1(row_idx, 3)# 1, 2, 3 -> x, y, z
-
-	result::Float64 = 0.0
-	for itrans in symmetry.symnum_translation
-		translated_salc = translate_atom_idx_of_salc(salc, symmetry.map_sym, itrans)
-		result +=
-			calc_derivative_of_salc(translated_salc, atom_idx, direction, spin_directions)
-	end
-
-	return result
-end
 
 """
 	calc_derivative_of_salc(basislist, coeffs, atom, direction, spin_directions)
@@ -453,6 +517,96 @@ function calc_derivative_of_salc(
 		direction,
 		spin_directions,
 	)
+end
+
+"""
+	optimize_SCEcoeffs_with_weight(
+		salc_list::AbstractVector{SALC},
+		spinconfig_dataset::DataSet,
+		num_atoms::Integer,
+		symmetry::Symmetry,
+		weight::Real,
+	) -> Tuple{Vector{Float64}, Float64, Float64, Float64, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}
+
+Optimize SCE coefficients using a weighted loss function that combines energy and magnetic field errors.
+
+# Arguments
+- `salc_list::AbstractVector{SALC}`: List of SALC objects
+- `spinconfig_dataset::DataSet`: Dataset containing spin configurations
+- `num_atoms::Integer`: Number of atoms in the structure
+- `symmetry::Symmetry`: Symmetry information
+- `weight::Real`: Weight parameter for balancing energy and magnetic field errors (0 ≤ weight ≤ 1)
+
+# Returns
+- `Vector{Float64}`: Optimized SCE coefficients
+- `Float64`: Bias term
+- `Float64`: Relative error of magnetic field
+- `Float64`: Relative error of energy
+- `Vector{Float64}`: Predicted energy list
+- `Vector{Float64}`: Observed energy list
+- `Vector{Float64}`: Predicted magnetic field list
+- `Vector{Float64}`: Observed magnetic field list
+"""
+function optimize_SCEcoeffs_with_weight(
+	spinconfig_dataset::DataSet,
+	num_atoms::Integer,
+	weight::Real,
+	design_matrix_energy::AbstractMatrix{<:Real},
+	design_matrix_magfield_vertical::AbstractMatrix{<:Real},
+	SCE_initial_guess::Vector{Float64},
+	bias_initial_guess::Float64,
+)
+	# Input validation
+	if weight > 1 || weight < 0
+		error("weight must be between 0 and 1")
+	end
+
+	observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_dataset.spinconfigs]
+
+	nd_energy_list, nd_magfield_vertical_list = nondimensionalize(
+		[spinconfig.energy for spinconfig in spinconfig_dataset.spinconfigs],
+		calc_magfield_vertical_list_of_spinconfig(spinconfig_dataset.spinconfigs[1], num_atoms),
+	)
+
+end
+
+function nondimensionalize(
+	energy_list::AbstractVector,
+	magfield_vertical_list::AbstractVector,
+)
+	mean_energy = mean(energy_list)
+	std_energy = std(energy_list)
+	mean_magfield_vertical = mean(magfield_vertical_list)
+	std_magfield_vertical = std(magfield_vertical_list)
+
+	nd_energy_list = (energy_list .- mean_energy) ./ std_energy
+	nd_magfield_vertical_list =
+		(magfield_vertical_list .- mean_magfield_vertical) ./ std_magfield_vertical
+
+	return nd_energy_list, nd_magfield_vertical_list
+end
+
+function loss_function(
+	observed_energy_list::AbstractVector,
+	predicted_energy_list::AbstractVector,
+	observed_magfield_vertical_list::AbstractVector,
+	predicted_magfield_vertical_list::AbstractVector,
+	weight::Real,
+	num_atoms::Integer,
+)
+	data_num = length(observed_energy_list)
+
+	loss_energy = sum(((observed_energy_list - predicted_energy_list) ./ num_atoms) .^ 2) / data_num
+	loss_magfield_vertical =
+		sum(
+			(
+				(observed_magfield_vertical_list - predicted_magfield_vertical_list) ./
+				(3*num_atoms)
+			) .^ 2,
+		) / data_num
+
+	return weight * loss_energy + (1 - weight) * loss_magfield_vertical
+
 end
 
 function translate_atom_idx_of_salc(
