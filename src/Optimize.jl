@@ -5,6 +5,7 @@ This module contains functions for optimizing the SCE coefficients.
 """
 module Optimize
 
+using Base.Threads
 using LinearAlgebra
 using Printf
 using StatsBase
@@ -122,7 +123,7 @@ function ols_energy(
 	design_matrix[:, 1] .= 1.0
 	initialize_check[:, 1] .= true
 
-	for i in 1:num_salcs
+	@threads for i in 1:num_salcs
 		for j in 1:num_spinconfigs
 			design_matrix[j, i+1] =
 				calc_design_matrix_element(
@@ -148,7 +149,7 @@ function ols_energy(
 	# construct design matrix for magfield_vertical
 	design_matrix_list = Vector{Matrix{Float64}}(undef, num_spinconfigs)
 
-	for i in 1:num_spinconfigs
+	@threads for i in 1:num_spinconfigs
 		design_matrix_list[i] = zeros(Float64, 3 * num_atoms, num_salcs)
 		for row_idx in 1:3*num_atoms
 			for isalc in 1:num_salcs
@@ -164,7 +165,7 @@ function ols_energy(
 	end
 
 	observed_magfield_vertical_list = Vector{Vector{Float64}}(undef, num_spinconfigs)
-	for i in 1:num_spinconfigs
+	@threads for i in 1:num_spinconfigs
 		observed_magfield_vertical_list[i] =
 			calc_magfield_vertical_list_of_spinconfig(
 				spinconfig_dataset.spinconfigs[i],
@@ -232,7 +233,7 @@ function ols_magfield_vertical(
 
 	# observed magfield_vertical
 	observed_magfield_vertical_list = Vector{Vector{Float64}}(undef, num_spinconfigs)
-	for i in 1:num_spinconfigs
+	@threads for i in 1:num_spinconfigs
 		observed_magfield_vertical_list[i] =
 			calc_magfield_vertical_list_of_spinconfig(spinconfig_dataset.spinconfigs[i], num_atoms)
 	end
@@ -244,7 +245,7 @@ function ols_magfield_vertical(
 	# [num_spindconif][3*num_atoms, num_salcs]
 	design_matrix_list = Vector{Matrix{Float64}}(undef, num_spinconfigs)
 
-	for i in 1:num_spinconfigs
+	@threads for i in 1:num_spinconfigs
 		design_matrix_list[i] = zeros(Float64, 3 * num_atoms, num_salcs)
 		for row_idx in 1:3*num_atoms
 			for isalc in 1:num_salcs
@@ -271,7 +272,7 @@ function ols_magfield_vertical(
 	# calculate bias term
 	design_matrix_energy = zeros(Float64, num_spinconfigs, num_salcs)
 	initialize_check = falses(num_spinconfigs, num_salcs)
-	for i in 1:num_salcs
+	@threads for i in 1:num_salcs
 		for j in 1:num_spinconfigs
 			design_matrix_energy[j, i] = calc_design_matrix_element(
 				salc_list[i],
