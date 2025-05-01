@@ -317,6 +317,35 @@ function SpinCluster(system::System, toml_file::AbstractString, verbosity::Bool 
 	end
 end
 
+function SpinCluster(
+	spincluster::SpinCluster,
+	input_dict::AbstractDict{<:AbstractString, <:Any},
+	verbosity::Bool = true,
+)
+	parser = Parser(input_dict)
+	sce_with_bias = vcat(spincluster.optimize.bias_term, spincluster.optimize.SCE)
+	optimize = SCEOptimizer(
+		spincluster.structure,
+		spincluster.symmetry,
+		spincluster.basisset,
+		parser.j_zero_thr,
+		parser.weight,
+		spincluster.optimize.spinconfig_dataset,
+		sce_with_bias,
+	)
+	if verbosity
+		Optimize.print_info(optimize)
+	end
+	return SpinCluster(
+		spincluster.config,
+		spincluster.structure,
+		spincluster.symmetry,
+		spincluster.cluster,
+		spincluster.basisset,
+		optimize,
+	)
+end
+
 """
 	print_info(sc::SpinCluster)
 
