@@ -72,7 +72,6 @@ mutable struct Parser
 
 	# regression parameters
 	weight::Union{Float64, String}
-	training_ratio::Float64
 	datafile::String
 
 	# structure parameters
@@ -190,11 +189,6 @@ function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 		weight = ceil(weight)
 	end
 
-	training_ratio = get(regression_dict, "training_ratio", 1.0)::Float64
-	if !(0 < training_ratio <= 1)
-		throw(ArgumentError("Training ratio must be between 0 and 1, got $training_ratio."))
-	end
-
 	cv = get(regression_dict, "cv", 0)::Int
 	if cv < 0
 		throw(ArgumentError("cv must be non-negative, got $cv."))
@@ -249,7 +243,6 @@ function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 		lmax,
 		cutoff_radii,
 		weight,
-		training_ratio,
 		datafile,
 		scale,
 		lattice_vectors,
