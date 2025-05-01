@@ -74,7 +74,7 @@ function SCEOptimizer(
 
 	if weight > 1# use weight-fold cross validation
 		error("developing...")
-	elseif weight > 0.5
+	elseif weight ≈ 1.0
 		SCE,
 		bias_term,
 		relative_error_magfield_vertical,
@@ -89,7 +89,7 @@ function SCEOptimizer(
 				observed_energy_list,
 				observed_magfield_vertical_list,
 			)
-	elseif weight <= 0.5
+	else
 		SCE,
 		bias_term,
 		relative_error_magfield_vertical,

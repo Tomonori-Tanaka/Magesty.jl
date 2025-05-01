@@ -20,6 +20,7 @@ Fe-Fe = [-1, -1] # first element is just dummy to align wigh lmax array
 datafile = "/Users/tomorin/Packages/Magesty/test/examples/febcc_2x2x2_pm/EMBSET.dat"
 training_ratio = 1.0
 weight = 0.0 # 1.0: only use the energy info. 0.0: only use torque info (0 <= weight_ratio <= 1)
+cv = 10
 
 [structure]
 kd_list = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
