@@ -179,7 +179,7 @@ struct SpinCluster
 	symmetry::Symmetry
 	cluster::Cluster
 	basisset::BasisSet
-	optimize::Union{SCEOptimizer, Nothing}
+	optimize::SCEOptimizer
 end
 
 """
@@ -215,13 +215,9 @@ function SpinCluster(input_dict::Dict{<:AbstractString, <:Any}, verbosity::Bool 
 	if verbosity
 		BasisSets.print_info(basisset)
 	end
-	optimize = if parser.mode == "optimize"
-		set_optimize(parser, structure, symmetry, basisset)
-		if verbosity
-			Optimize.print_info(optimize)
-		end
-	else
-		nothing
+	optimize::SCEOptimizer = set_optimize(parser, structure, symmetry, basisset)
+	if verbosity
+		Optimize.print_info(optimize)
 	end
 
 	return SpinCluster(parser, structure, symmetry, cluster, basisset, optimize)
@@ -270,29 +266,39 @@ Create a SpinCluster from an existing System.
 - `SpinCluster`: A new SpinCluster instance
 """
 function SpinCluster(system::System, verbosity::Bool = true)
-	if system.config.mode == "optimize"
-		optimize = set_optimize(system.config, system.structure, system.symmetry, system.basisset)
-		if verbosity
-			Optimize.print_info(optimize)
-		end
-	else
-		nothing
+	optimize = set_optimize(system.config, system.structure, system.symmetry, system.basisset)
+	if verbosity
+		Optimize.print_info(optimize)
 	end
 
-	return SpinCluster(system.config, system.structure, system.symmetry, system.cluster, system.basisset, optimize)
+	return SpinCluster(
+		system.config,
+		system.structure,
+		system.symmetry,
+		system.cluster,
+		system.basisset,
+		optimize,
+	)
 end
 
-function SpinCluster(system::System, input_dict::Dict{<:AbstractString, <:Any}, verbosity::Bool = true)
+function SpinCluster(
+	system::System,
+	input_dict::Dict{<:AbstractString, <:Any},
+	verbosity::Bool = true,
+)
 	parser = Parser(input_dict)
-	if parser.mode == "optimize"
-		optimize = set_optimize(parser, system.structure, system.symmetry, system.basisset)
-		if verbosity
-			Optimize.print_info(optimize)
-		end
-	else
-		nothing
+	optimize = set_optimize(parser, system.structure, system.symmetry, system.basisset)
+	if verbosity
+		Optimize.print_info(optimize)
 	end
-	return SpinCluster(system.config, system.structure, system.symmetry, system.cluster, system.basisset, optimize)
+	return SpinCluster(
+		system.config,
+		system.structure,
+		system.symmetry,
+		system.cluster,
+		system.basisset,
+		optimize,
+	)
 end
 
 function SpinCluster(system::System, toml_file::AbstractString, verbosity::Bool = true)
@@ -367,7 +373,10 @@ Write magnetic field vertical components to a file.
 # Throws
 - `ErrorException` if the optimizer is not set
 """
-function write_magfield_vertical_list(sc::SpinCluster, filename::AbstractString = "magfield_vertical_list.txt")
+function write_magfield_vertical_list(
+	sc::SpinCluster,
+	filename::AbstractString = "magfield_vertical_list.txt",
+)
 	if sc.optimize === nothing
 		throw(ErrorException("Optimizer is not set"))
 	end
