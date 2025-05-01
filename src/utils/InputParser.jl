@@ -124,7 +124,7 @@ function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 	required_sections = ["general", "symmetry", "interaction", "regression", "structure"]
 	for section in required_sections
 		if !haskey(input_dict, section)
-			error("Required section \"$section\" is missing in the input dictionary.")
+			throw(ArgumentError("Required section \"$section\" is missing in the input dictionary."))
 		end
 	end
 
@@ -132,42 +132,42 @@ function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 	general_dict = input_dict["general"]
 	name = get(general_dict, "name", "")::String
 	if isempty(name)
-		error("Structure name is required in the \"general\" section.")
+		throw(ArgumentError("Structure name is required in the \"general\" section."))
 	end
 
 	mode = get(general_dict, "mode", "optimize")::String
 	if !(mode in ["optimize", "predict"])
-		error("Invalid mode: $mode. Must be either \"optimize\" or \"predict\".")
+		throw(ArgumentError("Invalid mode: $mode. Must be either \"optimize\" or \"predict\"."))
 	end
 
 	num_atoms = get(general_dict, "nat", 0)::Int
 	if num_atoms <= 0
-		error("Number of atoms (nat) must be positive, got $num_atoms.")
+		throw(ArgumentError("Number of atoms (nat) must be positive, got $num_atoms."))
 	end
 
 	kd_name = get(general_dict, "kd", String[])::Vector{String}
 	if isempty(kd_name)
-		error("Chemical species list (kd) is required in the \"general\" section.")
+		throw(ArgumentError("Chemical species list (kd) is required in the \"general\" section."))
 	end
 	if length(kd_name) != length(Set(kd_name))
-		error("Duplicate chemical species found in \"kd\" list.")
+		throw(ArgumentError("Duplicate chemical species found in \"kd\" list."))
 	end
 
 	is_periodic = get(general_dict, "periodicity", [true, true, true])::Vector{Bool}
 	if length(is_periodic) != 3
-		error("Periodicity must be specified for all three directions.")
+		throw(ArgumentError("Periodicity must be specified for all three directions."))
 	end
 
 	j_zero_thr = get(general_dict, "j_zero_thr", 1e-8)::Float64
 	if j_zero_thr < 0
-		error("j_zero_thr must be non-negative, got $j_zero_thr.")
+		throw(ArgumentError("j_zero_thr must be non-negative, got $j_zero_thr."))
 	end
 
 	# Parse symmetry parameters
 	symmetry_dict = input_dict["symmetry"]
 	tolerance_sym = get(symmetry_dict, "tolerance", 1e-3)::Float64
 	if tolerance_sym <= 0
-		error("Symmetry tolerance must be positive, got $tolerance_sym.")
+		throw(ArgumentError("Symmetry tolerance must be positive, got $tolerance_sym."))
 	end
 
 	# Parse interaction parameters
@@ -175,7 +175,7 @@ function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 	check_interaction_field(interaction_dict, kd_name)
 	nbody = get(interaction_dict, "nbody", 0)::Int
 	if nbody <= 0
-		error("nbody must be positive, got $nbody.")
+		throw(ArgumentError("nbody must be positive, got $nbody."))
 	end
 
 	lmax = parse_lmax(interaction_dict["lmax"], kd_name, nbody)
@@ -185,49 +185,54 @@ function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 	regression_dict = input_dict["regression"]
 	weight = get(regression_dict, "weight", 0.0)::Real
 	if weight < 0.0
-		error("Weight must be non-negative, got $weight.")
+		throw(ArgumentError("Weight must be non-negative, got $weight."))
 	elseif weight > 1.0
 		weight = ceil(weight)
 	end
 
 	training_ratio = get(regression_dict, "training_ratio", 1.0)::Float64
 	if !(0 < training_ratio <= 1)
-		error("Training ratio must be between 0 and 1, got $training_ratio.")
+		throw(ArgumentError("Training ratio must be between 0 and 1, got $training_ratio."))
+	end
+
+	cv = get(regression_dict, "cv", 0)::Int
+	if cv < 0
+		throw(ArgumentError("cv must be non-negative, got $cv."))
 	end
 
 	datafile = get(regression_dict, "datafile", "")::String
 	if isempty(datafile)
-		error("Data file path is required in the \"regression\" section.")
+		throw(ArgumentError("Data file path is required in the \"regression\" section."))
 	end
 
 	# Parse structure parameters
 	structure_dict = input_dict["structure"]
 	scale = get(structure_dict, "scale", 1.0)::Real
 	if scale <= 0
-		error("Scale factor must be positive, got $scale.")
+		throw(ArgumentError("Scale factor must be positive, got $scale."))
 	end
 
 	lattice_vectors = scale * hcat(structure_dict["lattice"]...)
 	if size(lattice_vectors) != (3, 3)
-		error("Lattice vectors must be a 3×3 matrix, got $(size(lattice_vectors)).")
+		throw(ArgumentError("Lattice vectors must be a 3×3 matrix, got $(size(lattice_vectors))."))
 	end
 
 	kd_int_list = get(structure_dict, "kd_list", Int[])::Vector{Int}
 	if length(kd_int_list) != num_atoms
-		error("Length of kd_list ($(length(kd_int_list))) must match number of atoms ($num_atoms).")
+		throw(ArgumentError("Length of kd_list ($(length(kd_int_list))) must match number of atoms ($num_atoms)."))
 	end
 
 	kd_int_set = Set(kd_int_list)
 	nkd = length(kd_name)
 	if nkd != length(kd_int_set)
-		error("Number of chemical species ($nkd) doesn't match kd_list entries.")
+		throw(ArgumentError("Number of chemical species ($nkd) doesn't match kd_list entries."))
 	elseif any(x -> (x < 1 || nkd < x), kd_int_set)
-		error("Chemical species indices must be consecutive numbers starting from 1.")
+		throw(ArgumentError("Chemical species indices must be consecutive numbers starting from 1."))
 	end
 
 	positions = get(structure_dict, "position", Vector{Float64}[])::Vector{Vector{Float64}}
 	if length(positions) != num_atoms
-		error("Number of positions ($(length(positions))) must match number of atoms ($num_atoms).")
+		throw(ArgumentError("Number of positions ($(length(positions))) must match number of atoms ($num_atoms)."))
 	end
 
 	x_fractional = parse_position(positions, num_atoms)
@@ -290,7 +295,7 @@ function check_interaction_field(
 	required_fields = ["nbody", "lmax", "cutoff"]
 	for field in required_fields
 		if !haskey(interaction_dict, field)
-			error("Required field \"$field\" is missing in interaction parameters.")
+			throw(ArgumentError("Required field \"$field\" is missing in interaction parameters."))
 		end
 	end
 
@@ -301,13 +306,13 @@ function check_interaction_field(
 	# Validate lmax values
 	for (key, value) in lmax_dict
 		if !(key in kd_name)
-			error("Invalid chemical species \"$key\" in lmax dictionary.")
+			throw(ArgumentError("Invalid chemical species \"$key\" in lmax dictionary."))
 		end
 		if length(value) != nbody
-			error("Length of lmax values for $key ($(length(value))) doesn't match nbody ($nbody).")
+			throw(ArgumentError("Length of lmax values for $key ($(length(value))) doesn't match nbody ($nbody)."))
 		end
 		if any(x -> x < 0, value)
-			error("Negative lmax values are not allowed for $key.")
+			throw(ArgumentError("Negative lmax values are not allowed for $key."))
 		end
 	end
 
@@ -315,13 +320,13 @@ function check_interaction_field(
 	for (key, value) in cutoff_dict
 		key1, key2 = split(key, "-")
 		if !(key1 in kd_name) && key1 != "*"
-			error("Invalid chemical species \"$key1\" in cutoff dictionary.")
+			throw(ArgumentError("Invalid chemical species \"$key1\" in cutoff dictionary."))
 		end
 		if !(key2 in kd_name) && key2 != "*"
-			error("Invalid chemical species \"$key2\" in cutoff dictionary.")
+			throw(ArgumentError("Invalid chemical species \"$key2\" in cutoff dictionary."))
 		end
 		if length(value) != nbody
-			error("Length of cutoff values for $key ($(length(value))) doesn't match nbody ($nbody).")
+			throw(ArgumentError("Length of cutoff values for $key ($(length(value))) doesn't match nbody ($nbody)."))
 		end
 	end
 
@@ -365,7 +370,7 @@ function parse_lmax(
 	# Parse lmax values
 	for (kd_index, kd) in enumerate(kd_name)
 		if !haskey(lmax_dict, kd)
-			error("Missing lmax values for chemical species \"$kd\".")
+			rror("Missing lmax values for chemical species \"$kd\".")
 		end
 
 		values = lmax_dict[kd]
@@ -439,7 +444,7 @@ function parse_cutoff(
 
 		for (key, value) in cutoff_dict
 			if length(value) != nbody
-				error("Length of cutoff values for $key ($(length(value))) doesn't match nbody ($nbody).")
+				throw(ArgumentError("Length of cutoff values for $key ($(length(value))) doesn't match nbody ($nbody)."))
 			end
 
 			elem1, elem2 = split(key, "-")
@@ -447,7 +452,7 @@ function parse_cutoff(
 			index_elem2 = elem2 == "*" ? 1 : findfirst(x -> x == elem2, kd_name)
 
 			if isnothing(index_elem1) || isnothing(index_elem2)
-				error("Invalid chemical species pair \"$key\" in cutoff dictionary.")
+				throw(ArgumentError("Invalid chemical species pair \"$key\" in cutoff dictionary."))
 			end
 
 			cutoff_value = value[n]
@@ -461,10 +466,10 @@ function parse_cutoff(
 	# Check for missing values
 	missing_indices = findall(x -> x == false, cutoff_check)
 	if !isempty(missing_indices)
-		error("Missing cutoff values for: " * join([
+		throw(ArgumentError("Missing cutoff values for: " * join([
 			"$(kd_name[idx[1]])-$(kd_name[idx[2]]) (nbody = $(idx[3]))"
 			for idx in missing_indices
-		], ", "))
+		], ", ")))
 	end
 
 	return Array{Float64}(cutoff_tmp)
@@ -504,7 +509,7 @@ function parse_position(
 	# Parse positions
 	for (i, vec) in enumerate(position_list)
 		if length(vec) != 3
-			error("Position vector for atom $i must have 3 components, got $(length(vec)).")
+			throw(ArgumentError("Position vector for atom $i must have 3 components, got $(length(vec))."))
 		end
 		position_tmp[:, i] = vec
 		position_check[:, i] .= true
@@ -512,7 +517,7 @@ function parse_position(
 
 	# Check for missing values
 	if any(x -> x == false, position_check)
-		error("Missing or invalid position data for some atoms.")
+		throw(ArgumentError("Missing or invalid position data for some atoms."))
 	end
 
 	return Matrix{Float64}(position_tmp)
