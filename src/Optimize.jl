@@ -149,6 +149,77 @@ function SCEOptimizer(
 	basisset::BasisSet,
 	j_zero_thr::Real,
 	weight::Real,
+	spinconfig_dataset::DataSet,
+	initial_sce_with_bias::AbstractVector{<:Real},
+)
+	# Start timing
+	start_time = time_ns()
+
+	observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_dataset.spinconfigs]
+	observed_magfield_vertical_list =
+		Vector{Vector{Float64}}(undef, length(spinconfig_dataset.spinconfigs))
+	@threads for i in 1:length(spinconfig_dataset.spinconfigs)
+		observed_magfield_vertical_list[i] =
+			calc_magfield_vertical_list_of_spinconfig(
+				spinconfig_dataset.spinconfigs[i],
+				structure.supercell.num_atoms,
+			)
+	end
+
+	design_matrix_energy = construct_design_matrix_energy(
+		basisset.salc_list,
+		spinconfig_dataset,
+		symmetry,
+	)
+
+	design_matrix_magfield_vertical = construct_design_matrix_magfield_vertical(
+		basisset.salc_list,
+		spinconfig_dataset,
+		structure.supercell.num_atoms,
+		symmetry,
+	)
+
+	SCE,
+	bias_term,
+	relative_error_magfield_vertical,
+	relative_error_energy,
+	predicted_energy_list,
+	observed_energy_list,
+	predicted_magfield_vertical_list_flattened,
+	observed_magfield_vertical_list_flattened = optimize_SCEcoeffs_with_weight(
+		structure.supercell.num_atoms,
+		weight,
+		design_matrix_energy,
+		design_matrix_magfield_vertical,
+		observed_energy_list,
+		observed_magfield_vertical_list,
+		initial_sce_with_bias[2:end],
+		initial_sce_with_bias[1],
+	)
+
+	# End timing
+	elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
+
+	return SCEOptimizer(
+		spinconfig_dataset,
+		SCE,
+		bias_term,
+		relative_error_magfield_vertical,
+		relative_error_energy,
+		predicted_energy_list,
+		observed_energy_list,
+		predicted_magfield_vertical_list_flattened,
+		observed_magfield_vertical_list_flattened,
+		elapsed_time,
+	)
+end
+
+function SCEOptimizer(
+	structure::Structure,
+	symmetry::Symmetry,
+	basisset::BasisSet,
+	j_zero_thr::Real,
+	weight::Real,
 	training_ratio::Real,
 	datafile::AbstractString,
 )
@@ -576,7 +647,16 @@ function optimize_SCEcoeffs_with_weight(
 	observed_magfield_vertical_list::Vector{Vector{Float64}},
 	SCE_initial_guess::Vector{Float64},
 	bias_initial_guess::Float64,
-)::Tuple{Vector{Float64}, Float64, Float64, Float64, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}
+)::Tuple{
+	Vector{Float64},
+	Float64,
+	Float64,
+	Float64,
+	Vector{Float64},
+	Vector{Float64},
+	Vector{Float64},
+	Vector{Float64},
+}
 	# Input validation
 	if weight > 1 || weight < 0
 		error("weight must be between 0 and 1")
