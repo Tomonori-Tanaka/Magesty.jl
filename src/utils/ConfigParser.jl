@@ -506,14 +506,14 @@ struct Config4Optimize
 	"""
 	function Config4Optimize(input_dict::AbstractDict{<:AbstractString, Any})
 		# Check required sections
-		required_sections = ["general", "regression"]
+		required_sections = ["regression"]
 		for section in required_sections
 			if !haskey(input_dict, section)
 				throw(ArgumentError("Required section \"$section\" is missing in the input dictionary."))
 			end
 		end
 
-		datafile = input_dict["general"]["datafile"]
+		datafile = input_dict["regression"]["datafile"]::String
 		ndata = get(input_dict["regression"], "ndata", DEFAULT_VALUES_OPTIMIZE[:ndata])::Int
 		weight = get(input_dict["regression"], "weight", DEFAULT_VALUES_OPTIMIZE[:weight])::Float64
 

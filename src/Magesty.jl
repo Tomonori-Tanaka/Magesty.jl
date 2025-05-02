@@ -194,27 +194,21 @@ Differ from System in that it also sets the optimizer.
 - `ErrorException` if required parameters are missing or invalid
 """
 function SpinCluster(input_dict::Dict{<:AbstractString, <:Any}, verbosity::Bool = true)
-	parser = Parser(input_dict)
-	structure::Structure = set_system(parser)
-	if verbosity
-		Structures.print_info(structure)
-	end
-	symmetry::Symmetry = set_symmetry(parser, structure)
-	if verbosity
-		Symmetries.print_info(symmetry)
-	end
-	cluster::Cluster = set_cluster(parser, structure, symmetry)
-	if verbosity
-		Clusters.print_info(cluster)
-	end
-	basisset::BasisSet = set_basisset(parser, structure, symmetry, cluster)
-	if verbosity
-		BasisSets.print_info(basisset)
-	end
-	optimize::SCEOptimizer = set_optimize(parser, structure, symmetry, basisset)
-	if verbosity
-		Optimize.print_info(optimize)
-	end
+	config::Config4System = Config4System(input_dict)
+	structure::Structure = Structure(config)
+	verbosity && Structures.print_info(structure)
+
+	symmetry::Symmetry = Symmetry(structure, config)
+	verbosity && Symmetries.print_info(symmetry)
+
+	cluster::Cluster = Cluster(structure, symmetry, config)
+	verbosity && Clusters.print_info(cluster)
+
+	basisset::BasisSet = BasisSet(structure, symmetry, cluster, config)
+	verbosity && BasisSets.print_info(basisset)
+
+	optimize::SCEOptimizer = SCEOptimizer(structure, symmetry, basisset, config)
+	verbosity && Optimize.print_info(optimize)
 
 	return SpinCluster(structure, symmetry, cluster, basisset, optimize)
 end
@@ -255,11 +249,10 @@ function SpinCluster(
 	input_dict::Dict{<:AbstractString, <:Any},
 	verbosity::Bool = true,
 )
-	parser = Parser(input_dict)
-	optimize = set_optimize(parser, system.structure, system.symmetry, system.basisset)
-	if verbosity
-		Optimize.print_info(optimize)
-	end
+	config::Config4Optimize = Config4Optimize(input_dict)
+	optimize = SCEOptimizer(system.structure, system.symmetry, system.basisset, config)
+	verbosity && Optimize.print_info(optimize)
+
 	return SpinCluster(
 		system.structure,
 		system.symmetry,
