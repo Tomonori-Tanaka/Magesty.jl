@@ -86,7 +86,6 @@ A collection of structure, symmetry, cluster, and basis set.
 - `basisset::BasisSet`: Basis set information
 """
 struct System
-	config::Parser
 	structure::Structure
 	symmetry::Symmetry
 	cluster::Cluster
@@ -126,7 +125,7 @@ function System(input_dict::Dict{<:AbstractString, <:Any}, verbosity::Bool = tru
 		BasisSets.print_info(basisset)
 	end
 
-	return System(parser, structure, symmetry, cluster, basisset)
+	return System(structure, symmetry, cluster, basisset)
 end
 
 """
@@ -148,8 +147,8 @@ function System(toml_file::AbstractString, verbosity::Bool = true)
 	try
 		open(toml_file) do io
 			toml = read(io, String)
-			config = TOML.parse(toml)
-			return System(config, verbosity)
+			input_dict = TOML.parse(toml)
+			return System(input_dict, verbosity)
 		end
 	catch e
 		if isa(e, SystemError)
@@ -174,7 +173,6 @@ An extension of System with optimization capabilities.
 - `optimize::Union{SCEOptimizer, Nothing}`: Optimizer instance or nothing
 """
 struct SpinCluster
-	config::Parser
 	structure::Structure
 	symmetry::Symmetry
 	cluster::Cluster
@@ -220,7 +218,7 @@ function SpinCluster(input_dict::Dict{<:AbstractString, <:Any}, verbosity::Bool 
 		Optimize.print_info(optimize)
 	end
 
-	return SpinCluster(parser, structure, symmetry, cluster, basisset, optimize)
+	return SpinCluster(structure, symmetry, cluster, basisset, optimize)
 end
 
 """
@@ -242,8 +240,8 @@ function SpinCluster(toml_file::AbstractString, verbosity::Bool = true)
 	try
 		open(toml_file) do io
 			toml = read(io, String)
-			config = TOML.parse(toml)
-			return SpinCluster(config, verbosity)
+			input_dict = TOML.parse(toml)
+			return SpinCluster(input_dict, verbosity)
 		end
 	catch e
 		if isa(e, SystemError)
@@ -252,33 +250,6 @@ function SpinCluster(toml_file::AbstractString, verbosity::Bool = true)
 			throw(ErrorException("Failed to parse TOML file: $toml_file"))
 		end
 	end
-end
-
-"""
-	SpinCluster(system::System)
-
-Create a SpinCluster from an existing System.
-
-# Arguments
-- `system::System`: An existing System instance
-
-# Returns
-- `SpinCluster`: A new SpinCluster instance
-"""
-function SpinCluster(system::System, verbosity::Bool = true)
-	optimize = set_optimize(system.config, system.structure, system.symmetry, system.basisset)
-	if verbosity
-		Optimize.print_info(optimize)
-	end
-
-	return SpinCluster(
-		system.config,
-		system.structure,
-		system.symmetry,
-		system.cluster,
-		system.basisset,
-		optimize,
-	)
 end
 
 function SpinCluster(
@@ -292,7 +263,6 @@ function SpinCluster(
 		Optimize.print_info(optimize)
 	end
 	return SpinCluster(
-		system.config,
 		system.structure,
 		system.symmetry,
 		system.cluster,
@@ -305,8 +275,8 @@ function SpinCluster(system::System, toml_file::AbstractString, verbosity::Bool 
 	try
 		open(toml_file) do io
 			toml = read(io, String)
-			config = TOML.parse(toml)
-			return SpinCluster(system, config, verbosity)
+			input_dict = TOML.parse(toml)
+			return SpinCluster(system, input_dict, verbosity)
 		end
 	catch e
 		if isa(e, SystemError)
@@ -336,7 +306,6 @@ function SpinCluster(
 		Optimize.print_info(optimize)
 	end
 	return SpinCluster(
-		spincluster.config,
 		spincluster.structure,
 		spincluster.symmetry,
 		spincluster.cluster,
