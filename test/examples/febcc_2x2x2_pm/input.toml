@@ -3,7 +3,6 @@ name = "bccfe"
 kd = ["Fe"]
 nat = 16
 periodicity = [true, true, true]
-j_zero_thr = 1e-6   # unit is eV
 
 [symmetry]
 tolerance = 1e-5

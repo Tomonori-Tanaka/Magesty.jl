@@ -39,7 +39,6 @@ function SCEOptimizer(
 	structure::Structure,
 	symmetry::Symmetry,
 	basisset::BasisSet,
-	j_zero_thr::Real,
 	weight::Real,
 	spinconfig_dataset::DataSet,
 )
@@ -146,7 +145,6 @@ function SCEOptimizer(
 	structure::Structure,
 	symmetry::Symmetry,
 	basisset::BasisSet,
-	j_zero_thr::Real,
 	weight::Real,
 	spinconfig_dataset::DataSet,
 	initial_sce_with_bias::AbstractVector{<:Real},
@@ -217,14 +215,13 @@ function SCEOptimizer(
 	structure::Structure,
 	symmetry::Symmetry,
 	basisset::BasisSet,
-	j_zero_thr::Real,
 	weight::Real,
 	datafile::AbstractString,
 )
 	# read datafile
 	spinconfig_dataset = parse_embset(datafile, structure.supercell.num_atoms)
 
-	return SCEOptimizer(structure, symmetry, basisset, j_zero_thr, weight, spinconfig_dataset)
+	return SCEOptimizer(structure, symmetry, basisset, weight, spinconfig_dataset)
 end
 
 """

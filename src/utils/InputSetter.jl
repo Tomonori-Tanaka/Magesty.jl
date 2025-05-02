@@ -27,7 +27,6 @@ function set_optimize(parser, structure, symmetry, basisset)
 		structure,
 		symmetry,
 		basisset,
-		parser.j_zero_thr,
 		parser.weight,
 		parser.datafile,
 	)
