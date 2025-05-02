@@ -9,28 +9,28 @@ using Test
 				"name" => "test_system",
 				"nat" => 2,
 				"kd" => ["H", "O"],
-				"periodicity" => [true, true, true]
+				"periodicity" => [true, true, true],
 			),
 			"symmetry" => Dict{String, Any}(
-				"tolerance" => 1e-3
+				"tolerance" => 1e-3,
 			),
 			"interaction" => Dict{String, Any}(
 				"nbody" => 2,
 				"lmax" => Dict{String, Any}(
 					"H" => [1, 2],
-					"O" => [3, 4]
+					"O" => [3, 4],
 				),
 				"cutoff" => Dict{String, Any}(
 					"H-H" => [0.0, 2.0],
 					"H-O" => [0.0, 3.0],
-					"O-O" => [0.0, 4.0]
-				)
+					"O-O" => [0.0, 4.0],
+				),
 			),
 			"structure" => Dict{String, Any}(
 				"lattice" => [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
 				"kd_list" => [1, 2],
-				"position" => [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]]
-			)
+				"position" => [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
+			),
 		)
 
 		# Test valid input
@@ -69,13 +69,11 @@ using Test
 	@testset "Config4Optimize" begin
 		# Create a valid input dictionary
 		input_dict = Dict{String, Any}(
-			"general" => Dict{String, Any}(
-				"datafile" => "test.dat"
-			),
 			"regression" => Dict{String, Any}(
+				"datafile" => "test.dat",
 				"ndata" => 100,
-				"weight" => 0.5
-			)
+				"weight" => 0.5,
+			),
 		)
 
 		# Test valid input
@@ -84,21 +82,14 @@ using Test
 		@test config.ndata == 100
 		@test config.weight ≈ 0.5
 
-		# Test default values
-		input_dict["regression"] = Dict{String, Any}()
-		config = Config4Optimize(input_dict)
-		@test config.datafile == "test.dat"
-		@test config.ndata == -1
-		@test config.weight ≈ 0.0
-
 		# Test missing required section
 		invalid_dict = copy(input_dict)
-		delete!(invalid_dict, "general")
+		delete!(invalid_dict, "regression")
 		@test_throws ArgumentError Config4Optimize(invalid_dict)
 
 		# Test empty datafile name
 		invalid_dict = copy(input_dict)
-		invalid_dict["general"]["datafile"] = ""
+		invalid_dict["regression"]["datafile"] = ""
 		@test_throws ArgumentError Config4Optimize(invalid_dict)
 
 		# Test invalid weight
@@ -112,7 +103,7 @@ using Test
 		nbody = 2
 		lmax_dict = Dict{String, Any}(
 			"H" => [1, 2],
-			"O" => [3, 4]
+			"O" => [3, 4],
 		)
 
 		lmax = ConfigParser.parse_lmax(lmax_dict, kd_name, nbody)
@@ -133,7 +124,7 @@ using Test
 		cutoff_dict = Dict{String, Any}(
 			"H-H" => [0.0, 2.0],
 			"H-O" => [0.0, 3.0],
-			"O-O" => [0.0, 4.0]
+			"O-O" => [0.0, 4.0],
 		)
 
 		cutoff = ConfigParser.parse_cutoff(cutoff_dict, kd_name, nbody)
