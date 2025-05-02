@@ -54,12 +54,9 @@ include("types/SALC.jl")
 include("types/SpinConfig.jl")
 
 include("utils/ConfigParser.jl")
-include("utils/InputParser.jl")
-include("utils/InputSetter.jl")
 include("utils/RotationMatrix.jl")
 include("utils/MySphericalHarmonics.jl")
 using .ConfigParser
-using .InputParser
 
 include("Structure.jl")
 include("Symmetry.jl")
@@ -252,7 +249,6 @@ function SpinCluster(
 	config::Config4Optimize = Config4Optimize(input_dict)
 	optimize = SCEOptimizer(system.structure, system.symmetry, system.basisset, config)
 	verbosity && Optimize.print_info(optimize)
-
 	return SpinCluster(
 		system.structure,
 		system.symmetry,
@@ -283,19 +279,18 @@ function SpinCluster(
 	input_dict::AbstractDict{<:AbstractString, <:Any},
 	verbosity::Bool = true,
 )
-	parser = Parser(input_dict)
+	config::Config4Optimize = Config4Optimize(input_dict)
 	sce_with_bias = vcat(spincluster.optimize.bias_term, spincluster.optimize.SCE)
 	optimize = SCEOptimizer(
 		spincluster.structure,
 		spincluster.symmetry,
 		spincluster.basisset,
-		parser.weight,
+		config.weight,
 		spincluster.optimize.spinconfig_dataset,
 		sce_with_bias,
 	)
-	if verbosity
-		Optimize.print_info(optimize)
-	end
+	verbosity && Optimize.print_info(optimize)
+
 	return SpinCluster(
 		spincluster.structure,
 		spincluster.symmetry,
