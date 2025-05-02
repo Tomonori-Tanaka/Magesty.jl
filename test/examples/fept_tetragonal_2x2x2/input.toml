@@ -23,7 +23,6 @@
 	datafile = "/Users/tomorin/Packages/Magesty/test/examples/fept_tetragonal_2x2x2/EMBSET.dat"
 
 	[structure]
-	scale = 1
 	lattice = [
 		[ 2.0, 0.0, 0.0 ],
 		[ 0.0, 2.0, 0.0 ],

@@ -38,11 +38,9 @@ A structure that holds all input parameters for the simulation.
 
 # Optional Fields
 - `is_periodic::Vector{Bool}`: Periodicity flags for each direction (default: [true, true, true])
-- `j_zero_thr::Float64`: Threshold for zero interaction (default: 1e-8)
 - `tolerance_sym::Float64`: Symmetry tolerance (default: 1e-3)
 - `ndata::Int`: Number of data points (default: -1)
 - `weight::Float64`: Weight parameter for regression (default: 0.0)
-- `scale::Float64`: Scale factor for lattice vectors (default: 1.0)
 
 # Examples
 ```julia
@@ -64,21 +62,17 @@ struct Parser
 
 	# Optional parameters
 	is_periodic::Vector{Bool}
-	j_zero_thr::Float64
 	tolerance_sym::Float64
 	ndata::Int
 	weight::Float64
-	scale::Float64
 end
 
 # Default values for optional parameters
 const DEFAULT_VALUES = Dict{Symbol, Any}(
 	:is_periodic => [true, true, true],
-	:j_zero_thr => 1e-8,
 	:tolerance_sym => 1e-3,
 	:ndata => -1,
 	:weight => 0.0,
-	:scale => 1.0,
 )
 
 """
@@ -126,7 +120,6 @@ const VALIDATION_RULES = [
 		x -> length(x) == 3,
 		"Periodicity must be specified for all three directions",
 	),
-	ValidationRule(:j_zero_thr, x -> x >= 0, x -> "j_zero_thr must be non-negative, got $(x)"),
 	ValidationRule(
 		:tolerance_sym,
 		x -> x > 0,
@@ -134,7 +127,6 @@ const VALIDATION_RULES = [
 	),
 	ValidationRule(:ndata, x -> x isa Int, x -> "Number of data must be an integer, got $(x)"),
 	ValidationRule(:weight, x -> x >= 0, x -> "Weight must be non-negative, got $(x)"),
-	ValidationRule(:scale, x -> x > 0, x -> "Scale factor must be positive, got $(x)"),
 ]
 
 """
@@ -254,7 +246,6 @@ function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 	num_atoms = get(general_dict, "nat", 0)::Int
 	kd_name = get(general_dict, "kd", String[])::Vector{String}
 	is_periodic = get(general_dict, "periodicity", DEFAULT_VALUES[:is_periodic])::Vector{Bool}
-	j_zero_thr = get(general_dict, "j_zero_thr", DEFAULT_VALUES[:j_zero_thr])::Float64
 
 	# Parse symmetry parameters
 	symmetry_dict = input_dict["symmetry"]
@@ -274,8 +265,7 @@ function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 
 	# Parse structure parameters
 	structure_dict = input_dict["structure"]
-	scale = get(structure_dict, "scale", DEFAULT_VALUES[:scale])::Real
-	lattice_vectors = scale * hcat(structure_dict["lattice"]...)
+	lattice_vectors = hcat(structure_dict["lattice"]...)
 	kd_int_list = get(structure_dict, "kd_list", Int[])::Vector{Int}
 	positions = get(structure_dict, "position", Vector{Float64}[])::Vector{Vector{Float64}}
 	x_fractional = parse_position(positions, num_atoms)
@@ -296,11 +286,9 @@ function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 
 		# Optional parameters
 		is_periodic = is_periodic,
-		j_zero_thr = j_zero_thr,
 		tolerance_sym = tolerance_sym,
 		ndata = ndata,
 		weight = weight,
-		scale = scale,
 	)
 	validate_parser_parameters(params)
 
@@ -316,11 +304,9 @@ function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 		params.kd_int_list,
 		params.x_fractional,
 		params.is_periodic,
-		params.j_zero_thr,
 		params.tolerance_sym,
 		params.ndata,
 		params.weight,	
-		params.scale,
 	)
 end
 
