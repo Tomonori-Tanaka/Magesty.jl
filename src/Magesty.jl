@@ -53,10 +53,12 @@ include("types/UnitaryMatrixCl.jl")
 include("types/SALC.jl")
 include("types/SpinConfig.jl")
 
+include("utils/ConfigParser.jl")
 include("utils/InputParser.jl")
 include("utils/InputSetter.jl")
 include("utils/RotationMatrix.jl")
 include("utils/MySphericalHarmonics.jl")
+using .ConfigParser
 using .InputParser
 
 include("Structure.jl")
@@ -107,23 +109,19 @@ Create a System from a dictionary of input parameters.
 - `ErrorException` if required parameters are missing or invalid
 """
 function System(input_dict::Dict{<:AbstractString, <:Any}, verbosity::Bool = true)
-	parser::Parser = Parser(input_dict)
-	structure::Structure = set_system(parser)
-	if verbosity
-		Structures.print_info(structure)
-	end
-	symmetry::Symmetry = set_symmetry(parser, structure)
-	if verbosity
-		Symmetries.print_info(symmetry)
-	end
-	cluster::Cluster = set_cluster(parser, structure, symmetry)
-	if verbosity
-		Clusters.print_info(cluster)
-	end
-	basisset::BasisSet = set_basisset(parser, structure, symmetry, cluster)
-	if verbosity
-		BasisSets.print_info(basisset)
-	end
+	config::Config4System = Config4System(input_dict)
+
+	structure::Structure = Structure(config)
+	verbosity && Structures.print_info(structure)
+
+	symmetry::Symmetry = Symmetry(structure, config)
+	verbosity && Symmetries.print_info(symmetry)
+
+	cluster::Cluster = Cluster(structure, symmetry, config)
+	verbosity && Clusters.print_info(cluster)
+
+	basisset::BasisSet = BasisSet(structure, symmetry, cluster, config)
+	verbosity && BasisSets.print_info(basisset)
 
 	return System(structure, symmetry, cluster, basisset)
 end

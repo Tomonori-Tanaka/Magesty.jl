@@ -13,6 +13,7 @@ using Printf
 using ..SortedContainer
 using ..AtomCells
 using ..AtomicIndices
+using ..ConfigParser
 using ..Structures
 using ..Symmetries
 using ..Clusters
@@ -147,6 +148,10 @@ struct BasisSet
 			elapsed_time
 		)
 	end
+end
+
+function BasisSet(structure::Structure, symmetry::Symmetry, cluster::Cluster, config::Config4System)
+	return BasisSet(structure, symmetry, cluster, config.lmax, config.nbody)
 end
 
 function construct_basislist(

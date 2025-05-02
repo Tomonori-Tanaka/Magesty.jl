@@ -15,7 +15,7 @@ for weight in weight_list
 	input["regression"]["weight"] = weight
 	sclus_restart = SpinCluster(sclus, input, false)
 	println("weight: ", weight)
-	# println("1NN: ", sclus_restart.optimize.SCE[2])	
+	println("1NN: ", sclus_restart.optimize.SCE[2])	
 	println("relative error energy:            ", sclus_restart.optimize.relative_error_energy)
 	println("relative error magfield_vertical: ", sclus_restart.optimize.relative_error_magfield_vertical)
 end

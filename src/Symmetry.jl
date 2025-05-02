@@ -19,8 +19,8 @@ using StaticArrays
 using Spglib
 
 using ..AtomCells
+using ..ConfigParser
 using ..Structures
-
 import Base: isless, show
 
 export SymmetryOperation, Maps, Symmetry
@@ -139,67 +139,69 @@ struct Symmetry
 	map_p2s::Matrix{Int}    # [nat_prim, ntran] -> corresponding atom index
 	map_s2p::Vector{Maps}   # [nat] -> corresponding atom index in primitive cel
 	symnum_translation::Vector{Int} # contains the indice of translational only operations
+
+	function Symmetry(structure::Structure, tol::Real)
+
+		start_time = time_ns()
+	
+		if tol <= 0
+			throw(ArgumentError("Tolerance must be positive, got $tol"))
+		end
+	
+		cell = structure.supercell
+		spglib_data::Spglib.Dataset =
+			get_dataset(Spglib.Cell(cell.lattice_vectors, cell.x_frac, cell.kd_int_list))
+	
+		if spglib_data.n_operations == 0
+			error(
+				"Error in symmetry search: No symmetry operations found. Please check the input structure or tolerance setting.",
+			)
+		end
+	
+		# construct symnum_translation and ntran
+		symnum_translation = construct_symnum_translation(spglib_data, tol)
+		ntran = length(symnum_translation)
+	
+		# construct symdata
+		symdata = construct_symdata(spglib_data, tol, symnum_translation, cell)
+	
+		# construct mapping data
+		map_sym, map_sym_cell = construct_map_sym(spglib_data, tol, symdata, structure)
+	
+		# generate map_p2s (primitive cell --> supercell)
+		map_p2s = construct_map_p2s(spglib_data, cell, map_sym, symnum_translation)
+	
+		nat_prim = max(spglib_data.mapping_to_primitive...)
+		# generate map_s2p (supercell -> primitive cell)
+		map_s2p = construct_map_s2p(cell, map_p2s, nat_prim, ntran)
+	
+		# collect atom indices in primitive cell from map_p2s
+		atoms_in_prim = Int[map_p2s[i, 1] for i in 1:nat_prim]
+		atoms_in_prim = sort(atoms_in_prim)
+	
+		# End timing
+		elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
+	
+		return new(
+			spglib_data.international_symbol,
+			spglib_data.spacegroup_number,
+			spglib_data.n_operations,
+			ntran,
+			nat_prim,
+			tol,
+			atoms_in_prim,
+			elapsed_time,
+			symdata,
+			map_sym,
+			map_sym_cell,
+			map_p2s,
+			map_s2p,
+			symnum_translation)
+	end
 end
 
-function Symmetry(structure::Structure, tol::Real)
-	# Start timing
-	start_time = time_ns()
-
-	if tol <= 0
-		throw(ArgumentError("Tolerance must be positive, got $tol"))
-	end
-
-	cell = structure.supercell
-	spglib_data::Spglib.Dataset =
-		get_dataset(Spglib.Cell(cell.lattice_vectors, cell.x_frac, cell.kd_int_list))
-
-	if spglib_data.n_operations == 0
-		error(
-			"Error in symmetry search: No symmetry operations found. Please check the input structure or tolerance setting.",
-		)
-	end
-
-	# construct symnum_translation and ntran
-	symnum_translation = construct_symnum_translation(spglib_data, tol)
-	ntran = length(symnum_translation)
-
-	# construct symdata
-	symdata = construct_symdata(spglib_data, tol, symnum_translation, cell)
-
-	# construct mapping data
-	map_sym, map_sym_cell = construct_map_sym(spglib_data, tol, symdata, structure)
-
-	# generate map_p2s (primitive cell --> supercell)
-	map_p2s = construct_map_p2s(spglib_data, cell, map_sym, symnum_translation)
-
-	nat_prim = max(spglib_data.mapping_to_primitive...)
-	# generate map_s2p (supercell -> primitive cell)
-	map_s2p = construct_map_s2p(cell, map_p2s, nat_prim, ntran)
-
-	# collect atom indices in primitive cell from map_p2s
-	atoms_in_prim = Int[map_p2s[i, 1] for i in 1:nat_prim]
-	atoms_in_prim = sort(atoms_in_prim)
-
-	# End timing
-	elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
-
-	symmetry = Symmetry(
-		spglib_data.international_symbol,
-		spglib_data.spacegroup_number,
-		spglib_data.n_operations,
-		ntran,
-		nat_prim,
-		tol,
-		atoms_in_prim,
-		elapsed_time,
-		symdata,
-		map_sym,
-		map_sym_cell,
-		map_p2s,
-		map_s2p,
-		symnum_translation)
-
-	return symmetry
+function Symmetry(structure::Structure, config::Config4System)
+	return Symmetry(structure, config.tolerance_sym)
 end
 
 function construct_symnum_translation(spglib_data::Spglib.Dataset, tol::Real)::Vector{Int}
