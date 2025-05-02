@@ -27,7 +27,6 @@ A structure that holds system configuration parameters for molecular dynamics si
 # Optional Parameters
 - `is_periodic::Vector{Bool}`: Periodicity flags for each direction [default: [true, true, true]]
 - `tolerance_sym::Float64`: Tolerance for symmetry operations [default: 1e-3]
-- `scaling_factor::Float64`: Scaling factor for lattice vectors [default: 1.0]
 """
 struct Config4System
 	# required parameters
@@ -44,14 +43,12 @@ struct Config4System
 	# optional parameters
 	is_periodic::Vector{Bool}
 	tolerance_sym::Float64
-	scaling_factor::Float64
 end
 
 # Default values for optional parameters
 const DEFAULT_VALUES_SYSTEM = Dict{Symbol, Any}(
 	:is_periodic => [true, true, true],
 	:tolerance_sym => 1e-3,
-	:scaling_factor => 1.0,
 )
 
 # Validation rules for system configuration
@@ -80,11 +77,6 @@ const VALIDATION_RULES_SYSTEM = [
 		:tolerance_sym,
 		x -> x > 0,
 		x -> "Symmetry tolerance must be positive, got $(x)",
-	),
-	ValidationRule(
-		:scaling_factor,
-		x -> x > 0,
-		x -> "Scaling factor must be positive, got $(x)",
 	),
 ]
 
@@ -133,8 +125,7 @@ function Config4System(input_dict::AbstractDict{<:AbstractString, Any})
 
 	# Parse structure parameters
 	structure_dict = input_dict["structure"]
-	scaling_factor = get(structure_dict, "scale", DEFAULT_VALUES_SYSTEM[:scaling_factor])::Float64
-	lattice_vectors = scaling_factor * hcat(structure_dict["lattice"]...)
+	lattice_vectors = hcat(structure_dict["lattice"]...)
 	kd_int_list = get(structure_dict, "kd_list", Int[])::Vector{Int}
 	positions = get(structure_dict, "position", Vector{Float64}[])::Vector{Vector{Float64}}
 	x_fractional = parse_position(positions, num_atoms)
@@ -148,7 +139,6 @@ function Config4System(input_dict::AbstractDict{<:AbstractString, Any})
 		nbody = nbody,
 		lmax = lmax,
 		cutoff_radii = cutoff_radii,
-		scaling_factor = scaling_factor,
 		lattice_vectors = lattice_vectors,
 		kd_int_list = kd_int_list,
 		x_fractional = x_fractional,
@@ -434,7 +424,7 @@ const DEFAULT_VALUES_OPTIMIZE = Dict{Symbol, Any}(
 const VALIDATION_RULES_OPTIMIZE = [
 	ValidationRule(:datafile, x -> !isempty(x), "Data file path cannot be empty"),
 	ValidationRule(:j_zero_thr, x -> x > 0, x -> "j_zero_thr must be positive, got $(x)"),
-	ValidationRule(:ndata, x -> x isa Int, x -> "ndata must be an integer , got $(x)"),
+	ValidationRule(:ndata, x -> x isa Int, x -> "ndata must be an integer, got $(x)"),
 	ValidationRule(:weight, x -> 0 <= x <= 1, x -> "weight must be between 0 and 1, got $(x)"),
 ]
 
@@ -474,12 +464,7 @@ function Config4Optimize(input_dict::AbstractDict{<:AbstractString, Any})
 	)
 	validate_optimize_parameters(params)
 
-	return Config4Optimize(
-		params.datafile,
-		params.j_zero_thr,
-		params.ndata,
-		params.weight,
-	)
+	return Config4Optimize(params...)
 end
 
 function validate_optimize_parameters(params::NamedTuple)::Nothing
