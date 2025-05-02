@@ -3,7 +3,6 @@
 	nat = 16
 	kd = [ "Fe", "Pt" ]
 	periodicity = [ true, true, true ]
-	j_zero_thr = 1e-10
 
 	[symmetry]
 	tolerance = 1e-5

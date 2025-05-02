@@ -3,8 +3,6 @@ kd = ["Fe", "Co"]
 name = "b2feco"
 nat = 54
 periodicity = [true, true, true]
-# periodicity = [false, false, false]
-j_zero_thr = 1e-10
 
 [symmetry]
 tolerance = 1e-4

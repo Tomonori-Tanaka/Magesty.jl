@@ -328,7 +328,6 @@ function SpinCluster(
 		spincluster.structure,
 		spincluster.symmetry,
 		spincluster.basisset,
-		parser.j_zero_thr,
 		parser.weight,
 		spincluster.optimize.spinconfig_dataset,
 		sce_with_bias,
