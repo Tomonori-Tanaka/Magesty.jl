@@ -1,5 +1,5 @@
 """
-    Module InputParser
+	Module InputParser
 
 This module provides functionality for parsing input data and constructing a Parser object.
 The Parser object contains all necessary information for the simulation, including
@@ -17,14 +17,10 @@ are present and properly formatted.
 """
 module InputParser
 
-using LinearAlgebra
-using Printf
-using Statistics
-
 export Parser
 
 """
-    struct Parser
+	struct Parser
 
 A structure that holds all input parameters for the simulation.
 
@@ -33,10 +29,10 @@ A structure that holds all input parameters for the simulation.
 - `num_atoms::Int`: Number of atoms in the structure
 - `kd_name::Vector{String}`: List of chemical species names
 - `nbody::Int`: Maximum number of bodies in interactions
-- `lmax::Matrix{Int}`: Maximum angular momentum values [nkd × nbody]
-- `cutoff_radii::Array{Float64, 3}`: Cutoff radii for interactions [nkd × nkd × nbody]
+- `lmax::Matrix{Int}`: Maximum angular momentum values [nkd x nbody]
+- `cutoff_radii::Array{Float64, 3}`: Cutoff radii for interactions [nkd x nkd x nbody]
 - `datafile::String`: Path to data file
-- `lattice_vectors::Matrix{Float64}`: Lattice vectors (3×3 matrix)
+- `lattice_vectors::Matrix{Float64}`: Lattice vectors (3x3 matrix)
 - `kd_int_list::Vector{Int}`: List of chemical species indices
 - `x_fractional::Matrix{Float64}`: Fractional coordinates of atoms
 
@@ -44,7 +40,8 @@ A structure that holds all input parameters for the simulation.
 - `is_periodic::Vector{Bool}`: Periodicity flags for each direction (default: [true, true, true])
 - `j_zero_thr::Float64`: Threshold for zero interaction (default: 1e-8)
 - `tolerance_sym::Float64`: Symmetry tolerance (default: 1e-3)
-- `weight::Union{Float64, String}`: Weight parameter for regression (default: 0.0)
+- `ndata::Int`: Number of data points (default: -1)
+- `weight::Float64`: Weight parameter for regression (default: 0.0)
 - `scale::Float64`: Scale factor for lattice vectors (default: 1.0)
 
 # Examples
@@ -52,7 +49,7 @@ A structure that holds all input parameters for the simulation.
 parser = Parser(input_dict)
 ```
 """
-mutable struct Parser
+struct Parser
 	# Required parameters
 	name::String
 	num_atoms::Int
@@ -69,12 +66,23 @@ mutable struct Parser
 	is_periodic::Vector{Bool}
 	j_zero_thr::Float64
 	tolerance_sym::Float64
-	weight::Union{Float64, String}
+	ndata::Int
+	weight::Float64
 	scale::Float64
 end
 
+# Default values for optional parameters
+const DEFAULT_VALUES = Dict{Symbol, Any}(
+	:is_periodic => [true, true, true],
+	:j_zero_thr => 1e-8,
+	:tolerance_sym => 1e-3,
+	:ndata => -1,
+	:weight => 0.0,
+	:scale => 1.0,
+)
+
 """
-    struct ValidationRule
+	struct ValidationRule
 
 A structure that defines a validation rule for a field.
 
@@ -90,7 +98,7 @@ struct ValidationRule
 end
 
 """
-    const VALIDATION_RULES
+	const VALIDATION_RULES
 
 Collection of validation rules for Parser parameters.
 """
@@ -101,31 +109,55 @@ const VALIDATION_RULES = [
 	ValidationRule(:kd_name, x -> !isempty(x), "Chemical species list cannot be empty"),
 	ValidationRule(:nbody, x -> x > 0, x -> "nbody must be positive, got $(x)"),
 	ValidationRule(:datafile, x -> !isempty(x), "Data file path cannot be empty"),
-	ValidationRule(:lattice_vectors, x -> size(x) == (3, 3), x -> "Lattice vectors must be a 3×3 matrix, got $(size(x))"),
-	ValidationRule(:kd_int_list, x -> x isa Vector{Int}, "kd_int_list must be a vector of integers"),
+	ValidationRule(
+		:lattice_vectors,
+		x -> size(x) == (3, 3),
+		x -> "Lattice vectors must be a 3x3 matrix, got $(size(x))",
+	),
+	ValidationRule(
+		:kd_int_list,
+		x -> x isa Vector{Int},
+		"kd_int_list must be a vector of integers",
+	),
 
 	# Optional parameters
-	ValidationRule(:is_periodic, x -> length(x) == 3, "Periodicity must be specified for all three directions"),
+	ValidationRule(
+		:is_periodic,
+		x -> length(x) == 3,
+		"Periodicity must be specified for all three directions",
+	),
 	ValidationRule(:j_zero_thr, x -> x >= 0, x -> "j_zero_thr must be non-negative, got $(x)"),
-	ValidationRule(:tolerance_sym, x -> x > 0, x -> "Symmetry tolerance must be positive, got $(x)"),
+	ValidationRule(
+		:tolerance_sym,
+		x -> x > 0,
+		x -> "Symmetry tolerance must be positive, got $(x)",
+	),
+	ValidationRule(:ndata, x -> x isa Int, x -> "Number of data must be an integer, got $(x)"),
 	ValidationRule(:weight, x -> x >= 0, x -> "Weight must be non-negative, got $(x)"),
 	ValidationRule(:scale, x -> x > 0, x -> "Scale factor must be positive, got $(x)"),
 ]
 
 """
-    validate_kd_list(params::NamedTuple)
+	validate_kd_list(params::NamedTuple)::Nothing
 
 Validate the chemical species list and indices.
 
 # Arguments
 - `params::NamedTuple`: The parameters to validate
 
+# Returns
+- `Nothing`
+
 # Throws
 - `ArgumentError` if validation fails
 """
-function validate_kd_list(params::NamedTuple)
+function validate_kd_list(params::NamedTuple)::Nothing
 	if length(params.kd_int_list) != params.num_atoms
-		throw(ArgumentError("Length of kd_list ($(length(params.kd_int_list))) must match number of atoms ($(params.num_atoms))"))
+		throw(
+			ArgumentError(
+				"Length of kd_list ($(length(params.kd_int_list))) must match number of atoms ($(params.num_atoms))",
+			),
+		)
 	end
 
 	kd_int_set = Set(params.kd_int_list)
@@ -135,96 +167,41 @@ function validate_kd_list(params::NamedTuple)
 	elseif any(x -> (x < 1 || nkd < x), kd_int_set)
 		throw(ArgumentError("Chemical species indices must be consecutive numbers starting from 1"))
 	end
+	return nothing
 end
 
 """
-    validate_parser_parameters(params::NamedTuple)
+	validate_parser_parameters(params::NamedTuple)::Nothing
 
 Validate all parameters for Parser construction.
 
 # Arguments
 - `params::NamedTuple`: The parameters to validate
 
+# Returns
+- `Nothing`
+
 # Throws
 - `ArgumentError` if any parameter is invalid
 """
-function validate_parser_parameters(params::NamedTuple)
+function validate_parser_parameters(params::NamedTuple)::Nothing
 	# Apply basic validation rules
 	for rule in VALIDATION_RULES
 		value = getfield(params, rule.field)
 		if !rule.validator(value)
-			error_message = rule.error_message isa Function ? rule.error_message(value) : rule.error_message
+			error_message =
+				rule.error_message isa Function ? rule.error_message(value) : rule.error_message
 			throw(ArgumentError(error_message))
 		end
 	end
 
 	# Apply custom validation
 	validate_kd_list(params)
+	return nothing
 end
 
 """
-    Parser(; kwargs...)
-
-Construct a Parser object using keyword arguments.
-
-# Arguments
-- Required parameters:
-  - `name::String`: Name of the structure
-  - `num_atoms::Int`: Number of atoms in the structure
-  - `kd_name::Vector{String}`: List of chemical species names
-  - `nbody::Int`: Maximum number of bodies in interactions
-  - `lmax::Matrix{Int}`: Maximum angular momentum values [nkd × nbody]
-  - `cutoff_radii::Array{Float64, 3}`: Cutoff radii for interactions [nkd × nkd × nbody]
-  - `datafile::String`: Path to data file
-  - `lattice_vectors::Matrix{Float64}`: Lattice vectors (3×3 matrix)
-  - `kd_int_list::Vector{Int}`: List of chemical species indices
-  - `x_fractional::Matrix{Float64}`: Fractional coordinates of atoms
-
-- Optional parameters:
-  - `is_periodic::Vector{Bool}`: Periodicity flags for each direction (default: [true, true, true])
-  - `j_zero_thr::Float64`: Threshold for zero interaction (default: 1e-8)
-  - `tolerance_sym::Float64`: Symmetry tolerance (default: 1e-3)
-  - `weight::Union{Float64, String}`: Weight parameter for regression (default: 0.0)
-  - `scale::Float64`: Scale factor for lattice vectors (default: 1.0)
-
-# Returns
-- `Parser`: A new Parser instance with validated parameters
-
-# Throws
-- `ArgumentError` if any required parameter is missing or invalid
-"""
-function Parser(; kwargs...)
-	# Convert keyword arguments to NamedTuple
-	params = (; kwargs...)
-	
-	# Validate parameters
-	validate_parser_parameters(params)
-	
-	# Construct Parser object with default values for optional parameters
-	return Parser(
-		# Required parameters
-		params.name,
-		params.num_atoms,
-		params.kd_name,
-		params.nbody,
-		params.lmax,
-		params.cutoff_radii,
-		params.datafile,
-		params.lattice_vectors,
-		params.kd_int_list,
-		params.x_fractional,
-		
-		# Optional parameters with defaults
-		get(params, :is_periodic, [true, true, true]),
-		get(params, :j_zero_thr, 1e-8),
-		get(params, :tolerance_sym, 1e-3),
-		get(params, :weight, 0.0),
-		get(params, :scale, 1.0)
-	)
-end
-
-"""
-    Parser(input_dict::AbstractDict{<:AbstractString, Any})
+	Parser(input_dict::AbstractDict{<:AbstractString, Any})
 
 Construct a Parser object from an input dictionary.
 
@@ -249,13 +226,13 @@ Construct a Parser object from an input dictionary.
 # Examples
 ```julia
 input_dict = Dict(
-    "general" => Dict(
-        "name" => "Fe",
-        "nat" => 2,
-        "kd" => ["Fe"],
-        "periodicity" => [true, true, true]
-    ),
-    # ... other sections ...
+	"general" => Dict(
+		"name" => "Fe",
+		"nat" => 2,
+		"kd" => ["Fe"],
+		"periodicity" => [true, true, true]
+	),
+	# ... other sections ...
 )
 parser = Parser(input_dict)
 ```
@@ -265,7 +242,9 @@ function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 	required_sections = ["general", "symmetry", "interaction", "regression", "structure"]
 	for section in required_sections
 		if !haskey(input_dict, section)
-			throw(ArgumentError("Required section \"$section\" is missing in the input dictionary."))
+			throw(
+				ArgumentError("Required section \"$section\" is missing in the input dictionary."),
+			)
 		end
 	end
 
@@ -274,12 +253,12 @@ function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 	name = get(general_dict, "name", "")::String
 	num_atoms = get(general_dict, "nat", 0)::Int
 	kd_name = get(general_dict, "kd", String[])::Vector{String}
-	is_periodic = get(general_dict, "periodicity", [true, true, true])::Vector{Bool}
-	j_zero_thr = get(general_dict, "j_zero_thr", 1e-8)::Float64
+	is_periodic = get(general_dict, "periodicity", DEFAULT_VALUES[:is_periodic])::Vector{Bool}
+	j_zero_thr = get(general_dict, "j_zero_thr", DEFAULT_VALUES[:j_zero_thr])::Float64
 
 	# Parse symmetry parameters
 	symmetry_dict = input_dict["symmetry"]
-	tolerance_sym = get(symmetry_dict, "tolerance", 1e-3)::Float64
+	tolerance_sym = get(symmetry_dict, "tolerance", DEFAULT_VALUES[:tolerance_sym])::Float64
 
 	# Parse interaction parameters
 	interaction_dict = input_dict["interaction"]
@@ -289,12 +268,13 @@ function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 
 	# Parse regression parameters
 	regression_dict = input_dict["regression"]
-	weight = get(regression_dict, "weight", 0.0)::Real
+	weight = get(regression_dict, "weight", DEFAULT_VALUES[:weight])::Real
 	datafile = get(regression_dict, "datafile", "")::String
+	ndata = get(regression_dict, "ndata", DEFAULT_VALUES[:ndata])::Int
 
 	# Parse structure parameters
 	structure_dict = input_dict["structure"]
-	scale = get(structure_dict, "scale", 1.0)::Real
+	scale = get(structure_dict, "scale", DEFAULT_VALUES[:scale])::Real
 	lattice_vectors = scale * hcat(structure_dict["lattice"]...)
 	kd_int_list = get(structure_dict, "kd_list", Int[])::Vector{Int}
 	positions = get(structure_dict, "position", Vector{Float64}[])::Vector{Vector{Float64}}
@@ -313,21 +293,39 @@ function Parser(input_dict::AbstractDict{<:AbstractString, Any})
 		lattice_vectors = lattice_vectors,
 		kd_int_list = kd_int_list,
 		x_fractional = x_fractional,
-		
+
 		# Optional parameters
 		is_periodic = is_periodic,
 		j_zero_thr = j_zero_thr,
 		tolerance_sym = tolerance_sym,
+		ndata = ndata,
 		weight = weight,
-		scale = scale
+		scale = scale,
 	)
 	validate_parser_parameters(params)
 
-	return Parser(; params...)
+	return Parser(
+		params.name,
+		params.num_atoms,
+		params.kd_name,
+		params.nbody,
+		params.lmax,
+		params.cutoff_radii,
+		params.datafile,
+		params.lattice_vectors,
+		params.kd_int_list,
+		params.x_fractional,
+		params.is_periodic,
+		params.j_zero_thr,
+		params.tolerance_sym,
+		params.ndata,
+		params.weight,	
+		params.scale,
+	)
 end
 
 """
-    check_interaction_field(interaction_dict::AbstractDict{<:AbstractString, Any}, kd_name::AbstractVector{<:AbstractString})
+	check_interaction_field(interaction_dict::AbstractDict{<:AbstractString, Any}, kd_name::AbstractVector{<:AbstractString})
 
 Validate the interaction field parameters.
 
@@ -348,9 +346,9 @@ Validate the interaction field parameters.
 # Examples
 ```julia
 interaction_dict = Dict(
-    "nbody" => 2,
-    "lmax" => Dict("Fe" => [2, 2]),
-    "cutoff" => Dict("Fe-Fe" => [0.0, 5.0])
+	"nbody" => 2,
+	"lmax" => Dict("Fe" => [2, 2]),
+	"cutoff" => Dict("Fe-Fe" => [0.0, 5.0])
 )
 check_interaction_field(interaction_dict, ["Fe"])
 ```
@@ -377,7 +375,11 @@ function check_interaction_field(
 			throw(ArgumentError("Invalid chemical species \"$key\" in lmax dictionary."))
 		end
 		if length(value) != nbody
-			throw(ArgumentError("Length of lmax values for $key ($(length(value))) doesn't match nbody ($nbody)."))
+			throw(
+				ArgumentError(
+					"Length of lmax values for $key ($(length(value))) doesn't match nbody ($nbody).",
+				),
+			)
 		end
 		if any(x -> x < 0, value)
 			throw(ArgumentError("Negative lmax values are not allowed for $key."))
@@ -394,7 +396,11 @@ function check_interaction_field(
 			throw(ArgumentError("Invalid chemical species \"$key2\" in cutoff dictionary."))
 		end
 		if length(value) != nbody
-			throw(ArgumentError("Length of cutoff values for $key ($(length(value))) doesn't match nbody ($nbody)."))
+			throw(
+				ArgumentError(
+					"Length of cutoff values for $key ($(length(value))) doesn't match nbody ($nbody).",
+				),
+			)
 		end
 	end
 
@@ -402,7 +408,7 @@ function check_interaction_field(
 end
 
 """
-    parse_lmax(lmax_dict::AbstractDict{<:AbstractString, Any}, kd_name::AbstractVector{<:AbstractString}, nbody::Integer)
+	parse_lmax(lmax_dict::AbstractDict{<:AbstractString, Any}, kd_name::AbstractVector{<:AbstractString}, nbody::Integer)::Matrix{Int}
 
 Parse and validate maximum angular momentum values.
 
@@ -415,16 +421,10 @@ Parse and validate maximum angular momentum values.
 - `Matrix{Int}`: Matrix of lmax values [nkd × nbody]
 
 # Throws
-- `ErrorException` if:
+- `ArgumentError` if:
   - Length of lmax values doesn't match nbody
   - Missing values for any chemical species
   - Invalid lmax values
-
-# Examples
-```julia
-lmax_dict = Dict("Fe" => [2, 2], "Ni" => [2, 2])
-lmax = parse_lmax(lmax_dict, ["Fe", "Ni"], 2)
-```
 """
 function parse_lmax(
 	lmax_dict::AbstractDict{<:AbstractString, Any},
@@ -437,12 +437,16 @@ function parse_lmax(
 	# Parse lmax values
 	for (kd_index, kd) in enumerate(kd_name)
 		if !haskey(lmax_dict, kd)
-			error("Missing lmax values for chemical species \"$kd\".")
+			throw(ArgumentError("Missing lmax values for chemical species \"$kd\"."))
 		end
 
 		values = lmax_dict[kd]
 		if length(values) != nbody
-			error("Length of lmax values for $kd ($(length(values))) doesn't match nbody ($nbody).")
+			throw(
+				ArgumentError(
+					"Length of lmax values for $kd ($(length(values))) doesn't match nbody ($nbody).",
+				),
+			)
 		end
 
 		for j in 1:nbody
@@ -455,7 +459,7 @@ function parse_lmax(
 end
 
 """
-    parse_cutoff(cutoff_dict::AbstractDict{<:AbstractString, Any}, kd_name::AbstractVector{<:AbstractString}, nbody::Integer)
+	parse_cutoff(cutoff_dict::AbstractDict{<:AbstractString, Any}, kd_name::AbstractVector{<:AbstractString}, nbody::Integer)::Array{Float64, 3}
 
 Parse and validate cutoff radii for interactions.
 
@@ -468,16 +472,10 @@ Parse and validate cutoff radii for interactions.
 - `Array{Float64, 3}`: Array of cutoff radii [nkd × nkd × nbody]
 
 # Throws
-- `ErrorException` if:
+- `ArgumentError` if:
   - Length of cutoff values doesn't match nbody
   - Missing values for any pair of chemical species
   - Invalid cutoff values
-
-# Examples
-```julia
-cutoff_dict = Dict("Fe-Fe" => [0.0, 5.0], "Fe-Ni" => [0.0, 4.5])
-cutoff = parse_cutoff(cutoff_dict, ["Fe", "Ni"], 2)
-```
 """
 function parse_cutoff(
 	cutoff_dict::AbstractDict{<:AbstractString, Any},
@@ -496,7 +494,11 @@ function parse_cutoff(
 
 		for (key, value) in cutoff_dict
 			if length(value) != nbody
-				throw(ArgumentError("Length of cutoff values for $key ($(length(value))) doesn't match nbody ($nbody)."))
+				throw(
+					ArgumentError(
+						"Length of cutoff values for $key ($(length(value))) doesn't match nbody ($nbody).",
+					),
+				)
 			end
 
 			elem1, elem2 = split(key, "-")
@@ -517,7 +519,7 @@ function parse_cutoff(
 end
 
 """
-    parse_position(position_list::AbstractVector{<:AbstractVector{<:Real}}, num_atoms::Integer)
+	parse_position(position_list::AbstractVector{<:AbstractVector{<:Real}}, num_atoms::Integer)::Matrix{Float64}
 
 Parse and validate atomic positions.
 
@@ -529,16 +531,10 @@ Parse and validate atomic positions.
 - `Matrix{Float64}`: Matrix of atomic positions [3 × num_atoms]
 
 # Throws
-- `ErrorException` if:
+- `ArgumentError` if:
   - Number of positions doesn't match num_atoms
   - Invalid position values
   - Missing position data
-
-# Examples
-```julia
-positions = [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]]
-x_fractional = parse_position(positions, 2)
-```
 """
 function parse_position(
 	position_list::AbstractVector{<:AbstractVector{<:Real}},
@@ -549,7 +545,11 @@ function parse_position(
 	# Parse positions
 	for (i, vec) in enumerate(position_list)
 		if length(vec) != 3
-			throw(ArgumentError("Position vector for atom $i must have 3 components, got $(length(vec))."))
+			throw(
+				ArgumentError(
+					"Position vector for atom $i must have 3 components, got $(length(vec)).",
+				),
+			)
 		end
 		position_tmp[:, i] = vec
 	end
