@@ -6,11 +6,12 @@ include("../src/types/UnitaryMatrixCl.jl")
 include("../src/types/SpinConfig.jl")
 include("../src/utils/RotationMatrix.jl")
 include("../src/utils/MySphericalHarmonics.jl")
+include("../src/utils/ConfigParser.jl")
 
 using Magesty
 using Test
 
-#= @testset "component tests" begin
+@testset "component tests" begin
 	include("./component_test/test_MySphericalHarmonics.jl")
 	include("./component_test/test_SortedContainer.jl")
 	include("./component_test/test_CountingContainer.jl")
@@ -18,7 +19,9 @@ using Test
 	include("./component_test/test_UnitaryMatrixCl.jl")
 	include("./component_test/test_RotationMatrix.jl")
 	include("./component_test/test_SpinConfig.jl")
-end =#
+
+	include("./component_test/test_ConfigParser.jl")
+end 
 
 @testset "examples" begin
 	include("./examples/febcc_2x2x2_pm/test.jl")
