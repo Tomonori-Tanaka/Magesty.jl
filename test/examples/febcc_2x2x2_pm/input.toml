@@ -1,6 +1,5 @@
 [general]
 name = "bccfe"
-mode = "optimize"
 kd = ["Fe"]
 nat = 16
 periodicity = [true, true, true]

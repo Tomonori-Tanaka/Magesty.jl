@@ -1,6 +1,5 @@
 [general]
 kd = ["Fe", "Co"]
-mode = "optimize"
 name = "b2feco"
 nat = 54
 periodicity = [true, true, true]
