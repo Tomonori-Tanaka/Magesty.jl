@@ -63,10 +63,13 @@ struct Cell
 
 end
 
-function Cell(lattice_vectors::AbstractMatrix{<:Real},
+function Cell(
+	lattice_vectors::AbstractMatrix{<:Real},
 	kd_int_list::AbstractVector{<:Integer},
 	x_frac::AbstractMatrix{<:Real},
 )
+	validate_lattice_vectors(lattice_vectors)
+
 	return Cell(lattice_vectors,
 		calc_reciprocal_vectors(lattice_vectors),
 		length(kd_int_list),
@@ -83,6 +86,16 @@ function show(io::IO, cell::Cell)
 	println(io, "\tnum_elements: ", cell.num_elements)
 	println(io, "\tkd_ind_list: ", cell.kd_int_list)
 	println(io, "\tx_frac: ", cell.x_frac)
+end
+
+function validate_lattice_vectors(lattice_vectors::AbstractMatrix{<:Real})
+	# Check linear independence and right-handed coordinate system
+	det_value = det(lattice_vectors)
+	if det_value ≈ 0
+		error("Lattice vectors are linearly dependent. det(lattice_vectors) = $det_value")
+	elseif det_value < 0
+		error("Lattice vectors do not form a right-handed coordinate system. det(lattice_vectors) = $det_value")
+	end
 end
 
 function calc_reciprocal_vectors(lattice_vectors::AbstractMatrix{<:Real})
