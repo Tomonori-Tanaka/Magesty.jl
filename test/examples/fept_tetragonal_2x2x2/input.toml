@@ -1,10 +1,8 @@
 	[general]
 	name = "l10fept2x2x2"
-	mode = "optimize"
 	nat = 16
 	kd = [ "Fe", "Pt" ]
 	periodicity = [ true, true, true ]
-	j_zero_thr = 1e-10
 
 	[symmetry]
 	tolerance = 1e-5
@@ -25,7 +23,6 @@
 	datafile = "/Users/tomorin/Packages/Magesty/test/examples/fept_tetragonal_2x2x2/EMBSET.dat"
 
 	[structure]
-	scale = 1
 	lattice = [
 		[ 2.0, 0.0, 0.0 ],
 		[ 0.0, 2.0, 0.0 ],

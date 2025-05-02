@@ -53,11 +53,10 @@ include("types/UnitaryMatrixCl.jl")
 include("types/SALC.jl")
 include("types/SpinConfig.jl")
 
-include("utils/InputParser.jl")
-include("utils/InputSetter.jl")
+include("utils/ConfigParser.jl")
 include("utils/RotationMatrix.jl")
 include("utils/MySphericalHarmonics.jl")
-using .InputParser
+using .ConfigParser
 
 include("Structure.jl")
 include("Symmetry.jl")
@@ -86,7 +85,6 @@ A collection of structure, symmetry, cluster, and basis set.
 - `basisset::BasisSet`: Basis set information
 """
 struct System
-	config::Parser
 	structure::Structure
 	symmetry::Symmetry
 	cluster::Cluster
@@ -108,25 +106,21 @@ Create a System from a dictionary of input parameters.
 - `ErrorException` if required parameters are missing or invalid
 """
 function System(input_dict::Dict{<:AbstractString, <:Any}, verbosity::Bool = true)
-	parser::Parser = Parser(input_dict)
-	structure::Structure = set_system(parser)
-	if verbosity
-		Structures.print_info(structure)
-	end
-	symmetry::Symmetry = set_symmetry(parser, structure)
-	if verbosity
-		Symmetries.print_info(symmetry)
-	end
-	cluster::Cluster = set_cluster(parser, structure, symmetry)
-	if verbosity
-		Clusters.print_info(cluster)
-	end
-	basisset::BasisSet = set_basisset(parser, structure, symmetry, cluster)
-	if verbosity
-		BasisSets.print_info(basisset)
-	end
+	config::Config4System = Config4System(input_dict)
 
-	return System(parser, structure, symmetry, cluster, basisset)
+	structure::Structure = Structure(config)
+	verbosity && Structures.print_info(structure)
+
+	symmetry::Symmetry = Symmetry(structure, config)
+	verbosity && Symmetries.print_info(symmetry)
+
+	cluster::Cluster = Cluster(structure, symmetry, config)
+	verbosity && Clusters.print_info(cluster)
+
+	basisset::BasisSet = BasisSet(structure, symmetry, cluster, config)
+	verbosity && BasisSets.print_info(basisset)
+
+	return System(structure, symmetry, cluster, basisset)
 end
 
 """
@@ -148,8 +142,8 @@ function System(toml_file::AbstractString, verbosity::Bool = true)
 	try
 		open(toml_file) do io
 			toml = read(io, String)
-			config = TOML.parse(toml)
-			return System(config, verbosity)
+			input_dict = TOML.parse(toml)
+			return System(input_dict, verbosity)
 		end
 	catch e
 		if isa(e, SystemError)
@@ -174,7 +168,6 @@ An extension of System with optimization capabilities.
 - `optimize::Union{SCEOptimizer, Nothing}`: Optimizer instance or nothing
 """
 struct SpinCluster
-	config::Parser
 	structure::Structure
 	symmetry::Symmetry
 	cluster::Cluster
@@ -198,29 +191,23 @@ Differ from System in that it also sets the optimizer.
 - `ErrorException` if required parameters are missing or invalid
 """
 function SpinCluster(input_dict::Dict{<:AbstractString, <:Any}, verbosity::Bool = true)
-	parser = Parser(input_dict)
-	structure::Structure = set_system(parser)
-	if verbosity
-		Structures.print_info(structure)
-	end
-	symmetry::Symmetry = set_symmetry(parser, structure)
-	if verbosity
-		Symmetries.print_info(symmetry)
-	end
-	cluster::Cluster = set_cluster(parser, structure, symmetry)
-	if verbosity
-		Clusters.print_info(cluster)
-	end
-	basisset::BasisSet = set_basisset(parser, structure, symmetry, cluster)
-	if verbosity
-		BasisSets.print_info(basisset)
-	end
-	optimize::SCEOptimizer = set_optimize(parser, structure, symmetry, basisset)
-	if verbosity
-		Optimize.print_info(optimize)
-	end
+	config::Config4System = Config4System(input_dict)
+	structure::Structure = Structure(config)
+	verbosity && Structures.print_info(structure)
 
-	return SpinCluster(parser, structure, symmetry, cluster, basisset, optimize)
+	symmetry::Symmetry = Symmetry(structure, config)
+	verbosity && Symmetries.print_info(symmetry)
+
+	cluster::Cluster = Cluster(structure, symmetry, config)
+	verbosity && Clusters.print_info(cluster)
+
+	basisset::BasisSet = BasisSet(structure, symmetry, cluster, config)
+	verbosity && BasisSets.print_info(basisset)
+
+	optimize::SCEOptimizer = SCEOptimizer(structure, symmetry, basisset, config)
+	verbosity && Optimize.print_info(optimize)
+
+	return SpinCluster(structure, symmetry, cluster, basisset, optimize)
 end
 
 """
@@ -242,8 +229,8 @@ function SpinCluster(toml_file::AbstractString, verbosity::Bool = true)
 	try
 		open(toml_file) do io
 			toml = read(io, String)
-			config = TOML.parse(toml)
-			return SpinCluster(config, verbosity)
+			input_dict = TOML.parse(toml)
+			return SpinCluster(input_dict, verbosity)
 		end
 	catch e
 		if isa(e, SystemError)
@@ -254,45 +241,15 @@ function SpinCluster(toml_file::AbstractString, verbosity::Bool = true)
 	end
 end
 
-"""
-	SpinCluster(system::System)
-
-Create a SpinCluster from an existing System.
-
-# Arguments
-- `system::System`: An existing System instance
-
-# Returns
-- `SpinCluster`: A new SpinCluster instance
-"""
-function SpinCluster(system::System, verbosity::Bool = true)
-	optimize = set_optimize(system.config, system.structure, system.symmetry, system.basisset)
-	if verbosity
-		Optimize.print_info(optimize)
-	end
-
-	return SpinCluster(
-		system.config,
-		system.structure,
-		system.symmetry,
-		system.cluster,
-		system.basisset,
-		optimize,
-	)
-end
-
 function SpinCluster(
 	system::System,
 	input_dict::Dict{<:AbstractString, <:Any},
 	verbosity::Bool = true,
 )
-	parser = Parser(input_dict)
-	optimize = set_optimize(parser, system.structure, system.symmetry, system.basisset)
-	if verbosity
-		Optimize.print_info(optimize)
-	end
+	config::Config4Optimize = Config4Optimize(input_dict)
+	optimize = SCEOptimizer(system.structure, system.symmetry, system.basisset, config)
+	verbosity && Optimize.print_info(optimize)
 	return SpinCluster(
-		system.config,
 		system.structure,
 		system.symmetry,
 		system.cluster,
@@ -305,8 +262,8 @@ function SpinCluster(system::System, toml_file::AbstractString, verbosity::Bool 
 	try
 		open(toml_file) do io
 			toml = read(io, String)
-			config = TOML.parse(toml)
-			return SpinCluster(system, config, verbosity)
+			input_dict = TOML.parse(toml)
+			return SpinCluster(system, input_dict, verbosity)
 		end
 	catch e
 		if isa(e, SystemError)
@@ -322,22 +279,19 @@ function SpinCluster(
 	input_dict::AbstractDict{<:AbstractString, <:Any},
 	verbosity::Bool = true,
 )
-	parser = Parser(input_dict)
+	config::Config4Optimize = Config4Optimize(input_dict)
 	sce_with_bias = vcat(spincluster.optimize.bias_term, spincluster.optimize.SCE)
 	optimize = SCEOptimizer(
 		spincluster.structure,
 		spincluster.symmetry,
 		spincluster.basisset,
-		parser.j_zero_thr,
-		parser.weight,
+		config.weight,
 		spincluster.optimize.spinconfig_dataset,
 		sce_with_bias,
 	)
-	if verbosity
-		Optimize.print_info(optimize)
-	end
+	verbosity && Optimize.print_info(optimize)
+
 	return SpinCluster(
-		spincluster.config,
 		spincluster.structure,
 		spincluster.symmetry,
 		spincluster.cluster,

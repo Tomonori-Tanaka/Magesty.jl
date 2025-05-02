@@ -27,6 +27,7 @@ using Printf
 
 using ..SortedContainer
 using ..AtomCells
+using ..ConfigParser
 using ..Structures
 using ..Symmetries
 
@@ -202,6 +203,10 @@ struct Cluster
 			elapsed_time
 		)
 	end
+end
+
+function Cluster(structure::Structure, symmetry::Symmetry, config::Config4System)
+	return Cluster(structure, symmetry, config.nbody, config.cutoff_radii)
 end
 
 function set_mindist_pairs(
