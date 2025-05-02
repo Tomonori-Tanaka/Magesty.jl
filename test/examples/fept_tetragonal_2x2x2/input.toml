@@ -1,6 +1,5 @@
 	[general]
 	name = "l10fept2x2x2"
-	mode = "optimize"
 	nat = 16
 	kd = [ "Fe", "Pt" ]
 	periodicity = [ true, true, true ]
