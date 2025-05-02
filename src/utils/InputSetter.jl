@@ -1,33 +1,33 @@
-function set_system(parser)
+function set_system(config)
 	structure = Structure(
-		parser.lattice_vectors,
-		parser.is_periodic,
-		parser.kd_name,
-		parser.kd_int_list,
-		parser.x_fractional)
+		config.lattice_vectors,
+		config.is_periodic,
+		config.kd_name,
+		config.kd_int_list,
+		config.x_fractional)
 end
 
-function set_symmetry(parser, structure)
+function set_symmetry(config, structure)
 	symmetry = Symmetry(
 		structure,
-		parser.tolerance_sym,
+		config.tolerance_sym,
 	)
 end
 
-function set_cluster(parser, structure, symmetry)
-	cluster = Cluster(structure, symmetry, parser.nbody, parser.cutoff_radii)
+function set_cluster(config, structure, symmetry)
+	cluster = Cluster(structure, symmetry, config.nbody, config.cutoff_radii)
 end
 
-function set_basisset(parser, structure, symmetry, cluster)
-	basisset = BasisSet(structure, symmetry, cluster, parser.lmax, parser.nbody)
+function set_basisset(config, structure, symmetry, cluster)
+	basisset = BasisSet(structure, symmetry, cluster, config.lmax, config.nbody)
 end
 
-function set_optimize(parser, structure, symmetry, basisset)
+function set_optimize(config, structure, symmetry, basisset)
 	optimize = SCEOptimizer(
 		structure,
 		symmetry,
 		basisset,
-		parser.weight,
-		parser.datafile,
+		config.weight,
+		config.datafile,
 	)
 end

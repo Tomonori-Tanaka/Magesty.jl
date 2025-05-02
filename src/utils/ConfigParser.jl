@@ -8,6 +8,54 @@ struct ValidationRule
 	error_message::Union{String, Function}
 end
 
+# Default values for system configuration
+const DEFAULT_VALUES_SYSTEM = Dict{Symbol, Any}(
+	:is_periodic => [true, true, true],
+	:tolerance_sym => 1e-3,
+)
+
+# Validation rules for system configuration
+const VALIDATION_RULES_SYSTEM = [
+	# Required parameters
+	ValidationRule(:name, x -> !isempty(x), "Structure name cannot be empty"),
+	ValidationRule(:num_atoms, x -> x > 0, x -> "Number of atoms must be positive, got $(x)"),
+	ValidationRule(:kd_name, x -> !isempty(x), "Chemical species list cannot be empty"),
+	ValidationRule(:nbody, x -> x > 0, x -> "nbody must be positive, got $(x)"),
+	ValidationRule(
+		:lattice_vectors,
+		x -> size(x) == (3, 3),
+		x -> "Lattice vectors must be a 3x3 matrix, got $(size(x))",
+	),
+	ValidationRule(
+		:kd_int_list,
+		x -> x isa Vector{Int},
+		"kd_int_list must be a vector of integers",
+	),
+	ValidationRule(
+		:is_periodic,
+		x -> length(x) == 3,
+		"Periodicity must be specified for all three directions",
+	),
+	ValidationRule(
+		:tolerance_sym,
+		x -> x > 0,
+		x -> "Symmetry tolerance must be positive, got $(x)",
+	),
+]
+
+# Default values for optimization parameters
+const DEFAULT_VALUES_OPTIMIZE = Dict{Symbol, Any}(
+	:ndata => -1,
+	:weight => 0.0,
+)
+
+# Validation rules for optimization parameters
+const VALIDATION_RULES_OPTIMIZE = [
+	ValidationRule(:datafile, x -> !isempty(x), "Data file path cannot be empty"),
+	ValidationRule(:ndata, x -> x isa Int, x -> "ndata must be an integer, got $(x)"),
+	ValidationRule(:weight, x -> 0 <= x <= 1, x -> "weight must be between 0 and 1, got $(x)"),
+]
+
 """
     Config4System
 
@@ -43,110 +91,130 @@ struct Config4System
 	# optional parameters
 	is_periodic::Vector{Bool}
 	tolerance_sym::Float64
+
+	"""
+	    Config4System(input_dict::AbstractDict{<:AbstractString, Any})
+
+	Construct a Config4System from a dictionary of parameters.
+
+	# Arguments
+	- `input_dict::AbstractDict{<:AbstractString, Any}`: Dictionary containing system configuration parameters
+
+	# Returns
+	- `Config4System`: A new system configuration object
+
+	# Throws
+	- `ArgumentError`: If required parameters are missing or invalid
+	"""
+	function Config4System(input_dict::AbstractDict{<:AbstractString, Any})
+		# Check required sections
+		required_sections = ["general", "symmetry", "interaction", "structure"]
+		for section in required_sections
+			if !haskey(input_dict, section)
+				throw(
+					ArgumentError("Required section \"$section\" is missing in the input dictionary."),
+				)
+			end
+		end
+
+		# Parse general parameters
+		general_dict = input_dict["general"]
+		name = general_dict["name"]::String
+		num_atoms = general_dict["nat"]::Int
+		kd_name = general_dict["kd"]::Vector{String}
+		is_periodic = get(general_dict, "periodicity", DEFAULT_VALUES_SYSTEM[:is_periodic])::Vector{Bool}
+
+		# Parse symmetry parameters
+		symmetry_dict = input_dict["symmetry"]
+		tolerance_sym = get(symmetry_dict, "tolerance", DEFAULT_VALUES_SYSTEM[:tolerance_sym])::Float64
+
+		# Parse interaction parameters
+		interaction_dict = input_dict["interaction"]
+		check_interaction_field(interaction_dict, kd_name)
+		nbody = interaction_dict["nbody"]::Int
+		lmax = parse_lmax(interaction_dict["lmax"], kd_name, nbody)
+		cutoff_radii = parse_cutoff(interaction_dict["cutoff"], kd_name, nbody)
+
+		# Parse structure parameters
+		structure_dict = input_dict["structure"]
+		lattice_vectors = hcat(structure_dict["lattice"]...)
+		kd_int_list = structure_dict["kd_list"]::Vector{Int}
+		positions = structure_dict["position"]::Vector{Vector{Float64}}
+		x_fractional = parse_position(positions, num_atoms)
+
+		# Validate parameters
+		params = (
+			# required parameters
+			name = name,
+			num_atoms = num_atoms,
+			kd_name = kd_name,
+			nbody = nbody,
+			lmax = lmax,
+			cutoff_radii = cutoff_radii,
+			lattice_vectors = lattice_vectors,
+			kd_int_list = kd_int_list,
+			x_fractional = x_fractional,
+			# optional parameters
+			is_periodic = is_periodic,
+			tolerance_sym = tolerance_sym,
+		)
+		validate_system_parameters(params)
+
+		return new(params...)
+	end
 end
 
-# Default values for optional parameters
-const DEFAULT_VALUES_SYSTEM = Dict{Symbol, Any}(
-	:is_periodic => [true, true, true],
-	:tolerance_sym => 1e-3,
-)
-
-# Validation rules for system configuration
-const VALIDATION_RULES_SYSTEM = [
-	# Required parameters
+const VALIDATION_RULES_GENERAL = [
 	ValidationRule(:name, x -> !isempty(x), "Structure name cannot be empty"),
 	ValidationRule(:num_atoms, x -> x > 0, x -> "Number of atoms must be positive, got $(x)"),
 	ValidationRule(:kd_name, x -> !isempty(x), "Chemical species list cannot be empty"),
-	ValidationRule(:nbody, x -> x > 0, x -> "nbody must be positive, got $(x)"),
-	ValidationRule(
-		:lattice_vectors,
-		x -> size(x) == (3, 3),
-		x -> "Lattice vectors must be a 3x3 matrix, got $(size(x))",
-	),
-	ValidationRule(
-		:kd_int_list,
-		x -> x isa Vector{Int},
-		"kd_int_list must be a vector of integers",
-	),
-	ValidationRule(
-		:is_periodic,
-		x -> length(x) == 3,
-		"Periodicity must be specified for all three directions",
-	),
-	ValidationRule(
-		:tolerance_sym,
-		x -> x > 0,
-		x -> "Symmetry tolerance must be positive, got $(x)",
-	),
+	ValidationRule(:is_periodic, x -> length(x) == 3, "Periodicity must be specified for all three directions"),
 ]
 
-"""
-    Config4System(input_dict::AbstractDict{<:AbstractString, Any})
-
-Construct a Config4System from a dictionary of parameters.
-
-# Arguments
-- `input_dict::AbstractDict{<:AbstractString, Any}`: Dictionary containing system configuration parameters
-
-# Returns
-- `Config4System`: A new system configuration object
-
-# Throws
-- `ArgumentError`: If required parameters are missing or invalid
-"""
-function Config4System(input_dict::AbstractDict{<:AbstractString, Any})
-	# Check required sections
-	required_sections = ["general", "symmetry", "interaction", "structure"]
-	for section in required_sections
-		if !haskey(input_dict, section)
-			throw(
-				ArgumentError("Required section \"$section\" is missing in the input dictionary."),
-			)
+function validate_general_parameters(params::NamedTuple)::Nothing
+	for rule in VALIDATION_RULES_GENERAL
+		value = getfield(params, rule.field)
+		if !rule.validator(value)
+			error_message =
+				rule.error_message isa Function ? rule.error_message(value) : rule.error_message
+			throw(ArgumentError(error_message))
 		end
 	end
+	return nothing
+end
 
-	# Parse general parameters
-	general_dict = input_dict["general"]
-	name = get(general_dict, "name", "")::String
-	num_atoms = get(general_dict, "nat", 0)::Int
-	kd_name = get(general_dict, "kd", String[])::Vector{String}
-	is_periodic = get(general_dict, "periodicity", DEFAULT_VALUES_SYSTEM[:is_periodic])::Vector{Bool}
+const VALIDATION_RULES_SYMMETRY = [
+	ValidationRule(:tolerance_sym, x -> x > 0, x -> "Symmetry tolerance must be positive, got $(x)"),
+]
 
-	# Parse symmetry parameters
-	symmetry_dict = input_dict["symmetry"]
-	tolerance_sym = get(symmetry_dict, "tolerance", DEFAULT_VALUES_SYSTEM[:tolerance_sym])::Float64
+function validate_symmetry_parameters(params::NamedTuple)::Nothing
+	for rule in VALIDATION_RULES_SYMMETRY
+		value = getfield(params, rule.field)
+		if !rule.validator(value)
+			error_message =
+				rule.error_message isa Function ? rule.error_message(value) : rule.error_message
+			throw(ArgumentError(error_message))
+		end
+	end
+	return nothing
+end
 
-	# Parse interaction parameters
-	interaction_dict = input_dict["interaction"]
-	check_interaction_field(interaction_dict, kd_name)
-	nbody = get(interaction_dict, "nbody", 0)::Int
-	lmax = parse_lmax(interaction_dict["lmax"], kd_name, nbody)
-	cutoff_radii = parse_cutoff(interaction_dict["cutoff"], kd_name, nbody)
+const VALIDATION_RULES_INTERACTION = [
+	ValidationRule(:nbody, x -> x > 0, x -> "nbody must be positive, got $(x)"),
+	ValidationRule(:lmax, x -> x isa Matrix{Int}, x -> "lmax must be a matrix of integers, got $(x)"),
+	ValidationRule(:cutoff_radii, x -> x isa Array{Float64, 3}, x -> "cutoff_radii must be an array of floats, got $(x)"),
+]
 
-	# Parse structure parameters
-	structure_dict = input_dict["structure"]
-	lattice_vectors = hcat(structure_dict["lattice"]...)
-	kd_int_list = get(structure_dict, "kd_list", Int[])::Vector{Int}
-	positions = get(structure_dict, "position", Vector{Float64}[])::Vector{Vector{Float64}}
-	x_fractional = parse_position(positions, num_atoms)
-
-	# Validate parameters
-	params = (
-		name = name,
-		num_atoms = num_atoms,
-		is_periodic = is_periodic,
-		kd_name = kd_name,
-		nbody = nbody,
-		lmax = lmax,
-		cutoff_radii = cutoff_radii,
-		lattice_vectors = lattice_vectors,
-		kd_int_list = kd_int_list,
-		x_fractional = x_fractional,
-		tolerance_sym = tolerance_sym,
-	)
-	validate_system_parameters(params)
-
-	return Config4System(params...)
+function validate_interaction_parameters(params::NamedTuple)::Nothing
+	for rule in VALIDATION_RULES_INTERACTION
+		value = getfield(params, rule.field)
+		if !rule.validator(value)
+			error_message =
+				rule.error_message isa Function ? rule.error_message(value) : rule.error_message
+			throw(ArgumentError(error_message))
+		end
+	end
+	return nothing
 end
 
 # Validate system parameters using defined rules
@@ -373,6 +441,18 @@ function parse_position(
 	position_list::AbstractVector{<:AbstractVector{<:Real}},
 	num_atoms::Integer,
 )::Matrix{Float64}
+	if isempty(position_list)
+		throw(ArgumentError("Position list cannot be empty"))
+	end
+
+	if length(position_list) != num_atoms
+		throw(
+			ArgumentError(
+				"Number of positions ($(length(position_list))) must match number of atoms ($num_atoms)",
+			),
+		)
+	end
+
 	position_tmp = fill(-1.0, 3, num_atoms)
 
 	# Parse positions
@@ -399,7 +479,6 @@ A structure that holds optimization parameters.
 - `datafile::String`: Path to the data file
 
 # Optional Parameters
-- `j_zero_thr::Float64`: Threshold for zero values [default: 1e-8]
 - `ndata::Int`: Number of data points to use [default: -1]
 - `weight::Float64`: Weight for optimization [default: 0.0]
 """
@@ -408,63 +487,45 @@ struct Config4Optimize
 	datafile::String
 
 	# optional parameters
-	j_zero_thr::Float64
 	ndata::Int
 	weight::Float64
-end
 
-# Default values for optional parameters
-const DEFAULT_VALUES_OPTIMIZE = Dict{Symbol, Any}(
-	:j_zero_thr => 1e-8,
-	:ndata => -1,
-	:weight => 0.0,
-)
+	"""
+	    Config4Optimize(input_dict::AbstractDict{<:AbstractString, Any})
 
-# Validation rules for optimization parameters
-const VALIDATION_RULES_OPTIMIZE = [
-	ValidationRule(:datafile, x -> !isempty(x), "Data file path cannot be empty"),
-	ValidationRule(:j_zero_thr, x -> x > 0, x -> "j_zero_thr must be positive, got $(x)"),
-	ValidationRule(:ndata, x -> x isa Int, x -> "ndata must be an integer, got $(x)"),
-	ValidationRule(:weight, x -> 0 <= x <= 1, x -> "weight must be between 0 and 1, got $(x)"),
-]
+	Construct a Config4Optimize from a dictionary of parameters.
 
-"""
-    Config4Optimize(input_dict::AbstractDict{<:AbstractString, Any})
+	# Arguments
+	- `input_dict::AbstractDict{<:AbstractString, Any}`: Dictionary containing optimization parameters
 
-Construct a Config4Optimize from a dictionary of parameters.
+	# Returns
+	- `Config4Optimize`: A new optimization configuration object
 
-# Arguments
-- `input_dict::AbstractDict{<:AbstractString, Any}`: Dictionary containing optimization parameters
-
-# Returns
-- `Config4Optimize`: A new optimization configuration object
-
-# Throws
-- `ArgumentError`: If required parameters are missing or invalid
-"""
-function Config4Optimize(input_dict::AbstractDict{<:AbstractString, Any})
-	# Check required sections
-	required_sections = ["general", "regression"]
-	for section in required_sections
-		if !haskey(input_dict, section)
-			throw(ArgumentError("Required section \"$section\" is missing in the input dictionary."))
+	# Throws
+	- `ArgumentError`: If required parameters are missing or invalid
+	"""
+	function Config4Optimize(input_dict::AbstractDict{<:AbstractString, Any})
+		# Check required sections
+		required_sections = ["general", "regression"]
+		for section in required_sections
+			if !haskey(input_dict, section)
+				throw(ArgumentError("Required section \"$section\" is missing in the input dictionary."))
+			end
 		end
+
+		datafile = input_dict["general"]["datafile"]
+		ndata = get(input_dict["regression"], "ndata", DEFAULT_VALUES_OPTIMIZE[:ndata])::Int
+		weight = get(input_dict["regression"], "weight", DEFAULT_VALUES_OPTIMIZE[:weight])::Float64
+
+		params = (
+			datafile = datafile,
+			ndata = ndata,
+			weight = weight,
+		)
+		validate_optimize_parameters(params)
+
+		return new(params...)
 	end
-
-	datafile = input_dict["general"]["datafile"]
-	j_zero_thr = get(input_dict["regression"], "j_zero_thr", DEFAULT_VALUES_OPTIMIZE[:j_zero_thr])::Float64
-	ndata = get(input_dict["regression"], "ndata", DEFAULT_VALUES_OPTIMIZE[:ndata])::Int
-	weight = get(input_dict["regression"], "weight", DEFAULT_VALUES_OPTIMIZE[:weight])::Float64
-
-	params = (
-		datafile = datafile,
-		j_zero_thr = j_zero_thr,
-		ndata = ndata,
-		weight = weight,
-	)
-	validate_optimize_parameters(params)
-
-	return Config4Optimize(params...)
 end
 
 function validate_optimize_parameters(params::NamedTuple)::Nothing
