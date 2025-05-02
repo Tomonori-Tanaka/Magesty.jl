@@ -1,27 +1,27 @@
 """
 	module Structures
 
-A module for managing crystal structures and periodic systems. It defines `Cell` and `Structure` types to handle lattice vectors, atomic positions, and related properties.
-
-# Types
-- **`Cell`**: Represents the unit cell of a crystal structure.
-- **`Structure`**: Represents a periodic structure built from a `Cell`, with additional information about periodicity, atom types, and neighboring images.
-
+A module for managing crystal structures and periodic systems.
 """
-
 module Structures
 using LinearAlgebra
 using Printf
 using StaticArrays
 
+using ..ConfigParser
+
 import Base: show
+
+# Constants
+const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring virtual cells
+const DIMENSIONS = 3  # Number of spatial dimensions
 
 export Structure
 
 """
 	Cell
 
-A structure that stores crystallographic information for a simulation cell.
+Represents the unit cell of a crystal structure with lattice vectors, atomic positions, and related properties.
 
 # Fields
 
@@ -90,9 +90,9 @@ function calc_reciprocal_vectors(lattice_vectors::AbstractMatrix{<:Real})
 end
 
 """
-   Structure(lattice_vectors, is_periodic, kd_name, kd_int_list, x_frac)
+	Structure
 
-A structure that represents a periodic structure constructed from a `Cell`.
+Represents a periodic structure built from a Cell, with information about periodicity, atom types, and neighboring images.
 
 # Fields
 
@@ -117,66 +117,93 @@ A structure that represents a periodic structure constructed from a `Cell`.
 - `atomtype_group::Vector{Vector{Int}}`  
   Groups of atom indices categorized by their types. Each sub-vector contains the indices of atoms belonging to a specific element type.
 
-- `creation_time::Float64`  
+- `elapsed_time::Float64`  
   Time taken to create the structure in seconds.
 
 """
 struct Structure
 	supercell::Cell
-	is_periodic::Vector{Bool}  # Periodicity flags for x, y, z directions
-	kd_name::Vector{String}    # Element names (e.g., ["Fe", "Co", "Ni"])
-	x_image_frac::Array{Float64, 3}  # Fractional coordinates of atoms in neighboring cells [3, num_atoms, 27]
-	x_image_cart::Array{Float64, 3}  # Cartesian coordinates of atoms in neighboring cells [3, num_atoms, 27]
-	exist_image::Vector{Bool}  # Flags indicating existence of neighboring cells based on periodicity
-	atomtype_group::Vector{Vector{Int}}  # Groups of atom indices by element type
-	elapsed_time::Float64  # Time taken to create the structure in seconds
+	is_periodic::Vector{Bool}
+	kd_name::Vector{String}
+	x_image_frac::Array{Float64, 3}
+	x_image_cart::Array{Float64, 3}
+	exist_image::Vector{Bool}
+	atomtype_group::Vector{Vector{Int}}
+	elapsed_time::Float64
 
+	function Structure(
+		lattice_vectors::AbstractMatrix{<:Real},
+		is_periodic::AbstractVector{Bool},
+		kd_name::AbstractVector{<:AbstractString},
+		kd_int_list::AbstractVector{<:Integer},
+		x_frac::AbstractMatrix{<:Real},
+	)
+		start_time::UInt64 = time_ns()
+		supercell::Cell = Cell(lattice_vectors, kd_int_list, x_frac)
+		x_image_frac::Array{Float64, 3} = zeros(Float64, DIMENSIONS, size(x_frac, 2), NUM_CELLS)
+		x_image_cart::Array{Float64, 3} = zeros(Float64, DIMENSIONS, size(x_frac, 2), NUM_CELLS)
+		x_image_frac, x_image_cart = calc_x_images(lattice_vectors, x_frac)
+		exist_image::Vector{Bool} = calc_exist_image(is_periodic)
+		atomtype_group::Vector{Vector{Int}} = calc_atomtype_group(kd_int_list)
+		elapsed_time::Float64 = (time_ns() - start_time) / 1e9
+
+		return new(
+			supercell,
+			is_periodic,
+			kd_name,
+			x_image_frac,
+			x_image_cart,
+			exist_image,
+			atomtype_group,
+			elapsed_time,
+		)
+	end
 end
 
-function Structure(
-	lattice_vectors::AbstractMatrix{<:Real},
-	is_periodic::AbstractVector{Bool},
-	kd_name::AbstractVector{<:AbstractString},
-	kd_int_list::AbstractVector{<:Integer},
-	x_frac::AbstractMatrix{<:Real},
-)
-	# 時間測定開始
-	start_time = time_ns()
-	
-	supercell = Cell(lattice_vectors, kd_int_list, x_frac)
-	x_image_frac, x_image_cart = calc_x_images(lattice_vectors, x_frac)
-	exist_image::Vector{Bool} = calc_exist_image(is_periodic)
-	atomtype_group::Vector{Vector{Int}} = calc_atomtype_group(kd_int_list)
-	
-	# 時間測定終了
-	elapsed_time = (time_ns() - start_time) / 1e9  # 秒単位に変換
-	
+"""
+	Structure(config::Config4System) -> Structure
+
+Create a Structure from a Config4System object.
+"""
+function Structure(config::Config4System)::Structure
+	lattice_vectors::SMatrix{3, 3, Float64} = config.lattice_vectors
+	is_periodic::Vector{Bool} = config.is_periodic
+	kd_name::Vector{String} = config.kd_name
+	kd_int_list::Vector{Int} = config.kd_int_list
+	x_frac::Matrix{Float64} = config.x_fractional
+
 	return Structure(
-		supercell,
+		lattice_vectors,
 		is_periodic,
 		kd_name,
-		x_image_frac,
-		x_image_cart,
-		exist_image,
-		atomtype_group,
-		elapsed_time
+		kd_int_list,
+		x_frac,
 	)
 end
 
+"""
+	calc_atomtype_group(kd_int_list) -> Vector{Vector{Int}}
+
+Group atom indices by their types.
+"""
 function calc_atomtype_group(kd_int_list::AbstractVector{<:Integer})::Vector{Vector{Int}}
-	unique_vals = unique(kd_int_list)
+	unique_vals::Vector{Int} = unique(kd_int_list)
 	return [findall(x -> x == val, kd_int_list) for val in unique_vals]
 end
 
+"""
+	calc_x_images(lattice_vectors, x_frac) -> Tuple{Array{Float64, 3}, Array{Float64, 3}}
+
+Calculate fractional and Cartesian coordinates of atoms in neighboring cells.
+"""
 function calc_x_images(
 	lattice_vectors::AbstractMatrix{<:Real},
 	x_frac::AbstractMatrix{<:Real},
 )::Tuple{Array{Float64, 3}, Array{Float64, 3}}
 	num_atoms::Int = size(x_frac, 2)
-	num_cell::Int = 27  # Total number of cells: center cell and its neighboring virtual cells
-	x_image_frac::Array{Float64, 3} = zeros(Float64, 3, num_atoms, num_cell)
-	x_image_cart::Array{Float64, 3} = zeros(Float64, 3, num_atoms, num_cell)
-	x_image_check::Array{Bool, 3} = fill(false, 3, num_atoms, num_cell)
+	x_image_frac::Array{Float64, 3} = zeros(Float64, DIMENSIONS, num_atoms, NUM_CELLS)
+	x_image_cart::Array{Float64, 3} = zeros(Float64, DIMENSIONS, num_atoms, NUM_CELLS)
+	x_image_check::Array{Bool, 3} = fill(false, DIMENSIONS, num_atoms, NUM_CELLS)
 
 	# Set up the center cell
 	x_image_frac[:, :, 1] = x_frac
@@ -207,7 +234,7 @@ function calc_x_images(
 
 	# Check completeness of calculations
 	if false in x_image_check
-		indices = findall(x -> x == false, x_image_check)
+		indices::Vector{CartesianIndex{3}} = findall(x -> x == false, x_image_check)
 		error("""
 			Error in `calc_x_images`: Incomplete calculation detected.
 			Missing coordinates at indices: $indices
@@ -218,19 +245,28 @@ function calc_x_images(
 	return x_image_frac, x_image_cart
 end
 
+"""
+	frac2cart(lattice_vectors, x_frac) -> Matrix{Float64}
+
+Convert fractional coordinates to Cartesian coordinates.
+"""
 function frac2cart(
 	lattice_vectors::AbstractMatrix{<:Real},
-	x_frac::AbstractMatrix{<:Real})::Matrix{Float64}
-
+	x_frac::AbstractMatrix{<:Real},
+)::Matrix{Float64}
 	return lattice_vectors * x_frac
 end
 
+"""
+	calc_exist_image(is_periodic) -> Vector{Bool}
+
+Determine which neighboring cells exist based on periodicity.
+"""
 function calc_exist_image(is_periodic::AbstractVector{Bool})::Vector{Bool}
-	num_cell = 27
-	exist_image = fill(true, num_cell)
+	exist_image::Vector{Bool} = fill(true, NUM_CELLS)
 	# Cell index 1 represents the central supercell
 	# Other indices (2-27) represent neighboring virtual cells
-	cell = 1
+	cell::Int = 1
 	for i in -1:1
 		for j in -1:1
 			for k in -1:1
@@ -274,27 +310,31 @@ function print_info(structure::Structure)
 
 	println("Lattice vector (in Angstrom):")
 	for (i, label) in enumerate(["a1", "a2", "a3"])
-		println(@sprintf("  %12.8e   %12.8e   %12.8e : %s", 
-			supercell.lattice_vectors[:, i]..., label))
+		println(
+			@sprintf("  %12.8e   %12.8e   %12.8e : %s",
+				supercell.lattice_vectors[:, i]..., label)
+		)
 	end
 	println("")
 	println("Periodicity: ", Int.(structure.is_periodic), "\n")
-	
+
 	digits = length(string(abs(supercell.num_atoms))) + 1
 	println("Atomic species:")
 	for (i, species) in enumerate(structure.kd_name)
 		println(@sprintf("  %*d: %s", digits, i, species))
 	end
 	println("")
-	
+
 	println("Atomic positions in fractional coordinates and atomic species:")
 	for i in 1:supercell.num_atoms
-		println(@sprintf("  %*d: %12.8e   %12.8e   %12.8e   %*d",
-			digits, i,
-			supercell.x_frac[1, i],
-			supercell.x_frac[2, i],
-			supercell.x_frac[3, i],
-			digits, supercell.kd_int_list[i]))
+		println(
+			@sprintf("  %*d: %12.8e   %12.8e   %12.8e   %*d",
+				digits, i,
+				supercell.x_frac[1, i],
+				supercell.x_frac[2, i],
+				supercell.x_frac[3, i],
+				digits, supercell.kd_int_list[i])
+		)
 	end
 	println("")
 	println(@sprintf("Elapsed time: %.6f seconds", structure.elapsed_time))
