@@ -6,7 +6,6 @@ This module contains functions for optimizing the SCE coefficients.
 module Optimize
 
 using Base.Threads
-using ForwardDiff
 using LinearAlgebra
 using Optim
 using Printf
@@ -15,6 +14,7 @@ using Statistics
 using ..MySphericalHarmonics
 using ..SALCs
 using ..AtomicIndices
+using ..ConfigParser
 using ..Structures
 using ..Symmetries
 using ..Clusters
@@ -40,7 +40,15 @@ function SCEOptimizer(
 	structure::Structure,
 	symmetry::Symmetry,
 	basisset::BasisSet,
-	j_zero_thr::Real,
+	config::Config4Optimize,
+)
+	return SCEOptimizer(structure, symmetry, basisset, config.weight, config.datafile)
+end
+
+function SCEOptimizer(
+	structure::Structure,
+	symmetry::Symmetry,
+	basisset::BasisSet,
 	weight::Real,
 	spinconfig_dataset::DataSet,
 )
@@ -147,7 +155,6 @@ function SCEOptimizer(
 	structure::Structure,
 	symmetry::Symmetry,
 	basisset::BasisSet,
-	j_zero_thr::Real,
 	weight::Real,
 	spinconfig_dataset::DataSet,
 	initial_sce_with_bias::AbstractVector{<:Real},
@@ -218,14 +225,13 @@ function SCEOptimizer(
 	structure::Structure,
 	symmetry::Symmetry,
 	basisset::BasisSet,
-	j_zero_thr::Real,
 	weight::Real,
 	datafile::AbstractString,
 )
 	# read datafile
 	spinconfig_dataset = parse_embset(datafile, structure.supercell.num_atoms)
 
-	return SCEOptimizer(structure, symmetry, basisset, j_zero_thr, weight, spinconfig_dataset)
+	return SCEOptimizer(structure, symmetry, basisset, weight, spinconfig_dataset)
 end
 
 """
@@ -701,12 +707,25 @@ function optimize_SCEcoeffs_with_weight(
 	# Define loss function
 	function loss_function(sce_coeffs_with_bias::AbstractVector)
 		# Calculate normalized predictions
-		nd_predicted_energy_list = (energy_model(sce_coeffs_with_bias, design_matrix_energy) .- mean_energy) ./ std_energy
-		nd_predicted_magfield_vertical_list = (magfield_vertical_model(sce_coeffs_with_bias, design_matrix_magfield_vertical) .- mean_magfield_vertical) ./ std_magfield_vertical
+		nd_predicted_energy_list =
+			(energy_model(sce_coeffs_with_bias, design_matrix_energy) .- mean_energy) ./ std_energy
+		nd_predicted_magfield_vertical_list =
+			(
+				magfield_vertical_model(sce_coeffs_with_bias, design_matrix_magfield_vertical) .-
+				mean_magfield_vertical
+			) ./ std_magfield_vertical
 
 		# Calculate weighted losses
-		loss_energy = sum(((nd_observed_energy_list .- nd_predicted_energy_list) ./ num_atoms) .^ 2) / data_num
-		loss_magfield_vertical = sum(((nd_observed_magfield_vertical_list .- nd_predicted_magfield_vertical_list) ./ (3*num_atoms)) .^ 2) / data_num
+		loss_energy =
+			sum(((nd_observed_energy_list .- nd_predicted_energy_list) ./ num_atoms) .^ 2) /
+			data_num
+		loss_magfield_vertical =
+			sum(
+				(
+					(nd_observed_magfield_vertical_list .- nd_predicted_magfield_vertical_list) ./
+					(3*num_atoms)
+				) .^ 2,
+			) / data_num
 
 		return weight * loss_energy + (1 - weight) * loss_magfield_vertical
 	end
@@ -724,8 +743,13 @@ function optimize_SCEcoeffs_with_weight(
 	predicted_magfield_vertical_list = magfield_vertical_model(optimized_sce_coeffs_with_bias, design_matrix_magfield_vertical)
 
 	# Calculate relative errors
-	relative_error_energy = √(sum((observed_energy_list .- predicted_energy_list) .^ 2) / sum(observed_energy_list .^ 2))
-	relative_error_magfield_vertical = √(sum((observed_magfield_vertical_flattened .- predicted_magfield_vertical_list) .^ 2) / sum(observed_magfield_vertical_flattened .^ 2))
+	relative_error_energy = √(
+		sum((observed_energy_list .- predicted_energy_list) .^ 2) / sum(observed_energy_list .^ 2)
+	)
+	relative_error_magfield_vertical = √(
+		sum((observed_magfield_vertical_flattened .- predicted_magfield_vertical_list) .^ 2) /
+		sum(observed_magfield_vertical_flattened .^ 2)
+	)
 
 	return (
 		optimized_sce_coeffs,

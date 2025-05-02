@@ -149,7 +149,6 @@ function create_toml(data::NamedTuple, output_file::String)
         general["nat"] = sum(data.numbers)
         general["kd"] = data.element_symbols
         general["periodicity"] = [true, true, true]
-        general["j_zero_thr"] = 1e-10
         toml_data["general"] = general
         
         # [symmetry] section

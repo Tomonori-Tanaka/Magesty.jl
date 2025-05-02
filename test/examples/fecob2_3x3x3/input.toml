@@ -1,11 +1,8 @@
 [general]
 kd = ["Fe", "Co"]
-mode = "optimize"
 name = "b2feco"
 nat = 54
 periodicity = [true, true, true]
-# periodicity = [false, false, false]
-j_zero_thr = 1e-10
 
 [symmetry]
 tolerance = 1e-4
@@ -143,4 +140,3 @@ position = [
   [0.833333333, 0.833333333, 0.500000000],
   [0.833333333, 0.833333333, 0.833333333],
 ]
-scale = 2.84

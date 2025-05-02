@@ -1,10 +1,8 @@
 [general]
 name = "bccfe"
-mode = "optimize"
 kd = ["Fe"]
 nat = 16
 periodicity = [true, true, true]
-j_zero_thr = 1e-6   # unit is eV
 
 [symmetry]
 tolerance = 1e-5
@@ -19,11 +17,9 @@ Fe-Fe = [-1, -1] # first element is just dummy to align wigh lmax array
 [regression]
 datafile = "/Users/tomorin/Packages/Magesty/test/examples/febcc_2x2x2_pm/EMBSET.dat"
 weight = 0.0 # 1.0: only use the energy info. 0.0: only use torque info (0 <= weight_ratio <= 1)
-cv = 10
 
 [structure]
 kd_list = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-scale = 2.83
 lattice = [
   [2.0, 0.0, 0.0],
   [0.0, 2.0, 0.0],
