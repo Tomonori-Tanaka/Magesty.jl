@@ -78,7 +78,7 @@ This project is licensed under the MIT License.
 
 ## Author
 
-- Tomonori Tanaka ([@TomonoriTanaka](https://github.com/TomonoriTanaka))
+- Tomonori Tanaka ([@TomonoriTanaka](https://github.com/Tomonori-Tanaka))
 
 ## Citation
 
@@ -89,7 +89,7 @@ If you use this software in your research, please cite:
 ## Contributing
 
 We welcome contributions! Please feel free to:
-- Report bugs and request features through [Issues](https://github.com/TomonoriTanaka/Magesty.jl/issues)
+- Report bugs and request features through [Issues](https://github.com/Tomonori-Tanaka/Magesty.jl/issues)
 - Submit pull requests
 - Improve documentation
 - Share usage examples
