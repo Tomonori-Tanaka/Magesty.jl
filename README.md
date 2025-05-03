@@ -1,14 +1,12 @@
 # Magesty.jl
 
-[![Build Status](https://github.com/TomonoriTanaka/Magesty.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/TomonoriTanaka/Magesty.jl/actions/workflows/CI.yml?query=branch%3Amain)
-
 Magesty is a Julia package for constructing effective spin models in magnetic materials. It performs analysis of spin configuration energies considering symmetry and optimizes Spin-Cluster Expansion (SCE) coefficients.
+Our package enables to consider the contiributions of spin-orbit couplings; in other words, we can calculate SCE terms including onsite anitsotropy and symmetric anisotropy interactions and anti-symmetryc anisotropy (Dzyaloshinskii-Moriya) interactions.
 
 ## Features
 
-- Generation of spin configurations considering crystal symmetry
-- Magnetic material modeling using Spin-Cluster Expansion
-- Optimization of SCE coefficients based on energy and magnetic field
+- Generation of SCE model considering crystal symmetry
+- Optimization of SCE coefficients based on energy and local magnetic field 
 - High-performance parallel computation
 - Rich analysis tools and visualization capabilities
 
@@ -41,11 +39,11 @@ For more detailed examples, please refer to the `test/examples` directory.
 
 ## Core Modules
 
-- `Structure`: Definition and manipulation of crystal structures
+- `Structure`: Definition of crystal structures
 - `Symmetry`: Space group analysis and symmetry operation generation
-- `BasisSet`: Generation of Spin-Cluster Expansion basis functions
 - `Cluster`: Cluster generation and analysis
-- `Optimize`: Optimization of SCE coefficients
+- `BasisSet`: Generation of symmetry-datapted SCE basis functions
+- `Optimize`: Estimation of SCE coefficients
 
 ## Dependencies
 
@@ -68,8 +66,6 @@ Example input files can be found in the `test/examples` directory.
 
 The package is optimized for:
 - Parallel computation using multiple threads
-- Efficient memory usage
-- Fast symmetry operations
 - Optimized cluster generation
 
 ## License
@@ -78,7 +74,7 @@ This project is licensed under the MIT License.
 
 ## Author
 
-- Tomonori Tanaka ([@TomonoriTanaka](https://github.com/Tomonori-Tanaka))
+- Tomonori Tanaka ([@TomonoriTanaka](https://github.com/Tomonori-Tanaka)) ([@ORCID](https://orcid.org/0000-0001-7306-6770))
 
 ## Citation
 
