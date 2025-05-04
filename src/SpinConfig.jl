@@ -23,14 +23,14 @@ export SpinConfig, read_embset, DataSet, parse_embset
 """
 	calc_local_magfield_vertical(spin_directions, local_magfield) -> Matrix{Float64}
 
-Calculate the vertical component of the local magnetic field.
+Calculate the component of the local magnetic field that is perpendicular to the magnetic moments.
 
 # Arguments
 - `spin_directions::Matrix{Float64}`: Spin direction vectors [3 × num_atoms]
 - `local_magfield::Matrix{Float64}`: Local magnetic field vectors [3 × num_atoms]
 
 # Returns
-- `Matrix{Float64}`: Vertical component of the local magnetic field [3 × num_atoms]
+- `Matrix{Float64}`: Component of the local magnetic field perpendicular to the magnetic moments [3 × num_atoms]
 """
 function calc_local_magfield_vertical(
 	spin_directions::Matrix{Float64},
@@ -54,7 +54,7 @@ A configuration of spins in a magnetic structure.
 - `magmom_size::Vector{Float64}`: The magnitude of magnetic moments for each atom [μ_B]
 - `spin_directions::Matrix{Float64}`: The direction cosines (unit vectors) of the spins [3 × num_atoms]
 - `local_magfield::Matrix{Float64}`: The local magnetic field at each atom [T]
-- `local_magfield_vertical::Matrix{Float64}`: The vertical component of the local magnetic field [T]
+- `local_magfield_vertical::Matrix{Float64}`: The component of the local magnetic field perpendicular to the magnetic moments [T]
 
 # Constructors
 - `SpinConfig(energy, magmom_size, spin_directions, local_magfield)`: Create a spin configuration
@@ -370,5 +370,4 @@ function separate_embset(
 
 	return SpinConfig(energy, magmom_size, spin_directions, local_magfield)
 end
-
 end
