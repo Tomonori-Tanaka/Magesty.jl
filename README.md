@@ -1,7 +1,6 @@
 # Magesty.jl
 
-Magesty is a Julia package for constructing effective spin models in magnetic materials. It performs analysis of spin configuration energies considering symmetry and optimizes Spin-Cluster Expansion (SCE) coefficients.
-Our package enables to consider the contiributions of spin-orbit couplings; in other words, we can calculate SCE terms including onsite anitsotropy and symmetric anisotropy interactions and anti-symmetryc anisotropy (Dzyaloshinskii-Moriya) interactions.
+Magesty is a Julia package for constructing effective spin models in magnetic materials within the Spin-Cluster Expansion (SCE) formalism [1].
 
 ## Features
 
@@ -100,3 +99,10 @@ For questions and support:
 1. Check the documentation
 2. Search existing issues
 3. Open a new issue if needed
+
+## References
+
+1. R. Drautz and M. Fähnle, "Spin-cluster expansion: Parametrization of the general adiabatic magnetic energy surface with ab initio accuracy", Phys. Rev. B 69, 104404 (2004). DOI: [10.1103/PhysRevB.69.104404](https://doi.org/10.1103/PhysRevB.69.104404)
+
+
+
