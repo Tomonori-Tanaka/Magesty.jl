@@ -157,7 +157,7 @@ struct Cluster
 	num_bodies::Int
 	cutoff_radii::Array{Float64, 3}
 	min_distance_pairs::Matrix{Vector{DistInfo}}
-	interaction_clusters::Matrix{OrderedSet{InteractionCluster}}
+	# interaction_clusters::Matrix{OrderedSet{InteractionCluster}}
 	cluster_list::Vector{SortedVector{Vector{AtomCell}}}
 	equivalent_atom_list::Vector{Vector{Int}}
 	elapsed_time::Float64
@@ -197,7 +197,6 @@ struct Cluster
 			structure.x_image_cart,
 			structure.exist_image,
 			interaction_pairs,
-			cutoff_radii,
 			min_distance_pairs,
 			nbody,
 		)
@@ -210,7 +209,7 @@ struct Cluster
 			nbody,
 			cutoff_radii,
 			min_distance_pairs,
-			interaction_clusters,
+			# interaction_clusters,
 			cluster_list,
 			equivalent_atom_list,
 			elapsed_time,
@@ -373,7 +372,6 @@ function set_interaction_clusters(
 	cartesian_coords::AbstractArray{<:Real, 3},
 	cell_exists::AbstractVector{Bool},
 	interaction_pairs::AbstractVector{<:AbstractVector{<:AbstractVector{<:Integer}}},
-	cutoff_radii::AbstractArray{<:Real, 3},
 	min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
 	num_bodies::Integer,
 )::Matrix{OrderedSet{InteractionCluster}}
@@ -397,22 +395,13 @@ function set_interaction_clusters(
 				for distinfo in min_distance_pairs[atom_index, other_atom_index]
 					push!(cell_indices, distinfo.cell_index)
 				end
-				max_dist = min_distance_pairs[atom_index, other_atom_index][1].distance
-				push!(cluster_set, InteractionCluster(atom_indices, [cell_indices], max_dist))
+				distance = min_distance_pairs[atom_index, other_atom_index][1].distance
+				push!(cluster_set, InteractionCluster(atom_indices, [cell_indices], distance))
 			end
 		else
 			for atom_combination in collect(combinations(interacting_atoms, body - 1))
-				atom_indices = atom_combination
 				cell_indices = Vector{Vector{Int}}()
-				if !is_within_cutoff(
-					vcat([atom_index], atom_combination),
-					atom_type_list,
-					cutoff_radii,
-					min_distance_pairs,
-				)
-					continue
-				end
-				max_dist = calc_distmax(vcat([atom_index], atom_combination), min_distance_pairs)
+				distance = calc_distmax(vcat([atom_index], atom_combination), min_distance_pairs)
 				for other_atom_index in atom_combination
 					cell_list = Int[]
 					for distinfo in min_distance_pairs[atom_index, other_atom_index]
@@ -420,7 +409,7 @@ function set_interaction_clusters(
 					end
 					push!(cell_indices, cell_list)
 				end
-				push!(cluster_set, InteractionCluster(atom_indices, cell_indices, max_dist))
+				push!(cluster_set, InteractionCluster(atom_combination, cell_indices, distance))
 			end
 		end
 		interaction_clusters[prim_atom_index, body-1] = cluster_set
@@ -429,43 +418,6 @@ function set_interaction_clusters(
 
 	@assert all(initialized) "Unassigned indices in interaction_clusters variable"
 	return interaction_clusters
-end
-
-"""
-	is_within_cutoff(atom_indices, atom_types, cutoff_radii, min_distance_pairs)
-
-Checks if a cluster of atoms is within the specified cutoff radii.
-
-# Arguments
-- `atom_indices::AbstractVector{<:Integer}`: Indices of atoms in the cluster
-- `atom_types::AbstractVector{<:Integer}`: Types of atoms in the cluster
-- `cutoff_radii::AbstractArray{<:Real, 3}`: Cutoff radii for interactions
-- `min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}}`: Minimum distance pairs
-
-# Returns
-- `Bool`: `true` if all pairs are within cutoff, `false` otherwise
-
-# Throws
-- `AssertionError`: If input parameters are invalid
-"""
-function is_within_cutoff(
-	atom_indices::AbstractVector{<:Integer},
-	atom_types::AbstractVector{<:Integer},
-	cutoff_radii::AbstractArray{<:Real, 3},
-	min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
-)::Bool
-	@assert length(atom_indices) > 1 "atom_indices must contain at least 2 elements."
-	@assert length(atom_indices) == length(atom_types) "Length of atom_indices and atom_types must match."
-
-	@inbounds for pair in collect(combinations(atom_indices, 2))
-		atom_type1 = atom_types[pair[1]]
-		atom_type2 = atom_types[pair[2]]
-		if min_distance_pairs[pair[1], pair[2]][1].distance ≥
-		   cutoff_radii[atom_type1, atom_type2, 1]
-			return false
-		end
-	end
-	return true
 end
 
 """
@@ -525,9 +477,9 @@ function generate_pairs(
 	@inbounds for body in 2:num_bodies
 		sorted_clusters = SortedVector{Vector{AtomCell}}()
 		for (i, prim_atom_index) in enumerate(primitive_atom_indices)
-			for cluster in interaction_clusters[i, body-1]
-				pairs = generate_combinations(cluster.atom_indices, cluster.cell_indices)
-				for partners in pairs
+			for cluster in interaction_clusters[i, body-1]	# target is i-th primitive atom
+				pairs::Vector{Vector{Tuple{Int, Int}}} = generate_combinations(cluster.atom_indices, cluster.cell_indices)
+				for partners::Vector{Tuple{Int, Int}} in pairs
 					atom_cells = Vector{AtomCell}([AtomCell(prim_atom_index, 1)])
 					for (atom_index, cell_index) in partners
 						push!(atom_cells, AtomCell(atom_index, cell_index))
@@ -596,7 +548,17 @@ Generates all possible combinations of atom indices and cell indices.
 - `cell_indices::AbstractVector{<:AbstractVector}`: List of cell indices for each atom
 
 # Returns
-- `Vector{Tuple}`: List of tuples containing atom and cell index pairs
+- `Vector{Vector{Tuple{Int, Int}}}`: List of tuples containing atom and cell index pairs
+
+# Examples
+```julia
+julia> generate_combinations([2, 3], [[1, 4], [5, 6]])
+4-element Vector{Vector{Tuple{Int64, Int64}}}:
+ [(2, 1), (3, 5)]
+ [(2, 1), (3, 6)]
+ [(2, 4), (3, 5)]
+ [(2, 4), (3, 6)]
+```
 
 # Throws
 - `AssertionError`: If input parameters are invalid
@@ -604,11 +566,16 @@ Generates all possible combinations of atom indices and cell indices.
 function generate_combinations(
 	atom_indices::AbstractVector,
 	cell_indices::AbstractVector{<:AbstractVector},
-)::Vector{Tuple}
+)::Vector{Vector{Tuple{Int, Int}}}
 	@assert length(atom_indices) == length(cell_indices) "Vectors must have the same length."
 	@assert length(atom_indices) > 0 "Vectors must not be empty."
-	combination = Iterators.product(cell_indices...)
-	return [Tuple(zip(atom_indices, comb)) for comb in combination]
+	
+	result = Vector{Vector{Tuple{Int, Int}}}()
+	for comb in Iterators.product(cell_indices...)
+		pairs = [(atom_idx, cell_idx) for (atom_idx, cell_idx) in zip(atom_indices, comb)]
+		push!(result, pairs)
+	end
+	return result
 end
 
 """
@@ -661,10 +628,15 @@ function print_info(cluster::Cluster)
 	CLUSTER
 	========
 	""")
-	println("Number of bodies: ", cluster.num_bodies)
-	println("Number of interaction clusters: ", length(cluster.cluster_list))
-	println("")
-	println("Elapsed time: ", cluster.elapsed_time, " seconds")
+	println("Number of interacting bodies (nbody): ", cluster.num_bodies)
+	println("Number of interaction clusters:")
+	for i in 2:cluster.num_bodies
+		println("\t$i-body: ", length(cluster.cluster_list[i-1]))
+		for j in eachindex(cluster.cluster_list[i-1])
+			println("\t\t", cluster.cluster_list[i-1][j])
+		end
+	end
+	println("\nElapsed time: ", cluster.elapsed_time, " seconds")
 	println("-------------------------------------------------------------------")
 end
 
