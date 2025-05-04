@@ -261,7 +261,6 @@ end
 function construct_map_sym(
 	spglib_data::Spglib.Dataset,
 	tol::Real,
-	symdata::AbstractVector{SymmetryOperation},
 	structure::Structure,
 )::Tuple{Matrix{Int}, Array{AtomCell}}
 	natomtypes = length(structure.atomtype_group)
