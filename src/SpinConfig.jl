@@ -31,11 +31,19 @@ Calculate the component of the local magnetic field that is perpendicular to the
 
 # Returns
 - `Matrix{Float64}`: Component of the local magnetic field perpendicular to the magnetic moments [3 × num_atoms]
+
+# Throws
+- `ArgumentError` if dimensions of input matrices do not match
 """
 function calc_local_magfield_vertical(
 	spin_directions::Matrix{Float64},
 	local_magfield::Matrix{Float64},
 )::Matrix{Float64}
+	# Validate input dimensions
+	if size(spin_directions) != size(local_magfield)
+		throw(ArgumentError("Dimensions of spin_directions and local_magfield must match"))
+	end
+
 	local_magfield_vertical = zeros(3, size(local_magfield, 2))
 	for i in 1:size(local_magfield, 2)
 		proj_B = dot(local_magfield[:, i], spin_directions[:, i]) * spin_directions[:, i]
@@ -61,6 +69,7 @@ A configuration of spins in a magnetic structure.
 
 # Throws
 - `ArgumentError` if dimensions of input arrays do not match
+- `ArgumentError` if any magnetic moment size is negative
 """
 struct SpinConfig
 	energy::Float64
@@ -95,6 +104,11 @@ struct SpinConfig
 			)
 		end
 
+		# Validate magnetic moment sizes
+		if any(x -> x < 0, magmom_size)
+			throw(ArgumentError("Magnetic moment sizes must be non-negative"))
+		end
+
 		# Calculate vertical component of local magnetic field
 		local_magfield_vertical = calc_local_magfield_vertical(spin_directions, local_magfield)
 
@@ -120,7 +134,7 @@ Display a spin configuration in a human-readable format.
 # Output Format
 ```
 energy (eV): <energy>
-   atom  magmom     spin_x     spin_y     spin_z     B_x         B_y         B_z         Bv_x        Bv_y        Bv_z
+   atom  magmom     e_x     e_y     e_z     B_x         B_y         B_z         Bv_x        Bv_y        Bv_z
 	  1  <value>  <value>    <value>    <value>    <value>     <value>     <value>     <value>     <value>     <value>
 	  ...
 ```
@@ -129,11 +143,11 @@ function show(io::IO, config::SpinConfig)
 	println(io, "energy (eV): $(config.energy)")
 	println(
 		io,
-		"   atom  magmom     spin_x     spin_y     spin_z     B_x         B_y         B_z         Bv_x        Bv_y        Bv_z",
+		"   atom  magmom     e_x     e_y     e_z     B_x         B_y         B_z         Bv_x        Bv_y        Bv_z",
 	)
 
 	num_atoms = length(config.magmom_size)
-	for i in 1:num_atoms
+	@inbounds for i in 1:num_atoms
 		println(io,
 			lpad(i, 7),
 			"  ",
@@ -184,6 +198,11 @@ struct DataSet
 		training_data_indices::Vector{Int},
 		validation_data_indices::Vector{Int},
 	)
+		# Validate indices
+		if !isempty(intersect(training_data_indices, validation_data_indices))
+			throw(ArgumentError("Training and validation indices must not overlap"))
+		end
+
 		return new(
 			spinconfigs,
 			length(training_data_indices),
@@ -247,8 +266,12 @@ Parse EMBSET file and create a DataSet with specified training ratio.
 
 # Throws
 - `ErrorException` if the file format is invalid
+- `ArgumentError` if num_atoms is not positive
 """
 function parse_embset(filename::AbstractString, num_atoms::Integer; training_ratio::Real = 1.0)
+	if num_atoms <= 0
+		throw(ArgumentError("Number of atoms must be positive"))
+	end
 	spinconfigs = read_embset(filename, num_atoms)
 	return DataSet(spinconfigs, training_ratio)
 end
@@ -270,6 +293,7 @@ Parse EMBSET file and create a DataSet using only specified configurations.
 # Throws
 - `ErrorException` if the file format is invalid
 - `BoundsError` if any index in use_data_indices is out of range
+- `ArgumentError` if use_data_indices is empty
 """
 function parse_embset(
 	filename::AbstractString,
@@ -277,6 +301,9 @@ function parse_embset(
 	use_data_indices::Vector{Int};
 	training_ratio::Real = 1.0,
 )
+	if isempty(use_data_indices)
+		throw(ArgumentError("use_data_indices must not be empty"))
+	end
 	spinconfigs_orig = read_embset(filename, num_atoms)
 	spinconfigs = spinconfigs_orig[use_data_indices]
 	return DataSet(spinconfigs, training_ratio)
@@ -296,8 +323,13 @@ Read spin configurations from an EMBSET file.
 
 # Throws
 - `ErrorException` if the file format is invalid
+- `ArgumentError` if the file does not exist
 """
 function read_embset(filepath::AbstractString, num_atoms::Integer)::Vector{SpinConfig}
+	if !isfile(filepath)
+		throw(ArgumentError("File does not exist: $filepath"))
+	end
+
 	# Read and filter lines
 	filtered_lines = String[]
 	open(filepath, "r") do file
@@ -342,6 +374,9 @@ Extract a single spin configuration from filtered EMBSET lines.
 
 # Returns
 - `SpinConfig`: The extracted spin configuration
+
+# Throws
+- `ErrorException` if the file format is invalid
 """
 function separate_embset(
 	filtered_lines::AbstractVector{<:AbstractString},
@@ -360,8 +395,11 @@ function separate_embset(
 	local_magfield = Matrix{Float64}(undef, 3, num_atoms)
 
 	# Parse atom data
-	for (i, line) in enumerate(filtered_lines[start_line+1:end_line])
+	for (i, line) in enumerate(filtered_lines[(start_line+1):end_line])
 		line_split = split(line)
+		if length(line_split) < 7
+			throw(ErrorException("Invalid line format in EMBSET file"))
+		end
 		moment = parse.(Float64, line_split[2:4])
 		magmom_size[i] = norm(moment)
 		spin_directions[:, i] = moment ./ magmom_size[i]
