@@ -51,7 +51,7 @@ include("types/AtomCell.jl")
 include("types/AtomicIndices.jl")
 include("types/UnitaryMatrixCl.jl")
 include("types/SALC.jl")
-include("types/SpinConfig.jl")
+include("SpinConfig.jl")
 
 include("utils/ConfigParser.jl")
 include("utils/RotationMatrix.jl")
