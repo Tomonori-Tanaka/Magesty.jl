@@ -11,6 +11,7 @@ using Optim
 using Printf
 using StatsBase
 using Statistics
+using StaticArrays
 using ..MySphericalHarmonics
 using ..SALCs
 using ..AtomicIndices
@@ -532,13 +533,14 @@ function calc_magfield_vertical_list_of_spinconfig(
 	magfield_vertical_list = zeros(3 * num_atoms)
 
 	for iatom in 1:num_atoms
-
-		# Get local magnetic field
-		magfield_vertical = @view spinconfig.local_magfield_vertical[:, iatom]
+		# Get local magnetic field using SVector for better performance
+		magfield_vertical = SVector{3,Float64}(spinconfig.local_magfield_vertical[:, iatom])
 
 		# Calculate magfield_vertical and store in preallocated vector
 		idx = (iatom - 1) * 3 + 1
-		magfield_vertical_list[idx:(idx+2)] .= spinconfig.magmom_size[iatom] .* magfield_vertical
+		# Use SVector for the multiplication
+		result = spinconfig.magmom_size[iatom] * magfield_vertical
+		magfield_vertical_list[idx:(idx+2)] = result
 	end
 
 	return magfield_vertical_list
@@ -585,7 +587,8 @@ function calc_derivative_of_salc(
 		# Calculate product of spherical harmonics and their derivatives
 		product = 1.0
 		for indices in basis
-			spin_dir = @view spin_directions[:, indices.atom]
+			# Use SVector for better performance with vector operations
+			spin_dir = SVector{3,Float64}(spin_directions[:, indices.atom])
 			if indices.atom == atom
 				product *= derivative_function(indices.l, indices.m, spin_dir)
 			else
