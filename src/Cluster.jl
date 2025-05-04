@@ -633,7 +633,8 @@ function print_info(cluster::Cluster)
 	for i in 2:cluster.num_bodies
 		println("\t$i-body: ", length(cluster.cluster_list[i-1]))
 		for j in eachindex(cluster.cluster_list[i-1])
-			println("\t\t", cluster.cluster_list[i-1][j])
+			cluster_str = join(["(atom: $(ac.atom), cell: $(ac.cell))" for ac in cluster.cluster_list[i-1][j]], ", ")
+			println("\t\t[$cluster_str]")
 		end
 	end
 	println("\nElapsed time: ", cluster.elapsed_time, " seconds")
