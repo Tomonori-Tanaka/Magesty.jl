@@ -166,7 +166,7 @@ struct Symmetry
 		symdata = construct_symdata(spglib_data, tol, symnum_translation, cell)
 	
 		# construct mapping data
-		map_sym, map_sym_cell = construct_map_sym(spglib_data, tol, symdata, structure)
+		map_sym, map_sym_cell = construct_map_sym(spglib_data, tol, structure)
 	
 		# generate map_p2s (primitive cell --> supercell)
 		map_p2s = construct_map_p2s(spglib_data, cell, map_sym, symnum_translation)
@@ -260,43 +260,57 @@ end
 function construct_map_sym(
 	spglib_data::Spglib.Dataset,
 	tol::Real,
-	symdata::AbstractVector{SymmetryOperation},
 	structure::Structure,
 )::Tuple{Matrix{Int}, Array{AtomCell}}
 	natomtypes = length(structure.atomtype_group)
 	map_sym = zeros(Int, structure.supercell.num_atoms, Int(spglib_data.n_operations))
 	map_sym_cell = Array{AtomCell}(undef, structure.supercell.num_atoms, 27, spglib_data.n_operations)
-	initialized = falses(size(map_sym_cell))
 
+	# Pre-compute frequently accessed values
+	tol_squared = tol^2
+	x_frac = structure.supercell.x_frac
+	x_image_frac = structure.x_image_frac
+	
 	@threads for isym in 1:spglib_data.n_operations
+		# Get rotation matrix and translation vector for current symmetry operation
+		@inbounds rotation = spglib_data.rotations[isym]
+		@inbounds translation = spglib_data.translations[isym]
+		
+		# Reuse temporary arrays
 		x_new = Vector{Float64}(undef, 3)
-		tmp = Vector{Float64}(undef, 3)
+		
 		for itype in 1:natomtypes
-			for iat in structure.atomtype_group[itype]
-				x_new = Vector(spglib_data.rotations[isym] * structure.supercell.x_frac[:, iat])
-				x_new = x_new + Vector(spglib_data.translations[isym])
+			@inbounds atom_group = structure.atomtype_group[itype]
+			
+			# For each atom in the group
+			for iat in atom_group
+				# Apply rotation and translation
+				@inbounds begin
+					mul!(x_new, rotation, @view(x_frac[:, iat]))
+					x_new .+= translation
+				end
+				
+				# Compare with other atoms of the same type
+				for jat in atom_group
+					# Calculate difference and minimum distance in one pass
+					diff_vec = (x_frac[:, jat] .- x_new) .% 1.0
+					diff_vec = min.(diff_vec, 1.0 .- diff_vec)
+					dist_squared = dot(diff_vec, diff_vec)
 
-				for jat in structure.atomtype_group[itype]
-					tmp = (abs.(structure.supercell.x_frac[:, jat] - x_new)) .% 1.0
-
-					for (i, val) in enumerate(tmp)
-						tmp[i] = min(val, 1 - val)
-					end
-
-					if norm(tmp) < tol
-						map_sym[iat, isym] = jat
+					# Compare using squared distance
+					if dist_squared < tol_squared
+						@inbounds map_sym[iat, isym] = jat
 						
-						# Find matching image cells
+						# Match image cells
 						for cell in 1:27
-							matched_cell = find_matching_image_cell(
-								symdata[isym],
-								structure.x_image_frac,
-								iat,
-								cell,
-								tol = tol,
-							)
-							map_sym_cell[iat, cell, isym] = AtomCell(jat, matched_cell)
-							initialized[iat, cell, isym] = true
+							@inbounds begin
+								matched_cell = find_matching_image_cell(
+									x_new,
+									x_image_frac,
+									tol = tol,
+								)
+								map_sym_cell[iat, cell, isym] = AtomCell(jat, matched_cell)
+							end
 						end
 						break
 					end
@@ -309,8 +323,6 @@ function construct_map_sym(
 	zero_pos = CartesianIndices(map_sym)[map_sym .== 0]
 	if !isempty(zero_pos)
 		error("zero is found in map_sym at $zero_pos")
-	elseif false in initialized
-		error("false is found in map_sym_cell")
 	end
 
 	return map_sym, map_sym_cell
@@ -421,29 +433,18 @@ Finds the matching image cell index for a given symmetry operation applied to an
 - `ErrorException`: If multiple matches are found
 """
 function find_matching_image_cell(
-	symop::SymmetryOperation,
+	x_new::AbstractVector{<:Real},
 	x_image::AbstractArray{<:Real, 3},
-	atom::Integer,
-	cell::Integer,
 	;
 	tol::Real = 1e-5,
 )::Int
-	# Input validation
-	if !(1 ≤ atom ≤ size(x_image, 2))
-		throw(ArgumentError("Atom index $atom is out of bounds"))
-	end
-	if !(1 ≤ cell ≤ size(x_image, 3))
-		throw(ArgumentError("Cell index $cell is out of bounds"))
-	end
 
 	# Pre-allocate arrays for better performance
-	x_moved = similar(x_image, 3)
-	x_moved .= symop.rotation_frac * @view(x_image[:, atom, cell]) .+ symop.translation_frac
 
 	# Use views for better performance
 	matches = [
 		(n, m) for n in 1:size(x_image, 2), m in 1:size(x_image, 3)
-		if isapprox(@view(x_image[:, n, m]), x_moved; atol = tol)
+		if isapprox(@view(x_image[:, n, m]), x_new; atol = tol)
 	]
 
 	if isempty(matches)
@@ -451,7 +452,7 @@ function find_matching_image_cell(
 	elseif length(matches) == 1
 		return matches[1][2]
 	else
-		error("Multiple matching image cells found for atom $atom in image cell $cell: $matches")
+		error("Multiple matching image cells found")
 	end
 end
 
