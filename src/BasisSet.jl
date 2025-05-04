@@ -116,24 +116,21 @@ struct BasisSet
 		salc_list = Vector{SALC}()
 		for idx in eachindex(projection_list)
 			eigenval, eigenvec = eigen(projection_list[idx])
+			
+			# Set tolerance constants
+			tol_zero = 1e-5
+			tol_eigen = 1e-8
+			
+			# Process eigenvalues and eigenvectors
 			eigenval = real.(round.(eigenval, digits = 6))
-			eigenvec[abs.(eigenvec).<1e-5] .= 0.0
-			eigenvec = round.(eigenvec, digits = 10)
+			eigenvec = round.(eigenvec .* (abs.(eigenvec) .≥ tol_zero), digits = 10)
 
-			if !check_eigenval(eigenval)
-				throw(
-					DomainError(
-						"Critical error: Eigenvalues must be either 0 or 1. index: $idx",
-					),
-				)
-			end
+			!check_eigenval(eigenval, tol = tol_eigen) && throw(DomainError("Critical error: Eigenvalues must be either 0 or 1. index: $idx"))
 
-			# Collect indices of basis with eigenvalue 1
-			eigenval_1_list = findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenval)
-			for idx_eigenval in eigenval_1_list
+			# Process vectors corresponding to eigenvalue 1
+			for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = tol_eigen), eigenval)
 				eigenvec_real = to_real_vector(eigenvec[:, idx_eigenval])
-				eigenvec_real_normalized = eigenvec_real / norm(eigenvec_real)
-				push!(salc_list, SALC(classified_basisdict[idx], eigenvec_real_normalized))
+				push!(salc_list, SALC(classified_basisdict[idx], eigenvec_real / norm(eigenvec_real)))
 			end
 		end
 
@@ -165,11 +162,11 @@ function construct_basislist(
 	result_basislist = SortedCountingUniqueVector{IndicesUniqueList}()
 	thread_basislists = [SortedCountingUniqueVector{IndicesUniqueList}() for _ in 1:nthreads()]
 
-	# aliases for better readability
+	# Get aliases for better readability
 	kd_int_list = structure.supercell.kd_int_list
 	cluster_list = cluster.cluster_list
 
-	# Handle 1-body case separately as it requires special treatment
+	# Handle 1-body case in parallel
 	@threads for iat in symmetry.atoms_in_prim
 		lmax = lmax_mat[kd_int_list[iat], 1]
 
@@ -181,26 +178,24 @@ function construct_basislist(
 		end
 	end
 
+	# Efficiently merge thread results
 	for thread_basis in thread_basislists
-		for basis in thread_basis
-			push!(result_basislist, basis)
-		end
+		append!(result_basislist, thread_basis)
 	end
 
 	# Process multi-body cases
 	for body in 2:bodymax
 		for cluster in cluster_list[body-1]
 			# Convert cluster into atomlist, llist, and celllist
-			atomlist, llist, celllist =
-				get_atomsls_from_cluster(cluster, lmax_mat, kd_int_list)
+			atomlist, llist, celllist = get_atomsls_from_cluster(cluster, lmax_mat, kd_int_list)
+			
 			for iul in product_indices_of_all_comb(atomlist, llist, celllist)
 				for basis in result_basislist
-					# Clusters consisting only of atoms in the primitive cell appear multiple times
+					# Check for equivalent clusters in primitive cell
 					if equivalent(basis, iul)
 						result_basislist.counts[basis] += 1
 						@goto skip
-					# To ensure the projection operator matrix becomes symmetric,
-					# translationally equivalent clusters are treated as the same cluster
+					# Check for translationally equivalent clusters
 					elseif is_translationally_equiv_basis(
 						iul,
 						basis,
@@ -440,20 +435,12 @@ function check_eigenval(eigenval::AbstractVector; tol = 1e-8)::Bool
 	return true
 end
 
-function to_real_vector(v::AbstractVector{T}, atol::Real = 1e-12) where T <: Real
-	return copy(v)  # real vector is returned as is
-end
-
-function to_real_vector(z::AbstractVector{Complex{T}}, atol::Real = 1e-12) where T <: Real
-	# Check all imaginary parts at once
-	if any(zi -> !isapprox(imag(zi), zero(T), atol = atol), z)
-		idx = findfirst(zi -> !isapprox(imag(zi), zero(T), atol = atol), z)
-		throw(
-			DomainError(z[idx],
-				"Vector contains complex numbers with significant imaginary parts"),
-		)
+function to_real_vector(v::AbstractVector, atol::Real = 1e-12)
+	if eltype(v) <: Complex && any(zi -> !isapprox(imag(zi), 0, atol = atol), v)
+		idx = findfirst(zi -> !isapprox(imag(zi), 0, atol = atol), v)
+		throw(DomainError(v[idx], "Vector contains complex numbers with significant imaginary parts"))
 	end
-	return real.(z)
+	return real.(v)
 end
 
 function print_info(basis::BasisSet)
