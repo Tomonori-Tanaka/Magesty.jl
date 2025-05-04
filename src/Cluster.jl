@@ -38,7 +38,7 @@ export Cluster
 """
 	struct DistInfo <: MyAbstractDistInfo
 
-Represents distance information between an atom in the central cell and an atom in a central or virtual neighboring cell.
+Represents distance information between two atoms.
 
 # Fields
 - `cell::Int`: The virtual cell index of the second atom (1-27 for 3x3x3 supercell).
@@ -65,9 +65,7 @@ struct DistInfo
 	relvec::Vector{Float64} # relative vector in Cartesian coordinates.
 
 	function DistInfo(cell::Integer, distance::Real, relvec::AbstractVector{<:Real})
-		if length(relvec) != 3
-			error("The length of \"relvec\" is not 3.")
-		end
+		@assert length(relvec) == 3 "The length of \"relvec\" must be 3."
 		return new(Int(cell), Float64(distance), Vector{Float64}(relvec))
 	end
 end
@@ -103,15 +101,9 @@ isless(intclus1::InteractionCluster, intclus2::InteractionCluster) =
 	intclus1.atoms < intclus2.atoms
 
 function ==(intclus1::InteractionCluster, intclus2::InteractionCluster)
-	if intclus1.atoms != intclus2.atoms
-		return false
-	elseif intclus1.cells != intclus2.cells
-		return false
-	elseif intclus1.distmax != intclus2.distmax
-		return false
-	else
-		return true
-	end
+	return intclus1.atoms == intclus2.atoms &&
+	       intclus1.cells == intclus2.cells &&
+	       intclus1.distmax == intclus2.distmax
 end
 
 
@@ -151,8 +143,11 @@ struct Cluster
 		structure::Structure,
 		symmetry::Symmetry,
 		nbody::Integer,
-		cutoff_radii::AbstractArray{<:Real},
+		cutoff_radii::AbstractArray{<:Real, 3},
 	)
+		@assert nbody ≥ 2 "Number of bodies must be at least 2."
+		@assert size(cutoff_radii, 3) == nbody "Cutoff radii dimensions must match nbody."
+
 		# Start timing
 		start_time = time_ns()
 		
