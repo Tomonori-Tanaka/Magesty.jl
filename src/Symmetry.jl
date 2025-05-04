@@ -14,6 +14,7 @@ A module for handling symmetry operations in crystal structures using `Spglib`. 
 module Symmetries
 
 using Base.Threads
+using Combinatorics: with_replacement_combinations
 using LinearAlgebra
 using StaticArrays
 using Spglib
@@ -293,13 +294,14 @@ function construct_map_sym(
 				# Compare with other atoms of the same type
 				for jat in atom_group
 					# Calculate difference and minimum distance in one pass
-					diff_vec = (x_frac[:, jat] .- x_new) .% 1.0
+					# Use @view for better performance
+					diff_vec = (@view(x_frac[:, jat]) .- x_new) .% 1.0
 					diff_vec = min.(diff_vec, 1.0 .- diff_vec)
 					dist_squared = dot(diff_vec, diff_vec)
 
 					# Compare using squared distance
 					if dist_squared < tol_squared
-						@inbounds map_sym[iat, isym] = jat
+						map_sym[iat, isym] = jat
 						
 						# Match image cells
 						for cell in 1:27
@@ -322,7 +324,8 @@ function construct_map_sym(
 	# Verify results
 	zero_pos = CartesianIndices(map_sym)[map_sym .== 0]
 	if !isempty(zero_pos)
-		error("zero is found in map_sym at $zero_pos")
+		# error("zero is found in map_sym at $zero_pos")
+		error("zero is found in map_sym")
 	end
 
 	return map_sym, map_sym_cell

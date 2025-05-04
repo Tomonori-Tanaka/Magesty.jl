@@ -168,9 +168,10 @@ function construct_basislist(
 
 	# Handle 1-body case in parallel
 	@threads for iat in symmetry.atoms_in_prim
-		lmax = lmax_mat[kd_int_list[iat], 1]
+		# Use @view for better performance when accessing matrix row
+		lmax = @view(lmax_mat[kd_int_list[iat], :])
 
-		for l in 1:lmax
+		for l in 1:lmax[1]
 			iul::Vector{Indices} = indices_singleatom(iat, l, 1)
 			for indices::Indices in iul
 				push!(thread_basislists[threadid()], IndicesUniqueList(indices))
