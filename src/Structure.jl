@@ -136,7 +136,7 @@ Represents a periodic structure built from a Cell, with information about period
 """
 struct Structure
 	supercell::Cell
-	is_periodic::Vector{Bool}
+	is_periodic::SVector{3, Bool}
 	kd_name::Vector{String}
 	x_image_frac::Array{Float64, 3}
 	x_image_cart::Array{Float64, 3}
@@ -180,7 +180,7 @@ Create a Structure from a Config4System object.
 """
 function Structure(config::Config4System)::Structure
 	lattice_vectors::SMatrix{3, 3, Float64} = config.lattice_vectors
-	is_periodic::Vector{Bool} = config.is_periodic
+	is_periodic::SVector{3, Bool} = config.is_periodic
 	kd_name::Vector{String} = config.kd_name
 	kd_int_list::Vector{Int} = config.kd_int_list
 	x_frac::Matrix{Float64} = config.x_fractional
@@ -223,6 +223,9 @@ function calc_x_images(
 	x_image_cart[:, :, 1] = frac2cart(lattice_vectors, x_frac)
 	x_image_check[:, :, 1] .= true
 
+	# Pre-allocate static vectors for better performance
+	x_image_tmp = MVector{3, Float64}(undef)
+	
 	# Calculate virtual cells
 	cell::Int = 1
 	for k in -1:1
@@ -234,13 +237,15 @@ function calc_x_images(
 				cell += 1
 
 				for iat in 1:num_atoms
-					x_image_frac[1, iat, cell] = x_frac[1, iat] + convert(Float64, i)
-					x_image_frac[2, iat, cell] = x_frac[2, iat] + convert(Float64, j)
-					x_image_frac[3, iat, cell] = x_frac[3, iat] + convert(Float64, k)
-
+					# Use static vector for temporary calculations
+					x_image_tmp[1] = x_frac[1, iat] + convert(Float64, i)
+					x_image_tmp[2] = x_frac[2, iat] + convert(Float64, j)
+					x_image_tmp[3] = x_frac[3, iat] + convert(Float64, k)
+					
+					x_image_frac[:, iat, cell] = x_image_tmp
 					x_image_check[:, iat, cell] .= true
 				end
-				x_image_cart[:, :, cell] = frac2cart(lattice_vectors, x_image_frac[:, :, cell])
+				x_image_cart[:, :, cell] = frac2cart(lattice_vectors, @view(x_image_frac[:, :, cell]))
 			end
 		end
 	end
@@ -267,7 +272,9 @@ function frac2cart(
 	lattice_vectors::AbstractMatrix{<:Real},
 	x_frac::AbstractMatrix{<:Real},
 )::Matrix{Float64}
-	return lattice_vectors * x_frac
+	# Convert to SMatrix for better performance with matrix multiplication
+	static_lattice = SMatrix{3,3,Float64}(lattice_vectors)
+	return Matrix(static_lattice * x_frac)
 end
 
 """
@@ -275,23 +282,30 @@ end
 
 Determine which neighboring cells exist based on periodicity.
 """
-function calc_exist_image(is_periodic::AbstractVector{Bool})::Vector{Bool}
+function calc_exist_image(is_periodic::SVector{3, Bool})::Vector{Bool}
 	exist_image::Vector{Bool} = fill(true, NUM_CELLS)
 	# Cell index 1 represents the central supercell
 	# Other indices (2-27) represent neighboring virtual cells
 	cell::Int = 1
+	
+	# Use static vector for offset calculations
+	offset = MVector{3, Int}(undef)
+	
 	for i in -1:1
+		offset[1] = i
 		for j in -1:1
+			offset[2] = j
 			for k in -1:1
+				offset[3] = k
 				if i == j == k == 0
 					continue  # Skip the center cell
 				end
 				cell += 1
 
 				if (
-					(abs(i) == 1 && is_periodic[1] == false)
-					|| (abs(j) == 1 && is_periodic[2] == false)
-					|| (abs(k) == 1 && is_periodic[3] == false)
+					(abs(offset[1]) == 1 && !is_periodic[1])
+					|| (abs(offset[2]) == 1 && !is_periodic[2])
+					|| (abs(offset[3]) == 1 && !is_periodic[3])
 				)
 					exist_image[cell] = false
 				end
