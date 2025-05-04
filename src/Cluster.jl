@@ -164,7 +164,7 @@ struct Cluster
 				tol = symmetry.tol,
 			)
 		# interaction_pairs[≤ nat_prim][nbody-1]
-		interaction_pairs::Vector{Vector{Int}} = set_interaction_by_cutoff(
+		interaction_pairs::Vector{Vector{Vector{Int}}} = set_interaction_by_cutoff(
 			structure.supercell.num_atoms,
 			symmetry.nat_prim,
 			structure.supercell.kd_int_list,
@@ -275,10 +275,11 @@ function set_interaction_by_cutoff(
 	cutoff_radii::AbstractArray{<:Real, 3},
 	nbody::Integer,
 	mindist_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
-)::Vector{Vector{Int}}
+)::Vector{Vector{Vector{Int}}}
 
-	interaction_pairs = Vector{Vector{Int}}()
+	interaction_pairs = Vector{Vector{Vector{Int}}}()
 	for body in 2:nbody # 1 is skipped cuz it's 1-body term.
+		pairs_tmp_a_body = Vector{Vector{Int}}()
 		for iat_prim in 1:nat_prim
 			pair_tmp = Int[]
 			iat = map_p2s[iat_prim, 1]  # index in the central cell
@@ -295,8 +296,9 @@ function set_interaction_by_cutoff(
 					append!(pair_tmp, jat)
 				end
 			end
-			push!(interaction_pairs, pair_tmp)
+			push!(pairs_tmp_a_body, pair_tmp)
 		end
+		push!(interaction_pairs, pairs_tmp_a_body)
 	end
 	return interaction_pairs
 end
@@ -307,7 +309,7 @@ function set_interaction_clusters(
 	map_p2s::AbstractMatrix{<:Integer},
 	x_image_cart::AbstractArray{<:Real, 3},
 	exist_image::AbstractVector{Bool},
-	interaction_pairs::AbstractVector{<:AbstractVector{<:Integer}},
+	interaction_pairs::AbstractVector{<:AbstractVector{<:AbstractVector{<:Integer}}},
 	cutoff_radii::AbstractArray{<:Real, 3},
 	mindist_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
 	nbody::Integer,
@@ -319,7 +321,8 @@ function set_interaction_clusters(
 		for iat_prim in 1:nat_prim
 			inter_cluster_set = OrderedSet{InteractionCluster}()
 			iat = map_p2s[iat_prim, 1]
-			intlist = interaction_pairs[iat_prim, body-1]
+			# intlist = interaction_pairs[iat_prim, body-1]
+			intlist::Vector{Int} = interaction_pairs[body-1][iat_prim]
 			sort!(intlist)
 
 			if body == 2# 2-body terms
@@ -336,8 +339,7 @@ function set_interaction_clusters(
 					)
 				end
 			else# 3- or more body terms
-				combinations = collect(combinations(intlist), body - 1)
-				for combi in combinations
+				for combi in collect(combinations(intlist, body - 1))
 					atoms_tmp = combi
 					cell_tmp = Vector{Vector{Int}}()
 					if !is_within_cutoff(
@@ -383,9 +385,8 @@ function is_within_cutoff(
 	rc::AbstractArray{<:Real, 3},
 	mindist_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
 )::Bool
-	combinations = collect(combinations(atoms, 2))
-	for pair in combinations
-		if mindist_pairs[pair[1], pair[2]].distance ≥ rc[kd_int[pair[1]], kd_int[pair[2]]]
+	for pair in collect(combinations(atoms, 2))
+		if (mindist_pairs[pair[1], pair[2]])[1].distance ≥ rc[kd_int[pair[1]], kd_int[pair[2]]]
 			return false
 		end
 	end
@@ -396,9 +397,8 @@ function calc_distmax(
 	atoms::AbstractVector{<:Integer},
 	mindist_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
 )::Float64
-	combinations = collect(combinations(atoms, 2))
 	dist_tmp = -1.0
-	for pair in combinations
+	for pair in collect(combinations(atoms, 2))
 		if dist_tmp < mindist_pairs[pair[1], pair[2]].distance
 			dist_tmp = mindist_pairs[pair[1], pair[2]].distance
 		end
@@ -524,8 +524,8 @@ function generate_combinations(
 	if length(vec) != length(vecofvec)
 		error("Vectors A and B must have the same length.")
 	end
-	combinations = Iterators.product(vecofvec...)
-	return [Tuple(zip(vec, comb)) for comb in combinations]
+	combination = Iterators.product(vecofvec...)
+	return [Tuple(zip(vec, comb)) for comb in combination]
 end
 
 """
