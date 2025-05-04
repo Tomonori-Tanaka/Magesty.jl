@@ -274,11 +274,15 @@ function construct_map_sym(
 	
 	@threads for isym in 1:spglib_data.n_operations
 		# Get rotation matrix and translation vector for current symmetry operation
-		@inbounds rotation = spglib_data.rotations[isym]
-		@inbounds translation = spglib_data.translations[isym]
+		@inbounds begin
+			# Convert to static arrays for better performance
+			rotation = SMatrix{3,3,Float64}(spglib_data.rotations[isym])
+			translation = SVector{3,Float64}(spglib_data.translations[isym])
+		end
 		
-		# Reuse temporary arrays
-		x_new = Vector{Float64}(undef, 3)
+		# Reuse temporary arrays - use MVector for mutable static vector
+		x_new = MVector{3,Float64}(undef)
+		diff_vec = MVector{3,Float64}(undef)
 		
 		for itype in 1:natomtypes
 			@inbounds atom_group = structure.atomtype_group[itype]
@@ -294,10 +298,12 @@ function construct_map_sym(
 				# Compare with other atoms of the same type
 				for jat in atom_group
 					# Calculate difference and minimum distance in one pass
-					# Use @view for better performance
-					diff_vec = (@view(x_frac[:, jat]) .- x_new) .% 1.0
-					diff_vec = min.(diff_vec, 1.0 .- diff_vec)
-					dist_squared = dot(diff_vec, diff_vec)
+					# Use static vectors for better performance
+					@inbounds begin
+						diff_vec .= (@view(x_frac[:, jat]) .- x_new) .% 1.0
+						diff_vec .= min.(diff_vec, 1.0 .- diff_vec)
+						dist_squared = dot(diff_vec, diff_vec)
+					end
 
 					# Compare using squared distance
 					if dist_squared < tol_squared
@@ -324,7 +330,6 @@ function construct_map_sym(
 	# Verify results
 	zero_pos = CartesianIndices(map_sym)[map_sym .== 0]
 	if !isempty(zero_pos)
-		# error("zero is found in map_sym at $zero_pos")
 		error("zero is found in map_sym")
 	end
 
@@ -436,18 +441,15 @@ Finds the matching image cell index for a given symmetry operation applied to an
 - `ErrorException`: If multiple matches are found
 """
 function find_matching_image_cell(
-	x_new::AbstractVector{<:Real},
+	x_new::MVector{3, Float64},
 	x_image::AbstractArray{<:Real, 3},
 	;
 	tol::Real = 1e-5,
 )::Int
-
-	# Pre-allocate arrays for better performance
-
 	# Use views for better performance
 	matches = [
 		(n, m) for n in 1:size(x_image, 2), m in 1:size(x_image, 3)
-		if isapprox(@view(x_image[:, n, m]), x_new; atol = tol)
+		if isapprox(SVector{3,Float64}(@view(x_image[:, n, m])), SVector{3,Float64}(x_new); atol = tol)
 	]
 
 	if isempty(matches)
