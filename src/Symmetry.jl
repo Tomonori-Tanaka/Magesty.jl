@@ -167,7 +167,7 @@ struct Symmetry
 		symdata = construct_symdata(spglib_data, tol, symnum_translation, cell)
 	
 		# construct mapping data
-		map_sym, map_sym_cell = construct_map_sym(spglib_data, tol, structure)
+		map_sym, map_sym_cell = construct_map_sym(spglib_data, tol, symdata, structure)
 	
 		# generate map_p2s (primitive cell --> supercell)
 		map_p2s = construct_map_p2s(spglib_data, cell, map_sym, symnum_translation)
@@ -261,64 +261,40 @@ end
 function construct_map_sym(
 	spglib_data::Spglib.Dataset,
 	tol::Real,
+	symdata::AbstractVector{SymmetryOperation},
 	structure::Structure,
 )::Tuple{Matrix{Int}, Array{AtomCell}}
 	natomtypes = length(structure.atomtype_group)
 	map_sym = zeros(Int, structure.supercell.num_atoms, Int(spglib_data.n_operations))
 	map_sym_cell = Array{AtomCell}(undef, structure.supercell.num_atoms, 27, spglib_data.n_operations)
+	initialized = falses(size(map_sym_cell))
 
-	# Pre-compute frequently accessed values
-	tol_squared = tol^2
-	x_frac = structure.supercell.x_frac
-	x_image_frac = structure.x_image_frac
-	
 	@threads for isym in 1:spglib_data.n_operations
-		# Get rotation matrix and translation vector for current symmetry operation
-		@inbounds begin
-			# Convert to static arrays for better performance
-			rotation = SMatrix{3,3,Float64}(spglib_data.rotations[isym])
-			translation = SVector{3,Float64}(spglib_data.translations[isym])
-		end
-		
-		# Reuse temporary arrays - use MVector for mutable static vector
-		x_new = MVector{3,Float64}(undef)
-		diff_vec = MVector{3,Float64}(undef)
-		
+		x_new = Vector{Float64}(undef, 3)
+		tmp = Vector{Float64}(undef, 3)
 		for itype in 1:natomtypes
-			@inbounds atom_group = structure.atomtype_group[itype]
-			
-			# For each atom in the group
-			for iat in atom_group
-				# Apply rotation and translation
-				@inbounds begin
-					mul!(x_new, rotation, @view(x_frac[:, iat]))
-					x_new .+= translation
-				end
-				
-				# Compare with other atoms of the same type
-				for jat in atom_group
-					# Calculate difference and minimum distance in one pass
-					# Use static vectors for better performance
-					@inbounds begin
-						diff_vec .= (@view(x_frac[:, jat]) .- x_new) .% 1.0
-						diff_vec .= min.(diff_vec, 1.0 .- diff_vec)
-						dist_squared = dot(diff_vec, diff_vec)
+			for iat in structure.atomtype_group[itype]
+				x_new = MVector(spglib_data.rotations[isym] * structure.supercell.x_frac[:, iat] + spglib_data.translations[isym])
+
+				for jat in structure.atomtype_group[itype]
+					tmp = (abs.(structure.supercell.x_frac[:, jat] - x_new)) .% 1.0
+
+					for (i, val) in enumerate(tmp)
+						tmp[i] = min(val, 1 - val)
 					end
 
-					# Compare using squared distance
-					if dist_squared < tol_squared
+					if norm(tmp) < tol
 						map_sym[iat, isym] = jat
 						
-						# Match image cells
+						# Find matching image cells
 						for cell in 1:27
-							@inbounds begin
-								matched_cell = find_matching_image_cell(
-									x_new,
-									x_image_frac,
-									tol = tol,
-								)
-								map_sym_cell[iat, cell, isym] = AtomCell(jat, matched_cell)
-							end
+							matched_cell = find_matching_image_cell(
+								x_new,
+								structure.x_image_frac,
+								tol = tol,
+							)
+							map_sym_cell[iat, cell, isym] = AtomCell(jat, matched_cell)
+							initialized[iat, cell, isym] = true
 						end
 						break
 					end
@@ -330,7 +306,9 @@ function construct_map_sym(
 	# Verify results
 	zero_pos = CartesianIndices(map_sym)[map_sym .== 0]
 	if !isempty(zero_pos)
-		error("zero is found in map_sym")
+		error("zero is found in map_sym at $zero_pos")
+	elseif false in initialized
+		error("false is found in map_sym_cell")
 	end
 
 	return map_sym, map_sym_cell
@@ -457,7 +435,7 @@ function find_matching_image_cell(
 	elseif length(matches) == 1
 		return matches[1][2]
 	else
-		error("Multiple matching image cells found")
+		error("Multiple matching image cells found. ")
 	end
 end
 
