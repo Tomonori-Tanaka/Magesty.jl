@@ -1,5 +1,6 @@
 using SparseArrays
 using Base.Threads
+using StaticArrays
 
 using ..RotationMatrices
 
@@ -25,11 +26,12 @@ function construct_projectionmatrix(
 
 	# aliases
 	x_image_cart::Array{Float64, 3} = structure.x_image_cart
-	lattice_vectors::Array{Float64, 2} = structure.supercell.lattice_vectors
+	# Convert to SMatrix for better performance
+	lattice_vectors::SMatrix{3,3,Float64} = SMatrix{3,3,Float64}(structure.supercell.lattice_vectors)
 	symdata::Vector{SymmetryOperation} = symmetry.symdata
 	map_sym_cell::Array{AtomCell} = symmetry.map_sym_cell
 	map_s2p::Vector{Maps} = symmetry.map_s2p
-	atoms_in_prim::Vector{Int} = symmetry.atoms_in_prim# atoms in the primitive cell
+	atoms_in_prim::Vector{Int} = symmetry.atoms_in_prim
 	tol::Real = symmetry.tol
 	result_projection = Vector{Matrix{Float64}}(undef, length(basisdict))
 
@@ -224,7 +226,7 @@ function apply_symop_to_basis_with_shift(
 	map_s2p::AbstractVector,
 	atoms_in_prim::AbstractVector{<:Integer},
 	x_image_cart::AbstractArray,
-	lattice_vectors::AbstractArray,
+	lattice_vectors::AbstractMatrix,
 	;
 	tol::Real = 1e-5,
 )::NTuple{2, Vector{Int}}
@@ -236,11 +238,13 @@ function apply_symop_to_basis_with_shift(
 	header_cell = cell_list[begin]
 
 	# firstly, apply the symmetry operation to atoms
-	moved_coords = Vector{Vector{Float64}}()
+	moved_coords = Vector{SVector{3,Float64}}()
 	for (atom, cell) in zip(atom_list, cell_list)
-		translation_cart = lattice_vectors * symop.translation_frac
-		coords_tmp =
-			symop.rotation_cart * x_image_cart[:, atom, cell] + translation_cart
+		# Use SVector for better performance
+		translation_cart = SVector{3,Float64}(lattice_vectors * symop.translation_frac)
+		coords_tmp = SVector{3,Float64}(
+			symop.rotation_cart * SVector{3,Float64}(x_image_cart[:, atom, cell]) + translation_cart
+		)
 		push!(moved_coords, coords_tmp)
 	end
 
@@ -260,11 +264,10 @@ function apply_symop_to_basis_with_shift(
 		@show moved_header_indices
 		error("Something is wrong.")
 	end
-	translation_vec =
-		calc_relvec_in_cart(moved_header_prim, moved_header_indices, x_image_cart)
+	translation_vec = calc_relvec_in_cart(moved_header_prim, moved_header_indices, x_image_cart)
 
 	# thirdly, shift all atoms by using the translation vector
-	shifted_coords = Vector{Vector{Float64}}()
+	shifted_coords = Vector{SVector{3,Float64}}()
 	for coords in moved_coords
 		push!(shifted_coords, coords + translation_vec)
 	end
@@ -276,7 +279,7 @@ function apply_symop_to_basis_with_shift(
 		found = false
 		for iatom in axes(x_image_cart, 2)
 			for icell in axes(x_image_cart, 3)
-				if isapprox(coords, x_image_cart[:, iatom, icell], atol = tol)
+				if isapprox(coords, SVector{3,Float64}(x_image_cart[:, iatom, icell]), atol = tol)
 					push!(result_atom_list, iatom)
 					push!(result_cell_list, icell)
 					found = true
@@ -293,13 +296,15 @@ function apply_symop_to_basis_with_shift(
 	return result_atom_list, result_cell_list
 end
 
-function calc_relvec_in_frac(atom1::NTuple{2, Integer},# (atom, cell)
+function calc_relvec_in_frac(
+	atom1::NTuple{2, Integer},# (atom, cell)
 	atom2::NTuple{2, Integer},
 	x_image_frac::AbstractArray{<:Real, 3},
-)::Vector{Float64}
-	result::Vector{Float64} =
+)::SVector{3,Float64}
+	# Use SVector for better performance
+	result = SVector{3,Float64}(
 		x_image_frac[:, atom1[1], atom1[2]] - x_image_frac[:, atom2[1], atom2[2]]
-
+	)
 	return result
 end
 

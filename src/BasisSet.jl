@@ -9,7 +9,7 @@ using Combinatorics
 using DataStructures
 using LinearAlgebra
 using Printf
-
+using StaticArrays
 using ..SortedContainer
 using ..AtomCells
 using ..AtomicIndices
@@ -329,7 +329,7 @@ function is_translationally_equiv_basis(
 		iatom_in_prim = atoms_in_prim[map_s2p[iatom].atom]
 
 		# cartesian relative vector b/w iatom and iatom_in_prim
-		relvec::Vector{Float64} =
+		relvec::SVector{3, Float64} =
 			calc_relvec_in_cart((iatom_in_prim, 1), (iatom, icell), x_image_cart)
 
 		moved_atomlist = Int[]
@@ -367,9 +367,11 @@ function calc_relvec_in_cart(
 	atom1::NTuple{2, Integer},# (atom, cell)
 	atom2::NTuple{2, Integer},
 	x_image_cart::AbstractArray{<:Real, 3},
-)::Vector{Float64}
-	relvec::Vector{Float64} =
+)::SVector{3, Float64}
+	# Use SVector for better performance with vector operations
+	relvec = SVector{3, Float64}(
 		x_image_cart[:, atom1[1], atom1[2]] - x_image_cart[:, atom2[1], atom2[2]]
+	)
 	return relvec
 end
 
@@ -383,14 +385,14 @@ function find_corresponding_atom(
 	;
 	tol::Real = 1e-5,
 )::NTuple{2, Int}
-
-	moved_coords::Vector{Float64} = x_image_cart[:, atom[1], atom[2]] + relvec
+	# Use SVector for better performance with vector operations
+	moved_coords = SVector{3, Float64}(x_image_cart[:, atom[1], atom[2]]) + SVector{3, Float64}(relvec)
 
 	num_atoms = size(x_image_cart, 2)
 	num_cells = size(x_image_cart, 3)
 	for iatom in 1:num_atoms
 		for icell in 1:num_cells
-			if isapprox(x_image_cart[:, iatom, icell], moved_coords, atol = tol)
+			if isapprox(SVector{3, Float64}(x_image_cart[:, iatom, icell]), moved_coords, atol = tol)
 				return (iatom, icell)
 			end
 		end
