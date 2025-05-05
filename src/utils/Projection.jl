@@ -88,6 +88,11 @@ function calc_projection(
 	if symop.is_translation_included == true
 		return projection_matrix
 	end
+
+	# 回転行列をSMatrixに変換
+	rotation_cart = SMatrix{3,3,Float64}(symop.rotation_cart)
+	translation_frac = SVector{3,Float64}(symop.translation_frac)
+
 	for (ir, rbasis::IndicesUniqueList) in enumerate(basislist)  # right-hand basis
 
 		moved_atomlist, moved_celllist =
@@ -154,9 +159,9 @@ function calc_projection(
 		is_proper::Bool = symop.is_proper
 		multiplier::Float64 = 1.0
 		if is_proper
-			rotmat = symop.rotation_cart
+			rotmat = rotation_cart
 		else
-			rotmat = -1 * symop.rotation_cart
+			rotmat = -1 * rotation_cart
 			multiplier = (-1)^(get_total_L(moved_rbasis))
 		end
 
@@ -240,11 +245,8 @@ function apply_symop_to_basis_with_shift(
 	# firstly, apply the symmetry operation to atoms
 	moved_coords = Vector{SVector{3,Float64}}()
 	for (atom, cell) in zip(atom_list, cell_list)
-		# Use SVector for better performance
-		translation_cart = SVector{3,Float64}(lattice_vectors * symop.translation_frac)
-		coords_tmp = SVector{3,Float64}(
-			symop.rotation_cart * SVector{3,Float64}(x_image_cart[:, atom, cell]) + translation_cart
-		)
+		translation_cart = lattice_vectors * SVector{3,Float64}(symop.translation_frac)
+		coords_tmp = SMatrix{3,3,Float64}(symop.rotation_cart) * SVector{3,Float64}(x_image_cart[:, atom, cell]) + translation_cart
 		push!(moved_coords, coords_tmp)
 	end
 
