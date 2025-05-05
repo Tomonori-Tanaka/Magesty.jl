@@ -19,8 +19,9 @@ using Test
 	include("./component_test/test_UnitaryMatrixCl.jl")
 	include("./component_test/test_RotationMatrix.jl")
 	include("./component_test/test_SpinConfig.jl")
-
 	include("./component_test/test_ConfigParser.jl")
+
+	include("./component_test/test_Structure.jl")
 end 
 
 @testset "examples" begin
