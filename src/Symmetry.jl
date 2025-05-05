@@ -167,7 +167,7 @@ struct Symmetry
 		symdata = construct_symdata(spglib_data, tol, symnum_translation, cell)
 	
 		# construct mapping data
-		map_sym, map_sym_cell = construct_map_sym(spglib_data, tol, symdata, structure)
+		map_sym, map_sym_cell = construct_map_sym(spglib_data, tol, structure)
 	
 		# generate map_p2s (primitive cell --> supercell)
 		map_p2s = construct_map_p2s(spglib_data, cell, map_sym, symnum_translation)

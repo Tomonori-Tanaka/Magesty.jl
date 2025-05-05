@@ -908,8 +908,8 @@ function write_magfield_vertical_list(
 	end
 
 	# Prepare data
-	observed_magfield_vertical_list = optimizer.observed_magfield_vertical_list
-	predicted_magfield_vertical_list = optimizer.predicted_magfield_vertical_list
+	observed_magfield_vertical_list = optimizer.observed_magfield_vertical_flattened_list
+	predicted_magfield_vertical_list = optimizer.predicted_magfield_vertical_flattened_list
 
 	# Format header
 	digits_index = length(string(length(observed_magfield_vertical_list)))
