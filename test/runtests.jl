@@ -22,6 +22,7 @@ using Test
 	include("./component_test/test_ConfigParser.jl")
 
 	include("./component_test/test_Structure.jl")
+	include("./component_test/test_Symmetry.jl")
 end 
 
 @testset "examples" begin
