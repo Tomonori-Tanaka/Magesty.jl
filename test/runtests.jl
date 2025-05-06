@@ -26,9 +26,8 @@ using Test
 end 
 
 @testset "examples" begin
+	include("./examples/febcc_2x2x2_pm/test.jl")
+
 	include("./develop_tmp/febcc_2x2x2_pm/test.jl")
 	include("./develop_tmp/fept_tetragonal_2x2x2/test.jl")
-	# include("./examples/febcc_2x2x2_pm/test.jl")
-	# include("./examples/fept_tetragonal_2x2x2/test.jl")
-	# include("./examples/fecob2_3x3x3/test.jl")
 end
