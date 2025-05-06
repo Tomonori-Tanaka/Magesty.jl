@@ -62,8 +62,8 @@ struct SymmetryOperation
 end
 
 function isless(symop1::SymmetryOperation, symop2::SymmetryOperation)
-	symop1_rot_flatten = [symop1.rotation_frac[i, j] for j in 1:3, i in 1:3]
-	symop2_rot_flatten = [symop2.rotation_frac[i, j] for j in 1:3, i in 1:3]
+	symop1_rot_flatten = vec(transpose(symop1.rotation_frac))
+	symop2_rot_flatten = vec(transpose(symop2.rotation_frac))
 
 	# if matrix element < 0, add 1.0
 	symop1_translation = [
