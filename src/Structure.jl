@@ -116,7 +116,7 @@ Represents a periodic structure built from a Cell, with information about period
   A vector indicating periodicity along each of the three principal axes. Each element corresponds to whether the structure is periodic (`true`) or non-periodic (`false`) along that axis.
 
 - `kd_name::Vector{String}`  
-  A list of element names present in the structure (e.g., `["Fe", "Co", "Ni"]`).
+  A list of element names present in the structure without deplication (e.g., `["Fe", "Co", "Ni"]`).
 
 - `x_image_frac::Array{Float64, 3}`  
   Fractional coordinates of atoms in neighboring (imaginary) cells. The dimensions typically represent the number of images, number of atoms, and the three fractional coordinates.
