@@ -45,6 +45,11 @@ module Magesty
 using Printf
 using TOML
 
+# Version information
+const VERSION = VersionNumber(
+    TOML.parsefile(joinpath(@__DIR__, "..", "Project.toml"))["version"]
+)
+
 include("common/SortedContainer.jl")
 
 include("types/AtomCell.jl")
@@ -70,7 +75,7 @@ using .Clusters
 using .BasisSets
 using .Optimize
 
-export System, SpinCluster, print_info, write_energy_lists, write_magfield_vertical_list
+export System, SpinCluster, print_info, write_energy_lists, write_magfield_vertical_list, VERSION, Write
 
 """
 	System
@@ -312,7 +317,7 @@ function print_info(sc::SpinCluster)
 	println(
 		"""
 		+-----------------------------------+
-		|          Magesty v0.1.0           |
+		|          Magesty v$(VERSION)      |
 		+-----------------------------------+
 
 		""",
@@ -364,6 +369,10 @@ function write_magfield_vertical_list(
 		throw(ErrorException("Optimizer is not set"))
 	end
 	Optimize.write_magfield_vertical_list(sc.optimize, filename)
+end
+
+function write_scecoeffs2xml(sc::SpinCluster, filename::AbstractString = "scecoeffs.xml")
+	Writes.write_scecoeffs2xml(sc, filename)
 end
 
 end
