@@ -371,8 +371,11 @@ function write_magfield_vertical_list(
 	Optimize.write_magfield_vertical_list(sc.optimize, filename)
 end
 
+include("utils/Write.jl")
+using .Write
+
 function write_scecoeffs2xml(sc::SpinCluster, filename::AbstractString = "scecoeffs.xml")
-	Writes.write_scecoeffs2xml(sc, filename)
+	Write.write_scecoeffs2xml(sc, filename)
 end
 
 end
