@@ -1,5 +1,4 @@
-module Writes
-include("../Magesty.jl")
+module Write
 
 using ..Magesty
 
