@@ -372,9 +372,8 @@ function write_magfield_vertical_list(
 	Optimize.write_magfield_vertical_list(sc.optimize, filename)
 end
 
-
 function write_scecoeffs2xml(structure::Structure, filename::AbstractString = "scecoeffs.xml")
-	write_scecoeffs2xml(structure, filename)
+	Write.write_scecoeffs2xml(structure, filename)
 end
 
 end

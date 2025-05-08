@@ -3,8 +3,6 @@ module Write
 using ..Version
 using ..Structures
 
-export write_scecoeffs2xml
-
 function write_scecoeffs2xml(structure::Structure, filename::String)
 	try
 		open(filename, "w") do f
@@ -16,15 +14,15 @@ function write_scecoeffs2xml(structure::Structure, filename::String)
 			write(f, "    <LatticeVector>\n")
 			write(
 				f,
-				"            <a1>$(structure.supercell.lattice_vectors[1, 1]) $(structure.supercell.lattice_vectors[1, 2]) $(structure.supercell.lattice_vectors[1, 3])</a1>\n",
+				"        <a1>$(structure.supercell.lattice_vectors[1, 1]) $(structure.supercell.lattice_vectors[1, 2]) $(structure.supercell.lattice_vectors[1, 3])</a1>\n",
 			)
 			write(
 				f,
-				"            <a2>$(structure.supercell.lattice_vectors[2, 1]) $(structure.supercell.lattice_vectors[2, 2]) $(structure.supercell.lattice_vectors[2, 3])</a2>\n",
+				"        <a2>$(structure.supercell.lattice_vectors[2, 1]) $(structure.supercell.lattice_vectors[2, 2]) $(structure.supercell.lattice_vectors[2, 3])</a2>\n",
 			)
 			write(
 				f,
-				"            <a3>$(structure.supercell.lattice_vectors[3, 1]) $(structure.supercell.lattice_vectors[3, 2]) $(structure.supercell.lattice_vectors[3, 3])</a3>\n",
+				"        <a3>$(structure.supercell.lattice_vectors[3, 1]) $(structure.supercell.lattice_vectors[3, 2]) $(structure.supercell.lattice_vectors[3, 3])</a3>\n",
 			)
 			write(f, "    </LatticeVector>\n")
 			write(f, "</System>\n")
