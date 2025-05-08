@@ -45,10 +45,8 @@ module Magesty
 using Printf
 using TOML
 
-# Version information
-const VERSION = VersionNumber(
-    TOML.parsefile(joinpath(@__DIR__, "..", "Project.toml"))["version"]
-)
+include("common/version.jl")
+using .Version
 
 include("common/SortedContainer.jl")
 
@@ -74,6 +72,9 @@ using .Symmetries
 using .Clusters
 using .BasisSets
 using .Optimize
+
+include("utils/Write.jl")
+using .Write
 
 export System, SpinCluster, print_info, write_energy_lists, write_magfield_vertical_list, VERSION, Write
 
@@ -371,11 +372,9 @@ function write_magfield_vertical_list(
 	Optimize.write_magfield_vertical_list(sc.optimize, filename)
 end
 
-include("utils/Write.jl")
-using .Write
 
-function write_scecoeffs2xml(sc::SpinCluster, filename::AbstractString = "scecoeffs.xml")
-	Write.write_scecoeffs2xml(sc, filename)
+function write_scecoeffs2xml(structure::Structure, filename::AbstractString = "scecoeffs.xml")
+	write_scecoeffs2xml(structure, filename)
 end
 
 end
