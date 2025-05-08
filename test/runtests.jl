@@ -36,7 +36,6 @@ end
 
 if test_mode in ("develop", "all")
 	@testset "develop" begin
-		include("./develop_tmp/febcc_2x2x2_pm/test.jl")
-		include("./develop_tmp/fept_tetragonal_2x2x2/test.jl")
+		include("./develop_tmp/test_develop.jl")
 	end
 end
