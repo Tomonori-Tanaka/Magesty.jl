@@ -86,7 +86,7 @@ struct BasisSet
 	)
 		# Start timing
 		start_time = time_ns()
-		
+
 		# Validate input parameters
 		nkd, nbody = size(lmax)
 		bodymax > 0 || throw(ArgumentError("bodymax must be positive"))
@@ -116,21 +116,26 @@ struct BasisSet
 		salc_list = Vector{SALC}()
 		for idx in eachindex(projection_list)
 			eigenval, eigenvec = eigen(projection_list[idx])
-			
+
 			# Set tolerance constants
 			tol_zero = 1e-5
 			tol_eigen = 1e-8
-			
+
 			# Process eigenvalues and eigenvectors
 			eigenval = real.(round.(eigenval, digits = 6))
 			eigenvec = round.(eigenvec .* (abs.(eigenvec) .≥ tol_zero), digits = 10)
 
-			!check_eigenval(eigenval, tol = tol_eigen) && throw(DomainError("Critical error: Eigenvalues must be either 0 or 1. index: $idx"))
+			!check_eigenval(eigenval, tol = tol_eigen) &&
+				throw(DomainError("Critical error: Eigenvalues must be either 0 or 1. index: $idx"))
 
 			# Process vectors corresponding to eigenvalue 1
 			for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = tol_eigen), eigenval)
 				eigenvec_real = to_real_vector(eigenvec[:, idx_eigenval])
-				push!(salc_list, SALC(classified_basisdict[idx], eigenvec_real / norm(eigenvec_real)))
+				eigenvec_real = flip_vector_if_negative_sum(eigenvec_real)
+				push!(
+					salc_list,
+					SALC(classified_basisdict[idx], eigenvec_real / norm(eigenvec_real)),
+				)
 			end
 		end
 
@@ -142,7 +147,7 @@ struct BasisSet
 			classified_basisdict,
 			projection_list,
 			salc_list,
-			elapsed_time
+			elapsed_time,
 		)
 	end
 end
@@ -189,14 +194,14 @@ function construct_basislist(
 		for cluster in cluster_list[body-1]
 			# Convert cluster into atomlist, llist, and celllist
 			atomlist, llist, celllist = get_atomsls_from_cluster(cluster, lmax_mat, kd_int_list)
-			
+
 			for iul in product_indices_of_all_comb(atomlist, llist, celllist)
 				for basis in result_basislist
 					# Check for equivalent clusters in primitive cell
 					if equivalent(basis, iul)
 						result_basislist.counts[basis] += 1
 						@goto skip
-					# Check for translationally equivalent clusters
+						# Check for translationally equivalent clusters
 					elseif is_translationally_equiv_basis(
 						iul,
 						basis,
@@ -317,8 +322,8 @@ function is_translationally_equiv_basis(
 	# Early return if the atomlist is the same including the order
 	if [indices.atom for indices in basis_target] == [indices.atom for indices in basis_ref]
 		return false
-	# Early return if the first atom is the same
-	# because this function is intended to be used for different first atoms but translationally equivalent clusters
+		# Early return if the first atom is the same
+		# because this function is intended to be used for different first atoms but translationally equivalent clusters
 	elseif basis_target[1].atom == basis_ref[1].atom
 		return false
 	end
@@ -359,7 +364,7 @@ function is_translationally_equiv_basis(
 end
 
 """
-Finds the cartesian relative vector b/w 2 atoms specified by (atom, cell) tuples, where cell means virtual cell index (1 <= cell <= 27).
+Finds the cartesian relative vector between 2 atoms specified by (atom, cell) tuples, where cell means virtual cell index (1 <= cell <= 27).
 The equation is
 r(atom2) - r(atom1)
 """
@@ -370,7 +375,7 @@ function calc_relvec_in_cart(
 )::SVector{3, Float64}
 	# Use SVector for better performance with vector operations
 	relvec = SVector{3, Float64}(
-		x_image_cart[:, atom1[1], atom1[2]] - x_image_cart[:, atom2[1], atom2[2]]
+		x_image_cart[:, atom1[1], atom1[2]] - x_image_cart[:, atom2[1], atom2[2]],
 	)
 	return relvec
 end
@@ -386,13 +391,18 @@ function find_corresponding_atom(
 	tol::Real = 1e-5,
 )::NTuple{2, Int}
 	# Use SVector for better performance with vector operations
-	moved_coords = SVector{3, Float64}(x_image_cart[:, atom[1], atom[2]]) + SVector{3, Float64}(relvec)
+	moved_coords =
+		SVector{3, Float64}(x_image_cart[:, atom[1], atom[2]]) + SVector{3, Float64}(relvec)
 
 	num_atoms = size(x_image_cart, 2)
 	num_cells = size(x_image_cart, 3)
 	for iatom in 1:num_atoms
 		for icell in 1:num_cells
-			if isapprox(SVector{3, Float64}(x_image_cart[:, iatom, icell]), moved_coords, atol = tol)
+			if isapprox(
+				SVector{3, Float64}(x_image_cart[:, iatom, icell]),
+				moved_coords,
+				atol = tol,
+			)
 				return (iatom, icell)
 			end
 		end
@@ -430,10 +440,9 @@ is_valid = check_eigenval(eigenvals)  # false
 ```
 """
 function check_eigenval(eigenval::AbstractVector; tol = 1e-8)::Bool
-	for value in eigenval
-		if !isapprox(value, 0, atol = tol) && !isapprox(value, 1, atol = tol)
-			return false
-		end
+	invalid_values = filter(x -> !isapprox(x, 0, atol = tol) && !isapprox(x, 1, atol = tol), eigenval)
+	if !isempty(invalid_values)
+		throw(BasisSetError("Invalid eigenvalues found: $invalid_values"))
 	end
 	return true
 end
@@ -441,9 +450,32 @@ end
 function to_real_vector(v::AbstractVector, atol::Real = 1e-12)
 	if eltype(v) <: Complex && any(zi -> !isapprox(imag(zi), 0, atol = atol), v)
 		idx = findfirst(zi -> !isapprox(imag(zi), 0, atol = atol), v)
-		throw(DomainError(v[idx], "Vector contains complex numbers with significant imaginary parts"))
+		throw(
+			DomainError(v[idx], "Vector contains complex numbers with significant imaginary parts"),
+		)
 	end
 	return real.(v)
+end
+
+"""
+    flip_vector_if_negative_sum(v::AbstractVector{<:Real}; tol::Real=1e-10)::AbstractVector{<:Real}
+
+Flip the sign of the vector if the sum of the elements is negative.
+If the sum is approximately zero (within tolerance), return the original vector.
+
+# Arguments
+- `v::AbstractVector{<:Real}`: Input vector
+- `tol::Real=1e-10`: Tolerance for considering sum as zero
+
+# Returns
+- `AbstractVector{<:Real}`: Vector with sign flipped if sum is negative
+"""
+function flip_vector_if_negative_sum(v::AbstractVector{<:Real}; tol::Real=1e-10)::AbstractVector{<:Real}
+    sum_v = sum(v)
+    if abs(sum_v) < tol
+        return v
+    end
+    return sum_v < 0 ? -v : v
 end
 
 function print_info(basis::BasisSet)
@@ -464,6 +496,11 @@ function print_info(basis::BasisSet)
 	println(@sprintf("Elapsed time: %.6f seconds", basis.elapsed_time))
 	println("-------------------------------------------------------------------")
 
+end
+
+# Custom exception type for basis set errors
+struct BasisSetError <: Exception
+	msg::String
 end
 
 end
