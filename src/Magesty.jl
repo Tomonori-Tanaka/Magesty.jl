@@ -372,11 +372,45 @@ function write_magfield_vertical_list(
 	Optimize.write_magfield_vertical_list(sc.optimize, filename)
 end
 
-function write_sce2xml(structure::Structure, basis_set::BasisSet, optimize::SCEOptimizer, filename::AbstractString = "jphi.xml"; write_jphi::Bool = true)
+"""
+	write_sce2xml(structure::Structure, basis_set::BasisSet, optimize::SCEOptimizer, filename::AbstractString="jphi.xml"; write_jphi::Bool=true)
+
+Write the structure, basis set, and optimization results to an XML file in SCE format.
+
+# Arguments
+- `structure::Structure`: Crystal structure information
+- `basis_set::BasisSet`: Basis set information
+- `optimize::SCEOptimizer`: Optimization results
+- `filename::AbstractString="jphi.xml"`: Output XML file name
+- `write_jphi::Bool=true`: Whether to write the J_ij parameters
+
+# Examples
+```julia
+write_sce2xml(structure, basis_set, optimizer)
+write_sce2xml(structure, basis_set, optimizer, "output.xml", write_jphi=false)
+```
+"""
+function write_sce2xml(structure::Structure, basis_set::BasisSet, optimize::SCEOptimizer, filename::AbstractString="jphi.xml"; write_jphi::Bool=true)
 	Write.write_sce2xml(structure, basis_set, optimize, filename; write_jphi = write_jphi)
 end
 
-function write_sce2xml(sc::SpinCluster, filename::AbstractString = "jphi.xml"; write_jphi::Bool = true)
+"""
+	write_sce2xml(sc::SpinCluster, filename::AbstractString="jphi.xml"; write_jphi::Bool=true)
+
+Write the spin cluster information to an XML file in SCE format.
+
+# Arguments
+- `sc::SpinCluster`: Spin cluster object
+- `filename::AbstractString="jphi.xml"`: Output XML file name
+- `write_jphi::Bool=true`: Whether to write the J_ij parameters
+
+# Examples
+```julia
+write_sce2xml(spin_cluster)
+write_sce2xml(spin_cluster, "output.xml", write_jphi=false)
+```
+"""
+function write_sce2xml(sc::SpinCluster, filename::AbstractString="jphi.xml"; write_jphi::Bool=true)
 	write_sce2xml(sc.structure, sc.basisset, sc.optimize, filename; write_jphi = write_jphi)
 end
 
