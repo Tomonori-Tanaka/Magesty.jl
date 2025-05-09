@@ -67,7 +67,8 @@ function write_sce2xml(structure::Structure,
 	for (i, salc::SALC) in enumerate(basis_set.salc_list)
 		salc_node = addelement!(basis_set_node, "SALC")
 		salc_node["index"] = string(i)
-		for (basis::IndicesUniqueList, coeff, multiplicity) in zip(salc.basisset, salc.coeffs, salc.multiplicity)
+		for (basis::IndicesUniqueList, coeff, multiplicity) in
+			zip(salc.basisset, salc.coeffs, salc.multiplicity)
 			basis_node = addelement!(salc_node, "basis", string(coeff))
 			basis_node["multiplicity"] = string(multiplicity)
 			for (j, indices::Indices) in enumerate(basis)
@@ -93,7 +94,102 @@ function write_sce2xml(structure::Structure,
 	open(filename, "w") do f
 		EzXML.prettyprint(f, doc)
 	end
+end
 
+function write_energy_info(optimize::SCEOptimizer, filename::AbstractString = "energy.txt")
+	# Input validation
+	if isempty(optimize.spinconfig_dataset.spinconfigs)
+		@warn "No spin configurations found in optimizer"
+		return
+	end
+
+	# Prepare data
+	observed_energy_list =
+		[spinconfig.energy for spinconfig in optimize.spinconfig_dataset.spinconfigs]
+	predicted_energy_list = optimize.predicted_energy_list
+
+	# Format header
+	digits_index = length(string(length(observed_energy_list)))
+	header = "# Index:" * " "^(digits_index - 1) * "Observed_Energy" * " "^4 * "Predicted_Energy"
+
+	write_list_to_file(observed_energy_list, predicted_energy_list, filename, header)
+end
+
+function write_lmf_flattened(
+	optimize::SCEOptimizer,
+	filename::AbstractString = "lmf_flattened.txt",
+)
+	# Input validation
+	if isempty(optimize.spinconfig_dataset.spinconfigs)
+		@warn "No spin configurations found in optimizer"
+		return
+	end
+
+	# Prepare data
+	observed_magfield_vertical_list = optimize.observed_magfield_vertical_flattened_list
+	predicted_magfield_vertical_list = optimize.predicted_magfield_vertical_flattened_list
+
+	# Format header
+	digits_index = length(string(length(observed_magfield_vertical_list)))
+	header =
+		"# Index:" * " "^(digits_index - 1) * "Observed_local_magnetic_field" * " "^4 *
+		"Predicted_local_magnetic_field"
+
+	write_list_to_file(
+		observed_magfield_vertical_list,
+		predicted_magfield_vertical_list,
+		filename,
+		header,
+	)
+end
+
+"""
+	write_list_to_file(data_list::AbstractVector, predicted_list::AbstractVector, filename::AbstractString, header::AbstractString)
+
+Write observed and predicted data to a file with a common format.
+
+# Arguments
+- `data_list`: Vector of observed data
+- `predicted_list`: Vector of predicted data
+- `filename`: Output file name
+- `header`: Header string for the output file
+"""
+function write_list_to_file(
+	data_list::AbstractVector,
+	predicted_list::AbstractVector,
+	filename::AbstractString,
+	header::AbstractString,
+)
+	# Check array lengths
+	if length(data_list) != length(predicted_list)
+		error("Length mismatch between observed and predicted lists")
+	end
+
+	# Format settings
+	digits_index = length(string(length(data_list)))
+
+	# Write to file
+	try
+		open(filename, "w") do f
+			# Write header
+			println(f, header)
+
+			# Write data
+			for (i, (obs, pred)) in enumerate(zip(data_list, predicted_list))
+				str = @sprintf(
+					"%*d    %15.10f    %15.10f\n",
+					digits_index,
+					i,
+					obs,
+					pred
+				)
+				write(f, str)
+			end
+		end
+	catch e
+		@error "Failed to write lists to file" exception = (e, catch_backtrace())
+		rethrow(e)
+	end
 end
 
 end # module Write
