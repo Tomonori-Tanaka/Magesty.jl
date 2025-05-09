@@ -372,8 +372,12 @@ function write_magfield_vertical_list(
 	Optimize.write_magfield_vertical_list(sc.optimize, filename)
 end
 
-function write_scecoeffs2xml(structure::Structure, filename::AbstractString = "scecoeffs.xml")
-	Write.write_scecoeffs2xml(structure, filename)
+function write_sce2xml(structure::Structure, basis_set::BasisSet, optimize::SCEOptimizer, filename::AbstractString = "jphi.xml"; write_jphi::Bool = true)
+	Write.write_sce2xml(structure, basis_set, optimize, filename; write_jphi = write_jphi)
 end
 
+function write_sce2xml(sc::SpinCluster, filename::AbstractString = "jphi.xml"; write_jphi::Bool = true)
+	write_sce2xml(sc.structure, sc.basisset, sc.optimize, filename; write_jphi = write_jphi)
 end
+
+end # module Magesty
