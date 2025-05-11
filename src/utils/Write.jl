@@ -82,7 +82,7 @@ function write_sce2xml(structure::Structure,
 	if write_jphi
 		jphi_node = addelement!(root, "JPhi")
 		jphi_node["unit"] = "eV"
-		addelement!(jphi_node, "ReferenceEnergy", string(optimize.bias_term))
+		addelement!(jphi_node, "ReferenceEnergy", string(optimize.reference_energy))
 
 		for (i, jphi) in enumerate(optimize.SCE)
 			each_jphi_node = addelement!(jphi_node, "jphi", string(jphi))

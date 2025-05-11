@@ -27,7 +27,7 @@ export SCEOptimizer
 struct SCEOptimizer
 	spinconfig_dataset::DataSet
 	SCE::Vector{Float64}
-	bias_term::Float64
+	reference_energy::Float64
 	relative_error_magfield_vertical::Float64
 	relative_error_energy::Float64
 	predicted_energy_list::Vector{Float64}
@@ -85,7 +85,7 @@ function SCEOptimizer(
 		error("developing...")
 	elseif weight ≈ 1.0
 		SCE,
-		bias_term,
+		reference_energy,
 		relative_error_magfield_vertical,
 		relative_error_energy,
 		predicted_energy_list,
@@ -100,7 +100,7 @@ function SCEOptimizer(
 			)
 	else
 		SCE,
-		bias_term,
+		reference_energy,
 		relative_error_magfield_vertical,
 		relative_error_energy,
 		predicted_energy_list,
@@ -117,7 +117,7 @@ function SCEOptimizer(
 
 	if !(weight ≈ 0.0) && !(weight ≈ 1.0)
 		SCE,
-		bias_term,
+		reference_energy,
 		relative_error_magfield_vertical,
 		relative_error_energy,
 		predicted_energy_list,
@@ -131,7 +131,7 @@ function SCEOptimizer(
 			observed_energy_list,
 			observed_magfield_vertical_list,
 			SCE,
-			bias_term,
+			reference_energy,
 		)
 	end
 
@@ -141,7 +141,7 @@ function SCEOptimizer(
 	return SCEOptimizer(
 		spinconfig_dataset,
 		SCE,
-		bias_term,
+		reference_energy,
 		relative_error_magfield_vertical,
 		relative_error_energy,
 		predicted_energy_list,
@@ -188,7 +188,7 @@ function SCEOptimizer(
 	)
 
 	SCE,
-	bias_term,
+	reference_energy,
 	relative_error_magfield_vertical,
 	relative_error_energy,
 	predicted_energy_list,
@@ -211,7 +211,7 @@ function SCEOptimizer(
 	return SCEOptimizer(
 		spinconfig_dataset,
 		SCE,
-		bias_term,
+		reference_energy,
 		relative_error_magfield_vertical,
 		relative_error_energy,
 		predicted_energy_list,
@@ -421,7 +421,7 @@ function ols_energy(
 	observed_magfield_vertical_flattened::Vector{Float64} = vcat(observed_magfield_vertical_list...)
 	observed_magfield_vertical_flattened = -1 * observed_magfield_vertical_flattened
 
-	bias_term::Float64 = ols_coeffs[1]
+	reference_energy::Float64 = ols_coeffs[1]
 	ols_coeffs_wo_bias::Vector{Float64} = ols_coeffs[2:end]
 	predicted_magfield_vertical_list::Vector{Float64} =
 		design_matrix_magfield_vertical * ols_coeffs_wo_bias
@@ -437,7 +437,7 @@ function ols_energy(
 	)
 
 	return ols_coeffs_wo_bias,
-	bias_term,
+	reference_energy,
 	relative_error_magfield_vertical,
 	relative_error_energy,
 	predicted_energy_list,
@@ -488,20 +488,20 @@ function ols_magfield_vertical(
 
 	# calculate bias term
 
-	bias_term = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * ols_coeffs)
+	reference_energy = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * ols_coeffs)
 	relative_error_energy =
 		√(
 		sum(
-			(observed_energy_list .- (design_matrix_energy[:, 2:end] * ols_coeffs .+ bias_term)) .^
+			(observed_energy_list .- (design_matrix_energy[:, 2:end] * ols_coeffs .+ reference_energy)) .^
 			2,
 		) /
 		sum(observed_energy_list .^ 2),
 	)
 
-	predicted_energy_list = design_matrix_energy[:, 2:end] * ols_coeffs .+ bias_term
+	predicted_energy_list = design_matrix_energy[:, 2:end] * ols_coeffs .+ reference_energy
 
 	return ols_coeffs,
-	bias_term,
+	reference_energy,
 	relative_error_magfield_vertical,
 	relative_error_energy,
 	predicted_energy_list,
@@ -738,7 +738,7 @@ function optimize_SCEcoeffs_with_weight(
 	optimized_sce_coeffs_with_bias = res.minimizer
 
 	# Extract optimized parameters
-	optimized_bias_term = optimized_sce_coeffs_with_bias[1]
+	optimized_reference_energy = optimized_sce_coeffs_with_bias[1]
 	optimized_sce_coeffs = optimized_sce_coeffs_with_bias[2:end]
 
 	# Calculate final predictions and errors
@@ -756,7 +756,7 @@ function optimize_SCEcoeffs_with_weight(
 
 	return (
 		optimized_sce_coeffs,
-		optimized_bias_term,
+		optimized_reference_energy,
 		relative_error_magfield_vertical,
 		relative_error_energy,
 		predicted_energy_list,
@@ -837,7 +837,7 @@ function print_info(optimizer::SCEOptimizer)
 		============
 		""",
 	)
-	println(@sprintf("bias term: %.10f", optimizer.bias_term))
+	println(@sprintf("bias term: %.10f", optimizer.reference_energy))
 	for (i, sce) in enumerate(optimizer.SCE)
 		println(@sprintf("%9d: %15.10f", i, sce))
 	end
