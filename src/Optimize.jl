@@ -492,7 +492,10 @@ function ols_magfield_vertical(
 	relative_error_energy =
 		√(
 		sum(
-			(observed_energy_list .- (design_matrix_energy[:, 2:end] * ols_coeffs .+ reference_energy)) .^
+			(
+				observed_energy_list .-
+				(design_matrix_energy[:, 2:end] * ols_coeffs .+ reference_energy)
+			) .^
 			2,
 		) /
 		sum(observed_energy_list .^ 2),
@@ -534,7 +537,7 @@ function calc_magfield_vertical_list_of_spinconfig(
 
 	for iatom in 1:num_atoms
 		# Get local magnetic field using SVector for better performance
-		magfield_vertical = SVector{3,Float64}(spinconfig.local_magfield_vertical[:, iatom])
+		magfield_vertical = SVector{3, Float64}(spinconfig.local_magfield_vertical[:, iatom])
 
 		# Calculate magfield_vertical and store in preallocated vector
 		idx = (iatom - 1) * 3 + 1
@@ -588,7 +591,7 @@ function calc_derivative_of_salc(
 		product = 1.0
 		for indices in basis
 			# Use SVector for better performance with vector operations
-			spin_dir = SVector{3,Float64}(spin_directions[:, indices.atom])
+			spin_dir = SVector{3, Float64}(spin_directions[:, indices.atom])
 			if indices.atom == atom
 				product *= derivative_function(indices.l, indices.m, spin_dir)
 			else
@@ -679,17 +682,7 @@ function optimize_SCEcoeffs_with_weight(
 	# Flatten and normalize observed magfield_vertical
 	observed_magfield_vertical_flattened = -1 * vcat(observed_magfield_vertical_list...)
 
-	# Calculate statistics for normalization
-	mean_energy = mean(observed_energy_list)
-	std_energy = std(observed_energy_list)
-	mean_magfield_vertical = mean(observed_magfield_vertical_flattened)
-	std_magfield_vertical = std(observed_magfield_vertical_flattened)
-
-	# Normalize observed values
-	nd_observed_energy_list = (observed_energy_list .- mean_energy) ./ std_energy
-	nd_observed_magfield_vertical_list = (observed_magfield_vertical_flattened .- mean_magfield_vertical) ./ std_magfield_vertical
-
-	data_num = length(nd_observed_energy_list)
+	data_num = length(observed_energy_list)
 	sce_coeffs_with_bias = vcat(bias_initial_guess, SCE_initial_guess)
 
 	# -- Define models --
@@ -710,25 +703,16 @@ function optimize_SCEcoeffs_with_weight(
 	# Define loss function
 	function loss_function(sce_coeffs_with_bias::AbstractVector)
 		# Calculate normalized predictions
-		nd_predicted_energy_list =
-			(energy_model(sce_coeffs_with_bias, design_matrix_energy) .- mean_energy) ./ std_energy
-		nd_predicted_magfield_vertical_list =
-			(
-				magfield_vertical_model(sce_coeffs_with_bias, design_matrix_magfield_vertical) .-
-				mean_magfield_vertical
-			) ./ std_magfield_vertical
+		predicted_energy_list = energy_model(sce_coeffs_with_bias, design_matrix_energy)
+		predicted_magfield_vertical_list =
+			magfield_vertical_model(sce_coeffs_with_bias, design_matrix_magfield_vertical)
 
 		# Calculate weighted losses
 		loss_energy =
-			sum(((nd_observed_energy_list .- nd_predicted_energy_list) ./ num_atoms) .^ 2) /
-			data_num
+			sum((observed_energy_list .- predicted_energy_list) .^ 2) ./ (num_atoms * data_num)
 		loss_magfield_vertical =
-			sum(
-				(
-					(nd_observed_magfield_vertical_list .- nd_predicted_magfield_vertical_list) ./
-					(3*num_atoms)
-				) .^ 2,
-			) / data_num
+			sum((observed_magfield_vertical_flattened .- predicted_magfield_vertical_list) .^ 2) ./
+			(3 * num_atoms * data_num)
 
 		return weight * loss_energy + (1 - weight) * loss_magfield_vertical
 	end
@@ -743,7 +727,8 @@ function optimize_SCEcoeffs_with_weight(
 
 	# Calculate final predictions and errors
 	predicted_energy_list = energy_model(optimized_sce_coeffs_with_bias, design_matrix_energy)
-	predicted_magfield_vertical_list = magfield_vertical_model(optimized_sce_coeffs_with_bias, design_matrix_magfield_vertical)
+	predicted_magfield_vertical_list =
+		magfield_vertical_model(optimized_sce_coeffs_with_bias, design_matrix_magfield_vertical)
 
 	# Calculate relative errors
 	relative_error_energy = √(
