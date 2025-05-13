@@ -17,6 +17,7 @@ number of terms: 1
 """
 module SALCs
 
+using EzXML
 using Printf
 using LinearAlgebra
 using ..SortedContainer
@@ -106,6 +107,84 @@ function SALC(
 	result_coeffs ./= norm_coeffs
 
 	return SALC(result_basisset, result_coeffs, result_multiplicity)
+end
+
+
+"""
+	SALC(xml_node::EzXML.Node)
+
+Create a SALC from an XML (SALC) node.
+
+# Arguments
+- `xml_node::EzXML.Node`: An XML node representing a SALC
+
+# Returns
+- `SALC`: A new symmetry-adapted linear combination
+
+# Throws
+- `ArgumentError` if the XML node is invalid
+- `ArgumentError` if multiplicity attribute is missing or invalid
+- `ArgumentError` if coefficient is missing or invalid
+- `ArgumentError` if indices are not continuous or missing
+- `ArgumentError` if the resulting coefficient vector has zero norm
+"""
+function SALC(xml_salc_node::EzXML.Node)
+	multiplicity_list = Int[]
+	basis_list = IndicesUniqueList[]
+	coeff_list = Float64[]
+
+	for basis_node in eachelement(xml_salc_node)
+		# Check and parse multiplicity
+		if !haskey(basis_node, "multiplicity")
+			throw(ArgumentError("Multiplicity attribute is missing"))
+		end
+		multiplicity = try
+			parse(Int, basis_node["multiplicity"])
+		catch e
+			throw(ArgumentError("Invalid multiplicity value: $(basis_node["multiplicity"])"))
+		end
+		if multiplicity <= 0
+			throw(ArgumentError("Multiplicity must be positive"))
+		end
+		push!(multiplicity_list, multiplicity)
+
+		# Parse indices
+		basis_indices = Indices[]
+
+		# Count number of index attributes
+		num_indices = count(attr -> startswith(attr.name, "index-"), attributes(basis_node))
+		if num_indices == 0
+			throw(ArgumentError("No indices found in basis node"))
+		end
+
+		# Check index continuity and parse values
+		for i in 1:num_indices
+			name = "index-$i"
+			# "1 1 -1 1" → ["1","1","-1","1"] → [1,1,-1,1]
+			idx = parse.(Int, split(basis_node[name]))
+			push!(basis_indices, Indices(idx...))
+		end
+
+		basis = IndicesUniqueList(basis_indices)
+		push!(basis_list, basis)
+
+		# Parse coefficient
+		try
+			coeff = parse(Float64, nodecontent(basis_node))
+			push!(coeff_list, coeff)
+		catch e
+			throw(ArgumentError("Invalid coefficient value: $(nodecontent(basis_node))"))
+		end
+	end
+
+	# Normalize coefficients
+	norm_coeffs = norm(coeff_list)
+	if isapprox(norm_coeffs, 0.0, atol = 1e-8)
+		throw(ArgumentError("The norm of the coefficient vector is zero"))
+	end
+	coeff_list ./= norm_coeffs
+
+	return SALC(basis_list, coeff_list, multiplicity_list)
 end
 
 """

@@ -7,7 +7,7 @@ include("../src/SpinConfig.jl")
 include("../src/utils/RotationMatrix.jl")
 include("../src/utils/MySphericalHarmonics.jl")
 include("../src/utils/ConfigParser.jl")
-
+include("../src/types/SALC.jl")
 include("helpers/fileutils.jl")
 
 using Magesty
@@ -26,6 +26,7 @@ if test_mode in ("unit", "all")
 		include("./component_test/test_SpinConfig.jl")
 		include("./component_test/test_ConfigParser.jl")
 		include("./component_test/test_Structure.jl")
+		include("./component_test/test_salc.jl")
 	end
 if test_mode in ("integration", "all")
 	@testset "examples" begin
