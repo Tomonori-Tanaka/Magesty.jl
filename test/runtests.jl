@@ -8,6 +8,8 @@ include("../src/utils/RotationMatrix.jl")
 include("../src/utils/MySphericalHarmonics.jl")
 include("../src/utils/ConfigParser.jl")
 
+include("helpers/fileutils.jl")
+
 using Magesty
 using Test
 
@@ -25,16 +27,12 @@ if test_mode in ("unit", "all")
 		include("./component_test/test_ConfigParser.jl")
 		include("./component_test/test_Structure.jl")
 	end
-
-	if test_mode in ("integration", "all")
-		@testset "examples" begin
-			include("./examples/febcc_2x2x2_pm/test.jl")
-
-		end
+elseif test_mode in ("integration", "all")
+	@testset "examples" begin
+		include("./examples/febcc_2x2x2_pm/test.jl")
+		include("./examples/fept_tetragonal_2x2x2/test.jl")
 	end
-end
-
-if test_mode in ("develop", "all")
+elseif test_mode in ("develop", "all")
 	@testset "develop" begin
 		include("./develop_tmp/test_develop.jl")
 	end
