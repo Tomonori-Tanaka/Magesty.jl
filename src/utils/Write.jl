@@ -3,6 +3,7 @@ module Write
 using ..Version
 using ..AtomicIndices
 using ..Structures
+using ..Symmetries
 using ..BasisSets
 using ..SALCs
 using ..Optimize
@@ -22,6 +23,7 @@ Write system information to an XML file using EzXML.
 - `SystemError` if the file cannot be written
 """
 function write_sce2xml(structure::Structure,
+	symmetry::Symmetry,
 	basis_set::BasisSet,
 	optimize::SCEOptimizer,
 	filename::String
@@ -61,6 +63,18 @@ function write_sce2xml(structure::Structure,
 		atom_node = addelement!(positions_node, "pos", coord_str)
 		atom_node["atom_index"] = string(i)
 		atom_node["element"] = structure.kd_name[structure.supercell.kd_int_list[i]]
+	end
+
+	# Add symmetry information
+	symmetry_node = addelement!(system_node, "Symmetry")
+	addelement!(symmetry_node, "NumberOfTranslations", string(symmetry.ntran))
+	translations_node = addelement!(symmetry_node, "Translations")
+	for (i, isym_trans) in enumerate(symmetry.symnum_translation)
+		for iat_prim in symmetry.atoms_in_prim
+			map_node = addelement!(translations_node, "map", string(symmetry.map_sym[iat_prim, isym_trans]))
+			map_node["trans"] = string(i)
+			map_node["atom"] = string(iat_prim)
+		end
 	end
 
 	basis_set_node = addelement!(system_node, "SCEBasisSet")
