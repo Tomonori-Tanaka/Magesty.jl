@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Magesty>
+  <version>0.1.0</version>
+  <System>
+    <NumberOfAtoms>16</NumberOfAtoms>
+    <NumberOfElements>2</NumberOfElements>
+    <LatticeVector>
+      <a1>2.00000000e+00 0.00000000e+00 0.00000000e+00</a1>
+      <a2>0.00000000e+00 2.00000000e+00 0.00000000e+00</a2>
+      <a3>0.00000000e+00 0.00000000e+00 2.20000000e+00</a3>
+    </LatticeVector>
+    <Periodicity>1 1 1</Periodicity>
+    <Positions>
+      <pos atom_index="1" element="Fe">0.000000000000 0.000000000000 0.000000000000</pos>
+      <pos atom_index="2" element="Fe">0.000000000000 0.000000000000 0.500000000000</pos>
+      <pos atom_index="3" element="Fe">0.000000000000 0.500000000000 0.000000000000</pos>
+      <pos atom_index="4" element="Fe">0.000000000000 0.500000000000 0.500000000000</pos>
+      <pos atom_index="5" element="Fe">0.500000000000 0.000000000000 0.000000000000</pos>
+      <pos atom_index="6" element="Fe">0.500000000000 0.000000000000 0.500000000000</pos>
+      <pos atom_index="7" element="Fe">0.500000000000 0.500000000000 0.000000000000</pos>
+      <pos atom_index="8" element="Fe">0.500000000000 0.500000000000 0.500000000000</pos>
+      <pos atom_index="9" element="Pt">0.250000000000 0.250000000000 0.250000000000</pos>
+      <pos atom_index="10" element="Pt">0.250000000000 0.250000000000 0.750000000000</pos>
+      <pos atom_index="11" element="Pt">0.250000000000 0.750000000000 0.250000000000</pos>
+      <pos atom_index="12" element="Pt">0.250000000000 0.750000000000 0.750000000000</pos>
+      <pos atom_index="13" element="Pt">0.750000000000 0.250000000000 0.250000000000</pos>
+      <pos atom_index="14" element="Pt">0.750000000000 0.250000000000 0.750000000000</pos>
+      <pos atom_index="15" element="Pt">0.750000000000 0.750000000000 0.250000000000</pos>
+      <pos atom_index="16" element="Pt">0.750000000000 0.750000000000 0.750000000000</pos>
+    </Positions>
+    <Symmetry>
+      <NumberOfTranslations>8</NumberOfTranslations>
+      <Translations>
+        <map trans="1" atom="1">1</map>
+        <map trans="1" atom="9">9</map>
+        <map trans="2" atom="1">2</map>
+        <map trans="2" atom="9">10</map>
+        <map trans="3" atom="1">5</map>
+        <map trans="3" atom="9">13</map>
+        <map trans="4" atom="1">6</map>
+        <map trans="4" atom="9">14</map>
+        <map trans="5" atom="1">3</map>
+        <map trans="5" atom="9">11</map>
+        <map trans="6" atom="1">4</map>
+        <map trans="6" atom="9">12</map>
+        <map trans="7" atom="1">7</map>
+        <map trans="7" atom="9">15</map>
+        <map trans="8" atom="1">8</map>
+        <map trans="8" atom="9">16</map>
+      </Translations>
+    </Symmetry>
+    <SCEBasisSet>
+      <SALC index="1">
+        <basis multiplicity="1" index-1="1 2 0 1">1.0</basis>
+      </SALC>
+      <SALC index="2">
+        <basis multiplicity="1" index-1="9 2 0 1">1.0</basis>
+      </SALC>
+    </SCEBasisSet>
+  </System>
+  <JPhi unit="eV">
+    <ReferenceEnergy>-121.36058072608984</ReferenceEnergy>
+    <jphi salc_index="1">-0.002338473179322234</jphi>
+    <jphi salc_index="2">-0.00045709037485365886</jphi>
+  </JPhi>
+</Magesty>

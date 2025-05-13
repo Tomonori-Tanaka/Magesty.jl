@@ -42,7 +42,6 @@ export Cluster
 # Constants
 const NUM_VIRTUAL_CELLS = 27  # Number of virtual cells in 3x3x3 supercell
 const DEFAULT_TOLERANCE = 1e-5  # Default tolerance for floating-point comparisons
-const MIN_NBODY = 2  # Minimum number of bodies for interactions
 
 """
 	struct DistInfo
@@ -168,7 +167,6 @@ struct Cluster
 		nbody::Integer,
 		cutoff_radii::AbstractArray{<:Real, 3},
 	)
-		@assert nbody ≥ MIN_NBODY "Number of bodies must be at least $MIN_NBODY."
 		@assert size(cutoff_radii, 3) == nbody "Cutoff radii dimensions must match nbody."
 
 		start_time = time_ns()
@@ -470,7 +468,6 @@ function generate_pairs(
 	num_bodies::Integer,
 )::Vector{SortedVector{Vector{AtomCell}}}
 	@assert length(primitive_atom_indices) > 0 "primitive_atom_indices must not be empty."
-	@assert num_bodies ≥ MIN_NBODY "Number of bodies must be at least $MIN_NBODY."
 
 	cluster_list = Vector{SortedVector{Vector{AtomCell}}}()
 
