@@ -77,7 +77,10 @@ function write_sce2xml(structure::Structure,
 		end
 	end
 
+	# Add SCE basis set information
 	basis_set_node = addelement!(system_node, "SCEBasisSet")
+	num_salc = length(basis_set.salc_list)
+	addelement!(basis_set_node, "NumberOfSALCs", string(num_salc))
 	for (i, salc::SALC) in enumerate(basis_set.salc_list)
 		salc_node = addelement!(basis_set_node, "SALC")
 		salc_node["index"] = string(i)
