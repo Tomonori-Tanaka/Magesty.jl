@@ -50,6 +50,7 @@
       </Translations>
     </Symmetry>
     <SCEBasisSet>
+      <NumberOfSALCs>2</NumberOfSALCs>
       <SALC index="1">
         <basis multiplicity="1" index-1="1 2 0 1">1.0</basis>
       </SALC>
