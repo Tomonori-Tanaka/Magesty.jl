@@ -1,0 +1,5 @@
+/Manifest.toml
+.cursor/
+.github/
+
+/test/develop_tmp/*
