@@ -357,10 +357,10 @@ write_sce2xml(spin_cluster, "output.xml", write_jphi=false)
 ```
 """
 function write_sce2xml(sc::SpinCluster, filename::AbstractString="jphi.xml"; write_jphi::Bool=true)
-	write_sce2xml(sc.structure, sc.basisset, sc.optimize, filename; write_jphi = write_jphi)
+	write_sce2xml(sc.structure, sc.symmetry, sc.basisset, sc.optimize, filename; write_jphi = write_jphi)
 end
-function write_sce2xml(structure::Structure, basis_set::BasisSet, optimize::SCEOptimizer, filename::AbstractString="jphi.xml"; write_jphi::Bool=true)
-	Write.write_sce2xml(structure, basis_set, optimize, filename; write_jphi = write_jphi)
+function write_sce2xml(structure::Structure, symmetry::Symmetry, basis_set::BasisSet, optimize::SCEOptimizer, filename::AbstractString="jphi.xml"; write_jphi::Bool=true)
+	Write.write_sce2xml(structure, symmetry, basis_set, optimize, filename; write_jphi = write_jphi)
 end
 
 function write_energy_info(sc::SpinCluster, filename::AbstractString="energy.txt")
