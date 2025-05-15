@@ -11,13 +11,22 @@ using Printf
 
 Read and parse the VASP structure file.
 Assumes the file follows a common POSCAR format:
-  Line 1: Comment
-  Line 2: Scaling factor
-  Lines 3-5: Lattice vectors
-  Line 6: Either element symbols or the number of atoms in each species
-  (If line 6 contains symbols, then line 7 will contain the number of atoms)
-  Next line: coordinate type (Direct or Cartesian)
-  Following lines: atomic positions (first 3 entries are x, y, z coordinates)
+  - Line 1: Comment
+  - Line 2: Scaling factor
+  - Lines 3-5: Lattice vectors
+  - Line 6: Either element symbols or the number of atoms in each species
+  - Line 7: Number of atoms (if element symbols are in line 6)
+  - Next line: Coordinate type (Direct or Cartesian)
+  - Following lines: Atomic positions (first 3 entries are x, y, z coordinates)
+
+# Arguments
+- `filename::String`: Path to the input file
+
+# Returns
+- `NamedTuple`: Named tuple containing the parsed structure data
+
+# Throws
+- `ErrorException`: Thrown when file is not found or format is invalid
 """
 function parse_vasp(filename::String)
     if !isfile(filename)
