@@ -297,7 +297,7 @@ function SpinCluster(
 		spincluster.symmetry,
 		spincluster.basisset,
 		config.weight,
-		spincluster.optimize.spinconfig_dataset,
+		spincluster.optimize.spinconfig_list,
 		sce_with_bias,
 	)
 	verbosity && Optimize.print_info(optimize)
