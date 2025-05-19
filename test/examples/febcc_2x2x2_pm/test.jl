@@ -114,6 +114,20 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 			@test abs(energy_list_from_salc[i] - spin_config_list[i].energy) < 0.1
 		end
 	end
+
+	@testset "Cross Validation Tests" begin
+		cv_result = Magesty.cross_validation(
+			sclus,
+			0.0,
+			1.0,
+			10,
+			5,
+			sclus.optimize.SCE,
+			sclus.optimize.reference_energy,
+			;
+			shuffle_data = true,
+		)
+	end
 end
 
 
