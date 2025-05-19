@@ -75,6 +75,8 @@ using .Optimize
 
 include("utils/Write.jl")
 using .Write
+include("utils/CalcEnergy.jl")
+using .CalcEnergy
 
 export System, SpinCluster, print_info, write_energy_lists, write_magfield_vertical_list, VERSION, Write
 
@@ -304,6 +306,14 @@ function SpinCluster(
 		spincluster.basisset,
 		optimize,
 	)
+end
+
+function calc_energy(sc::SpinCluster, spin_config::AbstractMatrix{<:Real})
+	if sc.structure.supercell.num_atoms != size(spin_config, 2)
+		num_atoms = sc.structure.supercell.num_atoms
+		throw(ArgumentError("spin_config must be 3xN matrix where N is the number of atoms in the supercell. $num_atoms"))
+	end
+	return CalcEnergy.calc_energy(sc.basisset.salc_list, spin_config, sc.symmetry, sc.optimize)
 end
 
 """

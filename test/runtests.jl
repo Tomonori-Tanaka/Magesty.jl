@@ -28,6 +28,7 @@ if test_mode in ("unit", "all")
 		include("./component_test/test_Structure.jl")
 		include("./component_test/test_salc.jl")
 	end
+end
 if test_mode in ("integration", "all")
 	@testset "examples" begin
 		include("./examples/febcc_2x2x2_pm/test.jl")
@@ -38,5 +39,4 @@ if test_mode in ("develop", "all")
 	@testset "develop" begin
 		include("./develop_tmp/test_develop.jl")
 	end
-end
 end

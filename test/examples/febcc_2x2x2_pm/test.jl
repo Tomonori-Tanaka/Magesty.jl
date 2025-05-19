@@ -97,14 +97,26 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 			@test transformed_pos ≈ pos atol=1e-5
 		end
 	end
+
+	sclus = SpinCluster(system, input, false)
+	Magesty.write_sce2xml(sclus, joinpath(@__DIR__, "scecoeffs.xml"))
+	@test FileUtils.files_equal_chunked(
+		joinpath(@__DIR__, "scecoeffs.xml"),
+		joinpath(@__DIR__, "scecoeffs_ref.xml"),
+	)
+
+	@testset "calc_energy" begin
+		spin_config_list = sclus.optimize.spinconfig_dataset.spinconfigs
+		energy_list_from_salc::Vector{Float64} = Vector{Float64}(undef, length(spin_config_list))
+		for i in eachindex(spin_config_list)
+			spin_directions::Matrix{Float64} = spin_config_list[i].spin_directions
+			energy_list_from_salc[i] = Magesty.calc_energy(sclus, spin_directions)
+			@test abs(energy_list_from_salc[i] - spin_config_list[i].energy) < 0.1
+		end
+	end
 end
 
-sclus = SpinCluster(system, input, false)
-Magesty.write_sce2xml(sclus, joinpath(@__DIR__, "scecoeffs.xml"))
-@test FileUtils.files_equal_chunked(
-	joinpath(@__DIR__, "scecoeffs.xml"),
-	joinpath(@__DIR__, "scecoeffs_ref.xml"),
-)
+
 # for weight in weight_list
 # 	println("weight: ", weight)
 # 	input["regression"]["weight"] = weight
