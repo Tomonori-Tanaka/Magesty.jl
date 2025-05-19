@@ -339,20 +339,6 @@ function calc_energy(sc::SpinCluster, spin_config::AbstractMatrix{<:Real})
 	return CalcEnergy.calc_energy(sc.basisset.salc_list, spin_config, sc.symmetry, sc.optimize)
 end
 
-function cross_validation(
-	sc::SpinCluster,
-	weight_min::Real,
-	weight_max::Real,
-	weight_step::Integer,
-	k_fold::Integer,
-	initial_sce::AbstractVector{<:Real},
-	initial_ref_energy::Real,
-	;
-	shuffle_data::Bool = true,
-)
-	CrossValidation.cross_validation(sc.optimize, weight_min, weight_max, weight_step, k_fold, initial_sce, initial_ref_energy, shuffle_data=shuffle_data)
-end
-
 """
 	print_info(sc::SpinCluster)
 
