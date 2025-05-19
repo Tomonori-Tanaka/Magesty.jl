@@ -314,6 +314,7 @@ end
 function SpinCluster(
 	spincluster::SpinCluster,
 	weight::Real,
+	spinconfig_list::AbstractVector{SpinConfig},
 	verbosity::Bool = true,
 )
 	optimize = SCEOptimizer(
@@ -321,10 +322,17 @@ function SpinCluster(
 		spincluster.symmetry,
 		spincluster.basisset,
 		weight,
-		spincluster.optimize.spinconfig_dataset,
-		spincluster.optimize.SCE,
+		spinconfig_list,
+		vcat(spincluster.optimize.reference_energy, spincluster.optimize.SCE),
 	)
-	
+	verbosity && Optimize.print_info(optimize)
+	return SpinCluster(
+		spincluster.structure,
+		spincluster.symmetry,
+		spincluster.cluster,
+		spincluster.basisset,
+		optimize,
+	)
 end
 
 function calc_energy(sc::SpinCluster, spin_config::AbstractMatrix{<:Real})
