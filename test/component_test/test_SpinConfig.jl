@@ -43,33 +43,5 @@ using LinearAlgebra
 		end
 	end
 
-	# Test DataSet construction
-	dataset = DataSet(spinconfigs, 0.8)
-	@test dataset.training_data_num + dataset.validation_data_num == length(spinconfigs)
-	@test length(dataset.training_data_indices) == dataset.training_data_num
-	@test length(dataset.validation_data_indices) == dataset.validation_data_num
-	@test all(i -> 1 ≤ i ≤ length(spinconfigs), dataset.training_data_indices)
-	@test all(i -> 1 ≤ i ≤ length(spinconfigs), dataset.validation_data_indices)
-	@test isempty(intersect(dataset.training_data_indices, dataset.validation_data_indices))
 
-	# Test DataSet with training_ratio = 1.0
-	dataset_all = DataSet(spinconfigs, 1.0)
-	@test dataset_all.training_data_num == length(spinconfigs)
-	@test isempty(dataset_all.validation_data_indices)
-	@test dataset_all.training_data_indices == collect(1:length(spinconfigs))
-
-	# Test error handling
-	@test_throws ArgumentError DataSet(spinconfigs, 0.0)  # training_ratio <= 0
-	@test_throws ArgumentError DataSet(spinconfigs, 1.1)  # training_ratio > 1
-	@test_throws ArgumentError DataSet(SpinConfig[], 0.8)  # empty spinconfigs
-
-	# Test parse_embset with specific indices
-	use_indices = [1, 2]
-	dataset_specific = parse_embset("./examples/fept_tetragonal_2x2x2/EMBSET.dat", 16, use_indices)
-	@test length(dataset_specific.spinconfigs) == length(use_indices)
-	@test all(i -> dataset_specific.spinconfigs[i].energy == spinconfigs[use_indices[i]].energy, 1:length(use_indices))
-
-	# Test error handling for parse_embset
-	@test_throws BoundsError parse_embset("./examples/fept_tetragonal_2x2x2/EMBSET.dat", 16, [0])  # index < 1
-	@test_throws BoundsError parse_embset("./examples/fept_tetragonal_2x2x2/EMBSET.dat", 16, [length(spinconfigs)+1])  # index > length(spinconfigs)
 end

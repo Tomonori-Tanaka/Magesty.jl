@@ -25,7 +25,7 @@ using ..SpinConfigs
 export SCEOptimizer
 
 struct SCEOptimizer
-	spinconfig_dataset::DataSet
+	spinconfig_list::Vector{SpinConfig}
 	SCE::Vector{Float64}
 	reference_energy::Float64
 	relative_error_magfield_vertical::Float64
@@ -51,7 +51,7 @@ function SCEOptimizer(
 	symmetry::Symmetry,
 	basisset::BasisSet,
 	weight::Real,
-	spinconfig_dataset::DataSet,
+	spinconfig_list::AbstractVector{SpinConfig},
 )
 	# Start timing
 	start_time = time_ns()
@@ -59,24 +59,24 @@ function SCEOptimizer(
 	# construct design matrix for energy and magfield_vertical
 	design_matrix_energy = construct_design_matrix_energy(
 		basisset.salc_list,
-		spinconfig_dataset,
+		spinconfig_list,
 		symmetry,
 	)
 	design_matrix_magfield_vertical = construct_design_matrix_magfield_vertical(
 		basisset.salc_list,
-		spinconfig_dataset,
+		spinconfig_list,
 		structure.supercell.num_atoms,
 		symmetry,
 	)
 
 	# construct observed_energy_list and observed_magfield_vertical_list
-	observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_dataset.spinconfigs]
+	observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_list]
 	observed_magfield_vertical_list =
-		Vector{Vector{Float64}}(undef, length(spinconfig_dataset.spinconfigs))
-	@threads for i in 1:length(spinconfig_dataset.spinconfigs)
+		Vector{Vector{Float64}}(undef, length(spinconfig_list))
+	@threads for i in eachindex(spinconfig_list)
 		observed_magfield_vertical_list[i] =
 			calc_magfield_vertical_list_of_spinconfig(
-				spinconfig_dataset.spinconfigs[i],
+				spinconfig_list[i],
 				structure.supercell.num_atoms,
 			)
 	end
@@ -139,7 +139,7 @@ function SCEOptimizer(
 	elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
 
 	return SCEOptimizer(
-		spinconfig_dataset,
+		spinconfig_list,
 		SCE,
 		reference_energy,
 		relative_error_magfield_vertical,
@@ -157,32 +157,32 @@ function SCEOptimizer(
 	symmetry::Symmetry,
 	basisset::BasisSet,
 	weight::Real,
-	spinconfig_dataset::DataSet,
+	spinconfig_list::AbstractVector{SpinConfig},
 	initial_sce_with_bias::AbstractVector{<:Real},
 )
 	# Start timing
 	start_time = time_ns()
 
-	observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_dataset.spinconfigs]
+	observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_list]
 	observed_magfield_vertical_list =
-		Vector{Vector{Float64}}(undef, length(spinconfig_dataset.spinconfigs))
-	@threads for i in 1:length(spinconfig_dataset.spinconfigs)
+		Vector{Vector{Float64}}(undef, length(spinconfig_list))
+	@threads for i in eachindex(spinconfig_list)
 		observed_magfield_vertical_list[i] =
 			calc_magfield_vertical_list_of_spinconfig(
-				spinconfig_dataset.spinconfigs[i],
+				spinconfig_list[i],
 				structure.supercell.num_atoms,
 			)
 	end
 
 	design_matrix_energy = construct_design_matrix_energy(
 		basisset.salc_list,
-		spinconfig_dataset,
+		spinconfig_list,
 		symmetry,
 	)
 
 	design_matrix_magfield_vertical = construct_design_matrix_magfield_vertical(
 		basisset.salc_list,
-		spinconfig_dataset,
+		spinconfig_list,
 		structure.supercell.num_atoms,
 		symmetry,
 	)
@@ -209,7 +209,7 @@ function SCEOptimizer(
 	elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
 
 	return SCEOptimizer(
-		spinconfig_dataset,
+		spinconfig_list,
 		SCE,
 		reference_energy,
 		relative_error_magfield_vertical,
@@ -230,19 +230,19 @@ function SCEOptimizer(
 	datafile::AbstractString,
 )
 	# read datafile
-	spinconfig_dataset = parse_embset(datafile, structure.supercell.num_atoms)
+	spinconfig_list = read_embset(datafile, structure.supercell.num_atoms)
 
-	return SCEOptimizer(structure, symmetry, basisset, weight, spinconfig_dataset)
+	return SCEOptimizer(structure, symmetry, basisset, weight, spinconfig_list)
 end
 
 """
-	construct_design_matrix_energy(salc_list, spinconfig_dataset, symmetry) -> Matrix{Float64}
+	construct_design_matrix_energy(salc_list, spinconfig_list, symmetry) -> Matrix{Float64}
 
 Construct the design matrix for energy prediction.
 
 # Arguments
 - `salc_list::AbstractVector{SALC}`: List of SALC objects
-- `spinconfig_dataset::DataSet`: Dataset containing spin configurations
+- `spinconfig_list:AbstractVector{SpinConfig}`: Vector of SpinConfig objects
 - `symmetry::Symmetry`: Symmetry information
 
 # Returns
@@ -251,11 +251,11 @@ Construct the design matrix for energy prediction.
 """
 function construct_design_matrix_energy(
 	salc_list::AbstractVector{SALC},
-	spinconfig_dataset::DataSet,
+	spinconfig_list::AbstractVector{SpinConfig},
 	symmetry::Symmetry,
 )::Matrix{Float64}
 	num_salcs = length(salc_list)
-	num_spinconfigs = spinconfig_dataset.training_data_num
+	num_spinconfigs = length(spinconfig_list)
 
 	# construct design matrix A in Ax = b
 	design_matrix = zeros(Float64, num_spinconfigs, num_salcs + 1)
@@ -270,7 +270,7 @@ function construct_design_matrix_energy(
 			design_matrix[j, i+1] =
 				calc_X_element_energy(
 					salc_list[i],
-					spinconfig_dataset.spinconfigs[j].spin_directions,
+					spinconfig_list[j].spin_directions,
 					symmetry,
 				)
 			initialize_check[j, i+1] = true
@@ -322,26 +322,26 @@ end
 
 function construct_design_matrix_magfield_vertical(
 	salc_list,
-	spinconfig_dataset,
+	spinconfig_list,
 	num_atoms,
 	symmetry,
 )::Matrix{Float64}
 	# dimensions
 	num_salcs = length(salc_list)
-	num_spinconfigs = spinconfig_dataset.training_data_num
+	num_spinconfigs = length(spinconfig_list)
 
 	# construct design matrix A in Ax = b
 	# [num_spindconif][3*num_atoms, num_salcs]
 	design_matrix_list = Vector{Matrix{Float64}}(undef, num_spinconfigs)
 
-	@threads for i in 1:num_spinconfigs
+	@threads for i in eachindex(spinconfig_list)
 		design_matrix_list[i] = zeros(Float64, 3 * num_atoms, num_salcs)
 		for row_idx in 1:(3*num_atoms)
-			for isalc in 1:num_salcs
+			for isalc in eachindex(salc_list)
 				design_matrix_list[i][row_idx, isalc] =
 					calc_X_element_magfield_vertical(
 						salc_list[isalc],
-						spinconfig_dataset.spinconfigs[i].spin_directions,
+						spinconfig_list[i].spin_directions,
 						symmetry,
 						row_idx,
 					)
