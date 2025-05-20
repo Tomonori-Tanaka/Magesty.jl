@@ -22,9 +22,9 @@ using ..Clusters
 using ..BasisSets
 using ..SpinConfigs
 
-export SCEOptimizer
+export Optimizer
 
-struct SCEOptimizer
+struct Optimizer
 	spinconfig_list::Vector{SpinConfig}
 	SCE::Vector{Float64}
 	reference_energy::Float64
@@ -37,16 +37,16 @@ struct SCEOptimizer
 	elapsed_time::Float64  # Time taken to create the optimizer in seconds
 end
 
-function SCEOptimizer(
+function Optimizer(
 	structure::Structure,
 	symmetry::Symmetry,
 	basisset::BasisSet,
 	config::Config4Optimize,
 )
-	return SCEOptimizer(structure, symmetry, basisset, config.weight, config.datafile)
+	return Optimizer(structure, symmetry, basisset, config.weight, config.datafile)
 end
 
-function SCEOptimizer(
+function Optimizer(
 	structure::Structure,
 	symmetry::Symmetry,
 	basisset::BasisSet,
@@ -138,7 +138,7 @@ function SCEOptimizer(
 	# End timing
 	elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
 
-	return SCEOptimizer(
+	return Optimizer(
 		spinconfig_list,
 		SCE,
 		reference_energy,
@@ -152,7 +152,7 @@ function SCEOptimizer(
 	)
 end
 
-function SCEOptimizer(
+function Optimizer(
 	structure::Structure,
 	symmetry::Symmetry,
 	basisset::BasisSet,
@@ -208,7 +208,7 @@ function SCEOptimizer(
 	# End timing
 	elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
 
-	return SCEOptimizer(
+	return Optimizer(
 		spinconfig_list,
 		SCE,
 		reference_energy,
@@ -222,7 +222,7 @@ function SCEOptimizer(
 	)
 end
 
-function SCEOptimizer(
+function Optimizer(
 	structure::Structure,
 	symmetry::Symmetry,
 	basisset::BasisSet,
@@ -232,7 +232,7 @@ function SCEOptimizer(
 	# read datafile
 	spinconfig_list = read_embset(datafile, structure.supercell.num_atoms)
 
-	return SCEOptimizer(structure, symmetry, basisset, weight, spinconfig_list)
+	return Optimizer(structure, symmetry, basisset, weight, spinconfig_list)
 end
 
 """
@@ -814,7 +814,7 @@ function translate_atom_idx_of_salc(
 	return SALC(translated_basisset, salc.coeffs, salc.multiplicity)
 end
 
-function print_info(optimizer::SCEOptimizer)
+function print_info(optimizer::Optimizer)
 	println(
 		"""
 		============

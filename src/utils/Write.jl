@@ -25,7 +25,7 @@ Write system information to an XML file using EzXML.
 function write_sce2xml(structure::Structure,
 	symmetry::Symmetry,
 	basis_set::BasisSet,
-	optimize::SCEOptimizer,
+	optimize::Optimizer,
 	filename::String
 	;
 	write_jphi::Bool = true,
@@ -113,7 +113,7 @@ function write_sce2xml(structure::Structure,
 	end
 end
 
-function write_energy_info(optimize::SCEOptimizer, filename::AbstractString = "energy.txt")
+function write_energy_info(optimize::Optimizer, filename::AbstractString = "energy.txt")
 	# Input validation
 	if isempty(optimize.spinconfig_list)
 		@warn "No spin configurations found in optimizer"
@@ -133,7 +133,7 @@ function write_energy_info(optimize::SCEOptimizer, filename::AbstractString = "e
 end
 
 function write_lmf_flattened(
-	optimize::SCEOptimizer,
+	optimize::Optimizer,
 	filename::AbstractString = "lmf_flattened.txt",
 )
 	# Input validation
