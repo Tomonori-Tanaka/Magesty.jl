@@ -77,8 +77,6 @@ include("utils/Write.jl")
 using .Write
 include("utils/CalcEnergy.jl")
 using .CalcEnergy
-include("utils/CrossValidation.jl")
-using .CrossValidation
 
 export System,
 	SpinCluster, print_info, write_energy_lists, write_magfield_vertical_list, VERSION, Write
