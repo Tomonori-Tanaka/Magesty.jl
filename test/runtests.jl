@@ -13,9 +13,9 @@ include("helpers/fileutils.jl")
 using Magesty
 using Test
 
-test_mode = get(ENV, "TEST_MODE", "all")
+const TEST_MODE = get(ENV, "TEST_MODE", "all")
 
-if test_mode in ("unit", "all")
+if TEST_MODE in ("unit", "all")
 	@testset "component tests" begin
 		include("./component_test/test_MySphericalHarmonics.jl")
 		include("./component_test/test_SortedContainer.jl")
@@ -30,13 +30,13 @@ if test_mode in ("unit", "all")
 		include("./component_test/test_SALCs.jl")
 	end
 end
-if test_mode in ("integration", "all")
+if TEST_MODE in ("integration", "all")
 	@testset "examples" begin
 		include("./examples/febcc_2x2x2_pm/test.jl")
 		include("./examples/fept_tetragonal_2x2x2/test.jl")
 	end
 end
-if test_mode in ("develop", "all")
+if TEST_MODE in ("develop",)
 	@testset "develop" begin
 		include("./develop_tmp/test_develop.jl")
 	end
