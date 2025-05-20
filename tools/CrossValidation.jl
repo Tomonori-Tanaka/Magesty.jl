@@ -2,7 +2,9 @@ module CrossValidation
 
 using Random
 
-include("../src/Magesty.jl")
+using Statistics
+using ..Magesty.SpinConfigs
+using ..Magesty
 
 export cross_validation
 """
@@ -46,26 +48,30 @@ function cross_validation(
 		throw(ArgumentError("k_fold ($k_fold) must be at least 2"))
 	end
 
-	spinconfig_list::Vector{SpinConfig} = spincluster.optimize.spinconfig_list.spinconfigs
+	spinconfig_list::Vector{SpinConfig} = spincluster.optimize.spinconfig_list
 	if k_fold > length(spinconfig_list)
-		throw(ArgumentError("k_fold ($k_fold) cannot be larger than the dataset size ($(length(spinconfig_list)))"))
+		throw(
+			ArgumentError(
+				"k_fold ($k_fold) cannot be larger than the dataset size ($(length(spinconfig_list)))",
+			),
+		)
 	end
 
 	splitted_spinconfig_list::Vector{Vector{SpinConfig}} =
 		split_data(spinconfig_list, k_fold; shuffle_data = shuffle_data)
-	test_rmse_list::Vector{Float64} = Vector{Float64}(undef, k_fold)
-	train_rmse_list::Vector{Float64} = Vector{Float64}(undef, k_fold)
-	
-	current_spincluster::SpinCluster = spincluster
-	for (i, weight::Float64) in enumerate(range(weight_min, weight_max, length = weight_step))
+
+	current_spincluster = spincluster
+	weight_list::Vector{Float64} = collect(range(weight_min, weight_max, length = weight_step))
+	test_rmse_list::Vector{Float64} = Vector{Float64}(undef, length(weight_list))
+	train_rmse_list::Vector{Float64} = Vector{Float64}(undef, length(weight_list))
+	for (i, weight::Float64) in enumerate(weight_list)
 		cv_score_test::Float64, cv_score_train::Float64, current_spincluster::SpinCluster =
 			cross_validation_with_a_weight(current_spincluster, weight, splitted_spinconfig_list)
 		test_rmse_list[i] = cv_score_test
 		train_rmse_list[i] = cv_score_train
 	end
 
-	optimum_weight::Float64 = range(weight_min, weight_max, length = weight_step)[argmin(test_rmse_list)]
-	weight_list::Vector{Float64} = collect(range(weight_min, weight_max, length = weight_step))
+	optimum_weight::Float64 = weight_list[argmin(test_rmse_list)]
 	return optimum_weight, weight_list, test_rmse_list, train_rmse_list
 end
 
@@ -76,16 +82,18 @@ function cross_validation_with_a_weight(
 )
 	test_rmse_list::Vector{Float64} = Vector{Float64}(undef, length(splitted_dataset))
 	train_rmse_list::Vector{Float64} = Vector{Float64}(undef, length(splitted_dataset))
-	
+
 	for (i, test_spinconfigs::Vector{SpinConfig}) in enumerate(splitted_dataset)
 		# Organize training data
 		train_spinconfigs::Vector{SpinConfig} =
 			vcat(splitted_dataset[1:(i-1)]..., splitted_dataset[(i+1):end]...)
 
 		# Create spin cluster for training data
-		trained_spin_cluster::SpinCluster = SpinCluster(spincluster, weight, train_spinconfigs)
+		trained_spin_cluster::SpinCluster =
+			SpinCluster(spincluster, weight, train_spinconfigs, false)
 		# Calculate RMSE for training data
-		predicted_energies_train::Vector{Float64} = trained_spin_cluster.optimize.predicted_energy_list
+		predicted_energies_train::Vector{Float64} =
+			trained_spin_cluster.optimize.predicted_energy_list
 		observed_energies_train::Vector{Float64} =
 			[train_spinconfig.energy for train_spinconfig in train_spinconfigs]
 		train_rmse_list[i] =
@@ -106,7 +114,11 @@ function cross_validation_with_a_weight(
 	# Calculate CV scores for test and training data
 	cv_score_test::Float64 = mean(test_rmse_list)
 	cv_score_train::Float64 = mean(train_rmse_list)
-	return cv_score_test, cv_score_train, trained_spin_cluster
+
+	# Calculate the spin cluster with the weight using all data
+	all_spinconfigs::Vector{SpinConfig} = vcat(splitted_dataset...)
+	spincluster_with_a_weight::SpinCluster = SpinCluster(spincluster, weight, all_spinconfigs, false)
+	return cv_score_test, cv_score_train, spincluster_with_a_weight
 end
 
 """
