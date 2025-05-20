@@ -1,4 +1,4 @@
-using .CountingContainers
+using .CountingContainer
 using .AtomicIndices
 
 @testset "AtomicIndices" begin
