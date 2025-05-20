@@ -122,8 +122,8 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 			sclus,
 			0.0,
 			1.0,
-			11,
-			10,
+			5,
+			4,
 			;
 			shuffle_data = true,
 		)

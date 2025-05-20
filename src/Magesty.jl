@@ -50,10 +50,10 @@ using .Version
 
 include("common/SortedContainer.jl")
 
-include("types/AtomCell.jl")
+include("types/AtomCells.jl")
 include("types/AtomicIndices.jl")
 include("types/UnitaryMatrixCl.jl")
-include("types/SALC.jl")
+include("types/SALCs.jl")
 include("SpinConfig.jl")
 using .SpinConfigs
 
