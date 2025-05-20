@@ -55,6 +55,7 @@ include("types/AtomicIndices.jl")
 include("types/UnitaryMatrixCl.jl")
 include("types/SALC.jl")
 include("SpinConfig.jl")
+using .SpinConfigs
 
 include("utils/ConfigParser.jl")
 include("utils/RotationMatrix.jl")
@@ -75,8 +76,11 @@ using .Optimize
 
 include("utils/Write.jl")
 using .Write
+include("utils/CalcEnergy.jl")
+using .CalcEnergy
 
-export System, SpinCluster, print_info, write_energy_lists, write_magfield_vertical_list, VERSION, Write
+export System,
+	SpinCluster, print_info, write_energy_lists, write_magfield_vertical_list, VERSION, Write
 
 """
 	System
@@ -306,6 +310,42 @@ function SpinCluster(
 	)
 end
 
+function SpinCluster(
+	spincluster::SpinCluster,
+	weight::Real,
+	spinconfig_list::AbstractVector{SpinConfig},
+	verbosity::Bool = true,
+)
+	optimize = SCEOptimizer(
+		spincluster.structure,
+		spincluster.symmetry,
+		spincluster.basisset,
+		weight,
+		spinconfig_list,
+		vcat(spincluster.optimize.reference_energy, spincluster.optimize.SCE),
+	)
+	verbosity && Optimize.print_info(optimize)
+	return SpinCluster(
+		spincluster.structure,
+		spincluster.symmetry,
+		spincluster.cluster,
+		spincluster.basisset,
+		optimize,
+	)
+end
+
+function calc_energy(sc::SpinCluster, spin_config::AbstractMatrix{<:Real})
+	if sc.structure.supercell.num_atoms != size(spin_config, 2)
+		num_atoms = sc.structure.supercell.num_atoms
+		throw(
+			ArgumentError(
+				"spin_config must be 3xN matrix where N is the number of atoms in the supercell. $num_atoms",
+			),
+		)
+	end
+	return CalcEnergy.calc_energy(sc.basisset.salc_list, spin_config, sc.symmetry, sc.optimize)
+end
+
 """
 	print_info(sc::SpinCluster)
 
@@ -356,18 +396,36 @@ write_sce2xml(spin_cluster)
 write_sce2xml(spin_cluster, "output.xml", write_jphi=false)
 ```
 """
-function write_sce2xml(sc::SpinCluster, filename::AbstractString="jphi.xml"; write_jphi::Bool=true)
-	write_sce2xml(sc.structure, sc.symmetry, sc.basisset, sc.optimize, filename; write_jphi = write_jphi)
+function write_sce2xml(
+	sc::SpinCluster,
+	filename::AbstractString = "jphi.xml";
+	write_jphi::Bool = true,
+)
+	write_sce2xml(
+		sc.structure,
+		sc.symmetry,
+		sc.basisset,
+		sc.optimize,
+		filename;
+		write_jphi = write_jphi,
+	)
 end
-function write_sce2xml(structure::Structure, symmetry::Symmetry, basis_set::BasisSet, optimize::SCEOptimizer, filename::AbstractString="jphi.xml"; write_jphi::Bool=true)
+function write_sce2xml(
+	structure::Structure,
+	symmetry::Symmetry,
+	basis_set::BasisSet,
+	optimize::SCEOptimizer,
+	filename::AbstractString = "jphi.xml";
+	write_jphi::Bool = true,
+)
 	Write.write_sce2xml(structure, symmetry, basis_set, optimize, filename; write_jphi = write_jphi)
 end
 
-function write_energy_info(sc::SpinCluster, filename::AbstractString="energy.txt")
+function write_energy_info(sc::SpinCluster, filename::AbstractString = "energy.txt")
 	Write.write_energy_info(sc.optimize, filename)
 end
 
-function write_lmf_flattened(sc::SpinCluster, filename::AbstractString="lmf_flattened.txt")
+function write_lmf_flattened(sc::SpinCluster, filename::AbstractString = "lmf_flattened.txt")
 	Write.write_lmf_flattened(sc.optimize, filename)
 end
 

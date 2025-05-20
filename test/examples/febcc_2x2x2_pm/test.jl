@@ -97,14 +97,44 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 			@test transformed_pos ≈ pos atol=1e-5
 		end
 	end
+
+	sclus = SpinCluster(system, input, false)
+	Magesty.write_sce2xml(sclus, joinpath(@__DIR__, "scecoeffs.xml"))
+	@test FileUtils.files_equal_chunked(
+		joinpath(@__DIR__, "scecoeffs.xml"),
+		joinpath(@__DIR__, "scecoeffs_ref.xml"),
+	)
+
+	@testset "calc_energy" begin
+		spin_config_list = sclus.optimize.spinconfig_list
+		energy_list_from_salc::Vector{Float64} = Vector{Float64}(undef, length(spin_config_list))
+		for i in eachindex(spin_config_list)
+			spin_directions::Matrix{Float64} = spin_config_list[i].spin_directions
+			energy_list_from_salc[i] = Magesty.calc_energy(sclus, spin_directions)
+			@test abs(energy_list_from_salc[i] - spin_config_list[i].energy) < 0.1
+		end
+	end
+
+	@testset "Cross Validation Tests" begin
+		include("../../../tools/CrossValidation.jl")
+		using .CrossValidation
+		weight, weight_list, test_rmse_list, train_rmse_list = cross_validation(
+			sclus,
+			0.0,
+			1.0,
+			11,
+			10,
+			;
+			shuffle_data = true,
+		)
+		println("weight: ", weight)
+		display(weight_list)
+		display(test_rmse_list)
+		display(train_rmse_list)
+	end
 end
 
-sclus = SpinCluster(system, input, false)
-Magesty.write_sce2xml(sclus, joinpath(@__DIR__, "scecoeffs.xml"))
-@test FileUtils.files_equal_chunked(
-	joinpath(@__DIR__, "scecoeffs.xml"),
-	joinpath(@__DIR__, "scecoeffs_ref.xml"),
-)
+
 # for weight in weight_list
 # 	println("weight: ", weight)
 # 	input["regression"]["weight"] = weight
