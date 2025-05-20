@@ -1,4 +1,4 @@
-using .CountingContainers
+using .CountingContainer
 
 @testset "CountingContainer" begin
 	# ─────────────────────────────────────────────────────────────────────────────
