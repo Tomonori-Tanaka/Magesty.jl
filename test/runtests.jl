@@ -1,13 +1,13 @@
 include("../src/common/SortedContainer.jl")
 include("../src/common/CountingContainer.jl")
-include("../src/types/AtomCell.jl")
+include("../src/types/AtomCells.jl")
 include("../src/types/AtomicIndices.jl")
 include("../src/types/UnitaryMatrixCl.jl")
 include("../src/SpinConfig.jl")
 include("../src/utils/RotationMatrix.jl")
 include("../src/utils/MySphericalHarmonics.jl")
 include("../src/utils/ConfigParser.jl")
-include("../src/types/SALC.jl")
+include("../src/types/SALCs.jl")
 include("helpers/fileutils.jl")
 
 using Magesty
