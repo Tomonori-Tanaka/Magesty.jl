@@ -118,17 +118,19 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 	@testset "Cross Validation Tests" begin
 		include("../../../tools/CrossValidation.jl")
 		using .CrossValidation
-		cv_result = cross_validation(
+		weight, weight_list, test_rmse_list, train_rmse_list = cross_validation(
 			sclus,
 			0.0,
 			1.0,
+			11,
 			10,
-			5,
-			sclus.optimize.SCE,
-			sclus.optimize.reference_energy,
 			;
 			shuffle_data = true,
 		)
+		println("weight: ", weight)
+		display(weight_list)
+		display(test_rmse_list)
+		display(train_rmse_list)
 	end
 end
 
