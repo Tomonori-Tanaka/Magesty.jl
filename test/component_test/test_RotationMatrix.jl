@@ -1,10 +1,10 @@
 using Rotations
 using WignerD
 using ..UnitaryMatrixCl
-using ..RotationMatrices
+using ..RotationMatrix
 
 
-@testset "RotationMatrices" begin
+@testset "RotationMatrix" begin
 
 	Δ1(a, b, c) =
 		[
