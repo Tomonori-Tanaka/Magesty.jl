@@ -4,7 +4,7 @@ using Random
 
 include("../src/Magesty.jl")
 
-
+export cross_validation
 """
 
 # Arguments

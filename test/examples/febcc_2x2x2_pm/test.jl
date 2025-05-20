@@ -116,7 +116,9 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 	end
 
 	@testset "Cross Validation Tests" begin
-		cv_result = Magesty.cross_validation(
+		include("../../../tools/CrossValidation.jl")
+		using .CrossValidation
+		cv_result = cross_validation(
 			sclus,
 			0.0,
 			1.0,
