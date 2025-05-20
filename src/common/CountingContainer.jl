@@ -1,4 +1,4 @@
-module CountingContainers
+module CountingContainer
 
 import Base: append!, copy, getindex, in, isless, iterate, length, push!, show, size, ==
 

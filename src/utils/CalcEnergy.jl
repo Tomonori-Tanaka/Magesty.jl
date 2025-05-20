@@ -11,7 +11,7 @@ function calc_energy(
 	salc_list::AbstractVector{SALC},
 	spin_config::AbstractMatrix{<:Real},
 	symmetry::Symmetry,
-	optimize::SCEOptimizer,
+	optimize::Optimizer,
 )::Float64
 	if size(spin_config, 1) != 3
 		throw(ArgumentError("spin_config must be a 3xN matrix"))
