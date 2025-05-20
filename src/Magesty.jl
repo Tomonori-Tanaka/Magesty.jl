@@ -175,14 +175,14 @@ An extension of System with optimization capabilities.
 - `symmetry::Symmetry`: Symmetry operations
 - `cluster::Cluster`: Cluster information
 - `basisset::BasisSet`: Basis set information
-- `optimize::Union{SCEOptimizer, Nothing}`: Optimizer instance or nothing
+- `optimize::Union{Optimizer, Nothing}`: Optimizer instance or nothing
 """
 struct SpinCluster
 	structure::Structure
 	symmetry::Symmetry
 	cluster::Cluster
 	basisset::BasisSet
-	optimize::SCEOptimizer
+	optimize::Optimizer
 end
 
 """
@@ -214,7 +214,7 @@ function SpinCluster(input_dict::Dict{<:AbstractString, <:Any}, verbosity::Bool 
 	basisset::BasisSet = BasisSet(structure, symmetry, cluster, config)
 	verbosity && BasisSets.print_info(basisset)
 
-	optimize::SCEOptimizer = SCEOptimizer(structure, symmetry, basisset, config)
+	optimize::Optimizer = Optimizer(structure, symmetry, basisset, config)
 	verbosity && Optimize.print_info(optimize)
 
 	return SpinCluster(structure, symmetry, cluster, basisset, optimize)
@@ -257,7 +257,7 @@ function SpinCluster(
 	verbosity::Bool = true,
 )
 	config::Config4Optimize = Config4Optimize(input_dict)
-	optimize = SCEOptimizer(system.structure, system.symmetry, system.basisset, config)
+	optimize = Optimizer(system.structure, system.symmetry, system.basisset, config)
 	verbosity && Optimize.print_info(optimize)
 	return SpinCluster(
 		system.structure,
@@ -291,7 +291,7 @@ function SpinCluster(
 )
 	config::Config4Optimize = Config4Optimize(input_dict)
 	sce_with_bias = vcat(spincluster.optimize.reference_energy, spincluster.optimize.SCE)
-	optimize = SCEOptimizer(
+	optimize = Optimizer(
 		spincluster.structure,
 		spincluster.symmetry,
 		spincluster.basisset,
@@ -316,7 +316,7 @@ function SpinCluster(
 	spinconfig_list::AbstractVector{SpinConfig},
 	verbosity::Bool = true,
 )
-	optimize = SCEOptimizer(
+	optimize = Optimizer(
 		spincluster.structure,
 		spincluster.symmetry,
 		spincluster.basisset,
@@ -372,7 +372,7 @@ function print_info(sc::SpinCluster)
 end
 
 """
-	write_sce2xml(structure::Structure, basis_set::BasisSet, optimize::SCEOptimizer, filename::AbstractString="jphi.xml"; write_jphi::Bool=true)
+	write_sce2xml(structure::Structure, basis_set::BasisSet, optimize::Optimizer, filename::AbstractString="jphi.xml"; write_jphi::Bool=true)
 	write_sce2xml(sc::SpinCluster, filename::AbstractString="jphi.xml"; write_jphi::Bool=true)
 
 Write the structure, basis set, and optimization results to an XML file in SCE format.
@@ -380,7 +380,7 @@ Write the structure, basis set, and optimization results to an XML file in SCE f
 # Arguments
 - `structure::Structure`: Crystal structure information
 - `basis_set::BasisSet`: Basis set information
-- `optimize::SCEOptimizer`: Optimization results
+- `optimize::Optimizer`: Optimization results
 - `sc::SpinCluster`: Spin cluster object containing structure, basis set, and optimization results
 - `filename::AbstractString="jphi.xml"`: Output XML file name
 - `write_jphi::Bool=true`: Whether to write the J_ij parameters
@@ -414,7 +414,7 @@ function write_sce2xml(
 	structure::Structure,
 	symmetry::Symmetry,
 	basis_set::BasisSet,
-	optimize::SCEOptimizer,
+	optimize::Optimizer,
 	filename::AbstractString = "jphi.xml";
 	write_jphi::Bool = true,
 )
