@@ -2,7 +2,7 @@ using SparseArrays
 using Base.Threads
 using StaticArrays
 
-using ..RotationMatrices
+using ..RotationMatrix
 
 """
 Construct projection matrices for basis functions
@@ -189,7 +189,7 @@ function calc_projection(
 	end
 
 	projection_matrix = round.(projection_matrix, digits = threshold_digits)
-	if !(RotationMatrices.is_orthogonal(projection_matrix, tol = 1e-7))
+	if !(RotationMatrix.is_orthogonal(projection_matrix, tol = 1e-7))
 		println("symmetry operation index: $isym")
 		println(symop)
 		display(projection_matrix)

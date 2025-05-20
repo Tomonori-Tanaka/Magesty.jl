@@ -1,4 +1,4 @@
-module RotationMatrices
+module RotationMatrix
 
 using LinearAlgebra
 using WignerD
