@@ -27,7 +27,7 @@ if test_mode in ("unit", "all")
 		include("./component_test/test_ConfigParser.jl")
 		include("./component_test/test_Structures.jl")
 		include("./component_test/test_Symmetries.jl")
-		include("./component_test/test_salc.jl")
+		include("./component_test/test_SALCs.jl")
 	end
 end
 if test_mode in ("integration", "all")
