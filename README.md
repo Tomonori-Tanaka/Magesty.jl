@@ -39,7 +39,7 @@ For more detailed examples, please refer to the `test/examples` directory.
 ## Core Modules
 
 - `Structure`: Definition of crystal structures
-- `Symmetry`: Space group analysis and symmetry operation generation
+- `Symmetries`: Space group analysis and symmetry operation generation
 - `Cluster`: Cluster generation and analysis
 - `BasisSet`: Generation of symmetry-datapted SCE basis functions
 - `Optimize`: Estimation of SCE coefficients

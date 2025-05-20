@@ -5,7 +5,7 @@ This script compares the energy of the spin configurations from two different EM
 """
 
 using LinearAlgebra
-include("../src/SpinConfig.jl")
+include("../src/SpinConfigs.jl")
 using .SpinConfigs
 
 using ArgParse
