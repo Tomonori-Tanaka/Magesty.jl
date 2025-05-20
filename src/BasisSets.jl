@@ -139,6 +139,8 @@ struct BasisSet
 			end
 		end
 
+		salc_list = filter(salc -> !is_identically_zero(salc), salc_list)
+
 		# End timing
 		elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
 
@@ -440,7 +442,8 @@ is_valid = check_eigenval(eigenvals)  # false
 ```
 """
 function check_eigenval(eigenval::AbstractVector; tol = 1e-8)::Bool
-	invalid_values = filter(x -> !isapprox(x, 0, atol = tol) && !isapprox(x, 1, atol = tol), eigenval)
+	invalid_values =
+		filter(x -> !isapprox(x, 0, atol = tol) && !isapprox(x, 1, atol = tol), eigenval)
 	if !isempty(invalid_values)
 		throw(BasisSetError("Invalid eigenvalues found: $invalid_values"))
 	end
@@ -458,7 +461,75 @@ function to_real_vector(v::AbstractVector, atol::Real = 1e-12)
 end
 
 """
-    flip_vector_if_negative_sum(v::AbstractVector{<:Real}; tol::Real=1e-10)::AbstractVector{<:Real}
+	is_identically_zero(salc::SALC, atol::Real = 1e-8)::Bool
+
+Check if a SALC (Symmetry-Adapted Linear Combination) always returns zero for arbitrary spin configuration.
+
+# Arguments
+- `salc::SALC`: The SALC to check
+- `atol::Real = 1e-8`: Absolute tolerance for floating-point comparisons
+
+# Returns
+- `Bool`: `true` if the SALC is identically zero, `false` otherwise
+
+"""
+function is_identically_zero(salc::SALC, atol::Real = 1e-6)::Bool
+	group_lists::Vector{Vector{Int}} = group_same_basis(salc)
+	# println("group_lists:", group_lists)
+	for index_list in group_lists
+		partial_sum::Float64 = 0.0
+		for index in index_list
+			partial_sum += salc.multiplicity[index] * salc.coeffs[index]
+		end
+		if !isapprox(partial_sum, 0.0, atol = atol)
+			return false
+		end
+	end
+	return true
+end
+
+"""
+	group_same_basis(salc::SALC)::Vector{Vector{Int}}
+
+Group basis functions in a SALC that have the same atom, l, and m values (cell is not considered).
+
+# Arguments
+- `salc::SALC`: The SALC to group
+
+# Returns
+- `Vector{Vector{Int}}`: List of groups, where each group contains indices of basis functions with the same atom, l, and m values
+
+# Examples
+# For a SALC with basis functions:
+# [(1, 1, 1, 1), (2, 1, -1, 1)]
+# [(1, 1, 1, 1), (2, 1, -1, 6)]
+# [(1, 1, 1, 1), (2, 1,  0, 1)]
+# Returns: [[1, 2], [3]]
+"""
+function group_same_basis(salc::SALC)::Vector{Vector{Int}}
+	group_dict = OrderedDict{Tuple{Vararg{NTuple{3, Int}}}, Vector{Int}}()
+	
+	for (i, basis::IndicesUniqueList) in enumerate(salc.basisset)
+		atom_l_m_lists::Vector{Vector{Int}} = AtomicIndices.get_atom_l_m_list(basis)
+		basisset_tuple::Tuple{Vararg{NTuple{3, Int}}} = 
+			Tuple(Tuple(atom_l_m) for atom_l_m in atom_l_m_lists)
+		
+		if haskey(group_dict, basisset_tuple)
+			push!(group_dict[basisset_tuple], i)
+		else
+			group_dict[basisset_tuple] = [i]
+		end
+	end
+
+	result_list = Vector{Vector{Int}}()
+	for (key, value) in group_dict
+		push!(result_list, value)
+	end
+	return result_list
+end
+
+"""
+	flip_vector_if_negative_sum(v::AbstractVector{<:Real}; tol::Real=1e-10)::AbstractVector{<:Real}
 
 Flip the sign of the vector if the sum of the elements is negative.
 If the sum is approximately zero (within tolerance), return the original vector.
@@ -470,12 +541,15 @@ If the sum is approximately zero (within tolerance), return the original vector.
 # Returns
 - `AbstractVector{<:Real}`: Vector with sign flipped if sum is negative
 """
-function flip_vector_if_negative_sum(v::AbstractVector{<:Real}; tol::Real=1e-10)::AbstractVector{<:Real}
-    sum_v = sum(v)
-    if abs(sum_v) < tol
-        return v
-    end
-    return sum_v < 0 ? -v : v
+function flip_vector_if_negative_sum(
+	v::AbstractVector{<:Real};
+	tol::Real = 1e-10,
+)::AbstractVector{<:Real}
+	sum_v = sum(v)
+	if abs(sum_v) < tol
+		return v
+	end
+	return sum_v < 0 ? -v : v
 end
 
 function print_info(basis::BasisSet)

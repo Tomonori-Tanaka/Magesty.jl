@@ -75,6 +75,19 @@ isless(tuple::NTuple{4, Integer}, atom_2::Indices) =
 ==(tuple::NTuple{4, Integer}, atom_2::Indices) =
 	tuple == (atom_2.atom, atom_2.l, atom_2.m, atom_2.cell)
 
+function Base.convert(::Type{NTuple{4, Int}}, indices::Indices)
+	try
+		return (
+			convert(Int, indices.atom),
+			convert(Int, indices.l),
+			convert(Int, indices.m),
+			convert(Int, indices.cell)
+		)
+	catch e
+		throw(InexactError(:convert, NTuple{4, Int}, indices))
+	end
+end
+
 # Hashing
 hash(atom_1::Indices, h::UInt) =
 	hash((atom_1.atom, atom_1.l, atom_1.m, atom_1.cell), h)
@@ -199,6 +212,17 @@ function get_atom_l_list(iul::IndicesUniqueList)::Vector{Vector{Int}}
 		push!(vec, Int[atom, l])
 	end
 
+	return vec
+end
+
+function get_atom_l_m_list(iul::IndicesUniqueList)::Vector{Vector{Int}}
+	atom_list = [indices.atom for indices in iul]
+	l_list = [indices.l for indices in iul]
+	m_list = [indices.m for indices in iul]
+	vec = Vector{Vector{Int}}()
+	for (atom, l, m) in zip(atom_list, l_list, m_list)
+		push!(vec, Int[atom, l, m])
+	end
 	return vec
 end
 
