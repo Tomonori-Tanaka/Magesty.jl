@@ -106,7 +106,7 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 	)
 
 	@testset "calc_energy" begin
-		spin_config_list = sclus.optimize.spinconfig_dataset.spinconfigs
+		spin_config_list = sclus.optimize.spinconfig_list
 		energy_list_from_salc::Vector{Float64} = Vector{Float64}(undef, length(spin_config_list))
 		for i in eachindex(spin_config_list)
 			spin_directions::Matrix{Float64} = spin_config_list[i].spin_directions

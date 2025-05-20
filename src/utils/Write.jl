@@ -115,14 +115,14 @@ end
 
 function write_energy_info(optimize::SCEOptimizer, filename::AbstractString = "energy.txt")
 	# Input validation
-	if isempty(optimize.spinconfig_dataset.spinconfigs)
+	if isempty(optimize.spinconfig_list)
 		@warn "No spin configurations found in optimizer"
 		return
 	end
 
 	# Prepare data
 	observed_energy_list =
-		[spinconfig.energy for spinconfig in optimize.spinconfig_dataset.spinconfigs]
+		[spinconfig.energy for spinconfig in optimize.spinconfig_list]
 	predicted_energy_list = optimize.predicted_energy_list
 
 	# Format header
@@ -137,7 +137,7 @@ function write_lmf_flattened(
 	filename::AbstractString = "lmf_flattened.txt",
 )
 	# Input validation
-	if isempty(optimize.spinconfig_dataset.spinconfigs)
+	if isempty(optimize.spinconfig_list)
 		@warn "No spin configurations found in optimizer"
 		return
 	end
