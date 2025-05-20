@@ -2,7 +2,7 @@ using ArgParse
 using Plots
 using Statistics
 
-include("../src/SpinConfig.jl")
+include("../src/SpinConfigs.jl")
 using .SpinConfigs
 
 # function to plot the histogram of magmom

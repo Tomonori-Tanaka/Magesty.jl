@@ -11,7 +11,7 @@ module RotateSameEnergy
 using LinearAlgebra
 using Statistics
 using Printf
-include("../src/SpinConfig.jl")
+include("../src/SpinConfigs.jl")
 using .SpinConfigs
 
 export rotate_spin_and_field

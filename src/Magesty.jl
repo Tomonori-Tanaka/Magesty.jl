@@ -54,7 +54,7 @@ include("types/AtomCells.jl")
 include("types/AtomicIndices.jl")
 include("types/UnitaryMatrixCl.jl")
 include("types/SALCs.jl")
-include("SpinConfig.jl")
+include("SpinConfigs.jl")
 using .SpinConfigs
 
 include("utils/ConfigParser.jl")
@@ -62,10 +62,10 @@ include("utils/RotationMatrix.jl")
 include("utils/MySphericalHarmonics.jl")
 using .ConfigParser
 
-include("Structure.jl")
-include("Symmetry.jl")
-include("Cluster.jl")
-include("BasisSet.jl")
+include("Structures.jl")
+include("Symmetries.jl")
+include("Clusters.jl")
+include("BasisSets.jl")
 include("Optimize.jl")
 
 using .Structures
