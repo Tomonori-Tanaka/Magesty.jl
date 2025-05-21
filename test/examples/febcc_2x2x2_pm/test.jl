@@ -118,12 +118,22 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 	@testset "Cross Validation Tests" begin
 		include("../../../tools/CrossValidation.jl")
 		using .CrossValidation
-		weight, weight_list, test_rmse_list, train_rmse_list, optimum_spincluster = cross_validation(
+		weight_list = vcat([0.001], collect(0.1:0.1:1))
+		weight, weight_list, test_rmse_list, train_rmse_list, optimum_spincluster =
+		# 	cross_validation(
+		# 		sclus,
+		# 		weight_list,
+		# 		10,
+		# 		;
+		# 		shuffle_data = true,
+		# 	)
+		# println("weight: ", weight)
+		# display(weight_list)
+		# display(test_rmse_list)
+		# display(train_rmse_list)
+		weight, weight_list, test_rmse_list, train_rmse_list, optimum_spincluster = loocv(
 			sclus,
-			0.0:0.02:1.0,
-			5,
-			;
-			shuffle_data = true,
+			weight_list,
 		)
 		println("weight: ", weight)
 		display(weight_list)
