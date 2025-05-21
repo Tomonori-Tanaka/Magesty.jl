@@ -8,24 +8,59 @@ using ..Magesty
 
 export cross_validation, loocv
 
+"""
+    loocv(spincluster, weights)
+
+Perform Leave-One-Out Cross Validation (LOOCV) for the given spin cluster and weights.
+
+# Arguments
+- `spincluster::SpinCluster`: The spin cluster object containing the dataset and optimization settings.
+- `weights::AbstractVector{<:Real}`: A vector of regularization weights to be evaluated.
+
+# Returns
+- `Tuple{Float64, Vector{Float64}, Vector{Float64}, Vector{Float64}, SpinCluster}`: 
+  A tuple containing the optimal weight, the list of weights, the test RMSE list, the train RMSE list, and the optimal SpinCluster.
+
+# Throws
+- `ArgumentError`: If `weights` is empty or contains invalid values.
+"""
 function loocv(
 	spincluster::SpinCluster,
 	weights::AbstractVector{<:Real},
 )
 	spinconfig_num::Int = length(spincluster.optimize.spinconfig_list)
-	
+
 	return cross_validation(spincluster, weights, spinconfig_num; shuffle_data = false)
 end
 
 
+"""
+    cross_validation(spincluster, weights, k_fold; shuffle_data=true)
+
+Perform k-fold cross validation for the given spin cluster and a set of regularization weights.
+
+# Arguments
+- `spincluster::SpinCluster`: The spin cluster object containing the dataset and optimization settings.
+- `weights::AbstractVector{<:Real}`: A vector of regularization weights to be evaluated.
+- `k_fold::Integer`: The number of folds for cross validation.
+- `shuffle_data::Bool`: Whether to shuffle the data before splitting into folds (default: true).
+
+# Returns
+- `Tuple{Float64, Vector{Float64}, Vector{Float64}, Vector{Float64}, SpinCluster}`: 
+  A tuple containing the optimal weight, the list of weights, the test RMSE list, the train RMSE list, and the optimal SpinCluster.
+
+# Throws
+- `ArgumentError`: If `weights` is empty or contains invalid values.
+- `ArgumentError`: If `k_fold` is less than 2 or greater than the dataset size.
+"""
 function cross_validation(
 	spincluster::SpinCluster,
 	weights::AbstractVector{<:Real},
 	k_fold::Integer,
 	;
 	shuffle_data::Bool = true,
-)::Tuple{Float64, Vector{Real}, Vector{Float64}, Vector{Float64}, SpinCluster}
-	weight_list::Vector{Real} = collect(weights)
+)::Tuple{Float64, Vector{Float64}, Vector{Float64}, Vector{Float64}, SpinCluster}
+	weight_list::Vector{Float64} = collect(weights)
 	if isempty(weight_list)
 		throw(ArgumentError("weights must not be empty: $weights"))
 	elseif !all(weight_list .>= 0.0)
@@ -54,9 +89,13 @@ function cross_validation(
 	test_rmse_list::Vector{Float64} = Vector{Float64}(undef, length(weight_list))
 	train_rmse_list::Vector{Float64} = Vector{Float64}(undef, length(weight_list))
 	spincluster_list::Vector{SpinCluster} = Vector{SpinCluster}(undef, length(weight_list))
-	for (i, weight::Float64) in enumerate(weight_list)
+	for (i, weight) in enumerate(weight_list)
 		cv_score_test::Float64, cv_score_train::Float64, current_spincluster::SpinCluster =
-			cross_validation_with_a_weight(current_spincluster, weight, splitted_spinconfig_list)
+			cross_validation_with_a_weight(
+				current_spincluster,
+				weight,
+				splitted_spinconfig_list,
+			)
 		test_rmse_list[i] = cv_score_test
 		train_rmse_list[i] = cv_score_train
 		spincluster_list[i] = current_spincluster
@@ -67,11 +106,28 @@ function cross_validation(
 	return optimum_weight, weight_list, test_rmse_list, train_rmse_list, optimum_spincluster
 end
 
+"""
+    cross_validation_with_a_weight(spincluster, weight, splitted_dataset)
+
+Perform cross validation for a single regularization weight over the provided data splits.
+
+# Arguments
+- `spincluster::SpinCluster`: The base spin cluster object.
+- `weight::Real`: The regularization weight to be evaluated.
+- `splitted_dataset::Vector{Vector{SpinConfig}}`: The dataset split into k folds (as produced by `split_data`).
+
+# Returns
+- `Tuple{Float64, Float64, SpinCluster}`: 
+  A tuple containing the average test RMSE, the average train RMSE, and the SpinCluster trained on all data with the given weight.
+
+# Throws
+- No explicit exceptions are thrown by this function, but errors may propagate from underlying methods if input data is invalid.
+"""
 function cross_validation_with_a_weight(
 	spincluster::SpinCluster,
 	weight::Real,
 	splitted_dataset::Vector{Vector{SpinConfig}},
-)
+)::Tuple{Float64, Float64, SpinCluster}
 	test_rmse_list::Vector{Float64} = Vector{Float64}(undef, length(splitted_dataset))
 	train_rmse_list::Vector{Float64} = Vector{Float64}(undef, length(splitted_dataset))
 
@@ -92,7 +148,8 @@ function cross_validation_with_a_weight(
 			sqrt(mean((predicted_energies_train .- observed_energies_train) .^ 2))
 
 		# Calculate RMSE for test data
-		predicted_energies_test::Vector{Float64} = Vector{Float64}(undef, length(test_spinconfigs))
+		predicted_energies_test::Vector{Float64} =
+			Vector{Float64}(undef, length(test_spinconfigs))
 		observed_energies_test::Vector{Float64} =
 			[test_spinconfig.energy for test_spinconfig in test_spinconfigs]
 		for (j, test_spinconfig::SpinConfig) in enumerate(test_spinconfigs)
@@ -115,20 +172,20 @@ function cross_validation_with_a_weight(
 end
 
 """
-	split_data(spinconfig_list, k_fold; shuffle=true)
+	split_data(spinconfig_list, k_fold; shuffle_data=true)
 
-Split the dataset for k-fold cross validation.
+Split the dataset into k subsets for k-fold cross validation.
 
 # Arguments
-- `spinconfig_list::AbstractVector{T}`: Dataset to be split
-- `k_fold::Integer`: Number of folds
-- `shuffle::Bool`: Whether to shuffle the data (default: true)
+- `spinconfig_list::AbstractVector{T}`: The dataset to be split.
+- `k_fold::Integer`: The number of folds (subsets).
+- `shuffle_data::Bool`: Whether to shuffle the data before splitting (default: true).
 
 # Returns
-- `Vector{Vector{T}}`: Dataset split into k subsets
+- `Vector{Vector{T}}`: A vector of k subsets, each being a vector of elements from the original dataset.
 
 # Throws
-- `ArgumentError`: If k_fold is less than 2 or larger than the dataset size
+- `ArgumentError`: If `k_fold` is less than 2 or greater than the dataset size.
 """
 function split_data(
 	spinconfig_list::AbstractVector{T},
