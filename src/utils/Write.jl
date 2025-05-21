@@ -71,7 +71,11 @@ function write_sce2xml(structure::Structure,
 	translations_node = addelement!(symmetry_node, "Translations")
 	for (i, isym_trans) in enumerate(symmetry.symnum_translation)
 		for iat_prim in symmetry.atoms_in_prim
-			map_node = addelement!(translations_node, "map", string(symmetry.map_sym[iat_prim, isym_trans]))
+			map_node = addelement!(
+				translations_node,
+				"map",
+				string(symmetry.map_sym[iat_prim, isym_trans]),
+			)
 			map_node["trans"] = string(i)
 			map_node["atom"] = string(iat_prim)
 		end
@@ -84,6 +88,7 @@ function write_sce2xml(structure::Structure,
 	for (i, salc::SALC) in enumerate(basis_set.salc_list)
 		salc_node = addelement!(basis_set_node, "SALC")
 		salc_node["index"] = string(i)
+		salc_node["num_basis"] = string(length(salc.basisset))
 		for (basis::IndicesUniqueList, coeff, multiplicity) in
 			zip(salc.basisset, salc.coeffs, salc.multiplicity)
 			basis_node = addelement!(salc_node, "basis", string(coeff))
