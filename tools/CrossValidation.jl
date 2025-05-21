@@ -6,7 +6,17 @@ using Statistics
 using ..Magesty.SpinConfigs
 using ..Magesty
 
-export cross_validation
+export cross_validation, loocv
+
+function loocv(
+	spincluster::SpinCluster,
+	weights::AbstractVector{<:Real},
+)
+	spinconfig_num::Int = length(spincluster.optimize.spinconfig_list)
+	
+	return cross_validation(spincluster, weights, spinconfig_num; shuffle_data = false)
+end
+
 
 function cross_validation(
 	spincluster::SpinCluster,
@@ -14,7 +24,7 @@ function cross_validation(
 	k_fold::Integer,
 	;
 	shuffle_data::Bool = true,
-)
+)::Tuple{Float64, Vector{Real}, Vector{Float64}, Vector{Float64}, SpinCluster}
 	weight_list::Vector{Real} = collect(weights)
 	if isempty(weight_list)
 		throw(ArgumentError("weights must not be empty: $weights"))
