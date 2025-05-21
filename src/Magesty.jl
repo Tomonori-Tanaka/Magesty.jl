@@ -80,7 +80,8 @@ include("utils/CalcEnergy.jl")
 using .CalcEnergy
 
 export System,
-	SpinCluster, print_info, write_energy_lists, write_magfield_vertical_list, VERSION, Write
+	SpinCluster, print_info, write_energy_lists, write_magfield_vertical_list, VERSION,
+	Write
 
 """
 	System
@@ -115,7 +116,7 @@ Create a System from a dictionary of input parameters.
 # Throws
 - `ErrorException` if required parameters are missing or invalid
 """
-function System(input_dict::Dict{<:AbstractString, <:Any}, verbosity::Bool = true)
+function System(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)
 	config::Config4System = Config4System(input_dict)
 
 	structure::Structure = Structure(config)
@@ -148,7 +149,7 @@ Create a System from a TOML configuration file.
 - `SystemError` if the file cannot be read
 - `ErrorException` if the TOML parsing fails
 """
-function System(toml_file::AbstractString, verbosity::Bool = true)
+function System(toml_file::AbstractString; verbosity::Bool = true)
 	try
 		open(toml_file) do io
 			toml = read(io, String)
@@ -200,7 +201,7 @@ Differ from System in that it also sets the optimizer.
 # Throws
 - `ErrorException` if required parameters are missing or invalid
 """
-function SpinCluster(input_dict::Dict{<:AbstractString, <:Any}, verbosity::Bool = true)
+function SpinCluster(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)
 	config::Config4System = Config4System(input_dict)
 	structure::Structure = Structure(config)
 	verbosity && Structures.print_info(structure)
@@ -235,7 +236,7 @@ Create a SpinCluster from a TOML configuration file.
 - `SystemError` if the file cannot be read
 - `ErrorException` if the TOML parsing fails
 """
-function SpinCluster(toml_file::AbstractString, verbosity::Bool = true)
+function SpinCluster(toml_file::AbstractString; verbosity::Bool = true)
 	try
 		open(toml_file) do io
 			toml = read(io, String)
@@ -254,6 +255,7 @@ end
 function SpinCluster(
 	system::System,
 	input_dict::Dict{<:AbstractString, <:Any},
+	;
 	verbosity::Bool = true,
 )
 	config::Config4Optimize = Config4Optimize(input_dict)
@@ -268,7 +270,7 @@ function SpinCluster(
 	)
 end
 
-function SpinCluster(system::System, toml_file::AbstractString, verbosity::Bool = true)
+function SpinCluster(system::System, toml_file::AbstractString; verbosity::Bool = true)
 	try
 		open(toml_file) do io
 			toml = read(io, String)
@@ -287,10 +289,12 @@ end
 function SpinCluster(
 	spincluster::SpinCluster,
 	input_dict::AbstractDict{<:AbstractString, <:Any},
+	;
 	verbosity::Bool = true,
 )
 	config::Config4Optimize = Config4Optimize(input_dict)
-	sce_with_ref_energy = vcat(spincluster.optimize.reference_energy, spincluster.optimize.SCE)
+	sce_with_ref_energy =
+		vcat(spincluster.optimize.reference_energy, spincluster.optimize.SCE)
 	optimize = Optimizer(
 		spincluster.structure,
 		spincluster.symmetry,
@@ -314,6 +318,7 @@ function SpinCluster(
 	spincluster::SpinCluster,
 	weight::Real,
 	spinconfig_list::AbstractVector{SpinConfig},
+	;
 	verbosity::Bool = true,
 )
 	optimize = Optimizer(
@@ -343,7 +348,12 @@ function calc_energy(sc::SpinCluster, spin_config::AbstractMatrix{<:Real})
 			),
 		)
 	end
-	return CalcEnergy.calc_energy(sc.basisset.salc_list, spin_config, sc.symmetry, sc.optimize)
+	return CalcEnergy.calc_energy(
+		sc.basisset.salc_list,
+		spin_config,
+		sc.symmetry,
+		sc.optimize,
+	)
 end
 
 """
@@ -418,14 +428,24 @@ function write_sce2xml(
 	filename::AbstractString = "jphi.xml";
 	write_jphi::Bool = true,
 )
-	Write.write_sce2xml(structure, symmetry, basis_set, optimize, filename; write_jphi = write_jphi)
+	Write.write_sce2xml(
+		structure,
+		symmetry,
+		basis_set,
+		optimize,
+		filename;
+		write_jphi = write_jphi,
+	)
 end
 
 function write_energy_info(sc::SpinCluster, filename::AbstractString = "energy.txt")
 	Write.write_energy_info(sc.optimize, filename)
 end
 
-function write_lmf_flattened(sc::SpinCluster, filename::AbstractString = "lmf_flattened.txt")
+function write_lmf_flattened(
+	sc::SpinCluster,
+	filename::AbstractString = "lmf_flattened.txt",
+)
 	Write.write_lmf_flattened(sc.optimize, filename)
 end
 
