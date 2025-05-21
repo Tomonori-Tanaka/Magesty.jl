@@ -158,7 +158,7 @@ function Optimizer(
 	basisset::BasisSet,
 	weight::Real,
 	spinconfig_list::AbstractVector{SpinConfig},
-	initial_sce_with_bias::AbstractVector{<:Real},
+	initial_sce_with_ref_energy::AbstractVector{<:Real},
 )
 	# Start timing
 	start_time = time_ns()
@@ -201,8 +201,8 @@ function Optimizer(
 		design_matrix_magfield_vertical,
 		observed_energy_list,
 		observed_magfield_vertical_list,
-		initial_sce_with_bias[2:end],
-		initial_sce_with_bias[1],
+		initial_sce_with_ref_energy[2:end],
+		initial_sce_with_ref_energy[1],
 	)
 
 	# End timing
@@ -261,7 +261,7 @@ function construct_design_matrix_energy(
 	design_matrix = zeros(Float64, num_spinconfigs, num_salcs + 1)
 	initialize_check = falses(num_spinconfigs, num_salcs + 1)
 
-	# set first column to 1 (bias term)
+	# set first column to 1 (reference_energy term)
 	design_matrix[:, 1] .= 1.0
 	initialize_check[:, 1] .= true
 
@@ -422,9 +422,9 @@ function ols_energy(
 	observed_magfield_vertical_flattened = -1 * observed_magfield_vertical_flattened
 
 	reference_energy::Float64 = ols_coeffs[1]
-	ols_coeffs_wo_bias::Vector{Float64} = ols_coeffs[2:end]
+	ols_coeffs_wo_ref_energy::Vector{Float64} = ols_coeffs[2:end]
 	predicted_magfield_vertical_list::Vector{Float64} =
-		design_matrix_magfield_vertical * ols_coeffs_wo_bias
+		design_matrix_magfield_vertical * ols_coeffs_wo_ref_energy
 	relative_error_energy::Float64 =
 		√(
 		sum((observed_energy_list - predicted_energy_list) .^ 2) /
@@ -436,7 +436,7 @@ function ols_energy(
 		sum(observed_magfield_vertical_flattened .^ 2),
 	)
 
-	return ols_coeffs_wo_bias,
+	return ols_coeffs_wo_ref_energy,
 	reference_energy,
 	relative_error_magfield_vertical,
 	relative_error_energy,
@@ -486,7 +486,7 @@ function ols_magfield_vertical(
 		sum(observed_magfield_vertical_flattened .^ 2),
 	)
 
-	# calculate bias term
+	# calculate reference energy term
 
 	reference_energy = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * ols_coeffs)
 	relative_error_energy =
@@ -630,7 +630,7 @@ end
 		observed_energy_list::Vector{Float64},
 		observed_magfield_vertical_list::Vector{Vector{Float64}},
 		SCE_initial_guess::Vector{Float64},
-		bias_initial_guess::Float64,
+		ref_energy_initial_guess::Float64,
 	) -> Tuple{Vector{Float64}, Float64, Float64, Float64, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}
 
 Optimize SCE coefficients using a weighted loss function that combines energy and magnetic field errors.
@@ -643,7 +643,7 @@ Optimize SCE coefficients using a weighted loss function that combines energy an
 - `observed_energy_list::Vector{Float64}`: Observed energy values
 - `observed_magfield_vertical_list::Vector{Vector{Float64}}`: Observed magfield_vertical values
 - `SCE_initial_guess::Vector{Float64}`: Initial guess for SCE coefficients
-- `bias_initial_guess::Float64`: Initial guess for bias term
+- `ref_energy_initial_guess::Float64`: Initial guess for reference energyreference energyreference energyreference energyreference energyreference energyreference energyreference energyreference energy term
 
 # Returns
 - `Vector{Float64}`: Optimized SCE coefficients
@@ -663,7 +663,7 @@ function optimize_SCEcoeffs_with_weight(
 	observed_energy_list::Vector{Float64},
 	observed_magfield_vertical_list::Vector{Vector{Float64}},
 	SCE_initial_guess::Vector{Float64},
-	bias_initial_guess::Float64,
+	ref_energy_initial_guess::Float64,
 )::Tuple{
 	Vector{Float64},
 	Float64,
@@ -683,29 +683,29 @@ function optimize_SCEcoeffs_with_weight(
 	observed_magfield_vertical_flattened = -1 * vcat(observed_magfield_vertical_list...)
 
 	data_num = length(observed_energy_list)
-	sce_coeffs_with_bias = vcat(bias_initial_guess, SCE_initial_guess)
+	sce_coeffs_with_ref_energy = vcat(ref_energy_initial_guess, SCE_initial_guess)
 
 	# -- Define models --
 	function energy_model(
-		sce_coeffs_with_bias::AbstractVector{<:Real},
+		sce_coeffs_with_ref_energy::AbstractVector{<:Real},
 		design_matrix_energy::AbstractMatrix{<:Real},
 	)::Vector{Float64}
-		return design_matrix_energy * sce_coeffs_with_bias
+		return design_matrix_energy * sce_coeffs_with_ref_energy
 	end
 
 	function magfield_vertical_model(
-		sce_coeffs_with_bias::AbstractVector{<:Real},
+		sce_coeffs_with_ref_energy::AbstractVector{<:Real},
 		design_matrix_magfield_vertical::AbstractMatrix{<:Real},
 	)::Vector{Float64}
-		return design_matrix_magfield_vertical * sce_coeffs_with_bias[2:end]
+		return design_matrix_magfield_vertical * sce_coeffs_with_ref_energy[2:end]
 	end
 
 	# Define loss function
-	function loss_function(sce_coeffs_with_bias::AbstractVector)
+	function loss_function(sce_coeffs_with_ref_energy::AbstractVector)
 		# Calculate normalized predictions
-		predicted_energy_list = energy_model(sce_coeffs_with_bias, design_matrix_energy)
+		predicted_energy_list = energy_model(sce_coeffs_with_ref_energy, design_matrix_energy)
 		predicted_magfield_vertical_list =
-			magfield_vertical_model(sce_coeffs_with_bias, design_matrix_magfield_vertical)
+			magfield_vertical_model(sce_coeffs_with_ref_energy, design_matrix_magfield_vertical)
 
 		# Calculate weighted losses
 		loss_energy =
@@ -718,17 +718,17 @@ function optimize_SCEcoeffs_with_weight(
 	end
 
 	# Optimize using BFGS
-	res = optimize(loss_function, sce_coeffs_with_bias, BFGS())
-	optimized_sce_coeffs_with_bias = res.minimizer
+	res = optimize(loss_function, sce_coeffs_with_ref_energy, BFGS())
+	optimized_sce_coeffs_with_ref_energy = res.minimizer
 
 	# Extract optimized parameters
-	optimized_reference_energy = optimized_sce_coeffs_with_bias[1]
-	optimized_sce_coeffs = optimized_sce_coeffs_with_bias[2:end]
+	optimized_reference_energy = optimized_sce_coeffs_with_ref_energy[1]
+	optimized_sce_coeffs = optimized_sce_coeffs_with_ref_energy[2:end]
 
 	# Calculate final predictions and errors
-	predicted_energy_list = energy_model(optimized_sce_coeffs_with_bias, design_matrix_energy)
+	predicted_energy_list = energy_model(optimized_sce_coeffs_with_ref_energy, design_matrix_energy)
 	predicted_magfield_vertical_list =
-		magfield_vertical_model(optimized_sce_coeffs_with_bias, design_matrix_magfield_vertical)
+		magfield_vertical_model(optimized_sce_coeffs_with_ref_energy, design_matrix_magfield_vertical)
 
 	# Calculate relative errors
 	relative_error_energy = √(
@@ -753,7 +753,7 @@ end
 
 """
 	calc_relative_error(
-		sce_coeffs_with_bias::AbstractVector{<:Real},
+		sce_coeffs_with_ref_energy::AbstractVector{<:Real},
 		design_matrix_energy::AbstractMatrix{<:Real},
 		design_matrix_magfield_vertical::AbstractMatrix{<:Real},
 		observed_energy_list::AbstractVector{<:Real},
@@ -763,22 +763,22 @@ end
 Compute the relative errors of energy and magfield_vertical.
 
 # Arguments
-- `sce_coeffs_with_bias::AbstractVector{<:Real}`: SCE coefficients with bias
+- `sce_coeffs_with_ref_energy::AbstractVector{<:Real}`: SCE coefficients with reference energy
 - `design_matrix_energy::AbstractMatrix{<:Real}`: Design matrix for energy
 - `design_matrix_magfield_vertical::AbstractMatrix{<:Real}`: Design matrix for magfield_vertical
 - `observed_energy_list::AbstractVector{<:Real}`: Observed energy list
 - `observed_magfield_vertical_list::AbstractVector{<:Real}`: Observed magfield_vertical list
 """
 function calc_relative_error(
-	sce_coeffs_with_bias::AbstractVector{<:Real},
+	sce_coeffs_with_ref_energy::AbstractVector{<:Real},
 	design_matrix_energy::AbstractMatrix{<:Real},
 	design_matrix_magfield_vertical::AbstractMatrix{<:Real},
 	observed_energy_list::AbstractVector{<:Real},
 	observed_magfield_vertical_list::AbstractVector{<:Real},
 )::Tuple{Float64, Float64}
-	predicted_energy_list = design_matrix_energy * sce_coeffs_with_bias
+	predicted_energy_list = design_matrix_energy * sce_coeffs_with_ref_energy
 	predicted_magfield_vertical_list =
-		design_matrix_magfield_vertical * sce_coeffs_with_bias[2:end]
+		design_matrix_magfield_vertical * sce_coeffs_with_ref_energy[2:end]
 	relative_error_energy::Float64 =
 		√(
 		sum((observed_energy_list .- predicted_energy_list) .^ 2) /
@@ -822,7 +822,7 @@ function print_info(optimizer::Optimizer)
 		============
 		""",
 	)
-	println(@sprintf("bias term: %.10f", optimizer.reference_energy))
+	println(@sprintf("E_ref: %.10f", optimizer.reference_energy))
 	for (i, sce) in enumerate(optimizer.SCE)
 		println(@sprintf("%9d: %15.10f", i, sce))
 	end

@@ -290,14 +290,14 @@ function SpinCluster(
 	verbosity::Bool = true,
 )
 	config::Config4Optimize = Config4Optimize(input_dict)
-	sce_with_bias = vcat(spincluster.optimize.reference_energy, spincluster.optimize.SCE)
+	sce_with_ref_energy = vcat(spincluster.optimize.reference_energy, spincluster.optimize.SCE)
 	optimize = Optimizer(
 		spincluster.structure,
 		spincluster.symmetry,
 		spincluster.basisset,
 		config.weight,
 		spincluster.optimize.spinconfig_list,
-		sce_with_bias,
+		sce_with_ref_energy,
 	)
 	verbosity && Optimize.print_info(optimize)
 
