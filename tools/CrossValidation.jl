@@ -138,7 +138,7 @@ function cross_validation_with_a_weight(
 
 		# Create spin cluster for training data
 		trained_spin_cluster::SpinCluster =
-			SpinCluster(spincluster, weight, train_spinconfigs, false)
+			SpinCluster(spincluster, weight, train_spinconfigs, verbosity = false)
 		# Calculate RMSE for training data
 		predicted_energies_train::Vector{Float64} =
 			trained_spin_cluster.optimize.predicted_energy_list
@@ -167,7 +167,7 @@ function cross_validation_with_a_weight(
 	# Calculate the spin cluster with the weight using all data
 	all_spinconfigs::Vector{SpinConfig} = vcat(splitted_dataset...)
 	spincluster_with_a_weight::SpinCluster =
-		SpinCluster(spincluster, weight, all_spinconfigs, false)
+		SpinCluster(spincluster, weight, all_spinconfigs, verbosity = false)
 	return cv_score_test, cv_score_train, spincluster_with_a_weight
 end
 

@@ -8,7 +8,7 @@ using Magesty.Symmetries
 input = TOML.parse(
 	open("/Users/tomorin/Packages/Magesty/test/examples/febcc_2x2x2_pm/input.toml", "r"),
 )
-system = System(input, false)
+system = System(input, verbosity = false)
 const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring virtual cells
 @testset "Fe BCC 2x2x2 Tests" begin
 	@testset "Structure Tests" begin
@@ -98,7 +98,7 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 		end
 	end
 
-	sclus = SpinCluster(system, input, false)
+	sclus = SpinCluster(system, input, verbosity = false)
 	Magesty.write_sce2xml(sclus, joinpath(@__DIR__, "scecoeffs.xml"))
 	@test FileUtils.files_equal_chunked(
 		joinpath(@__DIR__, "scecoeffs.xml"),
