@@ -7,41 +7,21 @@ using ..Magesty.SpinConfigs
 using ..Magesty
 
 export cross_validation
-"""
-
-# Arguments
-- `weight_min::Real`: Minimum weight 
-- `weight_max::Real`: Maximum weight
-- `weight_step::Integer`: Step size for weight
-- `k_fold::Integer`: Number of folds for cross validation
-- `initial_sce::AbstractVector{<:Real}`: Initial SCE coefficients
-- `intitlal_ref_energy::Real`: Initial reference energy
-- `shuffle::Bool`: Whether to shuffle the data set
-
-# Returns
-- `result_SCE::Vector{Float64}`: Best SCE coefficients to minimize the RMSE for test data
-- `result_ref_energy::Float64`: Best reference energy to minimize the RMSE for test data
-- `result_weight::Float64`: Best weight to minimize the RMSE for test data
-- `result_RMSE4test_list::Vector{Float64}`: List of cv scores for test data
-- `result_RMSE4train_list::Vector{Float64}`: List of cv scores for train data
-"""
 
 function cross_validation(
 	spincluster::SpinCluster,
-	weight_min::Real,
-	weight_max::Real,
-	weight_step::Integer,
+	weights::AbstractVector{<:Real},
 	k_fold::Integer,
 	;
 	shuffle_data::Bool = true,
 )
-	# Parameter validation
-	if weight_min >= weight_max
-		throw(ArgumentError("weight_min ($weight_min) must be less than weight_max ($weight_max)"))
-	end
-
-	if weight_step <= 0
-		throw(ArgumentError("weight_step ($weight_step) must be a positive integer"))
+	weight_list::Vector{Real} = collect(weights)
+	if isempty(weight_list)
+		throw(ArgumentError("weights must not be empty: $weights"))
+	elseif !all(weight_list .>= 0.0)
+		throw(ArgumentError("weights must be positive: $weights"))
+	elseif !all(weight_list .<= 1.0)
+		throw(ArgumentError("weights must be less than or equal to 1: $weights"))
 	end
 
 	if k_fold < 2
@@ -61,18 +41,20 @@ function cross_validation(
 		split_data(spinconfig_list, k_fold; shuffle_data = shuffle_data)
 
 	current_spincluster = spincluster
-	weight_list::Vector{Float64} = collect(range(weight_min, weight_max, length = weight_step))
 	test_rmse_list::Vector{Float64} = Vector{Float64}(undef, length(weight_list))
 	train_rmse_list::Vector{Float64} = Vector{Float64}(undef, length(weight_list))
+	spincluster_list::Vector{SpinCluster} = Vector{SpinCluster}(undef, length(weight_list))
 	for (i, weight::Float64) in enumerate(weight_list)
 		cv_score_test::Float64, cv_score_train::Float64, current_spincluster::SpinCluster =
 			cross_validation_with_a_weight(current_spincluster, weight, splitted_spinconfig_list)
 		test_rmse_list[i] = cv_score_test
 		train_rmse_list[i] = cv_score_train
+		spincluster_list[i] = current_spincluster
 	end
 
 	optimum_weight::Float64 = weight_list[argmin(test_rmse_list)]
-	return optimum_weight, weight_list, test_rmse_list, train_rmse_list
+	optimum_spincluster::SpinCluster = spincluster_list[argmin(test_rmse_list)]
+	return optimum_weight, weight_list, test_rmse_list, train_rmse_list, optimum_spincluster
 end
 
 function cross_validation_with_a_weight(
@@ -117,7 +99,8 @@ function cross_validation_with_a_weight(
 
 	# Calculate the spin cluster with the weight using all data
 	all_spinconfigs::Vector{SpinConfig} = vcat(splitted_dataset...)
-	spincluster_with_a_weight::SpinCluster = SpinCluster(spincluster, weight, all_spinconfigs, false)
+	spincluster_with_a_weight::SpinCluster =
+		SpinCluster(spincluster, weight, all_spinconfigs, false)
 	return cv_score_test, cv_score_train, spincluster_with_a_weight
 end
 
