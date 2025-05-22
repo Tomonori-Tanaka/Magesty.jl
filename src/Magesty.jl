@@ -481,4 +481,26 @@ function write_lmf_flattened(
 	Write.write_lmf_flattened(sc.optimize, filename)
 end
 
+"""
+	get the reference energy
+"""
+function get_j0(sc::SpinCluster)::Float64
+	return sc.optimize.reference_energy
+end
+
+"""
+	get the spin-cluster coefficients
+"""
+function get_jphi(sc::SpinCluster)::Vector{Float64}
+	return sc.optimize.SCE
+end
+
+"""
+	get the reference energy and spin-cluster coefficients
+"""
+function get_j0_jphi(sc::SpinCluster)::Vector{Float64}
+	return vcat(sc.optimize.reference_energy, sc.optimize.SCE)
+end
+
+
 end # module Magesty
