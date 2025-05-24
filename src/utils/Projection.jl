@@ -30,7 +30,6 @@ function construct_projectionmatrix(
 	lattice_vectors::SMatrix{3, 3, Float64} =
 		SMatrix{3, 3, Float64}(structure.supercell.lattice_vectors)
 	symdata::Vector{SymmetryOperation} = symmetry.symdata
-	map_sym_cell::Array{AtomCell} = symmetry.map_sym_cell
 	map_sym = symmetry.map_sym
 	map_s2p::Vector{Maps} = symmetry.map_s2p
 	atoms_in_prim::Vector{Int} = symmetry.atoms_in_prim
@@ -198,26 +197,6 @@ function calc_projection(
 	end
 
 	return projection_matrix
-end
-
-function apply_symop_to_basis(
-	basis::IndicesUniqueList,
-	isym::Integer,
-	map_sym_cell::AbstractArray{AtomCell},
-)::NTuple{2, Vector{Int}}
-	atom_list = [indices.atom for indices in basis]
-	cell_list = [indices.cell for indices in basis]
-
-	moved_atom_list = Vector{Int}()
-	moved_cell_list = Vector{Int}()
-
-	for (atom, cell) in zip(atom_list, cell_list)
-		push!(moved_atom_list, map_sym_cell[atom, cell, isym].atom)
-		push!(moved_cell_list, map_sym_cell[atom, cell, isym].cell)
-	end
-
-	return moved_atom_list, moved_cell_list
-
 end
 
 """
