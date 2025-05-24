@@ -27,9 +27,11 @@ function construct_projectionmatrix(
 	# aliases
 	x_image_cart::Array{Float64, 3} = structure.x_image_cart
 	# Convert to SMatrix for better performance
-	lattice_vectors::SMatrix{3,3,Float64} = SMatrix{3,3,Float64}(structure.supercell.lattice_vectors)
+	lattice_vectors::SMatrix{3, 3, Float64} =
+		SMatrix{3, 3, Float64}(structure.supercell.lattice_vectors)
 	symdata::Vector{SymmetryOperation} = symmetry.symdata
 	map_sym_cell::Array{AtomCell} = symmetry.map_sym_cell
+	map_sym = symmetry.map_sym
 	map_s2p::Vector{Maps} = symmetry.map_s2p
 	atoms_in_prim::Vector{Int} = symmetry.atoms_in_prim
 	tol::Real = symmetry.tol
@@ -50,7 +52,7 @@ function construct_projectionmatrix(
 					n,
 					map_s2p,
 					atoms_in_prim,
-					map_sym_cell,
+					map_sym,
 					x_image_cart,
 					lattice_vectors,
 					threshold_digits = 10,
@@ -75,7 +77,7 @@ function calc_projection(
 	isym::Integer,
 	map_s2p,
 	atoms_in_prim,
-	map_sym_cell::AbstractArray{AtomCell},
+	map_sym,
 	x_image_cart,
 	lattice_vectors,
 	;
@@ -89,9 +91,8 @@ function calc_projection(
 		return projection_matrix
 	end
 
-	# 回転行列をSMatrixに変換
-	rotation_cart = SMatrix{3,3,Float64}(symop.rotation_cart)
-	translation_frac = SVector{3,Float64}(symop.translation_frac)
+	rotation_cart = SMatrix{3, 3, Float64}(symop.rotation_cart)
+	translation_frac = SVector{3, Float64}(symop.translation_frac)
 
 	for (ir, rbasis::IndicesUniqueList) in enumerate(basislist)  # right-hand basis
 
@@ -100,7 +101,7 @@ function calc_projection(
 				rbasis,
 				isym,
 				symop,
-				map_sym_cell,
+				map_sym,
 				map_s2p,
 				atoms_in_prim,
 				x_image_cart,
@@ -227,7 +228,7 @@ function apply_symop_to_basis_with_shift(
 	basis::IndicesUniqueList,
 	isym::Integer,
 	symop::SymmetryOperation,
-	map_sym_cell::AbstractArray{AtomCell},
+	map_sym::AbstractArray{<:Integer},
 	map_s2p::AbstractVector,
 	atoms_in_prim::AbstractVector{<:Integer},
 	x_image_cart::AbstractArray,
@@ -243,45 +244,37 @@ function apply_symop_to_basis_with_shift(
 	header_cell = cell_list[begin]
 
 	# firstly, apply the symmetry operation to atoms
-	moved_coords = Vector{SVector{3,Float64}}()
-	for (atom, cell) in zip(atom_list, cell_list)
-		translation_cart = lattice_vectors * SVector{3,Float64}(symop.translation_frac)
-		coords_tmp = SMatrix{3,3,Float64}(symop.rotation_cart) * SVector{3,Float64}(x_image_cart[:, atom, cell]) + translation_cart
-		push!(moved_coords, coords_tmp)
+	translation_cart = SVector{3, Float64}(lattice_vectors * symop.translation_frac)
+	moved_coords = Matrix{Float64}(undef, 3, length(atom_list))
+	for (i, (atom, cell)) in enumerate(zip(atom_list, cell_list))
+		moved_coords[:, i] =
+			symop.rotation_cart * x_image_cart[:, atom, cell] + translation_cart
 	end
 
 	# secondly, calculate translation vector to shift first atom to the primitive cell
-	moved_header_indices::NTuple{2, Int} =
-		(
-			map_sym_cell[header_atom, header_cell, isym].atom,
-			map_sym_cell[header_atom, header_cell, isym].cell,
-		)
-	moved_header_prim::NTuple{2, Int} =
-		(atoms_in_prim[map_s2p[moved_header_indices[1]].atom], 1)
+	moved_header_atom::Int = map_sym[header_atom, isym]
+	moved_header_atom_in_prim::Int = atoms_in_prim[map_s2p[moved_header_atom].atom]
 
-	if map_sym_cell[header_atom, header_cell, isym].cell < 0
-		@show header_atom
-		@show header_cell
-		@show isym
-		@show moved_header_indices
-		error("Something is wrong.")
-	end
-	translation_vec = calc_relvec_in_cart(moved_header_prim, moved_header_indices, x_image_cart)
+	relative_vec_cart::SVector{3, Float64} =
+		x_image_cart[:, moved_header_atom_in_prim, 1] - moved_coords[:, 1]
 
-	# thirdly, shift all atoms by using the translation vector
-	shifted_coords = Vector{SVector{3,Float64}}()
-	for coords in moved_coords
-		push!(shifted_coords, coords + translation_vec)
-	end
+	# shift the moved_coords to the primitive cell
+	shifted_coords = moved_coords .+ relative_vec_cart
+
 
 	# finally, find corresponding atom indices
 	result_atom_list = Int[]
 	result_cell_list = Int[]
-	for coords in shifted_coords
+
+	for coords in eachcol(shifted_coords)
 		found = false
 		for iatom in axes(x_image_cart, 2)
 			for icell in axes(x_image_cart, 3)
-				if isapprox(coords, SVector{3,Float64}(x_image_cart[:, iatom, icell]), atol = tol)
+				if isapprox(
+					coords,
+					SVector{3, Float64}(x_image_cart[:, iatom, icell]),
+					atol = tol,
+				)
 					push!(result_atom_list, iatom)
 					push!(result_cell_list, icell)
 					found = true
@@ -302,10 +295,10 @@ function calc_relvec_in_frac(
 	atom1::NTuple{2, Integer},# (atom, cell)
 	atom2::NTuple{2, Integer},
 	x_image_frac::AbstractArray{<:Real, 3},
-)::SVector{3,Float64}
+)::SVector{3, Float64}
 	# Use SVector for better performance
-	result = SVector{3,Float64}(
-		x_image_frac[:, atom1[1], atom1[2]] - x_image_frac[:, atom2[1], atom2[2]]
+	result = SVector{3, Float64}(
+		x_image_frac[:, atom1[1], atom1[2]] - x_image_frac[:, atom2[1], atom2[2]],
 	)
 	return result
 end
