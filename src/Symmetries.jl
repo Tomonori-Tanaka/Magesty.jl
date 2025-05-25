@@ -114,7 +114,6 @@ Contains the symmetry information of a structure.
 - `elapsed_time::Float64`: Time taken to create the symmetry in seconds.
 - `symdata::Vector{SymmetryOperation}`: List of symmetry operations.
 - `map_sym::Matrix{Int}`: Maps atoms in the supercell to corresponding atoms under symmetry operations.
-- `map_sym_cell::Array{AtomCell}`: Maps atoms in the supercell to corresponding AtomCell instances.
 - `map_p2s::Matrix{Int}`: Maps atoms in the primitive cell to the supercell.
 - `map_s2p::Vector{Maps}`: Maps atoms in the supercell to the primitive cell.
 - `symnum_translation::Vector{Int}`: Indices of pure translation operations.
@@ -136,7 +135,6 @@ struct Symmetry
 
 	symdata::Vector{SymmetryOperation}
 	map_sym::Matrix{Int}    # [num_atoms, nsym] -> corresponding atom index
-	map_sym_cell::Array{AtomCell}# [atom, cell, isym] -> corresponding AtomCell instance
 	map_p2s::Matrix{Int}    # [nat_prim, ntran] -> corresponding atom index
 	map_s2p::Vector{Maps}   # [nat] -> corresponding atom index in primitive cel
 	symnum_translation::Vector{Int} # contains the indice of translational only operations
@@ -144,45 +142,45 @@ struct Symmetry
 	function Symmetry(structure::Structure, tol::Real)
 
 		start_time = time_ns()
-	
+
 		if tol <= 0
 			throw(ArgumentError("Tolerance must be positive, got $tol"))
 		end
-	
+
 		cell = structure.supercell
 		spglib_data::Spglib.Dataset =
 			get_dataset(Spglib.Cell(cell.lattice_vectors, cell.x_frac, cell.kd_int_list))
-	
+
 		if spglib_data.n_operations == 0
 			error(
 				"Error in symmetry search: No symmetry operations found. Please check the input structure or tolerance setting.",
 			)
 		end
-	
+
 		# construct symnum_translation and ntran
 		symnum_translation = construct_symnum_translation(spglib_data, tol)
 		ntran = length(symnum_translation)
-	
+
 		# construct symdata
 		symdata = construct_symdata(spglib_data, tol, symnum_translation, cell)
-	
+
 		# construct mapping data
-		map_sym, map_sym_cell = construct_map_sym(spglib_data, tol, structure)
-	
+		map_sym = construct_map_sym(spglib_data, tol, structure)
+
 		# generate map_p2s (primitive cell --> supercell)
 		map_p2s = construct_map_p2s(spglib_data, cell, map_sym, symnum_translation)
-	
+
 		nat_prim = max(spglib_data.mapping_to_primitive...)
 		# generate map_s2p (supercell -> primitive cell)
 		map_s2p = construct_map_s2p(cell, map_p2s, nat_prim, ntran)
-	
+
 		# collect atom indices in primitive cell from map_p2s
 		atoms_in_prim = Int[map_p2s[i, 1] for i in 1:nat_prim]
 		atoms_in_prim = sort(atoms_in_prim)
-	
+
 		# End timing
 		elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
-	
+
 		return new(
 			spglib_data.international_symbol,
 			spglib_data.spacegroup_number,
@@ -194,7 +192,6 @@ struct Symmetry
 			elapsed_time,
 			symdata,
 			map_sym,
-			map_sym_cell,
 			map_p2s,
 			map_s2p,
 			symnum_translation)
@@ -262,18 +259,19 @@ function construct_map_sym(
 	spglib_data::Spglib.Dataset,
 	tol::Real,
 	structure::Structure,
-)::Tuple{Matrix{Int}, Array{AtomCell}}
+)::Matrix{Int}
 	natomtypes = length(structure.atomtype_group)
 	map_sym = zeros(Int, structure.supercell.num_atoms, Int(spglib_data.n_operations))
-	map_sym_cell = Array{AtomCell}(undef, structure.supercell.num_atoms, 27, spglib_data.n_operations)
-	initialized = falses(size(map_sym_cell))
 
 	@threads for isym in 1:spglib_data.n_operations
 		x_new = Vector{Float64}(undef, 3)
 		tmp = Vector{Float64}(undef, 3)
 		for itype in 1:natomtypes
 			for iat in structure.atomtype_group[itype]
-				x_new = MVector(spglib_data.rotations[isym] * structure.supercell.x_frac[:, iat] + spglib_data.translations[isym])
+				x_new = MVector(
+					spglib_data.rotations[isym] * structure.supercell.x_frac[:, iat] +
+					spglib_data.translations[isym],
+				)
 
 				for jat in structure.atomtype_group[itype]
 					tmp = (abs.(structure.supercell.x_frac[:, jat] - x_new)) .% 1.0
@@ -284,17 +282,6 @@ function construct_map_sym(
 
 					if norm(tmp) < tol
 						map_sym[iat, isym] = jat
-						
-						# Find matching image cells
-						for cell in 1:27
-							matched_cell = find_matching_image_cell(
-								x_new,
-								structure.x_image_frac,
-								tol = tol,
-							)
-							map_sym_cell[iat, cell, isym] = AtomCell(jat, matched_cell)
-							initialized[iat, cell, isym] = true
-						end
 						break
 					end
 				end
@@ -306,11 +293,9 @@ function construct_map_sym(
 	zero_pos = CartesianIndices(map_sym)[map_sym .== 0]
 	if !isempty(zero_pos)
 		error("zero is found in map_sym at $zero_pos")
-	elseif false in initialized
-		error("false is found in map_sym_cell")
 	end
 
-	return map_sym, map_sym_cell
+	return map_sym
 end
 
 """
@@ -426,7 +411,11 @@ function find_matching_image_cell(
 	# Use views for better performance
 	matches = [
 		(n, m) for n in 1:size(x_image, 2), m in 1:size(x_image, 3)
-		if isapprox(SVector{3,Float64}(@view(x_image[:, n, m])), SVector{3,Float64}(x_new); atol = tol)
+		if isapprox(
+			SVector{3, Float64}(@view(x_image[:, n, m])),
+			SVector{3, Float64}(x_new);
+			atol = tol,
+		)
 	]
 
 	if isempty(matches)
