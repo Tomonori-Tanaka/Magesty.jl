@@ -73,7 +73,7 @@ The constructor performs the following steps:
 struct BasisSet
 	basislist::SortedCountingUniqueVector{IndicesUniqueList}
 	classified_basisdict::Dict{Int, SortedCountingUniqueVector}
-	projection_list::Vector{Matrix{Float64}}
+	# projection_list::Vector{Matrix{Float64}}
 	salc_list::Vector{SALC}
 	elapsed_time::Float64  # Time taken to create the basis set in seconds
 
@@ -90,7 +90,8 @@ struct BasisSet
 		# Validate input parameters
 		nkd, nbody = size(lmax)
 		bodymax > 0 || throw(ArgumentError("bodymax must be positive"))
-		nbody ≥ bodymax || throw(ArgumentError("lmax matrix must have at least bodymax columns"))
+		nbody ≥ bodymax ||
+			throw(ArgumentError("lmax matrix must have at least bodymax columns"))
 
 		# Construct basis list
 		# basislist consists of all possible basis functions which is the product of spherical harmonics.
@@ -105,17 +106,31 @@ struct BasisSet
 		# Classify basis functions by symmetry
 		classified_basisdict = classify_basislist(basislist, symmetry.map_sym)
 
+		# display(classified_basisdict)
+
 		# Construct projection matrices
-		projection_list = construct_projectionmatrix(
+		projection_list, num_nonzero_projection_list = construct_projectionmatrix(
 			classified_basisdict,
 			structure,
 			symmetry,
 		)
 
+		for (idx, proj) in enumerate(projection_list)
+			if proj != proj'
+				throw(
+					DomainError(
+						"Projection matrix at index $idx is not Hermitian)",
+					),
+				)
+			end
+		end
+
 		# Generate symmetry-adapted linear combinations
 		salc_list = Vector{SALC}()
 		for idx in eachindex(projection_list)
-			eigenval, eigenvec = eigen(projection_list[idx])
+			eigenval, eigenvec = eigen(Symmetric(projection_list[idx]))
+			# eigenval, eigenvec = eigs(projection_list[idx], nev = )
+			eigenval = eigenval ./ num_nonzero_projection_list[idx]
 
 			# Set tolerance constants
 			tol_zero = 1e-5
@@ -126,11 +141,17 @@ struct BasisSet
 			eigenvec = round.(eigenvec .* (abs.(eigenvec) .≥ tol_zero), digits = 10)
 
 			!check_eigenval(eigenval, tol = tol_eigen) &&
-				throw(DomainError("Critical error: Eigenvalues must be either 0 or 1. index: $idx"))
+				throw(
+					DomainError(
+						"Critical error: Eigenvalues must be either 0 or 1. index: $idx",
+					),
+				)
 
 			# Process vectors corresponding to eigenvalue 1
 			for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = tol_eigen), eigenval)
 				eigenvec_real = to_real_vector(eigenvec[:, idx_eigenval])
+				# Filter small values in the eigenvector
+				# eigenvec_real = filter_eigenvec(eigenvec_real, rtol = 1e-3)
 				eigenvec_real = flip_vector_if_negative_sum(eigenvec_real)
 				push!(
 					salc_list,
@@ -147,14 +168,19 @@ struct BasisSet
 		return new(
 			basislist,
 			classified_basisdict,
-			projection_list,
+			# projection_list,
 			salc_list,
 			elapsed_time,
 		)
 	end
 end
 
-function BasisSet(structure::Structure, symmetry::Symmetry, cluster::Cluster, config::Config4System)
+function BasisSet(
+	structure::Structure,
+	symmetry::Symmetry,
+	cluster::Cluster,
+	config::Config4System,
+)
 	return BasisSet(structure, symmetry, cluster, config.lmax, config.nbody)
 end
 
@@ -167,7 +193,8 @@ function construct_basislist(
 )::SortedCountingUniqueVector{IndicesUniqueList}
 
 	result_basislist = SortedCountingUniqueVector{IndicesUniqueList}()
-	thread_basislists = [SortedCountingUniqueVector{IndicesUniqueList}() for _ in 1:nthreads()]
+	thread_basislists =
+		[SortedCountingUniqueVector{IndicesUniqueList}() for _ in 1:nthreads()]
 
 	# Get aliases for better readability
 	kd_int_list = structure.supercell.kd_int_list
@@ -195,7 +222,8 @@ function construct_basislist(
 	for body in 2:bodymax
 		for cluster in cluster_list[body-1]
 			# Convert cluster into atomlist, llist, and celllist
-			atomlist, llist, celllist = get_atomsls_from_cluster(cluster, lmax_mat, kd_int_list)
+			atomlist, llist, celllist =
+				get_atomsls_from_cluster(cluster, lmax_mat, kd_int_list)
 
 			for iul in product_indices_of_all_comb(atomlist, llist, celllist)
 				for basis in result_basislist
@@ -454,7 +482,10 @@ function to_real_vector(v::AbstractVector, atol::Real = 1e-12)
 	if eltype(v) <: Complex && any(zi -> !isapprox(imag(zi), 0, atol = atol), v)
 		idx = findfirst(zi -> !isapprox(imag(zi), 0, atol = atol), v)
 		throw(
-			DomainError(v[idx], "Vector contains complex numbers with significant imaginary parts"),
+			DomainError(
+				v[idx],
+				"Vector contains complex numbers with significant imaginary parts",
+			),
 		)
 	end
 	return real.(v)
@@ -508,12 +539,12 @@ Group basis functions in a SALC that have the same atom, l, and m values (cell i
 """
 function group_same_basis(salc::SALC)::Vector{Vector{Int}}
 	group_dict = OrderedDict{Tuple{Vararg{NTuple{3, Int}}}, Vector{Int}}()
-	
+
 	for (i, basis::IndicesUniqueList) in enumerate(salc.basisset)
 		atom_l_m_lists::Vector{Vector{Int}} = AtomicIndices.get_atom_l_m_list(basis)
-		basisset_tuple::Tuple{Vararg{NTuple{3, Int}}} = 
+		basisset_tuple::Tuple{Vararg{NTuple{3, Int}}} =
 			Tuple(Tuple(atom_l_m) for atom_l_m in atom_l_m_lists)
-		
+
 		if haskey(group_dict, basisset_tuple)
 			push!(group_dict[basisset_tuple], i)
 		else
@@ -526,6 +557,26 @@ function group_same_basis(salc::SALC)::Vector{Vector{Int}}
 		push!(result_list, value)
 	end
 	return result_list
+end
+
+"""
+	filter_eigenvec(eigenvec::AbstractVector{<:Real}, rtol::Real = 1e-3)::Vector{Float64}
+Filter the eigenvector to remove small values based on a relative tolerance and re-normalize the filtered vector.
+
+"""
+function filter_eigenvec(eigenvec::AbstractVector{<:Real}; rtol::Real = 1e-3)
+	# Get the maximum absolute value in the eigenvector
+	max_abs = maximum(abs.(eigenvec))
+	# Filter the eigenvector to keep only values that are significant relative to the maximum
+	filtered_vec = deepcopy(eigenvec)
+	for i in eachindex(eigenvec)
+		if abs(eigenvec[i]) < rtol * max_abs
+			filtered_vec[i] = 0.0
+		end
+	end
+	# Re-normalize the filtered vector
+	return filtered_vec ./ norm(filtered_vec)  # Ensure the filtered vector is normalized
+
 end
 
 """

@@ -346,20 +346,19 @@ function SpinCluster(
 	;
 	verbosity::Bool = true,
 )
-	if !(weight ≈ 0.0)
-		@warn """
-Nonlinear optimization is applied despite a nonzero weight and no restart.
-If the weight is close to zero, this is usually safe.
-However, if the weight is close to one, please verify that the converged solution is reasonable.
-"""
-	end
+# 	if !(weight ≈ 0.0)
+# 		@warn """
+# Nonlinear optimization is applied despite a nonzero weight and no restart.
+# If the weight is close to zero, this is usually safe.
+# However, if the weight is close to one, please verify that the converged solution is reasonable.
+# """
+# 	end
 	optimize = Optimizer(
 		system.structure,
 		system.symmetry,
 		system.basisset,
 		weight,
 		spinconfig_list,
-		vcat(system.basisset.reference_energy, system.basisset.SCE),
 	)
 	verbosity && Optimize.print_info(optimize)
 	return SpinCluster(
