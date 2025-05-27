@@ -33,7 +33,7 @@ using Test
 		@test_throws ArgumentError UniMatCl(Complex[1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1])  # Invalid dimension
 	end
 
-	@testset "Matrix Elements" begin
+	@testset "Matrix Elements (l = 1)" begin
 		l1 = 1
 		C1 = UniMatCl(l1)
 
@@ -47,6 +47,24 @@ using Test
 		# Test bounds checking
 		@test_throws BoundsError getindex_m(C1, -2, 0)  # m1 out of bounds
 		@test_throws BoundsError getindex_m(C1, 0, 2)   # m2 out of bounds
+	end
+
+	@testset "Matrix Elements (l = 2)" begin
+		l2 = 2
+		C2 = UniMatCl(l2)
+
+		correct_matrix =
+			1/√2 *
+			[im  0  0  0 -im;
+				0 im  0  im 0;
+				  0 0 √2 0 0;
+				  0 1 0 -1 0;
+				  1 0 0 0 1;
+			]
+		@test isapprox(C2, correct_matrix, atol = 1e-10)
+		@test isapprox(transpose(C2), transpose(correct_matrix), atol = 1e-10)
+		@test isapprox(conj(C2), conj(correct_matrix), atol = 1e-10)	
+
 	end
 
 	@testset "Matrix Operations" begin
