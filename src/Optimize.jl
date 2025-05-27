@@ -26,10 +26,8 @@ export Optimizer
 
 struct Optimizer
 	spinconfig_list::Vector{SpinConfig}
-	SCE::Vector{Float64}
 	reference_energy::Float64
-	relative_error_magfield_vertical::Float64
-	relative_error_energy::Float64
+	SCE::Vector{Float64}
 	predicted_energy_list::Vector{Float64}
 	observed_energy_list::Vector{Float64}
 	predicted_magfield_vertical_flattened_list::Vector{Float64}
@@ -81,139 +79,78 @@ function Optimizer(
 			)
 	end
 
-	if weight > 1# use weight-fold cross validation
-		error("developing...")
-	elseif weight ≈ 1.0
-		SCE,
-		reference_energy,
-		relative_error_magfield_vertical,
-		relative_error_energy,
-		predicted_energy_list,
-		observed_energy_list,
-		predicted_magfield_vertical_flattened_list,
-		observed_magfield_vertical_flattened_list =
-			ols_energy(
-				design_matrix_energy,
-				design_matrix_magfield_vertical,
-				observed_energy_list,
-				observed_magfield_vertical_list,
-			)
-	else
-		SCE,
-		reference_energy,
-		relative_error_magfield_vertical,
-		relative_error_energy,
-		predicted_energy_list,
-		observed_energy_list,
-		predicted_magfield_vertical_flattened_list,
-		observed_magfield_vertical_flattened_list =
-			ols_magfield_vertical(
-				design_matrix_energy,
-				design_matrix_magfield_vertical,
-				observed_energy_list,
-				observed_magfield_vertical_list,
-			)
-	end
+	# if weight > 1# use weight-fold cross validation
+	# 	error("developing...")
+	# elseif weight ≈ 1.0
+	# 	SCE,
+	# 	reference_energy,
+	# 	relative_error_magfield_vertical,
+	# 	relative_error_energy,
+	# 	predicted_energy_list,
+	# 	observed_energy_list,
+	# 	predicted_magfield_vertical_flattened_list,
+	# 	observed_magfield_vertical_flattened_list =
+	# 		ols_energy(
+	# 			design_matrix_energy,
+	# 			design_matrix_magfield_vertical,
+	# 			observed_energy_list,
+	# 			observed_magfield_vertical_list,
+	# 		)
+	# else
+	# 	SCE,
+	# 	reference_energy,
+	# 	relative_error_magfield_vertical,
+	# 	relative_error_energy,
+	# 	predicted_energy_list,
+	# 	observed_energy_list,
+	# 	predicted_magfield_vertical_flattened_list,
+	# 	observed_magfield_vertical_flattened_list =
+	# 		ols_magfield_vertical(
+	# 			design_matrix_energy,
+	# 			design_matrix_magfield_vertical,
+	# 			observed_energy_list,
+	# 			observed_magfield_vertical_list,
+	# 		)
+	# end
 
-	if !(weight ≈ 0.0) && !(weight ≈ 1.0)
-		SCE,
-		reference_energy,
-		relative_error_magfield_vertical,
-		relative_error_energy,
-		predicted_energy_list,
-		observed_energy_list,
-		predicted_magfield_vertical_flattened_list,
-		observed_magfield_vertical_flattened_list = optimize_SCEcoeffs_with_weight(
-			structure.supercell.num_atoms,
-			weight,
-			design_matrix_energy,
-			design_matrix_magfield_vertical,
-			observed_energy_list,
-			observed_magfield_vertical_list,
-			SCE,
-			reference_energy,
-		)
-	end
+	# if !(weight ≈ 0.0) && !(weight ≈ 1.0)
+	# 	SCE,
+	# 	reference_energy,
+	# 	relative_error_magfield_vertical,
+	# 	relative_error_energy,
+	# 	predicted_energy_list,
+	# 	observed_energy_list,
+	# 	predicted_magfield_vertical_flattened_list,
+	# 	observed_magfield_vertical_flattened_list = optimize_SCEcoeffs_with_weight(
+	# 		structure.supercell.num_atoms,
+	# 		weight,
+	# 		design_matrix_energy,
+	# 		design_matrix_magfield_vertical,
+	# 		observed_energy_list,
+	# 		observed_magfield_vertical_list,
+	# 		SCE,
+	# 		reference_energy,
+	# 	)
+	# end
 
-	# End timing
-	elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
-
-	return Optimizer(
-		spinconfig_list,
-		SCE,
-		reference_energy,
-		relative_error_magfield_vertical,
-		relative_error_energy,
-		predicted_energy_list,
-		observed_energy_list,
-		predicted_magfield_vertical_flattened_list,
-		observed_magfield_vertical_flattened_list,
-		elapsed_time,
-	)
-end
-
-function Optimizer(
-	structure::Structure,
-	symmetry::Symmetry,
-	basisset::BasisSet,
-	weight::Real,
-	spinconfig_list::AbstractVector{SpinConfig},
-	initial_sce_with_ref_energy::AbstractVector{<:Real},
-)
-	# Start timing
-	start_time = time_ns()
-
-	observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_list]
-	observed_magfield_vertical_list =
-		Vector{Vector{Float64}}(undef, length(spinconfig_list))
-	@threads for i in eachindex(spinconfig_list)
-		observed_magfield_vertical_list[i] =
-			calc_magfield_vertical_list_of_spinconfig(
-				spinconfig_list[i],
-				structure.supercell.num_atoms,
-			)
-	end
-
-	design_matrix_energy = construct_design_matrix_energy(
-		basisset.salc_list,
-		spinconfig_list,
-		symmetry,
-	)
-
-	design_matrix_magfield_vertical = construct_design_matrix_magfield_vertical(
-		basisset.salc_list,
-		spinconfig_list,
-		structure.supercell.num_atoms,
-		symmetry,
-	)
-
-	SCE,
-	reference_energy,
-	relative_error_magfield_vertical,
-	relative_error_energy,
-	predicted_energy_list,
-	observed_energy_list,
-	predicted_magfield_vertical_flattened_list,
-	observed_magfield_vertical_flattened_list = optimize_SCEcoeffs_with_weight(
-		structure.supercell.num_atoms,
-		weight,
+	j0, jphi = optimize_SCEcoeffs_with_weight(
 		design_matrix_energy,
 		design_matrix_magfield_vertical,
 		observed_energy_list,
 		observed_magfield_vertical_list,
-		initial_sce_with_ref_energy[2:end],
-		initial_sce_with_ref_energy[1],
+		weight,
 	)
-
+	predicted_energy_list = design_matrix_energy[:, 2:end] * jphi .+ j0
+	predicted_magfield_vertical_flattened_list = design_matrix_magfield_vertical * jphi
+	observed_magfield_vertical_flattened_list =
+		-1 * vcat(observed_magfield_vertical_list...)
 	# End timing
 	elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
 
 	return Optimizer(
 		spinconfig_list,
-		SCE,
-		reference_energy,
-		relative_error_magfield_vertical,
-		relative_error_energy,
+		j0,
+		jphi,
 		predicted_energy_list,
 		observed_energy_list,
 		predicted_magfield_vertical_flattened_list,
@@ -221,6 +158,76 @@ function Optimizer(
 		elapsed_time,
 	)
 end
+
+# function Optimizer(
+# 	structure::Structure,
+# 	symmetry::Symmetry,
+# 	basisset::BasisSet,
+# 	weight::Real,
+# 	spinconfig_list::AbstractVector{SpinConfig},
+# 	initial_sce_with_ref_energy::AbstractVector{<:Real},
+# )
+# 	# Start timing
+# 	start_time = time_ns()
+
+# 	observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_list]
+# 	observed_magfield_vertical_list =
+# 		Vector{Vector{Float64}}(undef, length(spinconfig_list))
+# 	@threads for i in eachindex(spinconfig_list)
+# 		observed_magfield_vertical_list[i] =
+# 			calc_magfield_vertical_list_of_spinconfig(
+# 				spinconfig_list[i],
+# 				structure.supercell.num_atoms,
+# 			)
+# 	end
+
+# 	design_matrix_energy = construct_design_matrix_energy(
+# 		basisset.salc_list,
+# 		spinconfig_list,
+# 		symmetry,
+# 	)
+
+# 	design_matrix_magfield_vertical = construct_design_matrix_magfield_vertical(
+# 		basisset.salc_list,
+# 		spinconfig_list,
+# 		structure.supercell.num_atoms,
+# 		symmetry,
+# 	)
+
+# 	SCE,
+# 	reference_energy,
+# 	relative_error_magfield_vertical,
+# 	relative_error_energy,
+# 	predicted_energy_list,
+# 	observed_energy_list,
+# 	predicted_magfield_vertical_flattened_list,
+# 	observed_magfield_vertical_flattened_list = optimize_SCEcoeffs_with_weight(
+# 		structure.supercell.num_atoms,
+# 		weight,
+# 		design_matrix_energy,
+# 		design_matrix_magfield_vertical,
+# 		observed_energy_list,
+# 		observed_magfield_vertical_list,
+# 		initial_sce_with_ref_energy[2:end],
+# 		initial_sce_with_ref_energy[1],
+# 	)
+
+# 	# End timing
+# 	elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
+
+# 	return Optimizer(
+# 		spinconfig_list,
+# 		SCE,
+# 		reference_energy,
+# 		relative_error_magfield_vertical,
+# 		relative_error_energy,
+# 		predicted_energy_list,
+# 		observed_energy_list,
+# 		predicted_magfield_vertical_flattened_list,
+# 		observed_magfield_vertical_flattened_list,
+# 		elapsed_time,
+# 	)
+# end
 
 function Optimizer(
 	structure::Structure,
@@ -418,7 +425,8 @@ function ols_energy(
 	# predict energy using SCE coefficients from energy information
 	predicted_energy_list::Vector{Float64} = design_matrix_energy * ols_coeffs
 
-	observed_magfield_vertical_flattened::Vector{Float64} = vcat(observed_magfield_vertical_list...)
+	observed_magfield_vertical_flattened::Vector{Float64} =
+		vcat(observed_magfield_vertical_list...)
 	observed_magfield_vertical_flattened = -1 * observed_magfield_vertical_flattened
 
 	reference_energy::Float64 = ols_coeffs[1]
@@ -432,7 +440,9 @@ function ols_energy(
 	)
 	relative_error_magfield_vertical::Float64 =
 		√(
-		sum((observed_magfield_vertical_flattened - predicted_magfield_vertical_list) .^ 2) /
+		sum(
+			(observed_magfield_vertical_flattened - predicted_magfield_vertical_list) .^ 2,
+		) /
 		sum(observed_magfield_vertical_flattened .^ 2),
 	)
 
@@ -482,13 +492,17 @@ function ols_magfield_vertical(
 	predicted_magfield_vertical_flattened = design_matrix_magfield_vertical * ols_coeffs
 	relative_error_magfield_vertical =
 		√(
-		sum((observed_magfield_vertical_flattened - predicted_magfield_vertical_flattened) .^ 2) /
+		sum(
+			(observed_magfield_vertical_flattened - predicted_magfield_vertical_flattened) .^
+			2,
+		) /
 		sum(observed_magfield_vertical_flattened .^ 2),
 	)
 
 	# calculate reference energy term
 
-	reference_energy = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * ols_coeffs)
+	reference_energy =
+		mean(observed_energy_list .- design_matrix_energy[:, 2:end] * ols_coeffs)
 	relative_error_energy =
 		√(
 		sum(
@@ -537,7 +551,8 @@ function calc_magfield_vertical_list_of_spinconfig(
 
 	for iatom in 1:num_atoms
 		# Get local magnetic field using SVector for better performance
-		magfield_vertical = SVector{3, Float64}(spinconfig.local_magfield_vertical[:, iatom])
+		magfield_vertical =
+			SVector{3, Float64}(spinconfig.local_magfield_vertical[:, iatom])
 
 		# Calculate magfield_vertical and store in preallocated vector
 		idx = (iatom - 1) * 3 + 1
@@ -703,15 +718,23 @@ function optimize_SCEcoeffs_with_weight(
 	# Define loss function
 	function loss_function(sce_coeffs_with_ref_energy::AbstractVector)
 		# Calculate normalized predictions
-		predicted_energy_list = energy_model(sce_coeffs_with_ref_energy, design_matrix_energy)
+		predicted_energy_list =
+			energy_model(sce_coeffs_with_ref_energy, design_matrix_energy)
 		predicted_magfield_vertical_list =
-			magfield_vertical_model(sce_coeffs_with_ref_energy, design_matrix_magfield_vertical)
+			magfield_vertical_model(
+				sce_coeffs_with_ref_energy,
+				design_matrix_magfield_vertical,
+			)
 
 		# Calculate weighted losses
 		loss_energy =
-			sum((observed_energy_list .- predicted_energy_list) .^ 2) ./ (num_atoms * data_num)
+			sum((observed_energy_list .- predicted_energy_list) .^ 2) ./
+			(num_atoms * data_num)
 		loss_magfield_vertical =
-			sum((observed_magfield_vertical_flattened .- predicted_magfield_vertical_list) .^ 2) ./
+			sum(
+				(observed_magfield_vertical_flattened .- predicted_magfield_vertical_list) .^
+				2,
+			) ./
 			(3 * num_atoms * data_num)
 
 		return weight * loss_energy + (1 - weight) * loss_magfield_vertical
@@ -726,16 +749,23 @@ function optimize_SCEcoeffs_with_weight(
 	optimized_sce_coeffs = optimized_sce_coeffs_with_ref_energy[2:end]
 
 	# Calculate final predictions and errors
-	predicted_energy_list = energy_model(optimized_sce_coeffs_with_ref_energy, design_matrix_energy)
+	predicted_energy_list =
+		energy_model(optimized_sce_coeffs_with_ref_energy, design_matrix_energy)
 	predicted_magfield_vertical_list =
-		magfield_vertical_model(optimized_sce_coeffs_with_ref_energy, design_matrix_magfield_vertical)
+		magfield_vertical_model(
+			optimized_sce_coeffs_with_ref_energy,
+			design_matrix_magfield_vertical,
+		)
 
 	# Calculate relative errors
 	relative_error_energy = √(
-		sum((observed_energy_list .- predicted_energy_list) .^ 2) / sum(observed_energy_list .^ 2)
+		sum((observed_energy_list .- predicted_energy_list) .^ 2) /
+		sum(observed_energy_list .^ 2)
 	)
 	relative_error_magfield_vertical = √(
-		sum((observed_magfield_vertical_flattened .- predicted_magfield_vertical_list) .^ 2) /
+		sum(
+			(observed_magfield_vertical_flattened .- predicted_magfield_vertical_list) .^ 2,
+		) /
 		sum(observed_magfield_vertical_flattened .^ 2)
 	)
 
@@ -749,6 +779,39 @@ function optimize_SCEcoeffs_with_weight(
 		predicted_magfield_vertical_list,
 		observed_magfield_vertical_flattened,
 	)
+end
+
+function optimize_SCEcoeffs_with_weight(
+	design_matrix_energy::AbstractMatrix{<:Real},
+	design_matrix_magfield::AbstractMatrix{<:Real},
+	observed_energy_list::AbstractVector{<:Real},
+	observed_magfield::AbstractVector{<:AbstractVector{<:Real}},
+	weight::Real,
+)
+	observed_magfield_flattened = -1 * vcat(observed_magfield...)
+	w1 = weight
+	w2 = 1 - weight
+	with_bias_design_matrix_energy = design_matrix_energy[:, 2:end]
+	with_bias_design_matrix_energy =
+		hcat(ones(size(design_matrix_energy, 1)), with_bias_design_matrix_energy)
+	with_bias_design_matrix_magfield =
+		hcat(zeros(size(design_matrix_magfield, 1)), design_matrix_magfield)
+	Xw = vcat(
+		sqrt(w1) * with_bias_design_matrix_energy,
+		sqrt(w2) * with_bias_design_matrix_magfield,
+	)
+	yw = vcat(
+		sqrt(w1) * observed_energy_list,
+		sqrt(w2) * observed_magfield_flattened,
+	)
+
+	# Solve the least squares problem for SCE coefficients without reference energy
+	jphi = (Xw\yw)[2:end]
+	# jphi = (design_matrix_energy \ observed_energy_list)[2:end]
+
+	j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
+
+	return j0, jphi
 end
 
 """
@@ -826,13 +889,13 @@ function print_info(optimizer::Optimizer)
 	for (i, sce) in enumerate(optimizer.SCE)
 		println(@sprintf("%9d: %15.10f", i, sce))
 	end
-	println(
-		@sprintf(
-			"fitting error of force: %.4f %%",
-			optimizer.relative_error_magfield_vertical * 100
-		)
-	)
-	println(@sprintf("fitting error of energy: %.4e %%", optimizer.relative_error_energy * 100))
+	# println(
+	# 	@sprintf(
+	# 		"fitting error of force: %.4f %%",
+	# 		optimizer.relative_error_magfield_vertical * 100
+	# 	)
+	# )
+	# println(@sprintf("fitting error of energy: %.4e %%", optimizer.relative_error_energy * 100))
 	println("")
 	println(@sprintf("Elapsed time: %.6f seconds", optimizer.elapsed_time))
 
