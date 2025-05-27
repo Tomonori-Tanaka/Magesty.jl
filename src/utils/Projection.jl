@@ -22,7 +22,7 @@ function construct_projectionmatrix(
 	basisdict::AbstractDict{<:Integer, <:AbstractVector},
 	structure::Structure,
 	symmetry::Symmetry,
-)::Vector{Matrix{Float64}}
+)::Tuple{Vector{Matrix{Float64}}, Vector{Int}}
 
 	# aliases
 	x_image_cart::Array{Float64, 3} = structure.x_image_cart
@@ -35,6 +35,7 @@ function construct_projectionmatrix(
 	atoms_in_prim::Vector{Int} = symmetry.atoms_in_prim
 	tol::Real = symmetry.tol
 	result_projection = Vector{Matrix{Float64}}(undef, length(basisdict))
+	num_nonzero_projection_list = Vector{Int}(undef, length(basisdict))
 
 	idx_list = collect(keys(basisdict))
 	@threads for idx in idx_list
@@ -45,7 +46,7 @@ function construct_projectionmatrix(
 
 		for (n, symop) in enumerate(symdata), time_rev_sym in [false, true]
 			projection_mat_per_symop =
-				calc_projection(
+				proj_matrix_a_symop(
 					basislist,
 					symop,
 					n,
@@ -63,14 +64,14 @@ function construct_projectionmatrix(
 				projection_mat += projection_mat_per_symop
 			end
 		end
-
-		result_projection[idx] = projection_mat / num_nonzero_projections
+		num_nonzero_projection_list[idx] = num_nonzero_projections
+		result_projection[idx] = projection_mat
 	end
 
-	return result_projection
+	return result_projection, num_nonzero_projection_list
 end
 
-function calc_projection(
+function proj_matrix_a_symop(
 	basislist::AbstractVector{IndicesUniqueList},
 	symop::SymmetryOperation,
 	isym::Integer,
@@ -85,13 +86,15 @@ function calc_projection(
 	time_reversal_sym::Bool = false,
 )::SparseMatrixCSC{Float64, Int}
 
-	projection_matrix = spzeros(Float64, length(basislist), length(basislist))
-	if symop.is_translation_included == true
-		return projection_matrix
-	end
+	result_matrix = spzeros(Float64, length(basislist), length(basislist))
 
+	# Early return if the symmetry operation includes translation part beyond the primitive cell.
+	# if symop.is_translation_included == true
+	# 	return result_matrix
+	# end
+
+	# aliases
 	rotation_cart = SMatrix{3, 3, Float64}(symop.rotation_cart)
-	translation_frac = SVector{3, Float64}(symop.translation_frac)
 
 	for (ir, rbasis::IndicesUniqueList) in enumerate(basislist)  # right-hand basis
 
@@ -184,19 +187,19 @@ function calc_projection(
 			if isnothing(partial_l_idx)
 				continue
 			end
-			projection_matrix[il, ir] = rotmat_kron[partial_l_idx, partial_r_idx]
+			result_matrix[il, ir] = rotmat_kron[partial_l_idx, partial_r_idx]
 		end
 	end
 
-	projection_matrix = round.(projection_matrix, digits = threshold_digits)
-	if !(RotationMatrix.is_orthogonal(projection_matrix, tol = 1e-7))
+	result_matrix = round.(result_matrix, digits = threshold_digits)
+	if !(RotationMatrix.is_orthogonal(result_matrix, tol = 1e-7))
 		println("symmetry operation index: $isym")
 		println(symop)
-		display(projection_matrix)
+		display(result_matrix)
 		error("not orthogonal")
 	end
 
-	return projection_matrix
+	return result_matrix
 end
 
 """

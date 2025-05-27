@@ -21,7 +21,7 @@ function extract_energy_magmom(
 				continue
 			end
 
-			if collecting && occursin("DAV:", line)
+			if collecting && (occursin("DAV:", line) || occursin("RMM:", line))
 				collecting = false
 				magmom_listoflist = deepcopy(magmom_temp_listoflist)
 				continue
