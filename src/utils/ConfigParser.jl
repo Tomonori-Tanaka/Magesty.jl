@@ -18,7 +18,11 @@ const DEFAULT_VALUES_SYSTEM = Dict{Symbol, Any}(
 const VALIDATION_RULES_SYSTEM = [
 	# Required parameters
 	ValidationRule(:name, x -> !isempty(x), "Structure name cannot be empty"),
-	ValidationRule(:num_atoms, x -> x > 0, x -> "Number of atoms must be positive, got $(x)"),
+	ValidationRule(
+		:num_atoms,
+		x -> x > 0,
+		x -> "Number of atoms must be positive, got $(x)",
+	),
 	ValidationRule(:kd_name, x -> !isempty(x), "Chemical species list cannot be empty"),
 	ValidationRule(:nbody, x -> x > 0, x -> "nbody must be positive, got $(x)"),
 	ValidationRule(
@@ -47,17 +51,27 @@ const VALIDATION_RULES_SYSTEM = [
 const DEFAULT_VALUES_OPTIMIZE = Dict{Symbol, Any}(
 	:ndata => -1,
 	:weight => 0.0,
+	:alpha => 0.0,
 )
 
 # Validation rules for optimization parameters
 const VALIDATION_RULES_OPTIMIZE = [
 	ValidationRule(:datafile, x -> !isempty(x), "Data file path cannot be empty"),
 	ValidationRule(:ndata, x -> x isa Int, x -> "ndata must be an integer, got $(x)"),
-	ValidationRule(:weight, x -> 0 <= x <= 1, x -> "weight must be between 0 and 1, got $(x)"),
+	ValidationRule(
+		:weight,
+		x -> 0 <= x <= 1,
+		x -> "weight must be between 0 and 1, got $(x)",
+	),
+	ValidationRule(
+		:alpha,
+		x -> x >= 0.0,
+		x -> "alpha must not be negative, got $(x)",
+	),
 ]
 
 """
-    Config4System
+	Config4System
 
 A structure that holds system configuration parameters for molecular dynamics simulations.
 
@@ -93,7 +107,7 @@ struct Config4System
 	tolerance_sym::Float64
 
 	"""
-	    Config4System(input_dict::AbstractDict{<:AbstractString, Any})
+		Config4System(input_dict::AbstractDict{<:AbstractString, Any})
 
 	Construct a Config4System from a dictionary of parameters.
 
@@ -112,7 +126,9 @@ struct Config4System
 		for section in required_sections
 			if !haskey(input_dict, section)
 				throw(
-					ArgumentError("Required section \"$section\" is missing in the input dictionary."),
+					ArgumentError(
+						"Required section \"$section\" is missing in the input dictionary.",
+					),
 				)
 			end
 		end
@@ -122,11 +138,16 @@ struct Config4System
 		name = general_dict["name"]::String
 		num_atoms = general_dict["nat"]::Int
 		kd_name = general_dict["kd"]::Vector{String}
-		is_periodic = get(general_dict, "periodicity", DEFAULT_VALUES_SYSTEM[:is_periodic])::Vector{Bool}
+		is_periodic = get(
+			general_dict,
+			"periodicity",
+			DEFAULT_VALUES_SYSTEM[:is_periodic],
+		)::Vector{Bool}
 
 		# Parse symmetry parameters
 		symmetry_dict = input_dict["symmetry"]
-		tolerance_sym = get(symmetry_dict, "tolerance", DEFAULT_VALUES_SYSTEM[:tolerance_sym])::Float64
+		tolerance_sym =
+			get(symmetry_dict, "tolerance", DEFAULT_VALUES_SYSTEM[:tolerance_sym])::Float64
 
 		# Parse interaction parameters
 		interaction_dict = input_dict["interaction"]
@@ -166,9 +187,17 @@ end
 
 const VALIDATION_RULES_GENERAL = [
 	ValidationRule(:name, x -> !isempty(x), "Structure name cannot be empty"),
-	ValidationRule(:num_atoms, x -> x > 0, x -> "Number of atoms must be positive, got $(x)"),
+	ValidationRule(
+		:num_atoms,
+		x -> x > 0,
+		x -> "Number of atoms must be positive, got $(x)",
+	),
 	ValidationRule(:kd_name, x -> !isempty(x), "Chemical species list cannot be empty"),
-	ValidationRule(:is_periodic, x -> length(x) == 3, "Periodicity must be specified for all three directions"),
+	ValidationRule(
+		:is_periodic,
+		x -> length(x) == 3,
+		"Periodicity must be specified for all three directions",
+	),
 ]
 
 function validate_general_parameters(params::NamedTuple)::Nothing
@@ -176,7 +205,8 @@ function validate_general_parameters(params::NamedTuple)::Nothing
 		value = getfield(params, rule.field)
 		if !rule.validator(value)
 			error_message =
-				rule.error_message isa Function ? rule.error_message(value) : rule.error_message
+				rule.error_message isa Function ? rule.error_message(value) :
+				rule.error_message
 			throw(ArgumentError(error_message))
 		end
 	end
@@ -184,7 +214,11 @@ function validate_general_parameters(params::NamedTuple)::Nothing
 end
 
 const VALIDATION_RULES_SYMMETRY = [
-	ValidationRule(:tolerance_sym, x -> x > 0, x -> "Symmetry tolerance must be positive, got $(x)"),
+	ValidationRule(
+		:tolerance_sym,
+		x -> x > 0,
+		x -> "Symmetry tolerance must be positive, got $(x)",
+	),
 ]
 
 function validate_symmetry_parameters(params::NamedTuple)::Nothing
@@ -192,7 +226,8 @@ function validate_symmetry_parameters(params::NamedTuple)::Nothing
 		value = getfield(params, rule.field)
 		if !rule.validator(value)
 			error_message =
-				rule.error_message isa Function ? rule.error_message(value) : rule.error_message
+				rule.error_message isa Function ? rule.error_message(value) :
+				rule.error_message
 			throw(ArgumentError(error_message))
 		end
 	end
@@ -201,8 +236,16 @@ end
 
 const VALIDATION_RULES_INTERACTION = [
 	ValidationRule(:nbody, x -> x > 0, x -> "nbody must be positive, got $(x)"),
-	ValidationRule(:lmax, x -> x isa Matrix{Int}, x -> "lmax must be a matrix of integers, got $(x)"),
-	ValidationRule(:cutoff_radii, x -> x isa Array{Float64, 3}, x -> "cutoff_radii must be an array of floats, got $(x)"),
+	ValidationRule(
+		:lmax,
+		x -> x isa Matrix{Int},
+		x -> "lmax must be a matrix of integers, got $(x)",
+	),
+	ValidationRule(
+		:cutoff_radii,
+		x -> x isa Array{Float64, 3},
+		x -> "cutoff_radii must be an array of floats, got $(x)",
+	),
 ]
 
 function validate_interaction_parameters(params::NamedTuple)::Nothing
@@ -210,7 +253,8 @@ function validate_interaction_parameters(params::NamedTuple)::Nothing
 		value = getfield(params, rule.field)
 		if !rule.validator(value)
 			error_message =
-				rule.error_message isa Function ? rule.error_message(value) : rule.error_message
+				rule.error_message isa Function ? rule.error_message(value) :
+				rule.error_message
 			throw(ArgumentError(error_message))
 		end
 	end
@@ -223,7 +267,8 @@ function validate_system_parameters(params::NamedTuple)::Nothing
 		value = getfield(params, rule.field)
 		if !rule.validator(value)
 			error_message =
-				rule.error_message isa Function ? rule.error_message(value) : rule.error_message
+				rule.error_message isa Function ? rule.error_message(value) :
+				rule.error_message
 			throw(ArgumentError(error_message))
 		end
 	end
@@ -244,15 +289,23 @@ function validate_kd_list(params::NamedTuple)::Nothing
 	kd_int_set = Set(params.kd_int_list)
 	nkd = length(params.kd_name)
 	if nkd != length(kd_int_set)
-		throw(ArgumentError("Number of chemical species ($nkd) doesn't match kd_list entries"))
+		throw(
+			ArgumentError(
+				"Number of chemical species ($nkd) doesn't match kd_list entries",
+			),
+		)
 	elseif any(x -> (x < 1 || nkd < x), kd_int_set)
-		throw(ArgumentError("Chemical species indices must be consecutive numbers starting from 1"))
+		throw(
+			ArgumentError(
+				"Chemical species indices must be consecutive numbers starting from 1",
+			),
+		)
 	end
 	return nothing
 end
 
 """
-    check_interaction_field(interaction_dict::AbstractDict{<:AbstractString, Any}, kd_name::AbstractVector{<:AbstractString})
+	check_interaction_field(interaction_dict::AbstractDict{<:AbstractString, Any}, kd_name::AbstractVector{<:AbstractString})
 
 Validate interaction parameters in the configuration dictionary.
 
@@ -271,7 +324,11 @@ function check_interaction_field(
 	required_fields = ["nbody", "lmax", "cutoff"]
 	for field in required_fields
 		if !haskey(interaction_dict, field)
-			throw(ArgumentError("Required field \"$field\" is missing in interaction parameters."))
+			throw(
+				ArgumentError(
+					"Required field \"$field\" is missing in interaction parameters.",
+				),
+			)
 		end
 	end
 
@@ -318,7 +375,7 @@ function check_interaction_field(
 end
 
 """
-    parse_lmax(lmax_dict::AbstractDict{<:AbstractString, Any}, kd_name::AbstractVector{<:AbstractString}, nbody::Integer)
+	parse_lmax(lmax_dict::AbstractDict{<:AbstractString, Any}, kd_name::AbstractVector{<:AbstractString}, nbody::Integer)
 
 Parse and validate maximum angular momentum values.
 
@@ -366,7 +423,7 @@ function parse_lmax(
 end
 
 """
-    parse_cutoff(cutoff_dict::AbstractDict{<:AbstractString, Any}, kd_name::AbstractVector{<:AbstractString}, nbody::Integer)
+	parse_cutoff(cutoff_dict::AbstractDict{<:AbstractString, Any}, kd_name::AbstractVector{<:AbstractString}, nbody::Integer)
 
 Parse and validate cutoff radius values.
 
@@ -410,7 +467,11 @@ function parse_cutoff(
 			index_elem2 = elem2 == "*" ? 1 : findfirst(x -> x == elem2, kd_name)
 
 			if isnothing(index_elem1) || isnothing(index_elem2)
-				throw(ArgumentError("Invalid chemical species pair \"$key\" in cutoff dictionary."))
+				throw(
+					ArgumentError(
+						"Invalid chemical species pair \"$key\" in cutoff dictionary.",
+					),
+				)
 			end
 
 			cutoff_value = value[n]
@@ -423,7 +484,7 @@ function parse_cutoff(
 end
 
 """
-    parse_position(position_list::AbstractVector{<:AbstractVector{<:Real}}, num_atoms::Integer)
+	parse_position(position_list::AbstractVector{<:AbstractVector{<:Real}}, num_atoms::Integer)
 
 Parse and validate atomic positions.
 
@@ -471,7 +532,7 @@ function parse_position(
 end
 
 """
-    Config4Optimize
+	Config4Optimize
 
 A structure that holds optimization parameters.
 
@@ -489,9 +550,10 @@ struct Config4Optimize
 	# optional parameters
 	ndata::Int
 	weight::Float64
+	alpha::Float64
 
 	"""
-	    Config4Optimize(input_dict::AbstractDict{<:AbstractString, Any})
+		Config4Optimize(input_dict::AbstractDict{<:AbstractString, Any})
 
 	Construct a Config4Optimize from a dictionary of parameters.
 
@@ -509,18 +571,33 @@ struct Config4Optimize
 		required_sections = ["regression"]
 		for section in required_sections
 			if !haskey(input_dict, section)
-				throw(ArgumentError("Required section \"$section\" is missing in the input dictionary."))
+				throw(
+					ArgumentError(
+						"Required section \"$section\" is missing in the input dictionary.",
+					),
+				)
 			end
 		end
 
 		datafile = input_dict["regression"]["datafile"]::String
 		ndata = get(input_dict["regression"], "ndata", DEFAULT_VALUES_OPTIMIZE[:ndata])::Int
-		weight = get(input_dict["regression"], "weight", DEFAULT_VALUES_OPTIMIZE[:weight])::Float64
+		weight = get(
+			input_dict["regression"],
+			"weight",
+			DEFAULT_VALUES_OPTIMIZE[:weight],
+		)::Float64
+
+		alpha = get(
+			input_dict["regression"],
+			"alpha",
+			DEFAULT_VALUES_OPTIMIZE[:alpha],
+		)::Real
 
 		params = (
 			datafile = datafile,
 			ndata = ndata,
 			weight = weight,
+			alpha = alpha,
 		)
 		validate_optimize_parameters(params)
 
@@ -533,7 +610,8 @@ function validate_optimize_parameters(params::NamedTuple)::Nothing
 		value = getfield(params, rule.field)
 		if !rule.validator(value)
 			error_message =
-				rule.error_message isa Function ? rule.error_message(value) : rule.error_message
+				rule.error_message isa Function ? rule.error_message(value) :
+				rule.error_message
 			throw(ArgumentError(error_message))
 		end
 	end
