@@ -51,6 +51,7 @@ const VALIDATION_RULES_SYSTEM = [
 const DEFAULT_VALUES_OPTIMIZE = Dict{Symbol, Any}(
 	:ndata => -1,
 	:weight => 0.0,
+	:alpha => 0.0,
 )
 
 # Validation rules for optimization parameters
@@ -61,6 +62,11 @@ const VALIDATION_RULES_OPTIMIZE = [
 		:weight,
 		x -> 0 <= x <= 1,
 		x -> "weight must be between 0 and 1, got $(x)",
+	),
+	ValidationRule(
+		:alpha,
+		x -> x >= 0.0,
+		x -> "alpha must not be negative, got $(x)",
 	),
 ]
 
@@ -544,6 +550,7 @@ struct Config4Optimize
 	# optional parameters
 	ndata::Int
 	weight::Float64
+	alpha::Float64
 
 	"""
 		Config4Optimize(input_dict::AbstractDict{<:AbstractString, Any})
@@ -580,10 +587,17 @@ struct Config4Optimize
 			DEFAULT_VALUES_OPTIMIZE[:weight],
 		)::Float64
 
+		alpha = get(
+			input_dict["regression"],
+			"alpha",
+			DEFAULT_VALUES_OPTIMIZE[:alpha],
+		)::Real
+
 		params = (
 			datafile = datafile,
 			ndata = ndata,
 			weight = weight,
+			alpha = alpha,
 		)
 		validate_optimize_parameters(params)
 
