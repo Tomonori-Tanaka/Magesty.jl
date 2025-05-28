@@ -41,13 +41,14 @@ function Optimizer(
 	basisset::BasisSet,
 	config::Config4Optimize,
 )
-	return Optimizer(structure, symmetry, basisset, config.weight, config.datafile)
+	return Optimizer(structure, symmetry, basisset, config.alpha, config.weight, config.datafile)
 end
 
 function Optimizer(
 	structure::Structure,
 	symmetry::Symmetry,
 	basisset::BasisSet,
+	alpha::Real,
 	weight::Real,
 	spinconfig_list::AbstractVector{SpinConfig},
 )
@@ -140,6 +141,17 @@ function Optimizer(
 		observed_magfield_vertical_list,
 		weight,
 	)
+	
+	# j0, jphi = ridge_regression(
+	# 	design_matrix_energy,
+	# 	design_matrix_magfield_vertical,
+	# 	observed_energy_list,
+	# 	observed_magfield_vertical_list,
+	# 	alpha,
+	# 	weight,
+	# )
+
+
 	predicted_energy_list = design_matrix_energy[:, 2:end] * jphi .+ j0
 	predicted_magfield_vertical_flattened_list = design_matrix_magfield_vertical * jphi
 	observed_magfield_vertical_flattened_list =
@@ -233,13 +245,14 @@ function Optimizer(
 	structure::Structure,
 	symmetry::Symmetry,
 	basisset::BasisSet,
+	alpha::Real,
 	weight::Real,
 	datafile::AbstractString,
 )
 	# read datafile
 	spinconfig_list = read_embset(datafile, structure.supercell.num_atoms)
 
-	return Optimizer(structure, symmetry, basisset, weight, spinconfig_list)
+	return Optimizer(structure, symmetry, basisset, alpha, weight, spinconfig_list)
 end
 
 """
@@ -791,13 +804,13 @@ function optimize_SCEcoeffs_with_weight(
 	observed_magfield_flattened = -1 * vcat(observed_magfield...)
 	w1 = weight
 	w2 = 1 - weight
-	with_bias_design_matrix_energy = design_matrix_energy[:, 2:end]
-	with_bias_design_matrix_energy =
-		hcat(ones(size(design_matrix_energy, 1)), with_bias_design_matrix_energy)
+	#with_bias_design_matrix_energy = design_matrix_energy[:, 2:end]
+	#with_bias_design_matrix_energy =
+	#	hcat(ones(size(design_matrix_energy, 1)), with_bias_design_matrix_energy)
 	with_bias_design_matrix_magfield =
 		hcat(zeros(size(design_matrix_magfield, 1)), design_matrix_magfield)
 	Xw = vcat(
-		sqrt(w1) * with_bias_design_matrix_energy,
+		sqrt(w1) * design_matrix_energy,
 		sqrt(w2) * with_bias_design_matrix_magfield,
 	)
 	yw = vcat(
@@ -809,6 +822,58 @@ function optimize_SCEcoeffs_with_weight(
 	jphi = (Xw\yw)[2:end]
 	# jphi = (design_matrix_energy \ observed_energy_list)[2:end]
 
+	j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
+
+	return j0, jphi
+end
+
+function ridge_regression(
+	design_matrix_energy::AbstractMatrix{<:Real},
+	design_matrix_magfield::AbstractMatrix{<:Real},
+	observed_energy_list::AbstractVector{<:Real},
+	observed_magfield_list::AbstractVector{<:AbstractVector{<:Real}},
+	alpha::Real,
+	weight::Real,
+)
+
+	w1 = weight
+	w2 = 1 - weight
+	# Flatten observed magfield_vertical
+	observed_magfield_flattened = vcat(observed_magfield_list...)
+	observed_magfield_flattened = -1 * observed_magfield_flattened
+
+	# Normalize the design matrices by using factor of 1/2N_data and √weight
+	num_data = size(design_matrix_energy, 1)
+	normalized_design_matrix_energy =
+		design_matrix_energy ./ (2 * num_data) .* sqrt(w1)
+	normalized_design_matrix_magfield =
+		design_matrix_magfield ./ (2 * num_data) .* sqrt(w2)
+
+	# Also normalise the observed vectors
+	normalized_observed_energy_list =
+		observed_energy_list ./ (2 * num_data) .* sqrt(w1)
+	normalized_observed_magfield_flattened =
+		observed_magfield_flattened ./ (2 * num_data) .* sqrt(w2)
+
+	# Add 0 bias term to the design matrix for magfield
+	# to align with the energy design matrix
+	with_bias_design_matrix_magfield =
+		hcat(zeros(size(normalized_design_matrix_magfield, 1)), normalized_design_matrix_magfield)
+
+	# Construct the augmented design matrix
+	X = vcat(
+		normalized_design_matrix_energy,
+		with_bias_design_matrix_magfield,
+	)
+
+	y = vcat(
+		normalized_observed_energy_list,
+		normalized_observed_magfield_flattened
+	)
+
+	# Ridge regression solution
+	j = (X' * X + alpha * I) \ (X' * y)
+	jphi = j[2:end]  # SCE coefficients without reference energy
 	j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
 
 	return j0, jphi
