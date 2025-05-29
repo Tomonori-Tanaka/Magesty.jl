@@ -880,7 +880,7 @@ function ridge_regression(
 	# j = (X' * X + alpha * I) \ (X' * y)
 	# jphi = j[2:end]  # SCE coefficients without reference energy
 	# j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
-
+	j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
 	return j0, jphi
 end
 

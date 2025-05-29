@@ -60,8 +60,8 @@
     </SCEBasisSet>
   </System>
   <JPhi unit="eV">
-    <ReferenceEnergy>-121.36058072608984</ReferenceEnergy>
-    <jphi salc_index="1">-0.002338473179322234</jphi>
-    <jphi salc_index="2">-0.00045709037485365886</jphi>
+    <ReferenceEnergy>-121.36058058122738</ReferenceEnergy>
+    <jphi salc_index="1">-0.002338534176733827</jphi>
+    <jphi salc_index="2">-0.0004571455657119198</jphi>
   </JPhi>
 </Magesty>
