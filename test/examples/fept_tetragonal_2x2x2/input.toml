@@ -19,8 +19,11 @@
 		# negative cutoff means all of the possible interaction will be considered.
 
 	[regression]
-	weight = 0.0        # 1.0: only use the energy info. 0.0: only use torque info (0 <= weight_ratio <= 1)
 	datafile = "/Users/tomorin/Packages/Magesty/test/examples/fept_tetragonal_2x2x2/EMBSET.dat"
+	weight = 0        # 1.0: only use the energy info. 0.0: only use torque info (0 <= weight_ratio <= 1)
+	alpha = 0
+	lambda = 0
+
 
 	[structure]
 	lattice = [

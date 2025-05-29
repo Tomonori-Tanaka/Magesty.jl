@@ -99,11 +99,7 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 	end
 
 	sclus = SpinCluster(system, input, verbosity = false)
-	Magesty.write_sce2xml(sclus, joinpath(@__DIR__, "scecoeffs.xml"))
-	# @test FileUtils.files_equal_chunked(
-	# 	joinpath(@__DIR__, "scecoeffs.xml"),
-	# 	joinpath(@__DIR__, "scecoeffs_ref.xml"),
-	# )
+	# Magesty.write_sce2xml(sclus, joinpath(@__DIR__, "scecoeffs.xml"))
 
 	@testset "calc_energy" begin
 		spin_config_list = sclus.optimize.spinconfig_list
@@ -115,49 +111,5 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 		end
 	end
 
-	# @testset "Cross Validation Tests" begin
-	# 	include("../../../tools/CrossValidation.jl")
-	# 	using .CrossValidation
-	# 	weight_list = vcat([0.001], collect(0.1:0.1:1))
-	# 	weight, weight_list, test_rmse_list, train_rmse_list, optimum_spincluster =
-	# 		cross_validation(
-	# 			sclus,
-	# 			weight_list,
-	# 			10,
-	# 			;
-	# 			shuffle_data = true,
-	# 		)
-	# end
 end
 
-
-# for weight in weight_list
-# 	println("weight: ", weight)
-# 	input["regression"]["weight"] = weight
-# 	sclus = SpinCluster(system, input, false)
-# 	println("1NN: ", sclus.optimize.SCE[2])	
-# 	println("relative error energy:            ", sclus.optimize.relative_error_energy)
-# 	println("relative error magfield_vertical: ", sclus.optimize.relative_error_magfield_vertical)
-# end
-
-# input["regression"]["weight"] = 0.0
-# sclus = SpinCluster(system, input, false)
-# println("weight: ", input["regression"]["weight"])
-# println("1NN: ", sclus.optimize.SCE[2])	
-# println("relative error energy:            ", sclus.optimize.relative_error_energy)
-# println("relative error magfield_vertical: ", sclus.optimize.relative_error_magfield_vertical)
-
-# weight_list = collect(0.2:0.2:1.0)
-# for weight in weight_list
-# 	input["regression"]["weight"] = weight
-# 	sclus_restart = SpinCluster(sclus, input, false)
-# 	println("weight: ", weight)
-# 	println("1NN: ", sclus_restart.optimize.SCE[2])	
-# 	println("relative error energy:            ", sclus_restart.optimize.relative_error_energy)
-# 	println("relative error magfield_vertical: ", sclus_restart.optimize.relative_error_magfield_vertical)
-# end
-# println(@sprintf("elapsed_time (structure): %10.6f", sclus_torque.structure.elapsed_time))
-# println(@sprintf("elapsed_time (symmetry):  %10.6f", sclus_torque.symmetry.elapsed_time))
-# println(@sprintf("elapsed_time (cluster):   %10.6f", sclus_torque.cluster.elapsed_time))
-# println(@sprintf("elapsed_time (basisset):  %10.6f", sclus_torque.basisset.elapsed_time))
-# println(@sprintf("elapsed_time (optimize):  %10.6f", sclus_torque.optimize.elapsed_time))
