@@ -7,6 +7,7 @@ module Optimize
 
 using Base.Threads
 using LinearAlgebra
+using GLMNet
 using Optim
 using Printf
 using StatsBase
@@ -134,22 +135,22 @@ function Optimizer(
 	# 	)
 	# end
 
-	j0, jphi = optimize_SCEcoeffs_with_weight(
-		design_matrix_energy,
-		design_matrix_magfield_vertical,
-		observed_energy_list,
-		observed_magfield_vertical_list,
-		weight,
-	)
-	
-	# j0, jphi = ridge_regression(
+	# j0, jphi = optimize_SCEcoeffs_with_weight(
 	# 	design_matrix_energy,
 	# 	design_matrix_magfield_vertical,
 	# 	observed_energy_list,
 	# 	observed_magfield_vertical_list,
-	# 	alpha,
 	# 	weight,
 	# )
+	
+	j0, jphi = ridge_regression(
+		design_matrix_energy,
+		design_matrix_magfield_vertical,
+		observed_energy_list,
+		observed_magfield_vertical_list,
+		alpha,
+		weight,
+	)
 
 
 	predicted_energy_list = design_matrix_energy[:, 2:end] * jphi .+ j0
@@ -872,9 +873,13 @@ function ridge_regression(
 	)
 
 	# Ridge regression solution
-	j = (X' * X + alpha * I) \ (X' * y)
-	jphi = j[2:end]  # SCE coefficients without reference energy
-	j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
+	fit = glmnet(X, y; alpha=0, lambda=[alpha], standardize=false)
+	# Extract coefficients
+	j0 = fit.betas[1, 1]  # Extract coefficients for the first lambda
+	jphi = fit.betas[2:end, 1]  # Extract coefficients for the second lambda
+	# j = (X' * X + alpha * I) \ (X' * y)
+	# jphi = j[2:end]  # SCE coefficients without reference energy
+	# j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
 
 	return j0, jphi
 end
