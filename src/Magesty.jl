@@ -103,18 +103,31 @@ struct System
 end
 
 """
-	System(input_dict::Dict{<:AbstractString, <:Any})
+	System
 
-Create a System from a dictionary of input parameters.
+Create a `System` instance from either a dictionary of input parameters or a TOML configuration file.
 
 # Arguments
-- `input_dict::Dict{<:AbstractString, <:Any}`: Dictionary containing input parameters
+- `input_dict::Dict{<:AbstractString, <:Any}`: Dictionary containing input parameters.
+- `toml_file::AbstractString`: Path to the TOML configuration file.
+- `verbosity::Bool=true`: Whether to print detailed information during initialization.
 
 # Returns
-- `System`: A new System instance
+- `System`: A new `System` instance containing structure, symmetry, cluster, and basis set.
 
 # Throws
-- `ErrorException` if required parameters are missing or invalid
+- `SystemError`: If the TOML file cannot be read.
+- `ErrorException`: If required parameters are missing, invalid, or the TOML parsing fails.
+
+# Examples
+```julia
+# Create a System from a dictionary
+input_dict = Dict("key" => "value")
+system = System(input_dict)
+
+# Create a System from a TOML file
+system = System("config.toml")
+```
 """
 function System(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)
 	config::Config4System = Config4System(input_dict)
@@ -134,21 +147,6 @@ function System(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = tru
 	return System(structure, symmetry, cluster, basisset)
 end
 
-"""
-	System(toml_file::AbstractString)
-
-Create a System from a TOML configuration file.
-
-# Arguments
-- `toml_file::AbstractString`: Path to the TOML configuration file
-
-# Returns
-- `System`: A new System instance
-
-# Throws
-- `SystemError` if the file cannot be read
-- `ErrorException` if the TOML parsing fails
-"""
 function System(toml_file::AbstractString; verbosity::Bool = true)
 	try
 		open(toml_file) do io
@@ -187,19 +185,36 @@ struct SpinCluster
 end
 
 """
-	SpinCluster(input_dict::Dict{<:AbstractString, <:Any})
+	SpinCluster
 
-Create a SpinCluster from a dictionary of input parameters.
-Differ from System in that it also sets the optimizer.
+Create a `SpinCluster` instance from either a dictionary of input parameters, a TOML configuration file, or an existing `System` instance. This is an extension of `System` that includes optimization capabilities.
 
 # Arguments
-- `input_dict::Dict{<:AbstractString, <:Any}`: Dictionary containing input parameters
+- `input_dict::Dict{<:AbstractString, <:Any}`: Dictionary containing input parameters.
+- `toml_file::AbstractString`: Path to the TOML configuration file.
+- `system::System`: An existing `System` instance.
+- `verbosity::Bool=true`: Whether to print detailed information during initialization.
 
 # Returns
-- `SpinCluster`: A new SpinCluster instance
+- `SpinCluster`: A new `SpinCluster` instance containing structure, symmetry, cluster, basis set, and optimizer.
 
 # Throws
-- `ErrorException` if required parameters are missing or invalid
+- `SystemError`: If the TOML file cannot be read.
+- `ErrorException`: If required parameters are missing, invalid, or the TOML parsing fails.
+
+# Examples
+```julia
+# Create a SpinCluster from a dictionary
+input_dict = Dict("key" => "value")
+spin_cluster = SpinCluster(input_dict)
+
+# Create a SpinCluster from a TOML file
+spin_cluster = SpinCluster("config.toml")
+
+# Create a SpinCluster from an existing System
+system = System("config.toml")
+spin_cluster = SpinCluster(system)
+```
 """
 function SpinCluster(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)
 	config::Config4System = Config4System(input_dict)
@@ -221,27 +236,12 @@ function SpinCluster(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool 
 	return SpinCluster(structure, symmetry, cluster, basisset, optimize)
 end
 
-"""
-	SpinCluster(toml_file::AbstractString)
-
-Create a SpinCluster from a TOML configuration file.
-
-# Arguments
-- `toml_file::AbstractString`: Path to the TOML configuration file
-
-# Returns
-- `SpinCluster`: A new SpinCluster instance
-
-# Throws
-- `SystemError` if the file cannot be read
-- `ErrorException` if the TOML parsing fails
-"""
 function SpinCluster(toml_file::AbstractString; verbosity::Bool = true)
 	try
 		open(toml_file) do io
 			toml = read(io, String)
 			input_dict = TOML.parse(toml)
-			return SpinCluster(input_dict, verbosity)
+			return SpinCluster(input_dict, verbosity = verbosity)
 		end
 	catch e
 		if isa(e, SystemError)
@@ -252,6 +252,30 @@ function SpinCluster(toml_file::AbstractString; verbosity::Bool = true)
 	end
 end
 
+"""
+	SpinCluster(system::System, input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)
+
+Creates a `SpinCluster` instance by extending an existing `System` object with optimization capabilities. 
+This constructor uses a dictionary of input parameters to configure the optimization process.
+
+# Arguments
+- `system::System`: An existing `System` instance containing structure, symmetry, cluster, and basis set information.
+- `input_dict::Dict{<:AbstractString, <:Any}`: A dictionary containing input parameters for optimization.
+- `verbosity::Bool=true`: Whether to print detailed information during initialization.
+
+# Returns
+- `SpinCluster`: A new `SpinCluster` instance containing structure, symmetry, cluster, basis set, and optimizer.
+
+# Throws
+- `ErrorException`: If required parameters are missing or invalid.
+
+# Example
+```julia
+input_dict = Dict("key" => "value")
+system = System(input_dict)
+spin_cluster = SpinCluster(system, input_dict)
+```
+"""
 function SpinCluster(
 	system::System,
 	input_dict::Dict{<:AbstractString, <:Any},
@@ -270,121 +294,75 @@ function SpinCluster(
 	)
 end
 
-function SpinCluster(system::System, toml_file::AbstractString; verbosity::Bool = true)
-	try
-		open(toml_file) do io
-			toml = read(io, String)
-			input_dict = TOML.parse(toml)
-			return SpinCluster(system, input_dict, verbosity)
-		end
-	catch e
-		if isa(e, SystemError)
-			throw(SystemError("Failed to read file: $toml_file"))
-		else
-			throw(ErrorException("Failed to parse TOML file: $toml_file"))
-		end
-	end
-end
-
+"""
+	SpinCluster
+Create a `SpinCluster` instance from a `System` and a list of `SpinConfig` objects.
+This constructor is used when the optimization process is based on predefined spin configurations.
+"""
 function SpinCluster(
-	spincluster::SpinCluster,
+	system::System,
 	input_dict::AbstractDict{<:AbstractString, <:Any},
+	spinconfig_list::AbstractVector{SpinConfig},
 	;
 	verbosity::Bool = true,
 )
 	config::Config4Optimize = Config4Optimize(input_dict)
-	sce_with_ref_energy =
-		vcat(spincluster.optimize.reference_energy, spincluster.optimize.SCE)
-	optimize = Optimizer(
-		spincluster.structure,
-		spincluster.symmetry,
-		spincluster.basisset,
-		config.weight,
-		spincluster.optimize.spinconfig_list,
-		sce_with_ref_energy,
-	)
-	verbosity && Optimize.print_info(optimize)
-
-	return SpinCluster(
-		spincluster.structure,
-		spincluster.symmetry,
-		spincluster.cluster,
-		spincluster.basisset,
-		optimize,
-	)
-end
-
-function SpinCluster(
-	spincluster::SpinCluster,
-	weight::Real,
-	spinconfig_list::AbstractVector{SpinConfig},
-	;
-	verbosity::Bool = true,
-)
-	optimize = Optimizer(
-		spincluster.structure,
-		spincluster.symmetry,
-		spincluster.basisset,
-		weight,
-		spinconfig_list,
-		vcat(spincluster.optimize.reference_energy, spincluster.optimize.SCE),
-	)
-	verbosity && Optimize.print_info(optimize)
-	return SpinCluster(
-		spincluster.structure,
-		spincluster.symmetry,
-		spincluster.cluster,
-		spincluster.basisset,
-		optimize,
-	)
-end
-
-function SpinCluster(
-	system::System,
-	weight::Real,
-	spinconfig_list::AbstractVector{SpinConfig},
-	;
-	verbosity::Bool = true,
-)
-# 	if !(weight ≈ 0.0)
-# 		@warn """
-# Nonlinear optimization is applied despite a nonzero weight and no restart.
-# If the weight is close to zero, this is usually safe.
-# However, if the weight is close to one, please verify that the converged solution is reasonable.
-# """
-# 	end
 	optimize = Optimizer(
 		system.structure,
 		system.symmetry,
 		system.basisset,
-		weight,
+		config.alpha,
+		config.weight,
 		spinconfig_list,
 	)
-	verbosity && Optimize.print_info(optimize)
 	return SpinCluster(
 		system.structure,
 		system.symmetry,
 		system.cluster,
 		system.basisset,
 		optimize,
+		verbosity = verbosity,
 	)
+
 end
 
-function calc_energy(sc::SpinCluster, spin_config::AbstractMatrix{<:Real})
-	if sc.structure.supercell.num_atoms != size(spin_config, 2)
-		num_atoms = sc.structure.supercell.num_atoms
-		throw(
-			ArgumentError(
-				"spin_config must be 3xN matrix where N is the number of atoms in the supercell. $num_atoms",
-			),
-		)
-	end
-	return CalcEnergy.calc_energy(
-		sc.basisset.salc_list,
-		spin_config,
-		sc.symmetry,
-		sc.optimize,
-	)
+
+"""
+	calc_energy(sc::SpinCluster, spin_config::AbstractMatrix{<:Real})
+
+Calculate the energy of a spin configuration using the spin cluster expansion.
+
+# Arguments
+- `sc::SpinCluster`: A `SpinCluster` instance containing structure, symmetry, basis set, and optimization information.
+- `spin_config::AbstractMatrix{<:Real}`: A 3xN matrix representing the spin configuration, where N is the number of atoms in the supercell.
+
+# Returns
+- `Float64`: The calculated energy of the given spin configuration.
+
+# Throws
+- `ArgumentError`: If the number of columns in `spin_config` does not match the number of atoms in the supercell.
+
+# Example
+```julia
+spin_config = rand(3, sc.structure.supercell.num_atoms) # Random spin configuration
+energy = calc_energy(sc, spin_config)
+```
+"""
+function calc_energy(spincluster::SpinCluster, spin_config::AbstractMatrix{<:Real})
+    if spincluster.structure.supercell.num_atoms != size(spin_config, 2)
+        num_atoms = spincluster.structure.supercell.num_atoms
+        throw(
+            ArgumentError(
+                "spin_config must be 3xN matrix where N is the number of atoms in the supercell. $num_atoms",
+            ),
+        )
+    end
+    return CalcEnergy.calc_energy(
+        spincluster.basisset.salc_list,
+        spin_config,
+        spincluster.symmetry,
+        spincluster.optimize,
+    )
 end
 
 """

@@ -47,29 +47,6 @@ const VALIDATION_RULES_SYSTEM = [
 	),
 ]
 
-# Default values for optimization parameters
-const DEFAULT_VALUES_OPTIMIZE = Dict{Symbol, Any}(
-	:ndata => -1,
-	:weight => 0.0,
-	:alpha => 0.0,
-)
-
-# Validation rules for optimization parameters
-const VALIDATION_RULES_OPTIMIZE = [
-	ValidationRule(:datafile, x -> !isempty(x), "Data file path cannot be empty"),
-	ValidationRule(:ndata, x -> x isa Int, x -> "ndata must be an integer, got $(x)"),
-	ValidationRule(
-		:weight,
-		x -> 0 <= x <= 1,
-		x -> "weight must be between 0 and 1, got $(x)",
-	),
-	ValidationRule(
-		:alpha,
-		x -> x >= 0.0,
-		x -> "alpha must not be negative, got $(x)",
-	),
-]
-
 """
 	Config4System
 
@@ -531,6 +508,35 @@ function parse_position(
 	return Matrix{Float64}(position_tmp)
 end
 
+
+# Default values for optimization parameters
+const DEFAULT_VALUES_OPTIMIZE = Dict{Symbol, Any}(
+	:ndata => -1,
+	:weight => 0.0, # 0 means magnetic field only, 1 means energy only
+	:alpha => 0.0,	# 0 means ridge regression, 1 means LASSO regression
+	:lambda => 0.0, # 0 means no regularization
+)
+
+# Validation rules for optimization parameters
+const VALIDATION_RULES_OPTIMIZE = [
+	ValidationRule(:datafile, x -> !isempty(x), "Data file path cannot be empty"),
+	ValidationRule(:ndata, x -> x isa Int, x -> "ndata must be an integer, got $(x)"),
+	ValidationRule(
+		:weight,
+		x -> 0 <= x <= 1,
+		x -> "weight must be between 0 and 1, got $(x)",
+	),
+	ValidationRule(
+		:alpha,
+		x -> 0.0 <= x <= 1.0,
+		x -> "alpha must be between 0 and 1, got $(x)",
+	),
+	ValidationRule(
+		:lambda,
+		x -> x isa Real && x >= 0.0,
+		x -> "lambda must be a non-negative real number, got $(x)",
+	),
+]
 """
 	Config4Optimize
 
@@ -551,6 +557,7 @@ struct Config4Optimize
 	ndata::Int
 	weight::Float64
 	alpha::Float64
+	lambda::Float64
 
 	"""
 		Config4Optimize(input_dict::AbstractDict{<:AbstractString, Any})
@@ -581,23 +588,30 @@ struct Config4Optimize
 
 		datafile = input_dict["regression"]["datafile"]::String
 		ndata = get(input_dict["regression"], "ndata", DEFAULT_VALUES_OPTIMIZE[:ndata])::Int
-		weight = get(
+		weight = Float64(get(
 			input_dict["regression"],
 			"weight",
 			DEFAULT_VALUES_OPTIMIZE[:weight],
-		)::Float64
+		))
 
-		alpha = get(
+		alpha = Float64(get(
 			input_dict["regression"],
 			"alpha",
 			DEFAULT_VALUES_OPTIMIZE[:alpha],
-		)::Real
+		))
+
+		lambda = Float64(get(
+			input_dict["regression"],
+			"lambda",
+			DEFAULT_VALUES_OPTIMIZE[:lambda],
+		))
 
 		params = (
 			datafile = datafile,
 			ndata = ndata,
 			weight = weight,
 			alpha = alpha,
+			lambda = lambda,
 		)
 		validate_optimize_parameters(params)
 
