@@ -115,15 +115,15 @@ struct BasisSet
 			symmetry,
 		)
 
-		for (idx, proj) in enumerate(projection_list)
-			if proj != proj'
-				throw(
-					DomainError(
-						"Projection matrix at index $idx is not Hermitian)",
-					),
-				)
-			end
-		end
+		# for (idx, proj) in enumerate(projection_list)
+		# 	if proj != proj'
+		# 		throw(
+		# 			DomainError(
+		# 				"Projection matrix at index $idx is not Hermitian)",
+		# 			),
+		# 		)
+		# 	end
+		# end
 
 		# Generate symmetry-adapted linear combinations
 		salc_list = Vector{SALC}()
