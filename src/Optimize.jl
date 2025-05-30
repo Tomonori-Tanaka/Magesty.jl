@@ -575,14 +575,15 @@ function ridge_regression(
 	)
 
 	# Ridge regression solution
-	fit = glmnet(X, y; alpha=alpha, lambda=[lambda], standardize=false)
+	fit = glmnet(X, y; alpha=alpha, lambda=[lambda], standardize=true)
 	# Extract coefficients
-	j0 = fit.betas[1, 1]  # Extract coefficients for the first lambda
-	jphi = fit.betas[2:end, 1]  # Extract coefficients for the second lambda
-	# j = (X' * X + alpha * I) \ (X' * y)
-	# jphi = j[2:end]  # SCE coefficients without reference energy
-	# j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
-	j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
+	j0 = fit.betas[1, 1]  # Extract intersept (bias term)
+	jphi = fit.betas[2:end, 1]  # Extract SCE coefficients
+
+	# If weight is approximately zero, set j0 to the appropriate value
+	if weight ≈ 0
+		j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
+	end
 	return j0, jphi
 end
 
