@@ -45,7 +45,10 @@ function main(
 			# Read the file and filter out comment lines
 			raw_lines = readlines(file)
 			parsed_lines =
-				[parse.(Float64, split(line)) for line in raw_lines if !startswith(line, "#")]
+				[
+					parse.(Float64, split(line)) for
+					line in raw_lines if !startswith(line, "#")
+				]
 
 			# Check if there is valid data
 			if isempty(parsed_lines)
@@ -75,7 +78,8 @@ function main(
 				seriestype = :scatter,
 				markersize = 6,
 				markeralpha = 0.7,
-				label = "$(basename(file)) (RMSE: $(@sprintf("%.2f", stats[basename(file)]["RMSE"])) $unit)")
+				label = "$(basename(file)) (RMSE: $(@sprintf("%.2f", stats[basename(file)]["RMSE"])) $unit)",
+			)
 		catch e
 			@error "Error processing file $file" exception = (e, catch_backtrace())
 			continue
@@ -102,9 +106,9 @@ function main(
 	for (file, stat) in stats
 		println("\nFile: $file")
 		println("-"^30)
-		for (key, value) in stat
-			println("  $key: $(@sprintf("%.2f", value)) $unit")
-		end
+		println("RMSE: $(@sprintf("%.4f", stat["RMSE"])) $unit")
+		println("R²: $(@sprintf("%.4f", stat["R²"]))")
+		println("Max Error: $(@sprintf("%.4f", stat["Max Error"])) $unit")
 	end
 	println("="^50)
 
@@ -147,8 +151,8 @@ function preprocess_data(data::Matrix{Float64}, type::String)
 		y2 .-= y1_mean
 	elseif type == "m"
 		# Extract observed and predicted magnetic field values
-		y1 = data[:, 2]  # No unit conversion needed
-		y2 = data[:, 3]  # No unit conversion needed
+		y1 = data[:, 2] * 1000
+		y2 = data[:, 3] * 1000
 	else
 		error("Invalid type: $type. Must be 'e' or 'm'")
 	end
@@ -175,9 +179,9 @@ function create_plot(type::String)
 		unit = "meV"
 	elseif type == "m"
 		title = "Magnetic Field Comparison"
-		xlabel = "Observed Magnetic Field (T)"
-		ylabel = "Predicted Magnetic Field (T)"
-		unit = "T"
+		xlabel = "Observed Magnetic Field (meV)"
+		ylabel = "Predicted Magnetic Field (meV)"
+		unit = "meV"
 	else
 		error("Invalid type: $type. Must be 'e' or 'm'")
 	end
