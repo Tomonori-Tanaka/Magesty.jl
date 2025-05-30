@@ -22,7 +22,7 @@ Sample spin configurations using Mean Field Approximation.
 # Returns
 - Nothing, but writes sampled configurations to INCAR files
 """
-function sampling_mfa(input_path::AbstractString, τ::Real, num_sample::Int64, output_index::Int64, digits::Int64)
+function sampling_mfa(input_path::AbstractString, τ::Real, num_sample::Int64, randomize::Bool, output_index::Int64, digits::Int64)
 	# Parse the INCAR file
 	incar = parse_incar(input_path)
 	m_constr = get(incar, :M_CONSTR, nothing)
@@ -44,6 +44,10 @@ function sampling_mfa(input_path::AbstractString, τ::Real, num_sample::Int64, o
 	# Sample the spin configurations
 	for i in 1:num_sample
 		output_spin_matrix = sampling_mfa_for_each_sample(spin_matrix, τ)
+		if randomize	# Randomize the quantization axis if specified
+			output_spin_matrix = randomize_quantization_axis(output_spin_matrix)
+		end
+
 		# Write the spin configuration to the output file
 		output_spin_flattened = vec(output_spin_matrix)  # more efficient than output_spin_matrix[:]
 		output_incar = copy(incar)
@@ -125,6 +129,52 @@ function thermal_averaged_m(τ::Real)
 	return m_brent
 end
 
+function randomize_quantization_axis(spin_matrix::AbstractMatrix{<:Real})
+	# Randomly choose a quantization axis
+	axis = randn(3)
+	axis = axis / norm(axis)  # Normalize the axis
+
+	# Rotate the spin matrix to align with the new quantization axis
+	rotation_matrix = rotation_matrix_from_vectors([0.0, 0.0, 1.0], axis)
+	return rotation_matrix * spin_matrix
+end
+
+function rotation_matrix_from_vectors(v1::Vector{Float64}, v2::Vector{Float64})
+	# Normalize the unit vectors
+	v1_normalized = v1 / norm(v1)
+	v2_normalized = v2 / norm(v2)
+
+	# Calculate the cross product of v1 and v2
+	cross_product = cross(v1_normalized, v2_normalized)
+	# If the two vectors are parallel
+	if norm(cross_product) ≈ 0
+		if dot(v1_normalized, v2_normalized) > 0
+			return Matrix{Float64}(I, 3, 3)  # If they are in the same direction, return the identity matrix
+		else
+			return -Matrix{Float64}(I, 3, 3)  # If they are in the opposite direction, return the identity matrix with a minus sign
+		end
+	end
+	# Normalize the rotation axis
+	v = cross_product / norm(cross_product)
+
+	# Calculate cos(θ)
+	c = dot(v1_normalized, v2_normalized)
+
+	# Skew-symmetric matrix
+	s = [        0 -v[3] v[2];
+		v[3] 0 -v[1];
+		-v[2] v[1] 0]
+
+	# Rodrigues' rotation formula
+	R = Matrix{Float64}(I, 3, 3) + s + s^2 * (1 - c) / (norm(v)^2)
+
+	return R
+end
+
+"""
+	Main function to parse arguments and execute sampling.
+"""
+
 function main()
 	s = ArgParseSettings(description = """
 	A program for sampling spin configurations using Mean Field Approximation (MFA).
@@ -160,6 +210,10 @@ function main()
 		arg_type = Int64
         default = 1
 
+		"--randomize", "-r"
+		help = "Randomize the quantization axis"
+		action = "store_true"	
+
 	end
 
 	args = parse_args(s)
@@ -170,7 +224,7 @@ function main()
 	digits = length(string(length(collect(temps)) * args["num_samples"]))
 	
 	for (i, τ) in enumerate(temps)
-		sampling_mfa(args["input"], τ, args["num_samples"], i-1, digits)
+		sampling_mfa(args["input"], τ, args["num_samples"], args["randomize"], i-1, digits)
 	end
 end
 
