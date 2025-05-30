@@ -312,16 +312,17 @@ function SpinCluster(
 		system.symmetry,
 		system.basisset,
 		config.alpha,
+		config.lambda,
 		config.weight,
 		spinconfig_list,
 	)
+	verbosity && Optimize.print_info(optimize)
 	return SpinCluster(
 		system.structure,
 		system.symmetry,
 		system.cluster,
 		system.basisset,
 		optimize,
-		verbosity = verbosity,
 	)
 
 end

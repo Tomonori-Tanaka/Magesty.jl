@@ -33,6 +33,7 @@ struct Optimizer
 	observed_energy_list::Vector{Float64}
 	predicted_magfield_vertical_flattened_list::Vector{Float64}
 	observed_magfield_vertical_flattened_list::Vector{Float64}
+	rmse_energy::Float64  # Root Mean Square Error for energy
 	elapsed_time::Float64  # Time taken to create the optimizer in seconds
 end
 
@@ -41,6 +42,7 @@ function Optimizer(
 	symmetry::Symmetry,
 	basisset::BasisSet,
 	alpha::Real,
+	lambda::Real,
 	weight::Real,
 	spinconfig_list::AbstractVector{SpinConfig},
 )
@@ -78,6 +80,7 @@ function Optimizer(
 		observed_energy_list,
 		observed_magfield_vertical_list,
 		alpha,
+		lambda,
 		weight,
 	)
 
@@ -86,6 +89,12 @@ function Optimizer(
 	predicted_magfield_vertical_flattened_list = design_matrix_magfield_vertical * jphi
 	observed_magfield_vertical_flattened_list =
 		-1 * vcat(observed_magfield_vertical_list...)
+
+	# Calculater RMSE for energy
+	rmse_energy = sqrt(
+		mean((observed_energy_list .- predicted_energy_list) .^ 2),
+	)
+
 	# End timing
 	elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
 
@@ -97,6 +106,7 @@ function Optimizer(
 		observed_energy_list,
 		predicted_magfield_vertical_flattened_list,
 		observed_magfield_vertical_flattened_list,
+		rmse_energy,
 		elapsed_time,
 	)
 end
@@ -107,20 +117,21 @@ function Optimizer(
 	basisset::BasisSet,
 	config::Config4Optimize,
 )
-	return Optimizer(structure, symmetry, basisset, config.alpha, config.weight, config.datafile)
+	return Optimizer(structure, symmetry, basisset, config.alpha, config.lambda, config.weight, config.datafile)
 end
 
 function Optimizer(	structure::Structure,
 	symmetry::Symmetry,
 	basisset::BasisSet,
 	alpha::Real,
+	lambda::Real,
 	weight::Real,
 	datafile::AbstractString,
 )
 	# read datafile
 	spinconfig_list = read_embset(datafile, structure.supercell.num_atoms)
 
-	return Optimizer(structure, symmetry, basisset, alpha, weight, spinconfig_list)
+	return Optimizer(structure, symmetry, basisset, alpha, lambda, weight, spinconfig_list)
 end
 
 """
@@ -524,6 +535,7 @@ function ridge_regression(
 	observed_energy_list::AbstractVector{<:Real},
 	observed_magfield_list::AbstractVector{<:AbstractVector{<:Real}},
 	alpha::Real,
+	lambda::Real,
 	weight::Real,
 )
 
@@ -563,7 +575,7 @@ function ridge_regression(
 	)
 
 	# Ridge regression solution
-	fit = glmnet(X, y; alpha=0, lambda=[alpha], standardize=false)
+	fit = glmnet(X, y; alpha=alpha, lambda=[lambda], standardize=false)
 	# Extract coefficients
 	j0 = fit.betas[1, 1]  # Extract coefficients for the first lambda
 	jphi = fit.betas[2:end, 1]  # Extract coefficients for the second lambda
