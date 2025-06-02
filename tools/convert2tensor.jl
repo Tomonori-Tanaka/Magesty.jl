@@ -1,7 +1,7 @@
 using ArgParse
 using EzXML
 
-function convert2tensor(input::AbstractString, atoms::Vector{Int})::Matrix{Float64}
+function convert2tensor(input::AbstractString, atoms::Vector{Int}, cell::Integer)::Matrix{Float64}
 	atom1 = atoms[1]
 	atom2 = atoms[2]
 
@@ -14,6 +14,7 @@ function convert2tensor(input::AbstractString, atoms::Vector{Int})::Matrix{Float
 
 	# tensor matrix composing j-1-1, j-10, j-11, j0-1, j00, j01, j1-1, j10, j11
 	result_tmp = zeros(3, 3)
+	is_found = false	# Flag to check the target interaction is found
 	for alpha in -1:1, beta in -1:1
 		# Extract the <SCEBasisSet> node
 		sce_basis_set = findfirst("//SCEBasisSet", doc)
@@ -56,7 +57,8 @@ function convert2tensor(input::AbstractString, atoms::Vector{Int})::Matrix{Float
 						break
 					elseif i == 1 && idx[1] == atom1
 						m_vec[1] = idx[3]  # Collect the angular momentum l value
-					elseif i == 2 && idx[1] == atom2
+					elseif i == 2 && idx[1] == atom2 && idx[4] == cell
+						is_found = true
 						m_vec[2] = idx[3]  # Collect the angular momentum l value
 					end
 				end
@@ -68,6 +70,10 @@ function convert2tensor(input::AbstractString, atoms::Vector{Int})::Matrix{Float
 				end
 			end
 		end
+	end
+
+	if !is_found
+		throw(ArgumentError("The target interaction between atoms $atom1 and $atom2 in cell $cell is not found."))
 	end
 
 
@@ -102,10 +108,15 @@ function main()
 		required = true
 		nargs = 2
 		arg_type = Int
+
+		"--cell", "-c"
+		help = "Cell Index of the second atom (the cell of first atom is always 1). "
+		required = true
+		arg_type = Int
 	end
 
 	args = parse_args(s)
-	tensor_matrix::Matrix{Float64} = convert2tensor(args["input"], args["atoms"])
+	tensor_matrix::Matrix{Float64} = convert2tensor(args["input"], args["atoms"], args["cell"])
 	display(tensor_matrix)
 end
 
