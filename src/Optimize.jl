@@ -8,9 +8,7 @@ module Optimize
 using Base.Threads
 using LinearAlgebra
 using GLMNet
-using Optim
 using Printf
-using StatsBase
 using Statistics
 using StaticArrays
 using ..MySphericalHarmonics
