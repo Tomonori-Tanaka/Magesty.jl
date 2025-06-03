@@ -13,7 +13,6 @@ module SpinConfigs
 
 using Printf
 using LinearAlgebra
-using StatsBase
 import Base: show
 
 export SpinConfig, read_embset
