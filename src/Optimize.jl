@@ -8,9 +8,7 @@ module Optimize
 using Base.Threads
 using LinearAlgebra
 using GLMNet
-using Optim
 using Printf
-using StatsBase
 using Statistics
 using StaticArrays
 using ..MySphericalHarmonics
@@ -651,6 +649,23 @@ function translate_atom_idx_of_salc(
 end
 
 function print_info(optimizer::Optimizer)
+	rmse_energy = calc_rmse(
+		optimizer.observed_energy_list,
+		optimizer.predicted_energy_list,
+	)
+	rmse_magfield = calc_rmse(
+		optimizer.observed_magfield_vertical_flattened_list,
+		optimizer.predicted_magfield_vertical_flattened_list,
+	)
+	relative_error_energy = calc_relative_error(
+		optimizer.observed_energy_list,
+		optimizer.predicted_energy_list,
+	)
+	relative_error_magfield = calc_relative_error(
+		optimizer.observed_magfield_vertical_flattened_list,
+		optimizer.predicted_magfield_vertical_flattened_list,
+	)
+
 	println(
 		"""
 		============
@@ -658,21 +673,64 @@ function print_info(optimizer::Optimizer)
 		============
 		""",
 	)
-	println(@sprintf("E_ref: %.10f", optimizer.reference_energy))
+	println(@sprintf("   E_ref: %.10f", optimizer.reference_energy))
 	for (i, sce) in enumerate(optimizer.SCE)
-		println(@sprintf("%9d: %15.10f", i, sce))
+		println(@sprintf("%8d: %15.10f", i, sce))
 	end
-	# println(
-	# 	@sprintf(
-	# 		"fitting error of force: %.4f %%",
-	# 		optimizer.relative_error_magfield_vertical * 100
-	# 	)
-	# )
-	# println(@sprintf("fitting error of energy: %.4e %%", optimizer.relative_error_energy * 100))
+
+		println(
+		"""
+
+		Root Mean Square Error (RMSE)
+		-----------------------------
+		""",
+	)
+	println(
+		@sprintf(
+			"RMSE for energy: %.4f meV", rmse_energy * 1000
+		)
+	)
+	println(@sprintf("RMSE for magnetic field: %.4f meV", rmse_magfield * 100))
 	println("")
+	println(
+		"""
+		Relative Errors
+		---------------
+		""",
+	)
+	println(
+		@sprintf(
+			"Relative error for energy: %.4f %%", relative_error_energy * 100
+		)
+	)
+	println(
+		@sprintf(
+			"Relative error for magnetic field: %.4f %%", relative_error_magfield * 100
+		)
+	)
+	println("")	
 	println(@sprintf("Elapsed time: %.6f seconds", optimizer.elapsed_time))
 
 	println("-------------------------------------------------------------------")
+end
+
+function calc_rmse(list1::AbstractVector{<:Real}, list2::AbstractVector{<:Real})::Float64
+	# Calculate the Root Mean Square Error (RMSE) between two lists
+	if length(list1) != length(list2)
+		throw(ArgumentError("The lengths of the two lists must be equal."))
+	end
+	return sqrt(mean((list1 .- list2) .^ 2))
+end
+
+function calc_relative_error(
+	observed_list::AbstractVector{<:Real},
+	predicted_list::AbstractVector{<:Real},
+)::Float64
+	# Calculate the relative error between observed and predicted lists
+	if length(observed_list) != length(predicted_list)
+		throw(ArgumentError("The lengths of the two lists must be equal."))
+	end
+	return sqrt(sum((observed_list .- predicted_list) .^ 2) / sum(observed_list .^ 2))
 end
 
 end
