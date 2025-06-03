@@ -226,6 +226,15 @@ function main()
 	for (i, τ) in enumerate(temps)
 		sampling_mfa(args["input"], τ, args["num_samples"], args["randomize"], i-1, digits)
 	end
+
+	print_info(args)
+end
+
+function print_info(args)
+	@printf("Input file: %s\n", args["input"])
+	@printf("Temperature range: %.2f to %.2f with step %.2f\n", args["temp_start"], args["temp_end"], args["temp_step"])
+	@printf("Number of samples per temperature: %d\n", args["num_samples"])
+	@printf("Randomize quantization axis: %s\n", args["randomize"] ? "Yes" : "No")
 end
 
 # Execute the main function
