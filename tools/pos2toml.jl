@@ -211,6 +211,8 @@ function create_toml(data::NamedTuple, output_file::String)
         # [regression] section
         regression = OrderedDict{String, Any}()
         regression["weight"] = 0.0
+        regression["alpha"] = 0.0
+        regression["lambda"] = 0.0
         regression["datafile"] = "EMBSET"
         toml_data["regression"] = regression
         
