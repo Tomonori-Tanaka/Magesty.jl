@@ -163,6 +163,22 @@ function System(toml_file::AbstractString; verbosity::Bool = true)
 	end
 end
 
+function print_info(system::System)
+	println(
+		"""
+		+-----------------------------------+
+				   Magesty v$(VERSION)      
+		+-----------------------------------+
+
+		""",
+	)
+
+	Structures.print_info(system.structure)
+	Symmetries.print_info(system.symmetry)
+	Clusters.print_info(system.cluster)
+	BasisSets.print_info(system.basisset)
+end
+
 """
 	SpinCluster
 
@@ -350,20 +366,20 @@ energy = calc_energy(sc, spin_config)
 ```
 """
 function calc_energy(spincluster::SpinCluster, spin_config::AbstractMatrix{<:Real})
-    if spincluster.structure.supercell.num_atoms != size(spin_config, 2)
-        num_atoms = spincluster.structure.supercell.num_atoms
-        throw(
-            ArgumentError(
-                "spin_config must be 3xN matrix where N is the number of atoms in the supercell. $num_atoms",
-            ),
-        )
-    end
-    return CalcEnergy.calc_energy(
-        spincluster.basisset.salc_list,
-        spin_config,
-        spincluster.symmetry,
-        spincluster.optimize,
-    )
+	if spincluster.structure.supercell.num_atoms != size(spin_config, 2)
+		num_atoms = spincluster.structure.supercell.num_atoms
+		throw(
+			ArgumentError(
+				"spin_config must be 3xN matrix where N is the number of atoms in the supercell. $num_atoms",
+			),
+		)
+	end
+	return CalcEnergy.calc_energy(
+		spincluster.basisset.salc_list,
+		spin_config,
+		spincluster.symmetry,
+		spincluster.optimize,
+	)
 end
 
 """
@@ -378,7 +394,7 @@ function print_info(sc::SpinCluster)
 	println(
 		"""
 		+-----------------------------------+
-		|          Magesty v$(VERSION)      |
+				   Magesty v$(VERSION)      
 		+-----------------------------------+
 
 		""",
