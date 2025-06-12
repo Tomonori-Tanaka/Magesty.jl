@@ -61,6 +61,9 @@ function parse_vasp(filename::String)
                 throw(ErrorException("Error parsing lattice vector in line $(i+2): $(lines[i+2])"))
             end
         end
+
+        lattice_vectors = scaling .* lattice_vectors
+
         
         # Process species and number information
         element_symbols = String[]
@@ -96,9 +99,11 @@ function parse_vasp(filename::String)
 
         # Parse coordinate mode
         coordinate_mode = lowercase(strip(lines[coord_line_index]))
-        if coordinate_mode ∉ ["direct", "cartesian"]
-            throw(ErrorException("Invalid coordinate mode: $coordinate_mode"))
+        header_character = coordinate_mode[1]
+        if header_character ∉ ['d', 'c']
+            throw(ErrorException("Invalid coordinate mode: $header_character"))
         end
+
 
         # Read atomic positions
         n_atoms = sum(numbers)
@@ -121,11 +126,15 @@ function parse_vasp(filename::String)
                 throw(ErrorException("Error parsing position in line $line_idx: $(lines[line_idx])"))
             end
         end
+
+        # convert to direct coordinates if the coordinate mode is Cartesian
+        if header_character == 'c'
+            positions = convert_cart2direct(lattice_vectors, positions)
+        end
         
         # Return parsed data as a NamedTuple
         return (
             comment = comment,
-            scaling = scaling,
             lattice_vectors = lattice_vectors,
             coordinate_mode = coordinate_mode,
             element_symbols = element_symbols,
@@ -133,6 +142,18 @@ function parse_vasp(filename::String)
             positions = positions
         )
     end
+end
+
+function convert_cart2direct(lattice_vectors::Vector{Vector{Float64}}, positions::Vector{Vector{Float64}})::Vector{Vector{Float64}}
+    # construct lattice matrix and position matrix
+    lattice_matrix = hcat(lattice_vectors...) # (3, 3)
+    position_matrix = hcat(positions...) # (3, n_atoms)
+
+    # convert to direct coordinates
+    direct_positions = lattice_matrix \ position_matrix # (3, n_atoms)
+
+    # return as a vector of vectors
+    return [col for col in eachcol(direct_positions)]
 end
 
 """
@@ -195,7 +216,6 @@ function create_toml(data::NamedTuple, output_file::String)
         
         # [structure] section
         structure = OrderedDict{String, Any}()
-        structure["scale"] = data.scaling
         structure["lattice"] = data.lattice_vectors
         
         # Create kd_list and position arrays
@@ -265,7 +285,6 @@ function create_toml(data::NamedTuple, output_file::String)
             write(io, "\n")
             
             write(io, "[structure]\n")
-            write(io, "scale = $(structure["scale"])\n")
             write(io, "lattice = [\n")
             for vec in structure["lattice"]
                 write(io, "        [ $(join(vec, ", ")) ],\n")
@@ -326,10 +345,9 @@ function main()
     )
     
     @add_arg_table s begin
-        "--input", "-i"
+        "input"
         help = "Input VASP structure file (e.g., POSCAR)"
         arg_type = String
-        required = true
 
         "--output", "-o"
         help = "Output TOML file"
