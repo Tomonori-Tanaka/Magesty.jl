@@ -5,18 +5,11 @@ using StaticArrays
 using Magesty.Structures
 using Magesty.Symmetries
 
-io = open("./result/febcc_2x2x2_pm.txt", "w")
-println(io, "#### TEST: bcc Fe cubic 2x2x2 supercell for Curie-Weiss paramagnetic state\n")
 
 input = TOML.parse(
 	open("./examples/febcc_2x2x2_pm/input.toml", "r"),
 )
 system = System(input, verbosity = false)
-
-# print info to file
-redirect_stdout(io) do
-	print_info(system)
-end
 
 const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring virtual cells
 @testset "Fe BCC 2x2x2 Tests" begin
@@ -120,5 +113,3 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 		end
 	end
 end
-
-close(io)

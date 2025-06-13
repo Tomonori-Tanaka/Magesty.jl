@@ -148,8 +148,10 @@ struct Symmetry
 		end
 
 		cell = structure.supercell
+		# convert x_frac::Matrix{Float64} to x_frac::Vector{Vector{Float64}}
+		x_frac_vec = [col for col in eachcol(cell.x_frac)]
 		spglib_data::Spglib.Dataset =
-			get_dataset(Spglib.Cell(cell.lattice_vectors, cell.x_frac, cell.kd_int_list))
+			get_dataset(Spglib.Cell(cell.lattice_vectors, x_frac_vec, cell.kd_int_list))
 
 		if spglib_data.n_operations == 0
 			error(
