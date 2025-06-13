@@ -9,6 +9,10 @@ using Roots
 include("vasptools.jl")
 using .VaspTools
 
+const TOLERANCE = 1e-10
+const MIN_TEMP = 0.00001
+const MAX_TEMP = 0.99999
+
 """
 	sampling_mfa(input_path::AbstractString, τ::Real, num_sample::Int64)
 
@@ -25,10 +29,10 @@ Sample spin configurations using Mean Field Approximation.
 function sampling_mfa(
 	input_path::AbstractString,
 	τ::Real,
-	num_sample::Int64,
+	num_sample::Integer,
 	randomize::Bool,
-	output_index::Int64,
-	digits::Int64,
+	output_index::Integer,
+	digits::Integer,
 )
 	# Parse the INCAR file
 	incar = parse_incar(input_path)
@@ -42,7 +46,10 @@ function sampling_mfa(
 	end
 
 	if length(magmom) % 3 != 0
-		error("The length of M_CONSTR must be a multiple of 3")
+		error("""
+			Invalid MAGMOM/M_CONSTR length: $(length(magmom))
+			The length must be a multiple of 3 for 3D spin vectors
+			""")
 	end
 
 	num_atoms = length(magmom) ÷ 3
@@ -60,7 +67,7 @@ function sampling_mfa(
 		end
 
 		# Write the spin configuration to the output file
-		output_spin_flattened = vec(output_spin_matrix)  # more efficient than output_spin_matrix[:]
+		output_spin_flattened = reshape(output_spin_matrix, :)  # more efficient than output_spin_matrix[:]
 		output_incar = copy(incar)
 		output_incar[:MAGMOM] = output_spin_flattened
 		if :M_CONSTR in keys(incar)
@@ -69,7 +76,12 @@ function sampling_mfa(
 
 		# Write the INCAR file with sample number
 		output_path = @sprintf("sample-%0*d.INCAR", digits, output_index*num_sample + i)
-		write_incar(output_path, output_incar)
+		try
+			write_incar(output_path, output_incar)
+		catch e
+			@error "Failed to write INCAR file" path=output_path exception=(e, catch_backtrace())
+			rethrow(e)
+		end
 	end
 end
 
@@ -93,9 +105,9 @@ function sampling_mfa_for_each_sample(input_spin_matrix::AbstractMatrix{<:Real},
 		end
 		# Prepare the mean direction and the concentration in the von Mises-Fisher distribution
 		mean_direction = normalize(spin)  # more efficient than spin / norm(spin)
-		if τ > 0.99999
-			concentration = 0.000001
-		elseif τ < 0.00001
+		if τ > MAX_TEMP
+			concentration = 1e-6
+		elseif τ < MIN_TEMP
 			return input_spin_matrix
 		else
 			m = thermal_averaged_m(τ)
@@ -129,16 +141,18 @@ m = coth(3m/τ) - τ/3m.
 """
 function thermal_averaged_m(τ::Real)
 	# Special cases
+	if τ < MIN_TEMP
+		return 0.0
+	elseif τ > MAX_TEMP
+		return 1.0
+	end
 
 	# Use the bisection method to solve the equation
-	m_min = 0.00001
-	m_max = 0.99999
-
 	function f(m::Real, τ::Real)
 		return m - coth(3m/τ) + τ/3m
 	end
 
-	m_brent = find_zero(m -> f(m, τ), (m_min, m_max), Roots.Brent())
+	m_brent = find_zero(m -> f(m, τ), (MIN_TEMP, MAX_TEMP), Roots.Brent())
 	return m_brent
 end
 
@@ -235,6 +249,15 @@ function main()
 	temps = args["temp_start"]:args["temp_step"]:args["temp_end"]
 
 	digits = length(string(length(collect(temps)) * args["num_samples"]))
+
+	# check the temperature range
+	if args["temp_start"] > args["temp_end"]
+		error("temp_start must be less than or equal to temp_end")
+	end
+
+	if args["temp_step"] <= 0
+		error("temp_step must be positive")
+	end
 
 	for (i, τ) in enumerate(temps)
 		sampling_mfa(args["input"], τ, args["num_samples"], args["randomize"], i-1, digits)
