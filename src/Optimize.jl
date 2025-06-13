@@ -175,7 +175,12 @@ function construct_design_matrix_energy(
 	end
 
 	if false in initialize_check
-		error("Failed to initialize the design matrix.")
+		false_indices = findall(x -> x == false, initialize_check)
+		error("""
+			Failed to initialize the design matrix.
+			False values found at indices: $false_indices
+			Full initialize_check array: $initialize_check
+			""")
 	end
 
 	return design_matrix
