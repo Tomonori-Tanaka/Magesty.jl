@@ -5,6 +5,10 @@ using Printf
 using LinearAlgebra
 using Statistics
 
+const MARKER_SIZE = 5	# size of the markers
+const MARKER_ALPHA = 0.7	# transparency of the markers
+const AXIS_PADDING = 10	# margin for the plot
+
 """
 	create_plot(type::String) -> Plots.Plot
 
@@ -80,12 +84,12 @@ end
 """
 	parse_file(file::String)::Tuple{Vector{Float64}, Vector{Float64}}
 
-Parse the file and return the observed and predicted values.
+Parse the data file and return the observed and predicted values.
 Comment lines (starting with #, regardless of the position) and empty lines are skipped.
 
 Assumed file format:
 ```
-# Observed_Energy, Predicted_Energy
+# Observed_Value, Predicted_Value
  1.0000000000, 1.0000000000
  2.0000000000, 2.0000000000
  3.0000000000, 3.0000000000
@@ -180,8 +184,8 @@ function main(
 	for (i, (observed, predicted)) in enumerate(zip(observed_lists, predicted_lists))
 		plot!(p, observed, predicted,
 			seriestype = :scatter,
-			markersize = 5,
-			markeralpha = 0.5,
+			markersize = MARKER_SIZE,
+			markeralpha = MARKER_ALPHA,
 			label = "$i: $(basename(files[i])) (RMSE: $(@sprintf("%.2f", calculate_statistics(observed, predicted)["RMSE"])) $unit)",
 		)
 	end
@@ -193,8 +197,8 @@ function main(
 	else
 		minimum_value = min(minimum(vcat(observed_lists...)), minimum(vcat(predicted_lists...)))
 		maximum_value = max(maximum(vcat(observed_lists...)), maximum(vcat(predicted_lists...)))
-		xlim_val = (minimum_value - 10, maximum_value + 10)
-		ylim_val = (minimum_value - 10, maximum_value + 10)
+		xlim_val = (minimum_value - AXIS_PADDING, maximum_value + AXIS_PADDING)
+		ylim_val = (minimum_value - AXIS_PADDING, maximum_value + AXIS_PADDING)
 	end
 	xlims!(p, xlim_val)
 	ylims!(p, ylim_val)
