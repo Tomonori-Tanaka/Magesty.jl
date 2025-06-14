@@ -5,160 +5,9 @@ using Printf
 using LinearAlgebra
 using Statistics
 
-"""
-	main(files::Vector{String}; output::Union{String,Nothing}=nothing, lim::Union{Float64,Nothing}=nothing)
-
-Plots energy data from input files by comparing observed and predicted values.
-
-# Arguments
-- `files::Vector{String}`: List of input file paths containing energy data.
-- `output::Union{String,Nothing}`: Output file name for the plot. The PNG file is saved only if this argument is provided.
-- `lim::Union{Float64,Nothing}`: Axis limits for both X and Y axes. If not provided, the limits will be computed from the data.
-"""
-function main(
-	files::Vector{String},
-	type::String,
-	;
-	output::Union{String, Nothing} = nothing,
-	lim::Union{Float64, Nothing} = nothing)
-
-	# Validate input files
-	for file in files
-		if !isfile(file)
-			error("Error: File not found: $file")
-		end
-	end
-
-	# Arrays to store combined data from all files
-	global_y1 = Float64[]
-	global_y2 = Float64[]
-
-	# Create the plot
-	p, unit = create_plot(type)
-
-	# Dictionary to store statistics for each file
-	stats = Dict{String, Dict{String, Float64}}()
-
-	# Process each file
-	for file in files
-		try
-			# Read the file and filter out comment lines
-			raw_lines = readlines(file)
-			parsed_lines =
-				[
-					parse.(Float64, split(line)) for
-					line in raw_lines if !startswith(line, "#")
-				]
-
-			# Check if there is valid data
-			if isempty(parsed_lines)
-				error("No valid data found in file $file")
-			end
-
-			# Convert each row to a 1xN matrix and combine vertically
-			data = reduce(vcat, [reshape(row, 1, :) for row in parsed_lines])
-
-			# Ensure the data has at least three columns
-			if size(data, 2) < 3
-				error("File $file does not contain enough columns")
-			end
-
-			# Preprocess data according to type
-			y1, y2 = preprocess_data(data, type)
-
-			# Append data to global arrays for computing overall limits
-			append!(global_y1, y1)
-			append!(global_y2, y2)
-
-			# Calculate statistics
-			stats[basename(file)] = calculate_statistics(y1, y2)
-
-			# Add the data as a scatter plot for the current file
-			plot!(p, y1, y2,
-				seriestype = :scatter,
-				markersize = 6,
-				markeralpha = 0.7,
-				label = "$(basename(file)) (RMSE: $(@sprintf("%.2f", stats[basename(file)]["RMSE"])) $unit)",
-			)
-		catch e
-			@error "Error processing file $file" exception = (e, catch_backtrace())
-			continue
-		end
-	end
-
-	# Set axis limits based on user input or overall data
-	if lim !== nothing
-		xlim_val = (-lim, lim)
-		ylim_val = (-lim, lim)
-	else
-		if isempty(global_y1)
-			error("Error: No valid data could be loaded from any file")
-		end
-		xlim_val = (minimum(global_y1), maximum(global_y1))
-		ylim_val = (minimum(global_y2), maximum(global_y2))
-	end
-	xlims!(p, xlim_val)
-	ylims!(p, ylim_val)
-
-	# Print statistics for each file
-	println("\nStatistics:")
-	println("="^50)
-	for (file, stat) in stats
-		println("\nFile: $file")
-		println("-"^30)
-		println("RMSE: $(@sprintf("%.4f", stat["RMSE"])) $unit")
-		println("R²: $(@sprintf("%.4f", stat["R²"]))")
-		println("Max Error: $(@sprintf("%.4f", stat["Max Error"])) $unit")
-	end
-	println("="^50)
-
-	# Save the plot only if the output argument is provided
-	if !isnothing(output)
-		savefig(p, output)
-		println("\nPlot saved as '$output'")
-	else
-		println("\nPlot not saved.")
-	end
-	display(p)
-
-	println("Press Enter to exit...")
-	readline()
-end
-
-"""
-	preprocess_data(data::Matrix{Float64}, type::String) -> Tuple{Vector{Float64}, Vector{Float64}}
-
-Preprocess the data according to the specified type.
-
-# Arguments
-- `data::Matrix{Float64}`: Input data matrix
-- `type::String`: Type of data ('e' for energy, 'm' for magnetic field)
-
-# Returns
-Tuple of (y1, y2) where:
-- y1: Processed observed values
-- y2: Processed predicted values
-"""
-function preprocess_data(data::Matrix{Float64}, type::String)
-	if type == "e"
-		# Extract observed energy (column 2) and predicted energy (column 3)
-		y1 = data[:, 2] * 1000  # Convert to meV
-		y2 = data[:, 3] * 1000  # Convert to meV
-
-		# Shift values by the mean of y1
-		y1_mean = mean(y1)
-		y1 .-= y1_mean
-		y2 .-= y1_mean
-	elseif type == "m"
-		# Extract observed and predicted magnetic field values
-		y1 = data[:, 2] * 1000
-		y2 = data[:, 3] * 1000
-	else
-		error("Invalid type: $type. Must be 'e' or 'm'")
-	end
-
-	return y1, y2
-end
+const MARKER_SIZE = 5	# size of the markers
+const MARKER_ALPHA = 0.7	# transparency of the markers
+const AXIS_PADDING = 10	# margin for the plot
 
 """
 	create_plot(type::String) -> Plots.Plot
@@ -171,7 +20,7 @@ Create a plot with appropriate settings based on the data type.
 # Returns
 A Plots.Plot object with appropriate settings
 """
-function create_plot(type::String)
+function create_plot(type::String)::Tuple{Plots.Plot, String}
 	if type == "e"
 		title = "Energy Comparison"
 		xlabel = "Observed Energy (meV)"
@@ -216,7 +65,7 @@ Calculate statistics for the given data.
 # Returns
 Dictionary containing various statistics
 """
-function calculate_statistics(y1::Vector{Float64}, y2::Vector{Float64})
+function calculate_statistics(y1::Vector{Float64}, y2::Vector{Float64})::Dict{String, Float64}
 	rmse = sqrt(mean((y1 .- y2) .^ 2))
 	max_error = maximum(abs.(y1 .- y2))
 	mean_error = mean(abs.(y1 .- y2))
@@ -232,12 +81,151 @@ function calculate_statistics(y1::Vector{Float64}, y2::Vector{Float64})
 	)
 end
 
+"""
+	parse_file(file::String)::Tuple{Vector{Float64}, Vector{Float64}}
+
+Parse the data file and return the observed and predicted values.
+Comment lines (starting with #, regardless of the position) and empty lines are skipped.
+
+Assumed file format:
+```
+# Observed_Value, Predicted_Value
+ 1.0000000000, 1.0000000000
+ 2.0000000000, 2.0000000000
+ 3.0000000000, 3.0000000000
+```
+
+# Arguments
+- `file::String`: Input file path
+
+"""
+function parse_file(file::String)::Tuple{Vector{Float64}, Vector{Float64}}
+	# Read the file and filter out comment lines
+	raw_lines = readlines(file)
+
+	# Parse the data. Skip comment lines and empty lines.
+	parsed_lines::Vector{Vector{Float64}} =
+		[
+			parse.(Float64, split(line)) for
+			line in raw_lines if !isempty(strip(line)) && !startswith(strip(line), "#")
+		]
+
+	# Validate that each line has exactly two elements
+	for (i, line) in enumerate(parsed_lines)
+		if length(line) != 2
+			error("Line $i has $(length(line)) elements, expected 2")
+		end
+	end
+
+	# Convert to two vectors
+	observed = [line[1] for line in parsed_lines]
+	predicted = [line[2] for line in parsed_lines]
+
+	return observed, predicted
+end
+
+"""
+	main(files::Vector{String}; output::Union{String,Nothing}=nothing, lim::Union{Float64,Nothing}=nothing)
+
+Plots energy data from input files by comparing observed and predicted values.
+
+# Arguments
+- `files::Vector{String}`: List of input file paths containing energy data.
+- `output::Union{String,Nothing}`: Output file name for the plot. The PNG file is saved only if this argument is provided.
+- `lim::Union{Float64,Nothing}`: Axis limits for both X and Y axes. If not provided, the limits will be computed from the data.
+"""
+function main(
+	files::Vector{String},
+	type::String,
+	;
+	output::Union{String, Nothing} = nothing,
+	lim::Union{Float64, Nothing} = nothing)
+
+	# result lists of list to store observed and predicted values, and those will be used for plotting
+	observed_lists = Vector{Vector{Float64}}()
+	predicted_lists = Vector{Vector{Float64}}()
+
+	for file in files
+		# Parse the file and return the observed and predicted values
+		observed, predicted = parse_file(file)
+		# Convert to meV from eV
+		observed *= 1000
+		predicted *= 1000
+
+		push!(observed_lists, observed)
+		push!(predicted_lists, predicted)
+	end
+
+	# Shift the all values by the center of the observed values if type is "e" (energy)
+	if type == "e"
+		center_observed = (minimum(vcat(observed_lists...)) + maximum(vcat(observed_lists...))) / 2
+		for list in observed_lists
+			list .-= center_observed
+		end
+		for list in predicted_lists
+			list .-= center_observed
+		end
+	end
+
+	# Print the statistics in each file data set 
+	for (i, file) in enumerate(files)
+		stats = calculate_statistics(observed_lists[i], predicted_lists[i])
+		println("-"^30)
+		println("File Index: $i")
+		println("File Name: $file")
+		println("RMSE: $(@sprintf("%.4f", stats["RMSE"])) meV")
+		println("R²: $(@sprintf("%.4f", stats["R²"]))")
+		println("Max Error: $(@sprintf("%.4f", stats["Max Error"])) meV")
+		println("-"^30)
+	end
+
+	# Create the plot
+	p, unit = create_plot(type)
+	for (i, (observed, predicted)) in enumerate(zip(observed_lists, predicted_lists))
+		plot!(p, observed, predicted,
+			seriestype = :scatter,
+			markersize = MARKER_SIZE,
+			markeralpha = MARKER_ALPHA,
+			label = "$i: $(basename(files[i])) (RMSE: $(@sprintf("%.2f", calculate_statistics(observed, predicted)["RMSE"])) $unit)",
+		)
+	end
+
+	# Set axis limits based on user input or overall data
+	if lim !== nothing
+		xlim_val = (-lim, lim)
+		ylim_val = (-lim, lim)
+	else
+		minimum_value = min(minimum(vcat(observed_lists...)), minimum(vcat(predicted_lists...)))
+		maximum_value = max(maximum(vcat(observed_lists...)), maximum(vcat(predicted_lists...)))
+		xlim_val = (minimum_value - AXIS_PADDING, maximum_value + AXIS_PADDING)
+		ylim_val = (minimum_value - AXIS_PADDING, maximum_value + AXIS_PADDING)
+	end
+	xlims!(p, xlim_val)
+	ylims!(p, ylim_val)
+
+	# Save the plot only if the output argument is provided
+	if !isnothing(output)
+		savefig(p, output)
+		println("\nPlot saved as '$output'")
+	else
+		println("\nPlot not saved.")
+	end
+	display(p)
+
+	println("Press Enter to exit...")
+	readline()
+end
+
+
 # Set up command-line argument parsing
 s = ArgParseSettings(
 	description = """
-		Generates a comparison plot between observed and predicted energy or magnetic field values.
-		Input files should be space-separated text files with at least three columns:
-		Column 1: Index, Column 2: Observed value, Column 3: Predicted value.
+		Generates a comparison plot between observed and predicted energy or magnetic field values.\n
+		Input files should be space-separated text files with at least two columns:\n
+		Column 1: Observed value, Column 2: Predicted value.\n
+		\n
+		Note that the data value is shifted by the center of the observed values if type is "e"
+		(the value of shift is common for all file data sets)\n
 	""",
 	version = "1.0.0",
 	add_version = true,
@@ -245,7 +233,7 @@ s = ArgParseSettings(
 
 @add_arg_table s begin
 	"files"
-	help = "Input data files (space-separated text files)"
+	help = "Input data files. Multiple files are allowed."
 	arg_type = String
 	nargs = '+'
 	required = true

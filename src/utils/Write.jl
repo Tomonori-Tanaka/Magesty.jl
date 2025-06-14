@@ -131,8 +131,7 @@ function write_energy_info(optimize::Optimizer, filename::AbstractString = "ener
 	predicted_energy_list = optimize.predicted_energy_list
 
 	# Format header
-	digits_index = length(string(length(observed_energy_list)))
-	header = "# Index:" * " "^(digits_index - 1) * "Observed_Energy" * " "^4 * "Predicted_Energy"
+	header = "# Observed_Energy" * " "^4 * "Predicted_Energy"
 
 	write_list_to_file(observed_energy_list, predicted_energy_list, filename, header)
 end
@@ -152,10 +151,7 @@ function write_lmf_flattened(
 	predicted_magfield_vertical_list = optimize.predicted_magfield_vertical_flattened_list
 
 	# Format header
-	digits_index = length(string(length(observed_magfield_vertical_list)))
-	header =
-		"# Index:" * " "^(digits_index - 1) * "Observed_local_magnetic_field" * " "^4 *
-		"Predicted_local_magnetic_field"
+	header = "# Observed_magnetic_field" * " "^4 * "Predicted_magnetic_field"
 
 	write_list_to_file(
 		observed_magfield_vertical_list,
@@ -187,9 +183,6 @@ function write_list_to_file(
 		error("Length mismatch between observed and predicted lists")
 	end
 
-	# Format settings
-	digits_index = length(string(length(data_list)))
-
 	# Write to file
 	try
 		open(filename, "w") do f
@@ -199,9 +192,7 @@ function write_list_to_file(
 			# Write data
 			for (i, (obs, pred)) in enumerate(zip(data_list, predicted_list))
 				str = @sprintf(
-					"%*d    %15.10f    %15.10f\n",
-					digits_index,
-					i,
+					" %15.10f    %15.10f\n",
 					obs,
 					pred
 				)
