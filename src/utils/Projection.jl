@@ -38,34 +38,40 @@ function construct_projectionmatrix(
 	num_nonzero_projection_list = Vector{Int}(undef, length(basisdict))
 
 	idx_list = collect(keys(basisdict))
+	# Process each basis function in parallel
 	@threads for idx in idx_list
+		# Create thread-local storage for calculations
 		basislist = basisdict[idx]
 		dim = length(basislist)
-		projection_mat = zeros(Float64, dim, dim)
-		num_nonzero_projections = 0
+		local_projection_mat = zeros(Float64, dim, dim)
+		local_num_nonzero_projections = 0
 
+		# Calculate projection matrix for each symmetry operation
 		for (n, symop) in enumerate(symdata), time_rev_sym in [false, true]
-			projection_mat_per_symop =
-				proj_matrix_a_symop(
-					basislist,
-					symop,
-					n,
-					map_s2p,
-					atoms_in_prim,
-					map_sym,
-					x_image_cart,
-					lattice_vectors,
-					threshold_digits = 10,
-					tol = tol,
-					time_reversal_sym = time_rev_sym,
-				)
+			projection_mat_per_symop = proj_matrix_a_symop(
+				basislist,
+				symop,
+				n,
+				map_s2p,
+				atoms_in_prim,
+				map_sym,
+				x_image_cart,
+				lattice_vectors,
+				threshold_digits = 10,
+				tol = tol,
+				time_reversal_sym = time_rev_sym,
+			)
 			if nnz(projection_mat_per_symop) != 0
-				num_nonzero_projections += 1
-				projection_mat += projection_mat_per_symop
+				local_num_nonzero_projections += 1
+				local_projection_mat += projection_mat_per_symop
 			end
 		end
-		num_nonzero_projection_list[idx] = num_nonzero_projections
-		result_projection[idx] = projection_mat
+
+		# Write results to shared arrays
+		@inbounds begin
+			num_nonzero_projection_list[idx] = local_num_nonzero_projections
+			result_projection[idx] = local_projection_mat
+		end
 	end
 
 	return result_projection, num_nonzero_projection_list
@@ -284,4 +290,5 @@ function calc_relvec_in_frac(
 	)
 	return result
 end
+
 
