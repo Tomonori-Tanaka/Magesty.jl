@@ -265,30 +265,36 @@ function construct_map_sym(
 	natomtypes = length(structure.atomtype_group)
 	map_sym = zeros(Int, structure.supercell.num_atoms, Int(spglib_data.n_operations))
 
+	# Process symmetry operations in parallel
 	@threads for isym in 1:spglib_data.n_operations
-		x_new = Vector{Float64}(undef, 3)
-		tmp = Vector{Float64}(undef, 3)
+		# Create thread-local storage to avoid memory conflicts
+		local_map = zeros(Int, structure.supercell.num_atoms)
+		local_x_new = MVector{3, Float64}(undef)
+		local_tmp = MVector{3, Float64}(undef)
+
 		for itype in 1:natomtypes
 			for iat in structure.atomtype_group[itype]
-				x_new = MVector(
-					spglib_data.rotations[isym] * structure.supercell.x_frac[:, iat] +
-					spglib_data.translations[isym],
-				)
+				# Apply rotation and translation
+				local_x_new .= spglib_data.rotations[isym] * structure.supercell.x_frac[:, iat] +
+							 spglib_data.translations[isym]
 
 				for jat in structure.atomtype_group[itype]
-					tmp = (abs.(structure.supercell.x_frac[:, jat] - x_new)) .% 1.0
-
-					for (i, val) in enumerate(tmp)
-						tmp[i] = min(val, 1 - val)
+					# Calculate relative position
+					local_tmp .= (abs.(structure.supercell.x_frac[:, jat] - local_x_new)) .% 1.0
+					for (i, val) in enumerate(local_tmp)
+						local_tmp[i] = min(val, 1 - val)
 					end
 
-					if norm(tmp) < tol
-						map_sym[iat, isym] = jat
+					if norm(local_tmp) < tol
+						local_map[iat] = jat
 						break
 					end
 				end
 			end
 		end
+
+		# Write results to shared array
+		@inbounds map_sym[:, isym] = local_map
 	end
 
 	# Verify results
