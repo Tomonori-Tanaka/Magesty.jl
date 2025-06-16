@@ -20,19 +20,24 @@ Sample spin configurations using Mean Field Approximation.
 
 # Arguments
 - `input_path`: Path to the input INCAR file
-- `τ`: Scaled temperature (T/Tc)
+- `value`: Value of the variable to be sampled (τ or m)
 - `num_sample`: Number of samples to generate
+- `randomize`: Whether to randomize the quantization axis
+- `output_index`: Index of the output file
+- `digits`: Number of digits in the output file name
+- `variable`: Variable name to be sampled (tau or m)
 
 # Returns
 - Nothing, but writes sampled configurations to INCAR files
 """
 function sampling_mfa(
 	input_path::AbstractString,
-	τ::Real,
+	value::Real,
 	num_sample::Integer,
 	randomize::Bool,
 	output_index::Integer,
 	digits::Integer,
+	variable::AbstractString,
 )
 	# Parse the INCAR file
 	incar = parse_incar(input_path)
@@ -61,7 +66,14 @@ function sampling_mfa(
 
 	# Sample the spin configurations
 	for i in 1:num_sample
-		output_spin_matrix = sampling_mfa_for_each_sample(spin_matrix, τ)
+		if variable == "tau"
+			output_spin_matrix = mfa_spin_sampler_with_τ(spin_matrix, value)
+		elseif variable == "m"
+			output_spin_matrix = mfa_spin_sampler_with_magnetization(spin_matrix, value)
+		else
+			error("Invalid variable: $variable")
+		end
+
 		if randomize# Randomize the quantization axis if specified
 			output_spin_matrix = randomize_quantization_axis(output_spin_matrix)
 		end
@@ -97,7 +109,7 @@ Generate a single sample of spin configurations using von Mises-Fisher distribut
 # Returns
 - Matrix of sampled spin configurations
 """
-function sampling_mfa_for_each_sample(input_spin_matrix::AbstractMatrix{<:Real}, τ::Real)
+function mfa_spin_sampler_with_τ(input_spin_matrix::AbstractMatrix{<:Real}, τ::Real)
 	output_spin_matrix = zeros(size(input_spin_matrix))
 	for (i, spin) in enumerate(eachcol(input_spin_matrix))
 		if isapprox(norm(spin), 0.0, atol = 1e-10)
@@ -121,6 +133,36 @@ function sampling_mfa_for_each_sample(input_spin_matrix::AbstractMatrix{<:Real},
 		# Update the spin direction
 		output_spin_matrix[:, i] = output_spin_direction * norm(spin)
 	end
+	return output_spin_matrix
+end
+
+function calculate_τ_from_magnetization(m::Real)
+	# Early return if m is 0 or 1
+	if m ≈ 0.0
+		return 1.0
+	elseif m ≈ 1.0
+		return 0.0
+	end
+
+	# Use the bisection method to solve the equation
+	function f(τ::Real, m::Real)
+		return m - coth(3m/τ) + τ/3m
+	end
+
+	τ_brent = find_zero(τ -> f(τ, m), (MIN_TEMP, MAX_TEMP), Roots.Brent())
+	return τ_brent
+end
+
+"""
+Generate a single sample of spin configurations using the given magnetization.
+"""
+function mfa_spin_sampler_with_magnetization(input_spin_matrix::AbstractMatrix{<:Real}, magnetization::Real)
+	# Calculate τ from the given magnetization
+	τ = calculate_τ_from_magnetization(magnetization)
+
+	# Generate a single sample of spin configurations using the given magnetization
+	output_spin_matrix = mfa_spin_sampler_with_τ(input_spin_matrix, τ)
+
 	return output_spin_matrix
 end
 
@@ -217,23 +259,28 @@ function main()
 		help = "The input file path"
 		required = true
 
-		"--temp_start", "-s"
+		"variable"
+		help = "The variable name to be sampled (tau or m)"
+		range_tester = in(["tau", "m"])
+		required = true
+
+		"--start", "-s"
 		help = "The starting temperature (T/Tc)"
 		required = true
 		arg_type = Float64
 
-		"--temp_end", "-e"
+		"--end", "-e"
 		help = "The ending temperature (T/Tc)"
 		required = true
 		arg_type = Float64
 
-		"--temp_step", "-w"
+		"--step", "-w"
 		help = "The temperature step size"
 		required = true
 		arg_type = Float64
 
 		"--num_samples", "-n"
-		help = "The number of samples for each temperature"
+		help = "The number of samples in each step"
 		arg_type = Int64
 		default = 1
 
@@ -246,21 +293,21 @@ function main()
 	args = parse_args(s)
 
 	# Generate temperature range
-	temps = args["temp_start"]:args["temp_step"]:args["temp_end"]
+	sampling_list = args["start"]:args["step"]:args["end"]
 
-	digits = length(string(length(collect(temps)) * args["num_samples"]))
+	digits = length(string(length(collect(sampling_list)) * args["num_samples"]))
 
 	# check the temperature range
-	if args["temp_start"] > args["temp_end"]
-		error("temp_start must be less than or equal to temp_end")
+	if args["start"] > args["end"]
+		error("start must be less than or equal to end")
 	end
 
-	if args["temp_step"] <= 0
-		error("temp_step must be positive")
+	if args["step"] <= 0
+		error("step must be positive")
 	end
 
-	for (i, τ) in enumerate(temps)
-		sampling_mfa(args["input"], τ, args["num_samples"], args["randomize"], i-1, digits)
+	for (i, value) in enumerate(sampling_list)
+		sampling_mfa(args["input"], value, args["num_samples"], args["randomize"], i-1, digits, args["variable"])
 	end
 
 	print_info(args)
@@ -268,13 +315,14 @@ end
 
 function print_info(args)
 	@printf("Input file: %s\n", args["input"])
+	@printf("Variable: %s\n", args["variable"])
 	@printf(
-		"Temperature range: %.2f to %.2f with step %.2f\n",
-		args["temp_start"],
-		args["temp_end"],
-		args["temp_step"]
+		"Sampling list: %.2f to %.2f with step %.2f\n",
+		args["start"],
+		args["end"],
+		args["step"]
 	)
-	@printf("Number of samples per temperature: %d\n", args["num_samples"])
+	@printf("Number of samples per step: %d\n", args["num_samples"])
 	@printf("Randomize quantization axis: %s\n", args["randomize"] ? "Yes" : "No")
 end
 
