@@ -168,24 +168,41 @@ function construct_design_matrix_energy(
 		# Calculate values for all spinconfigs in a local array
 		# to avoid memory access conflicts between threads
 		local_values = zeros(Float64, num_spinconfigs)
+		local_initialized = true  # Track initialization status locally
+
 		for j in 1:num_spinconfigs
-			local_values[j] = calc_X_element_energy(
-				salc_list[i],
-				spinconfig_list[j].spin_directions,
-				symmetry,
-			)
+			try
+				local_values[j] = calc_X_element_energy(
+					salc_list[i],
+					spinconfig_list[j].spin_directions,
+					symmetry,
+				)
+			catch e
+				@error "Failed to calculate X element" exception=(e, catch_backtrace())
+				local_initialized = false
+				break
+			end
 		end
+
 		# Write all values at once to avoid thread conflicts
-		@inbounds design_matrix[:, i+1] = local_values
-		@inbounds initialize_check[:, i+1] .= true
+		if local_initialized
+			@inbounds begin
+				design_matrix[:, i+1] = local_values
+				initialize_check[:, i+1] .= true
+			end
+		else
+			@inbounds initialize_check[:, i+1] .= false
+		end
 	end
 
+	# Verify initialization and provide detailed error information
 	if false in initialize_check
 		false_indices = findall(x -> x == false, initialize_check)
 		error("""
 			Failed to initialize the design matrix.
 			False values found at indices: $false_indices
-			Full initialize_check array: $initialize_check
+			Number of uninitialized elements: $(count(x -> x == false, initialize_check))
+			Total elements: $(length(initialize_check))
 			""")
 	end
 
