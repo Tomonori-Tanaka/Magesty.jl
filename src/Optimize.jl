@@ -62,15 +62,14 @@ function Optimizer(
 
 	# construct observed_energy_list and observed_magfield_vertical_list
 	observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_list]
-	observed_magfield_vertical_list = Vector{Vector{Float64}}(undef, length(spinconfig_list))
+	observed_magfield_vertical_list =
+		Vector{Vector{Float64}}(undef, length(spinconfig_list))
 	@threads for i in eachindex(spinconfig_list)
-		# Calculate magnetic field vertical components in a local variable
-		local_result = calc_magfield_vertical_list_of_spinconfig(
-			spinconfig_list[i],
-			structure.supercell.num_atoms,
-		)
-		# Write the result to the shared array
-		observed_magfield_vertical_list[i] = local_result
+		observed_magfield_vertical_list[i] =
+			calc_magfield_vertical_list_of_spinconfig(
+				spinconfig_list[i],
+				structure.supercell.num_atoms,
+			)
 	end
 
 	j0, jphi = ridge_regression(
@@ -116,10 +115,18 @@ function Optimizer(
 	basisset::BasisSet,
 	config::Config4Optimize,
 )
-	return Optimizer(structure, symmetry, basisset, config.alpha, config.lambda, config.weight, config.datafile)
+	return Optimizer(
+		structure,
+		symmetry,
+		basisset,
+		config.alpha,
+		config.lambda,
+		config.weight,
+		config.datafile,
+	)
 end
 
-function Optimizer(	structure::Structure,
+function Optimizer(structure::Structure,
 	symmetry::Symmetry,
 	basisset::BasisSet,
 	alpha::Real,
@@ -163,46 +170,25 @@ function construct_design_matrix_energy(
 	design_matrix[:, 1] .= 1.0
 	initialize_check[:, 1] .= true
 
-	# Process each SALC in parallel
-	@threads for i in 1:num_salcs
-		# Calculate values for all spinconfigs in a local array
-		# to avoid memory access conflicts between threads
-		local_values = zeros(Float64, num_spinconfigs)
-		local_initialized = true  # Track initialization status locally
-
+	for i in 1:num_salcs
 		for j in 1:num_spinconfigs
-			try
-				local_values[j] = calc_X_element_energy(
+			val =
+				calc_X_element_energy(
 					salc_list[i],
 					spinconfig_list[j].spin_directions,
 					symmetry,
 				)
-			catch e
-				@error "Failed to calculate X element" exception=(e, catch_backtrace())
-				local_initialized = false
-				break
-			end
-		end
-
-		# Write all values at once to avoid thread conflicts
-		if local_initialized
-			@inbounds begin
-				design_matrix[:, i+1] = local_values
-				initialize_check[:, i+1] .= true
-			end
-		else
-			@inbounds initialize_check[:, i+1] .= false
+			design_matrix[j, i+1] = val
+			initialize_check[j, i+1] = true
 		end
 	end
 
-	# Verify initialization and provide detailed error information
 	if false in initialize_check
 		false_indices = findall(x -> x == false, initialize_check)
 		error("""
 			Failed to initialize the design matrix.
 			False values found at indices: $false_indices
-			Number of uninitialized elements: $(count(x -> x == false, initialize_check))
-			Total elements: $(length(initialize_check))
+			Full initialize_check array: $initialize_check
 			""")
 	end
 
@@ -259,22 +245,19 @@ function construct_design_matrix_magfield_vertical(
 	# [num_spindconif][3*num_atoms, num_salcs]
 	design_matrix_list = Vector{Matrix{Float64}}(undef, num_spinconfigs)
 
-	# Process each spin configuration in parallel
 	@threads for i in eachindex(spinconfig_list)
-		# Create a local matrix for each thread to avoid memory conflicts
-		local_matrix = zeros(Float64, 3 * num_atoms, num_salcs)
+		design_matrix_list[i] = zeros(Float64, 3 * num_atoms, num_salcs)
 		for row_idx in 1:(3*num_atoms)
 			for isalc in eachindex(salc_list)
-				local_matrix[row_idx, isalc] = calc_X_element_magfield_vertical(
-					salc_list[isalc],
-					spinconfig_list[i].spin_directions,
-					symmetry,
-					row_idx,
-				)
+				design_matrix_list[i][row_idx, isalc] =
+					calc_X_element_magfield_vertical(
+						salc_list[isalc],
+						spinconfig_list[i].spin_directions,
+						symmetry,
+						row_idx,
+					)
 			end
 		end
-		# Write the local matrix to the shared array
-		design_matrix_list[i] = local_matrix
 	end
 
 	design_matrix = vcat(design_matrix_list...)
@@ -568,11 +551,6 @@ function ridge_regression(
 	weight::Real,
 )
 
-	# weightが非常に小さい値の場合の処理を改善
-	if weight < 1e-10
-		weight = 0.0
-	end
-
 	w1 = weight
 	w2 = 1 - weight
 	# Flatten observed magfield_vertical
@@ -605,20 +583,20 @@ function ridge_regression(
 
 	y = vcat(
 		normalized_observed_energy_list,
-		normalized_observed_magfield_flattened
+		normalized_observed_magfield_flattened,
 	)
 
 	# Ridge regression solution
-	fit = glmnet(X, y; alpha=alpha, lambda=[lambda], standardize=true)
+	fit = glmnet(X, y; alpha = alpha, lambda = [lambda], standardize = true)
 	# Extract coefficients
 	# j0 = fit.betas[1, 1]  # Extract intersept (bias term)
-	j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * fit.betas[2:end, 1])
 	jphi = fit.betas[2:end, 1]  # Extract SCE coefficients
 
 	# If weight is approximately zero, set j0 to the appropriate value
 	# if weight ≈ 0
 	# 	j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
 	# end
+	j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
 	return j0, jphi
 end
 
@@ -715,7 +693,7 @@ function print_info(optimizer::Optimizer)
 		println(@sprintf("%8d: %15.10f", i, sce))
 	end
 
-		println(
+	println(
 		"""
 
 		Root Mean Square Error (RMSE)
@@ -745,7 +723,7 @@ function print_info(optimizer::Optimizer)
 			"Relative error for magnetic field: %.4f %%", relative_error_magfield * 100
 		)
 	)
-	println("")	
+	println("")
 	println(@sprintf("Elapsed time: %.6f seconds", optimizer.elapsed_time))
 
 	println("-------------------------------------------------------------------")
