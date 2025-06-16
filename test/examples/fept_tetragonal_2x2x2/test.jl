@@ -4,6 +4,9 @@ using TOML
 input = TOML.parse(
 	open("./examples/fept_tetragonal_2x2x2/input.toml", "r"),
 )
+
+input["regression"]["datafile"] = joinpath(@__DIR__, "EMBSET.dat")
+
 system = System(input, verbosity = false)
 
 

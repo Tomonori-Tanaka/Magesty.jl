@@ -9,6 +9,8 @@ using Magesty.Symmetries
 input = TOML.parse(
 	open("./examples/febcc_2x2x2_pm/input.toml", "r"),
 )
+input["regression"]["datafile"] = joinpath(@__DIR__, "EMBSET.dat")
+
 system = System(input, verbosity = false)
 
 const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring virtual cells
