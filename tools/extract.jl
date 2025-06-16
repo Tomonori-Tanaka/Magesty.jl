@@ -1,5 +1,6 @@
 using ArgParse
 using Printf
+using Random
 
 function extract_energy_magmom(
 	file::AbstractString,
@@ -94,6 +95,22 @@ function extract_magfield(file::String, num_atoms::Int)::Matrix{Float64}
 	return magfield_matrix
 end
 
+function print_embset(concated_data::Matrix{Float64}, energy::Float64, idx::Int, file::AbstractString)
+	println(
+		"# $idx, $file, energy unit = eV, magmom unit = Bohr magneton, magnetic field unit = T",
+	)
+	@printf("%.5f\n", energy)
+	for (row_idx, row) in enumerate(eachrow(concated_data))
+		println(
+			lpad(row_idx, 7),
+			"  ",
+			join([lpad(@sprintf("%.7f", x), 12) for x in row[1:3]], " "),
+			"  ",
+			join([lpad(@sprintf("%.5e", x), 14) for x in row[4:6]], " "),
+		)
+	end
+end
+
 
 s = ArgParseSettings()
 @add_arg_table s begin
@@ -115,11 +132,21 @@ s = ArgParseSettings()
 	help = "target files"
 	required = true
 	nargs = '+'
+
+	"--randomize"
+	help = "randomize the order of the spin configurations"
+	action = :store_true
 end
 
 parsed_args = parse_args(ARGS, s)
 
-for (idx, file) in enumerate(parsed_args["target_files"])
+# Randomize target files if --randomize flag is specified
+target_files = parsed_args["target_files"]
+if parsed_args["randomize"]
+	shuffle!(target_files)
+end
+
+for (idx, file) in enumerate(target_files)
 	energy, magmom_matrix =
 		extract_energy_magmom(file, parsed_args["energy_kind"], parsed_args["mint"])
 	num_atoms = size(magmom_matrix, 1)
@@ -140,17 +167,5 @@ for (idx, file) in enumerate(parsed_args["target_files"])
 	magfield_matrix = (R * magfield_matrix')'
 
 	concated_data = hcat(magmom_matrix, magfield_matrix)
-	println(
-		"# $idx, $file, energy unit = eV, magmom unit = Bohr magneton, magnetic field unit = T",
-	)
-	@printf("%.5f\n", energy)
-	for (row_idx, row) in enumerate(eachrow(concated_data))
-		println(
-			lpad(row_idx, 7),
-			"  ",
-			join([lpad(@sprintf("%.7f", x), 12) for x in row[1:3]], " "),
-			"  ",
-			join([lpad(@sprintf("%.5e", x), 14) for x in row[4:6]], " "),
-		)
-	end
+	print_embset(concated_data, energy, idx, file)
 end
