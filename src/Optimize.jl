@@ -705,7 +705,7 @@ function print_info(optimizer::Optimizer)
 			"RMSE for energy: %.4f meV", rmse_energy * 1000
 		)
 	)
-	println(@sprintf("RMSE for magnetic field: %.4f meV", rmse_magfield * 100))
+	println(@sprintf("RMSE for magnetic field: %.4f meV", rmse_magfield * 1000))
 	println("")
 	println(
 		"""
