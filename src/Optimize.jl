@@ -72,7 +72,7 @@ function Optimizer(
 			)
 	end
 
-	j0, jphi = ridge_regression(
+	j0, jphi = elastic_net_regression(
 		design_matrix_energy,
 		design_matrix_magfield_vertical,
 		observed_energy_list,
@@ -541,7 +541,7 @@ function calc_derivative_of_salc(
 end
 
 
-function ridge_regression(
+function elastic_net_regression(
 	design_matrix_energy::AbstractMatrix{<:Real},
 	design_matrix_magfield::AbstractMatrix{<:Real},
 	observed_energy_list::AbstractVector{<:Real},
@@ -586,7 +586,7 @@ function ridge_regression(
 		normalized_observed_magfield_flattened,
 	)
 
-	# Ridge regression solution
+	# Elastic net regression solution
 	fit = glmnet(X, y; alpha = alpha, lambda = [lambda], standardize = true)
 	# Extract coefficients
 	# j0 = fit.betas[1, 1]  # Extract intersept (bias term)
