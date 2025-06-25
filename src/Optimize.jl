@@ -550,9 +550,12 @@ function elastic_net_regression(
 	lambda::Real,
 	weight::Real,
 )
-
+	# weight parameters
 	w_e = 1 - weight
 	w_m = weight
+
+	num_atoms = length(observed_magfield_list[begin])/3
+
 	# Flatten observed magfield_vertical
 	observed_magfield_flattened = vcat(observed_magfield_list...)
 	observed_magfield_flattened = -1 * observed_magfield_flattened
@@ -560,15 +563,15 @@ function elastic_net_regression(
 	# Normalize the design matrices by using factor of 1/2N_data and √weight
 	num_data = size(design_matrix_energy, 1)
 	normalized_design_matrix_energy =
-		design_matrix_energy ./ (2 * num_data) .* sqrt(w_e)
+		design_matrix_energy ./ sqrt(2 * num_data) ./ num_atoms .* sqrt(w_e)
 	normalized_design_matrix_magfield =
-		design_matrix_magfield ./ (2 * num_data) .* sqrt(w_m)
+		design_matrix_magfield ./ sqrt(2 * num_data) ./ sqrt(num_atoms).* sqrt(w_m)
 
 	# Also normalise the observed vectors
 	normalized_observed_energy_list =
-		observed_energy_list ./ (2 * num_data) .* sqrt(w_e)
+		observed_energy_list ./ sqrt(2 * num_data) ./ num_atoms .* sqrt(w_e)
 	normalized_observed_magfield_flattened =
-		observed_magfield_flattened ./ (2 * num_data) .* sqrt(w_m)
+		observed_magfield_flattened ./ sqrt(2 * num_data) ./ sqrt(num_atoms) .* sqrt(w_m)
 
 	# Add 0 bias term to the design matrix for magfield
 	# to align with the energy design matrix
@@ -589,14 +592,10 @@ function elastic_net_regression(
 	# Elastic net regression solution
 	fit = glmnet(X, y; alpha = alpha, lambda = [lambda], standardize = true)
 	# Extract coefficients
-	# j0 = fit.betas[1, 1]  # Extract intersept (bias term)
-	jphi = fit.betas[2:end, 1]  # Extract SCE coefficients
-
-	# If weight is approximately zero, set j0 to the appropriate value
-	# if weight ≈ 1
-	# 	j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
-	# end
+	jphi = fit.betas[2:end, 1]
 	j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
+
+
 	return j0, jphi
 end
 
