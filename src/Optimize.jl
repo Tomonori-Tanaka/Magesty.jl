@@ -320,44 +320,15 @@ Optimize SCE coefficients by using ordinary least squares method.
 """
 function ols_energy(
 	design_matrix_energy::AbstractMatrix{<:Real},
-	design_matrix_magfield_vertical::AbstractMatrix{<:Real},
 	observed_energy_list::Vector{Float64},
-	observed_magfield_vertical_list::Vector{Vector{Float64}},
 )
 	ols_coeffs = design_matrix_energy \ observed_energy_list
 
 	# predict energy using SCE coefficients from energy information
-	predicted_energy_list::Vector{Float64} = design_matrix_energy * ols_coeffs
-
-	observed_magfield_vertical_flattened::Vector{Float64} =
-		vcat(observed_magfield_vertical_list...)
-	observed_magfield_vertical_flattened = -1 * observed_magfield_vertical_flattened
-
 	reference_energy::Float64 = ols_coeffs[1]
 	ols_coeffs_wo_ref_energy::Vector{Float64} = ols_coeffs[2:end]
-	predicted_magfield_vertical_list::Vector{Float64} =
-		design_matrix_magfield_vertical * ols_coeffs_wo_ref_energy
-	relative_error_energy::Float64 =
-		√(
-		sum((observed_energy_list - predicted_energy_list) .^ 2) /
-		sum(observed_energy_list .^ 2),
-	)
-	relative_error_magfield_vertical::Float64 =
-		√(
-		sum(
-			(observed_magfield_vertical_flattened - predicted_magfield_vertical_list) .^ 2,
-		) /
-		sum(observed_magfield_vertical_flattened .^ 2),
-	)
 
-	return ols_coeffs_wo_ref_energy,
-	reference_energy,
-	relative_error_magfield_vertical,
-	relative_error_energy,
-	predicted_energy_list,
-	observed_energy_list,
-	predicted_magfield_vertical_list,
-	observed_magfield_vertical_flattened
+	return reference_energy, ols_coeffs_wo_ref_energy
 end
 
 """
@@ -393,42 +364,12 @@ function ols_magfield_vertical(
 
 	# calculate SCE coefficients from magfield_vertical information
 	ols_coeffs = design_matrix_magfield_vertical \ observed_magfield_vertical_flattened
-	predicted_magfield_vertical_flattened = design_matrix_magfield_vertical * ols_coeffs
-	relative_error_magfield_vertical =
-		√(
-		sum(
-			(observed_magfield_vertical_flattened - predicted_magfield_vertical_flattened) .^
-			2,
-		) /
-		sum(observed_magfield_vertical_flattened .^ 2),
-	)
 
 	# calculate reference energy term
-
 	reference_energy =
 		mean(observed_energy_list .- design_matrix_energy[:, 2:end] * ols_coeffs)
-	relative_error_energy =
-		√(
-		sum(
-			(
-				observed_energy_list .-
-				(design_matrix_energy[:, 2:end] * ols_coeffs .+ reference_energy)
-			) .^
-			2,
-		) /
-		sum(observed_energy_list .^ 2),
-	)
 
-	predicted_energy_list = design_matrix_energy[:, 2:end] * ols_coeffs .+ reference_energy
-
-	return ols_coeffs,
-	reference_energy,
-	relative_error_magfield_vertical,
-	relative_error_energy,
-	predicted_energy_list,
-	observed_energy_list,
-	predicted_magfield_vertical_flattened,
-	observed_magfield_vertical_flattened
+	return reference_energy, ols_coeffs
 end
 
 """
