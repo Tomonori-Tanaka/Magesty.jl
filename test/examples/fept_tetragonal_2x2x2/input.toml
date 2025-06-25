@@ -20,7 +20,7 @@
 
 	[regression]
 	datafile = "EMBSET.dat"
-	weight = 0        # 1.0: only use the energy info. 0.0: only use torque info (0 <= weight_ratio <= 1)
+	weight = 1.0
 	alpha = 0
 	lambda = 0
 
