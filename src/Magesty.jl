@@ -468,11 +468,11 @@ function write_energy_info(sc::SpinCluster, filename::AbstractString = "energy.t
 	Write.write_energy_info(sc.optimize, filename)
 end
 
-function write_lmf_flattened(
+function write_magfield(
 	sc::SpinCluster,
-	filename::AbstractString = "lmf_flattened.txt",
+	filename::AbstractString = "magfield.txt",
 )
-	Write.write_lmf_flattened(sc.optimize, filename)
+	Write.write_magfield(sc.optimize, filename)
 end
 
 """

@@ -136,9 +136,9 @@ function write_energy_info(optimize::Optimizer, filename::AbstractString = "ener
 	write_list_to_file(observed_energy_list, predicted_energy_list, filename, header)
 end
 
-function write_lmf_flattened(
+function write_magfield(
 	optimize::Optimizer,
-	filename::AbstractString = "lmf_flattened.txt",
+	filename::AbstractString = "magfield.txt",
 )
 	# Input validation
 	if isempty(optimize.spinconfig_list)
