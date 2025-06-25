@@ -551,8 +551,8 @@ function elastic_net_regression(
 	weight::Real,
 )
 
-	w1 = weight
-	w2 = 1 - weight
+	w_e = 1 - weight
+	w_m = weight
 	# Flatten observed magfield_vertical
 	observed_magfield_flattened = vcat(observed_magfield_list...)
 	observed_magfield_flattened = -1 * observed_magfield_flattened
@@ -560,15 +560,15 @@ function elastic_net_regression(
 	# Normalize the design matrices by using factor of 1/2N_data and √weight
 	num_data = size(design_matrix_energy, 1)
 	normalized_design_matrix_energy =
-		design_matrix_energy ./ (2 * num_data) .* sqrt(w1)
+		design_matrix_energy ./ (2 * num_data) .* sqrt(w_e)
 	normalized_design_matrix_magfield =
-		design_matrix_magfield ./ (2 * num_data) .* sqrt(w2)
+		design_matrix_magfield ./ (2 * num_data) .* sqrt(w_m)
 
 	# Also normalise the observed vectors
 	normalized_observed_energy_list =
-		observed_energy_list ./ (2 * num_data) .* sqrt(w1)
+		observed_energy_list ./ (2 * num_data) .* sqrt(w_e)
 	normalized_observed_magfield_flattened =
-		observed_magfield_flattened ./ (2 * num_data) .* sqrt(w2)
+		observed_magfield_flattened ./ (2 * num_data) .* sqrt(w_m)
 
 	# Add 0 bias term to the design matrix for magfield
 	# to align with the energy design matrix
@@ -593,7 +593,7 @@ function elastic_net_regression(
 	jphi = fit.betas[2:end, 1]  # Extract SCE coefficients
 
 	# If weight is approximately zero, set j0 to the appropriate value
-	# if weight ≈ 0
+	# if weight ≈ 1
 	# 	j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
 	# end
 	j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
