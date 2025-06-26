@@ -7,8 +7,8 @@ module Optimize
 
 using Base.Threads
 using LinearAlgebra
-using GLMNet
 using Printf
+using MultivariateStats
 using Statistics
 using StaticArrays
 using ..MySphericalHarmonics
@@ -81,6 +81,9 @@ function Optimizer(
 		lambda,
 		weight,
 	)
+
+	# j0, jphi = ols_energy(design_matrix_energy, observed_energy_list)
+	# j0, jphi = ols_magfield_vertical(design_matrix_energy, design_matrix_magfield_vertical, observed_energy_list, observed_magfield_vertical_list)
 
 
 	predicted_energy_list = design_matrix_energy[:, 2:end] * jphi .+ j0
@@ -322,13 +325,23 @@ function ols_energy(
 	design_matrix_energy::AbstractMatrix{<:Real},
 	observed_energy_list::Vector{Float64},
 )
-	ols_coeffs = design_matrix_energy \ observed_energy_list
+	# fit = glmnet(
+	# 	design_matrix_energy,
+	# 	observed_energy_list;
+	# 	alpha = 0.0,
+	# 	lambda = [0.0],
+	# 	standardize = true,
+	# )
+	# Extract coefficients
+	# jphi = fit.betas[2:end, 1]
+	# j0 = fit.a0[1]
 
 	# predict energy using SCE coefficients from energy information
-	reference_energy::Float64 = ols_coeffs[1]
-	ols_coeffs_wo_ref_energy::Vector{Float64} = ols_coeffs[2:end]
+	ols_coeffs = design_matrix_energy \ observed_energy_list
+	j0::Float64 = ols_coeffs[1]
+	jphi::Vector{Float64} = ols_coeffs[2:end]
 
-	return reference_energy, ols_coeffs_wo_ref_energy
+	return j0, jphi
 end
 
 """
@@ -491,9 +504,12 @@ function elastic_net_regression(
 	lambda::Real,
 	weight::Real,
 )
-
+	# weight parameters
 	w_e = 1 - weight
 	w_m = weight
+
+	num_atoms = length(observed_magfield_list[begin])/3
+
 	# Flatten observed magfield_vertical
 	observed_magfield_flattened = vcat(observed_magfield_list...)
 	observed_magfield_flattened = -1 * observed_magfield_flattened
@@ -501,15 +517,16 @@ function elastic_net_regression(
 	# Normalize the design matrices by using factor of 1/2N_data and √weight
 	num_data = size(design_matrix_energy, 1)
 	normalized_design_matrix_energy =
-		design_matrix_energy ./ (2 * num_data) .* sqrt(w_e)
+		design_matrix_energy .* sqrt(w_e)
+	normalized_design_matrix_energy[:, 1] .= 1.0
 	normalized_design_matrix_magfield =
-		design_matrix_magfield ./ (2 * num_data) .* sqrt(w_m)
+		design_matrix_magfield .* sqrt(w_m)
 
 	# Also normalise the observed vectors
 	normalized_observed_energy_list =
-		observed_energy_list ./ (2 * num_data) .* sqrt(w_e)
+		observed_energy_list .* sqrt(w_e)
 	normalized_observed_magfield_flattened =
-		observed_magfield_flattened ./ (2 * num_data) .* sqrt(w_m)
+		observed_magfield_flattened .* sqrt(w_m)
 
 	# Add 0 bias term to the design matrix for magfield
 	# to align with the energy design matrix
@@ -527,17 +544,34 @@ function elastic_net_regression(
 		normalized_observed_magfield_flattened,
 	)
 
-	# Elastic net regression solution
-	fit = glmnet(X, y; alpha = alpha, lambda = [lambda], standardize = true)
-	# Extract coefficients
-	# j0 = fit.betas[1, 1]  # Extract intersept (bias term)
-	jphi = fit.betas[2:end, 1]  # Extract SCE coefficients
+	# betas = X \ y
+	# jphi = betas[2:end]
+	# j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
+	# println("j0: $j0")
+	# println("jphi: $jphi")
 
-	# If weight is approximately zero, set j0 to the appropriate value
-	# if weight ≈ 1
-	# 	j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
-	# end
+	# Elastic net regression solution
+	lambda_vec = fill(lambda, size(X, 2))
+	lambda_vec[1] = 0.0  # exclude bias term from regularization
+	j_values = begin
+		if lambda ≈ 0.0
+			X \ y
+		else
+			ridge(X, y, lambda_vec; bias = false)
+		end
+	end
+	jphi = j_values[2:end]
 	j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
+
+
+	# fit = glmnet(X, y; alpha = alpha, lambda = [lambda], standardize = true)
+	# fit = glmnet(normalized_design_matrix_energy, normalized_observed_energy_list; alpha = alpha, lambda = [lambda], standardize = true)
+	# Extract coefficients
+	# jphi = fit.betas[2:end, 1]
+	# j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
+	# j0 = fit.a0[1] * sqrt(2 * num_data) * num_atoms / sqrt(w_e)
+
+
 	return j0, jphi
 end
 
