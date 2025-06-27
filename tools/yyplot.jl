@@ -246,7 +246,7 @@ s = ArgParseSettings(
 	range_tester = x -> x ∈ ["e", "m"]
 
 	"--output", "-o"
-	help = "Output file name for the plot (if specified, the PNG file will be saved)"
+	help = "Output file name for the plot"
 	arg_type = String
 	default = nothing
 
