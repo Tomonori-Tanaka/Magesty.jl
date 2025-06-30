@@ -171,7 +171,7 @@ function proj_matrix_a_symop(
 			rotmat = rotation_cart
 		else
 			rotmat = -1 * rotation_cart
-			multiplier = (-1)^(get_total_L(moved_rbasis))
+			# multiplier = (-1)^(get_total_L(moved_rbasis))
 		end
 
 		if time_reversal_sym
