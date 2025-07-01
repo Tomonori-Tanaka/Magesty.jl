@@ -190,7 +190,7 @@ An extension of System with optimization capabilities.
 - `symmetry::Symmetry`: Symmetry operations
 - `cluster::Cluster`: Cluster information
 - `basisset::BasisSet`: Basis set information
-- `optimize::Union{Optimizer, Nothing}`: Optimizer instance or nothing
+- `optimize::Optimizer`: Optimizer instance
 """
 struct SpinCluster
 	structure::Structure
@@ -233,20 +233,21 @@ spin_cluster = SpinCluster(system)
 ```
 """
 function SpinCluster(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)
-	config::Config4System = Config4System(input_dict)
-	structure::Structure = Structure(config)
+	config_system::Config4System = Config4System(input_dict)
+	structure::Structure = Structure(config_system)
 	verbosity && Structures.print_info(structure)
 
-	symmetry::Symmetry = Symmetry(structure, config)
+	symmetry::Symmetry = Symmetry(structure, config_system)
 	verbosity && Symmetries.print_info(symmetry)
 
-	cluster::Cluster = Cluster(structure, symmetry, config)
+	cluster::Cluster = Cluster(structure, symmetry, config_system)
 	verbosity && Clusters.print_info(cluster)
 
-	basisset::BasisSet = BasisSet(structure, symmetry, cluster, config)
+	basisset::BasisSet = BasisSet(structure, symmetry, cluster, config_system)
 	verbosity && BasisSets.print_info(basisset)
 
-	optimize::Optimizer = Optimizer(structure, symmetry, basisset, config)
+	config_optimize::Config4Optimize = Config4Optimize(input_dict)
+	optimize::Optimizer = Optimizer(structure, symmetry, basisset, config_optimize)
 	verbosity && Optimize.print_info(optimize)
 
 	return SpinCluster(structure, symmetry, cluster, basisset, optimize)
