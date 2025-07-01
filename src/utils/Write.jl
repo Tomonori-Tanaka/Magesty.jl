@@ -147,8 +147,8 @@ function write_magfield(
 	end
 
 	# Prepare data
-	observed_magfield_list = optimize.observed_magfield_vertical_flattened_list
-	predicted_magfield_list = optimize.predicted_magfield_vertical_flattened_list
+	observed_magfield_list = optimize.observed_magfield_list
+	predicted_magfield_list = optimize.predicted_magfield_list
 
 	# Format header
 	header = "# Observed_magnetic_field" * " "^4 * "Predicted_magnetic_field"
