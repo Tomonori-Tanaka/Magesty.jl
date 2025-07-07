@@ -6,21 +6,27 @@ using LinearAlgebra
 using EzXML
 using JLD2
 
+include("../src/Structures.jl")
+using .Structures
 
-function calc_micromagnetics(input_xml::String, input_system::String, cutoff::Float64)::Nothing
+
+function calc_micromagnetics(input_xml::String, cutoff::Float64)::Nothing
     # Read the XML file
     doc = readxml(input_xml)
 
-    # Read the system jld2 file
-    system = load(input_system)
+    structure = Structure(input_xml)
+    println(structure)
+
 
     sce_basis_set = findfirst("//SCEBasisSet", doc)
     if isnothing(sce_basis_set)
         throw(ArgumentError("<SCEBasisSet> node not found in the XML file."))
     end
+    # Get the number of SALCs
+    num_salc = parse(Int, sce_basis_set["num_salc"])
 
-    for salc in EzXML.findall("SALC", sce_basis_set)
-        index = parse(Int, salc["index"])
+    for i_salc in 1:num_salc
+        salc_node = findfirst("//SALC[index='$i_salc']", sce_basis_set)
     end
 
 end
@@ -30,10 +36,6 @@ function main()
     @add_arg_table! s begin
         "--input_xml"
         help = "Input xml file"
-        required = true
-
-        "--input_system"
-        help = "Input system jld2 file"
         required = true
 
         "--cutoff", "-c"
