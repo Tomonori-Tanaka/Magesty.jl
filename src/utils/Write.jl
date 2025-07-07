@@ -89,6 +89,7 @@ function write_sce2xml(structure::Structure,
 		salc_node = addelement!(basis_set_node, "SALC")
 		salc_node["index"] = string(i)
 		salc_node["num_basis"] = string(length(salc.basisset))
+		salc_node["body"] = string(length(salc.basisset[begin]))
 		for (basis::IndicesUniqueList, coeff, multiplicity) in
 			zip(salc.basisset, salc.coeffs, salc.multiplicity)
 			basis_node = addelement!(salc_node, "basis", string(coeff))
