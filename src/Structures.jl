@@ -7,7 +7,7 @@ module Structures
 using LinearAlgebra
 using Printf
 using StaticArrays
-
+using EzXML
 using ..ConfigParser
 
 import Base: show
@@ -184,6 +184,98 @@ function Structure(config::Config4System)::Structure
 	kd_name::Vector{String} = config.kd_name
 	kd_int_list::Vector{Int} = config.kd_int_list
 	x_frac::Matrix{Float64} = config.x_fractional
+
+	return Structure(
+		lattice_vectors,
+		is_periodic,
+		kd_name,
+		kd_int_list,
+		x_frac,
+	)
+end
+
+function Structure(input_xml::String)::Structure
+	doc = readxml(input_xml)
+
+	system_node = findfirst("//System", doc)
+	if isnothing(system_node)
+		throw(ArgumentError("<System> node not found in the XML file."))
+	end
+
+	# Get lattice vectors
+	lattice_vectors::Matrix{Float64} = zeros(Float64, 3, 3)
+	lattice_node = findfirst("LatticeVector", system_node)
+	if isnothing(lattice_node)
+		throw(ArgumentError("<LatticeVector> node not found in the XML file."))
+	end
+
+	# Parse lattice vectors
+	for (i, label) in enumerate(["a1", "a2", "a3"])
+		vec_node = findfirst(label, lattice_node)
+		if isnothing(vec_node)
+			throw(ArgumentError("<$label> node not found in <LatticeVector>."))
+		end
+		vec_str = nodecontent(vec_node)
+		vec_values = parse.(Float64, split(vec_str))
+		if length(vec_values) != 3
+			throw(ArgumentError("Invalid lattice vector format in <$label>: $vec_str"))
+		end
+		lattice_vectors[:, i] = vec_values
+	end
+
+	# Get periodicity
+	periodicity_node = findfirst("Periodicity", system_node)
+	if isnothing(periodicity_node)
+		throw(ArgumentError("<Periodicity> node not found in the XML file."))
+	end
+	periodicity_str = nodecontent(periodicity_node)
+	periodicity_values = parse.(Int, split(periodicity_str))
+	if length(periodicity_values) != 3
+		throw(ArgumentError("Invalid periodicity format: $periodicity_str"))
+	end
+	is_periodic::SVector{3, Bool} = SVector{3, Bool}(periodicity_values .== 1)
+
+	# Get atomic positions and species
+	positions_node = findfirst("Positions", system_node)
+	if isnothing(positions_node)
+		throw(ArgumentError("<Positions> node not found in the XML file."))
+	end
+
+	pos_nodes = findall("pos", positions_node)
+	num_atoms = length(pos_nodes)
+	if num_atoms == 0
+		throw(ArgumentError("No <pos> nodes found in <Positions>."))
+	end
+
+	# Extract atomic species and positions
+	kd_name_set = Set{String}()
+	x_frac = zeros(Float64, 3, num_atoms)
+	kd_int_list = Vector{Int}()
+
+	# First pass: collect unique element names
+	for pos_node in pos_nodes
+		element = pos_node["element"]
+		if isnothing(element)
+			throw(ArgumentError("Missing 'element' attribute in <pos> node."))
+		end
+		push!(kd_name_set, element)
+	end
+
+	# Convert to sorted vector for consistent ordering
+	kd_name = sort(collect(kd_name_set))
+	element_to_index = Dict(element => i for (i, element) in enumerate(kd_name))
+
+	# Second pass: extract positions and create kd_int_list
+	for (i, pos_node) in enumerate(pos_nodes)
+		element = pos_node["element"]
+		pos_str = nodecontent(pos_node)
+		pos_values = parse.(Float64, split(pos_str))
+		if length(pos_values) != 3
+			throw(ArgumentError("Invalid position format in atom $i: $pos_str"))
+		end
+		x_frac[:, i] = pos_values
+		push!(kd_int_list, element_to_index[element])
+	end
 
 	return Structure(
 		lattice_vectors,
