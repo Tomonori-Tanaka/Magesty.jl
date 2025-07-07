@@ -49,12 +49,11 @@
         <map trans="8" atom="9">16</map>
       </Translations>
     </Symmetry>
-    <SCEBasisSet>
-      <NumberOfSALCs>2</NumberOfSALCs>
-      <SALC index="1" num_basis="1">
+    <SCEBasisSet num_salc="2">
+      <SALC index="1" num_basis="1" body="1">
         <basis multiplicity="1" index-1="1 2 0 1">1.0</basis>
       </SALC>
-      <SALC index="2" num_basis="1">
+      <SALC index="2" num_basis="1" body="1">
         <basis multiplicity="1" index-1="9 2 0 1">1.0</basis>
       </SALC>
     </SCEBasisSet>
