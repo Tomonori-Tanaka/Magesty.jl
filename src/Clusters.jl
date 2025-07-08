@@ -638,4 +638,27 @@ function print_info(cluster::Cluster)
 	println("-------------------------------------------------------------------")
 end
 
+function print_info(structure::Structure, symmetry::Symmetry, cluster::Cluster)::Nothing
+	println("""
+	=====
+	PAIRS
+	=====
+	""")
+	atoms_in_prim::Vector{Int} = symmetry.atoms_in_prim
+	num_atoms::Int = structure.supercell.num_atoms
+	min_distance_pairs::Matrix{Vector{DistInfo}} = cluster.min_distance_pairs
+	for i_prim in atoms_in_prim
+		println("Atom: $i_prim")
+		for j in 1:num_atoms
+			println("\tAtom: $j, Distance: $(min_distance_pairs[i_prim, j][1].distance)")
+			print("\t\tCell: ")
+			for distinfo in min_distance_pairs[i_prim, j]
+				print("$(distinfo.cell_index) ")
+			end
+			println()
+		end
+		println()
+	end
+end
+
 end
