@@ -72,9 +72,9 @@ function convert2tensor(input::AbstractString, atoms::Vector{Int}, cell::Integer
 		end
 	end
 
-	if !is_found
-		throw(ArgumentError("The target interaction between atoms $atom1 and $atom2 in cell $cell is not found."))
-	end
+	# if !is_found
+	# 	throw(ArgumentError("The target interaction between atoms $atom1 and $atom2 in cell $cell is not found."))
+	# end
 
 
 	# Convert the result_tmp to the tensor matrix

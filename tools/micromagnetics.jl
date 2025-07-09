@@ -1,49 +1,72 @@
 """
 Caculation tool for the derivation of the micromagnetics model parameters
 """
+
 using ArgParse
 using LinearAlgebra
 using EzXML
 using JLD2
 
-include("../src/Structures.jl")
-using .Structures
+include("../src/Magesty.jl")
+using .Magesty
+include("./convert2tensor.jl")
 
 
-function calc_micromagnetics(input_xml::String, cutoff::Float64)::Nothing
-    # Read the XML file
-    doc = readxml(input_xml)
+function calc_dm_vector(j_ex::Array{Float64, 2})::Vector{Float64}
+    x = 1/2*(j_ex[2, 3] - j_ex[3, 2])
+    y = 1/2*(j_ex[3, 1] - j_ex[1, 3])
+    z = 1/2*(j_ex[1, 2] - j_ex[2, 1])
+    return [x, y, z]
+end
 
-    structure = Structure(input_xml)
-    println(structure)
+function calc_micromagnetics(input_xml::String, system::System)::Nothing
+    num_atoms = system.structure.supercell.num_atoms
+    atoms_in_prim = system.symmetry.atoms_in_prim   # atom indices in the primitive cell
+    min_distance_pairs = system.cluster.min_distance_pairs
 
+    stiffness_matrix = zeros(Float64, 3, 3)
+    spiralization_matrix = zeros(Float64, 3, 3)
+    for i_atom in atoms_in_prim
+        for i_pair in 1:num_atoms
+            if i_pair == i_atom
+                continue
+            end
 
-    sce_basis_set = findfirst("//SCEBasisSet", doc)
-    if isnothing(sce_basis_set)
-        throw(ArgumentError("<SCEBasisSet> node not found in the XML file."))
+            dist_info_list = min_distance_pairs[i_atom, i_pair]
+            for dist_info in dist_info_list
+                cell_index = dist_info.cell_index
+                # relative vector from i_atom to i_pair in Cartesian coordinates
+                relvec::Vector{Float64} = dist_info.relative_vector
+
+                # calculate the exchange interaction tensor
+                exchange_tensor = convert2tensor(input_xml, [i_atom, i_pair], cell_index)
+
+                jij = 1/3*tr(exchange_tensor)
+                stiffness_matrix += 1/2*jij*kron(relvec, relvec')
+                dm_vector = calc_dm_vector(exchange_tensor)
+                spiralization_matrix += kron(dm_vector, relvec')
+            end
+        end
     end
-    # Get the number of SALCs
-    num_salc = parse(Int, sce_basis_set["num_salc"])
-
-    for i_salc in 1:num_salc
-        salc_node = findfirst("//SALC[index='$i_salc']", sce_basis_set)
-    end
-
+    display(stiffness_matrix)
+    display(spiralization_matrix)
 end
 
 function main()
     s = ArgParseSettings()
     @add_arg_table! s begin
-        "--input_xml"
+        "--input_xml", "-x"
         help = "Input xml file"
         required = true
 
-        "--cutoff", "-c"
-        help = "Cutoff radius"
-        default = -1.0
+        "--input_jld2", "-j"
+        help = "Input jld2 file for System struct"
+        required = true
     end
 
     args = parse_args(s)
+    @load args["input_jld2"] system
+    calc_micromagnetics(args["input_xml"], system)
 end
 
 main()
