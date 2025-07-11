@@ -6,6 +6,7 @@ using ArgParse
 using LinearAlgebra
 using EzXML
 using JLD2
+using Base.Threads
 
 include("../src/Magesty.jl")
 using .Magesty
@@ -24,13 +25,21 @@ function calc_micromagnetics(input_xml::String, system::System)::Nothing
     atoms_in_prim = system.symmetry.atoms_in_prim   # atom indices in the primitive cell
     min_distance_pairs = system.cluster.min_distance_pairs
 
+    nthreads = Threads.nthreads()
+    stiff_loc = [zeros(Float64, 3, 3) for _ in 1:nthreads]
+    spiral_loc = [zeros(Float64, 3, 3) for _ in 1:nthreads]
+
     stiffness_matrix = zeros(Float64, 3, 3)
     spiralization_matrix = zeros(Float64, 3, 3)
-    for i_atom in atoms_in_prim
+    @threads for idx in 1:length(atoms_in_prim)
+        i_atom = atoms_in_prim[idx]
+        t_id = Threads.threadid()
+        stiff  = stiff_loc[t_id]
+        spiral = spiral_loc[t_id]
+
         for i_pair in 1:num_atoms
-            if i_pair == i_atom
-                continue
-            end
+            if i_pair == i_atom; continue; end
+
 
             dist_info_list = min_distance_pairs[i_atom, i_pair]
             for dist_info in dist_info_list
@@ -42,11 +51,17 @@ function calc_micromagnetics(input_xml::String, system::System)::Nothing
                 exchange_tensor = convert2tensor(input_xml, [i_atom, i_pair], cell_index)
 
                 jij = 1/3*tr(exchange_tensor)
-                stiffness_matrix += 1/2*jij*kron(relvec, relvec')
+                stiff += 1/2*jij*kron(relvec, relvec')
                 dm_vector = calc_dm_vector(exchange_tensor)
-                spiralization_matrix += kron(dm_vector, relvec')
+                spiral += kron(dm_vector, relvec')
             end
         end
+        stiff_loc[t_id] = stiff
+        spiral_loc[t_id] = spiral
+    end
+    for t_id in 1:nthreads
+        stiffness_matrix += stiff_loc[t_id]
+        spiralization_matrix += spiral_loc[t_id]
     end
     display(stiffness_matrix)
     display(spiralization_matrix)
