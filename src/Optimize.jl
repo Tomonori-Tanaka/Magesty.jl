@@ -33,6 +33,83 @@ struct Optimizer
 	observed_magfield_list::Vector{Float64}
 	rmse_energy::Float64  # Root Mean Square Error for energy
 	elapsed_time::Float64  # Time taken to create the optimizer in seconds
+
+	function Optimizer(
+		structure::Structure,
+		symmetry::Symmetry,
+		basisset::BasisSet,
+		alpha::Real,
+		lambda::Real,
+		weight::Real,
+		spinconfig_list::AbstractVector{SpinConfig},
+	)
+		# Start timing
+		start_time = time_ns()
+
+		# construct design matrix for energy and magfield
+		design_matrix_energy = construct_design_matrix_energy(
+			basisset.salc_list,
+			spinconfig_list,
+			symmetry,
+		)
+		design_matrix_magfield = construct_design_matrix_magfield(
+			basisset.salc_list,
+			spinconfig_list,
+			structure.supercell.num_atoms,
+			symmetry,
+		)
+
+		# construct observed_energy_list and observed_magfield_list
+		observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_list]
+		observed_magfield_list =
+			Vector{Vector{Float64}}(undef, length(spinconfig_list))
+		@threads for i in eachindex(spinconfig_list)
+			observed_magfield_list[i] =
+				calc_magfield_list_of_spinconfig(
+					spinconfig_list[i],
+					structure.supercell.num_atoms,
+				)
+		end
+
+		j0, jphi = elastic_net_regression(
+			design_matrix_energy,
+			design_matrix_magfield,
+			observed_energy_list,
+			observed_magfield_list,
+			alpha,
+			lambda,
+			weight,
+		)
+
+		# j0, jphi = ols_energy(design_matrix_energy, observed_energy_list)
+		# j0, jphi = ols_magfield(design_matrix_energy, design_matrix_magfield, observed_energy_list, observed_magfield_list)
+
+
+		predicted_energy_list = design_matrix_energy[:, 2:end] * jphi .+ j0
+		predicted_magfield_list = design_matrix_magfield * jphi
+		observed_magfield_list =
+			-1 * vcat(observed_magfield_list...)
+
+		# Calculater RMSE for energy
+		rmse_energy = sqrt(
+			mean((observed_energy_list .- predicted_energy_list) .^ 2),
+		)
+
+		# End timing
+		elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
+
+		return new(
+			spinconfig_list,
+			j0,
+			jphi,
+			predicted_energy_list,
+			observed_energy_list,
+			predicted_magfield_list,
+			observed_magfield_list,
+			rmse_energy,
+			elapsed_time,
+		)
+	end
 end
 
 function Optimizer(
@@ -42,74 +119,12 @@ function Optimizer(
 	alpha::Real,
 	lambda::Real,
 	weight::Real,
-	spinconfig_list::AbstractVector{SpinConfig},
+	datafile::AbstractString,
 )
-	# Start timing
-	start_time = time_ns()
+	# read datafile
+	spinconfig_list = read_embset(datafile, structure.supercell.num_atoms)
 
-	# construct design matrix for energy and magfield
-	design_matrix_energy = construct_design_matrix_energy(
-		basisset.salc_list,
-		spinconfig_list,
-		symmetry,
-	)
-	design_matrix_magfield = construct_design_matrix_magfield(
-		basisset.salc_list,
-		spinconfig_list,
-		structure.supercell.num_atoms,
-		symmetry,
-	)
-
-	# construct observed_energy_list and observed_magfield_list
-	observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_list]
-	observed_magfield_list =
-		Vector{Vector{Float64}}(undef, length(spinconfig_list))
-	@threads for i in eachindex(spinconfig_list)
-		observed_magfield_list[i] =
-			calc_magfield_list_of_spinconfig(
-				spinconfig_list[i],
-				structure.supercell.num_atoms,
-			)
-	end
-
-	j0, jphi = elastic_net_regression(
-		design_matrix_energy,
-		design_matrix_magfield,
-		observed_energy_list,
-		observed_magfield_list,
-		alpha,
-		lambda,
-		weight,
-	)
-
-	# j0, jphi = ols_energy(design_matrix_energy, observed_energy_list)
-	# j0, jphi = ols_magfield(design_matrix_energy, design_matrix_magfield, observed_energy_list, observed_magfield_list)
-
-
-	predicted_energy_list = design_matrix_energy[:, 2:end] * jphi .+ j0
-	predicted_magfield_list = design_matrix_magfield * jphi
-	observed_magfield_list =
-		-1 * vcat(observed_magfield_list...)
-
-	# Calculater RMSE for energy
-	rmse_energy = sqrt(
-		mean((observed_energy_list .- predicted_energy_list) .^ 2),
-	)
-
-	# End timing
-	elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
-
-	return Optimizer(
-		spinconfig_list,
-		j0,
-		jphi,
-		predicted_energy_list,
-		observed_energy_list,
-		predicted_magfield_list,
-		observed_magfield_list,
-		rmse_energy,
-		elapsed_time,
-	)
+	return Optimizer(structure, symmetry, basisset, alpha, lambda, weight, spinconfig_list)
 end
 
 function Optimizer(
@@ -127,20 +142,6 @@ function Optimizer(
 		config.weight,
 		config.datafile,
 	)
-end
-
-function Optimizer(structure::Structure,
-	symmetry::Symmetry,
-	basisset::BasisSet,
-	alpha::Real,
-	lambda::Real,
-	weight::Real,
-	datafile::AbstractString,
-)
-	# read datafile
-	spinconfig_list = read_embset(datafile, structure.supercell.num_atoms)
-
-	return Optimizer(structure, symmetry, basisset, alpha, lambda, weight, spinconfig_list)
 end
 
 """
@@ -299,91 +300,91 @@ function calc_X_element_magfield(
 	return result
 end
 
-"""
-	ols_energy(design_matrix_energy, design_matrix_magfield,
-	-> Tuple{Vector{Float64}, Float64, Float64, Float64, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}
+# """
+# 	ols_energy(design_matrix_energy, design_matrix_magfield,
+# 	-> Tuple{Vector{Float64}, Float64, Float64, Float64, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}
 
-Optimize SCE coefficients by using ordinary least squares method.
+# Optimize SCE coefficients by using ordinary least squares method.
 
-# Arguments
-- `design_matrix_energy::AbstractMatrix{<:Real}`: Design matrix for energy prediction
-- `design_matrix_magfield::AbstractMatrix{<:Real}`: Design matrix for magfield prediction
-- `observed_energy_list::Vector{Float64}`: Observed energy list
-- `observed_magfield_list::Vector{Vector{Float64}}`: Observed magfield list
+# # Arguments
+# - `design_matrix_energy::AbstractMatrix{<:Real}`: Design matrix for energy prediction
+# - `design_matrix_magfield::AbstractMatrix{<:Real}`: Design matrix for magfield prediction
+# - `observed_energy_list::Vector{Float64}`: Observed energy list
+# - `observed_magfield_list::Vector{Vector{Float64}}`: Observed magfield list
 
-# Returns
-- `Vector{Float64}`: Optimized SCE coefficients
-- `Float64`: Bias term
-- `Float64`: Relative error of magfield
-- `Float64`: Relative error of energy
-- `Vector{Float64}`: Predicted energy list
-- `Vector{Float64}`: Observed energy list
-- `Vector{Float64}`: Predicted magfield flattened list
-- `Vector{Float64}`: Observed magfield flattened list
-"""
-function ols_energy(
-	design_matrix_energy::AbstractMatrix{<:Real},
-	observed_energy_list::Vector{Float64},
-)
-	# fit = glmnet(
-	# 	design_matrix_energy,
-	# 	observed_energy_list;
-	# 	alpha = 0.0,
-	# 	lambda = [0.0],
-	# 	standardize = true,
-	# )
-	# Extract coefficients
-	# jphi = fit.betas[2:end, 1]
-	# j0 = fit.a0[1]
+# # Returns
+# - `Vector{Float64}`: Optimized SCE coefficients
+# - `Float64`: Bias term
+# - `Float64`: Relative error of magfield
+# - `Float64`: Relative error of energy
+# - `Vector{Float64}`: Predicted energy list
+# - `Vector{Float64}`: Observed energy list
+# - `Vector{Float64}`: Predicted magfield flattened list
+# - `Vector{Float64}`: Observed magfield flattened list
+# """
+# function ols_energy(
+# 	design_matrix_energy::AbstractMatrix{<:Real},
+# 	observed_energy_list::Vector{Float64},
+# )
+# 	# fit = glmnet(
+# 	# 	design_matrix_energy,
+# 	# 	observed_energy_list;
+# 	# 	alpha = 0.0,
+# 	# 	lambda = [0.0],
+# 	# 	standardize = true,
+# 	# )
+# 	# Extract coefficients
+# 	# jphi = fit.betas[2:end, 1]
+# 	# j0 = fit.a0[1]
 
-	# predict energy using SCE coefficients from energy information
-	ols_coeffs = design_matrix_energy \ observed_energy_list
-	j0::Float64 = ols_coeffs[1]
-	jphi::Vector{Float64} = ols_coeffs[2:end]
+# 	# predict energy using SCE coefficients from energy information
+# 	ols_coeffs = design_matrix_energy \ observed_energy_list
+# 	j0::Float64 = ols_coeffs[1]
+# 	jphi::Vector{Float64} = ols_coeffs[2:end]
 
-	return j0, jphi
-end
+# 	return j0, jphi
+# end
 
-"""
-	ols_magfield(design_matrix_energy, design_matrix_magfield, observed_energy_list, observed_magfield_list)
-	-> Tuple{Vector{Float64}, Float64, Float64, Float64, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}
+# """
+# 	ols_magfield(design_matrix_energy, design_matrix_magfield, observed_energy_list, observed_magfield_list)
+# 	-> Tuple{Vector{Float64}, Float64, Float64, Float64, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}
 
-Optimize SCE coefficients by using ordinary least squares method.
+# Optimize SCE coefficients by using ordinary least squares method.
 
-# Arguments
-- `design_matrix_energy::AbstractMatrix{<:Real}`: Design matrix for energy prediction
-- `design_matrix_magfield::AbstractMatrix{<:Real}`: Design matrix for magfield prediction
-- `observed_energy_list::Vector{Float64}`: Observed energy list
-- `observed_magfield_list::Vector{Vector{Float64}}`: Observed magfield list
+# # Arguments
+# - `design_matrix_energy::AbstractMatrix{<:Real}`: Design matrix for energy prediction
+# - `design_matrix_magfield::AbstractMatrix{<:Real}`: Design matrix for magfield prediction
+# - `observed_energy_list::Vector{Float64}`: Observed energy list
+# - `observed_magfield_list::Vector{Vector{Float64}}`: Observed magfield list
 
-# Returns
-- `Vector{Float64}`: Optimized SCE coefficients
-- `Float64`: Bias term
-- `Float64`: Relative error of magfield
-- `Float64`: Relative error of energy
-- `Vector{Float64}`: Predicted energy list
-- `Vector{Float64}`: Observed energy list
-- `Vector{Float64}`: Predicted magfield flattened list
-- `Vector{Float64}`: Observed magfield flattened list
-"""
-function ols_magfield(
-	design_matrix_energy::AbstractMatrix{<:Real},
-	design_matrix_magfield::AbstractMatrix{<:Real},
-	observed_energy_list::Vector{Float64},
-	observed_magfield_list::Vector{Vector{Float64}},
-)
-	observed_magfield_flattened = vcat(observed_magfield_list...)
-	observed_magfield_flattened = -1 * observed_magfield_flattened
+# # Returns
+# - `Vector{Float64}`: Optimized SCE coefficients
+# - `Float64`: Bias term
+# - `Float64`: Relative error of magfield
+# - `Float64`: Relative error of energy
+# - `Vector{Float64}`: Predicted energy list
+# - `Vector{Float64}`: Observed energy list
+# - `Vector{Float64}`: Predicted magfield flattened list
+# - `Vector{Float64}`: Observed magfield flattened list
+# """
+# function ols_magfield(
+# 	design_matrix_energy::AbstractMatrix{<:Real},
+# 	design_matrix_magfield::AbstractMatrix{<:Real},
+# 	observed_energy_list::Vector{Float64},
+# 	observed_magfield_list::Vector{Vector{Float64}},
+# )
+# 	observed_magfield_flattened = vcat(observed_magfield_list...)
+# 	observed_magfield_flattened = -1 * observed_magfield_flattened
 
-	# calculate SCE coefficients from magfield information
-	ols_coeffs = design_matrix_magfield \ observed_magfield_flattened
+# 	# calculate SCE coefficients from magfield information
+# 	ols_coeffs = design_matrix_magfield \ observed_magfield_flattened
 
-	# calculate reference energy term
-	reference_energy =
-		mean(observed_energy_list .- design_matrix_energy[:, 2:end] * ols_coeffs)
+# 	# calculate reference energy term
+# 	reference_energy =
+# 		mean(observed_energy_list .- design_matrix_energy[:, 2:end] * ols_coeffs)
 
-	return reference_energy, ols_coeffs
-end
+# 	return reference_energy, ols_coeffs
+# end
 
 """
 	calc_magfield_vertical_list_of_spinconfig(spinconfig, num_atoms) -> Vector{Float64}
@@ -657,6 +658,11 @@ function print_info(optimizer::Optimizer)
 		optimizer.predicted_magfield_list,
 	)
 
+	delta_energy =
+		(1/2)*mean((optimizer.observed_energy_list - optimizer.predicted_energy_list) .^ 2)
+	delta_magfield =
+		(1/2)*mean((optimizer.observed_magfield_list - optimizer.predicted_magfield_list) .^ 2)
+
 	println(
 		"""
 		============
@@ -669,40 +675,47 @@ function print_info(optimizer::Optimizer)
 		println(@sprintf("%8d: %15.10f", i, sce))
 	end
 
-	println(
+	println(@sprintf(
 		"""
 
+		Loss function part
+		------------------
+		L = (1-w)*Delta_E + w*Delta_B
+		Delta_E: %.10f (meV)^2
+		Delta_B: %.10f (meV)^2
+		""",
+		delta_energy * 1e6,
+		delta_magfield * 1e6,
+	))
+
+	println(@sprintf(
+		"""
 		Root Mean Square Error (RMSE)
 		-----------------------------
+		RMSE for energy: %.4f meV
+		RMSE for magnetic field: %.4f meV
 		""",
-	)
+		rmse_energy * 1000,
+		rmse_magfield * 1000,
+	))
 	println(
 		@sprintf(
-			"RMSE for energy: %.4f meV", rmse_energy * 1000
+			"""
+			Relative Errors
+			---------------
+			Relative error for energy: %.4f %%
+			Relative error for magnetic field: %.4f %%
+			""",
+			relative_error_energy * 100,
+			relative_error_magfield * 100,
 		)
 	)
-	println(@sprintf("RMSE for magnetic field: %.4f meV", rmse_magfield * 1000))
-	println("")
-	println(
+	println(@sprintf(
 		"""
-		Relative Errors
-		---------------
+		Elapsed time: %.6f seconds
 		""",
-	)
-	println(
-		@sprintf(
-			"Relative error for energy: %.4f %%", relative_error_energy * 100
-		)
-	)
-	println(
-		@sprintf(
-			"Relative error for magnetic field: %.4f %%", relative_error_magfield * 100
-		)
-	)
-	println("")
-	println(@sprintf("Elapsed time: %.6f seconds", optimizer.elapsed_time))
-
-	println("-------------------------------------------------------------------")
+		optimizer.elapsed_time,
+	))
 end
 
 function calc_rmse(list1::AbstractVector{<:Real}, list2::AbstractVector{<:Real})::Float64
