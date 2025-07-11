@@ -212,8 +212,12 @@ function rotation_matrix_from_vectors(v1::Vector{Float64}, v2::Vector{Float64})
 		v[3] 0 -v[1];
 		-v[2] v[1] 0]
 
-	# Rodrigues' rotation formula
-	R = Matrix{Float64}(I, 3, 3) + s + s^2 * (1 - c) / (norm(v)^2)
+	# Calculate sin(θ) and cos(θ)
+	cos_θ = c
+	sin_θ = sqrt(1 - c^2)  # Since we're dealing with unit vectors
+
+	# Rodrigues' rotation formula: R = I + sin(θ) * K + (1 - cos(θ)) * K²
+	R = Matrix{Float64}(I, 3, 3) + sin_θ * s + (1 - cos_θ) * (s^2)
 
 	return R
 end
@@ -284,6 +288,8 @@ function sampling_mfa(
 			The length must be a multiple of 3 for 3D spin vectors
 			""")
 	end
+
+	println("input magmom: ", magmom)
 
 	num_atoms = length(magmom) ÷ 3
 	# Read the spin configuration
