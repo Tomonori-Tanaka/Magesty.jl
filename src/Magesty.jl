@@ -411,8 +411,8 @@ function print_info(sc::SpinCluster)
 end
 
 """
-	write_sce2xml(structure::Structure, basis_set::BasisSet, optimize::Optimizer, filename::AbstractString="jphi.xml"; write_jphi::Bool=true)
-	write_sce2xml(sc::SpinCluster, filename::AbstractString="jphi.xml"; write_jphi::Bool=true)
+	write_xml(structure::Structure, basis_set::BasisSet, optimize::Optimizer, filename::AbstractString="jphi.xml"; write_jphi::Bool=true)
+	write_xml(sc::SpinCluster, filename::AbstractString="jphi.xml"; write_jphi::Bool=true)
 
 Write the structure, basis set, and optimization results to an XML file in SCE format.
 
@@ -427,20 +427,20 @@ Write the structure, basis set, and optimization results to an XML file in SCE f
 # Examples
 ```julia
 # Using individual components
-write_sce2xml(structure, basis_set, optimizer)
-write_sce2xml(structure, basis_set, optimizer, "output.xml", write_jphi=false)
+write_xml(structure, basis_set, optimizer)
+write_xml(structure, basis_set, optimizer, "output.xml", write_jphi=false)
 
 # Using SpinCluster object
-write_sce2xml(spin_cluster)
-write_sce2xml(spin_cluster, "output.xml", write_jphi=false)
+write_xml(spin_cluster)
+write_xml(spin_cluster, "output.xml", write_jphi=false)
 ```
 """
-function write_sce2xml(
+function write_xml(
 	sc::SpinCluster,
 	filename::AbstractString = "jphi.xml";
 	write_jphi::Bool = true,
 )
-	write_sce2xml(
+	write_xml(
 		sc.structure,
 		sc.symmetry,
 		sc.basisset,
@@ -449,7 +449,7 @@ function write_sce2xml(
 		write_jphi = write_jphi,
 	)
 end
-function write_sce2xml(
+function write_xml(
 	structure::Structure,
 	symmetry::Symmetry,
 	basis_set::BasisSet,
@@ -457,7 +457,7 @@ function write_sce2xml(
 	filename::AbstractString = "jphi.xml";
 	write_jphi::Bool = true,
 )
-	Write.write_sce2xml(
+	Write.write_xml(
 		structure,
 		symmetry,
 		basis_set,
@@ -467,8 +467,8 @@ function write_sce2xml(
 	)
 end
 
-function write_energy_info(sc::SpinCluster, filename::AbstractString = "energy.txt")
-	Write.write_energy_info(sc.optimize, filename)
+function write_energy(sc::SpinCluster, filename::AbstractString = "energy.txt")
+	Write.write_energy(sc.optimize, filename)
 end
 
 function write_magfield(

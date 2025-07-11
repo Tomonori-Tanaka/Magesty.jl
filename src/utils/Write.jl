@@ -11,7 +11,7 @@ using EzXML
 using Printf
 
 """
-	write_sce2xml(structure::Structure, basis_set::BasisSet, filename::String)
+	write_xml(structure::Structure, basis_set::BasisSet, filename::String)
 
 Write system information to an XML file using EzXML.
 
@@ -22,7 +22,7 @@ Write system information to an XML file using EzXML.
 # Throws
 - `SystemError` if the file cannot be written
 """
-function write_sce2xml(structure::Structure,
+function write_xml(structure::Structure,
 	symmetry::Symmetry,
 	basis_set::BasisSet,
 	optimize::Optimizer,
@@ -119,7 +119,7 @@ function write_sce2xml(structure::Structure,
 	end
 end
 
-function write_energy_info(optimize::Optimizer, filename::AbstractString = "energy.txt")
+function write_energy(optimize::Optimizer, filename::AbstractString = "energy.txt")
 	# Input validation
 	if isempty(optimize.spinconfig_list)
 		@warn "No spin configurations found in optimizer"
