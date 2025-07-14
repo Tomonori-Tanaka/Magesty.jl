@@ -5,16 +5,29 @@ function convert2tensor(input::AbstractString, atoms::Vector{Int}, cell::Integer
 	atom1 = atoms[1]
 	atom2 = atoms[2]
 
-
 	# tensor matrix composing jxx, jxy, jxz, jyx, jyy, jyz, jzx, jzy, jzz
 	result = zeros(3, 3)
 
 	# Read the XML file
 	doc = readxml(input)
 
+	# Calculate tensor for atom1 -> atom2
+	result_forward = calculate_tensor_for_pair(doc, atom1, atom2, cell)
+	
+	# Calculate tensor for atom2 -> atom1 (swapped)
+	result_backward = calculate_tensor_for_pair(doc, atom2, atom1, cell)
+	
+	# Add both tensors together
+	result = result_forward + result_backward
+
+	return result
+end
+
+function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int, cell::Integer)::Matrix{Float64}
 	# tensor matrix composing j-1-1, j-10, j-11, j0-1, j00, j01, j1-1, j10, j11
 	result_tmp = zeros(3, 3)
 	is_found = false	# Flag to check the target interaction is found
+	
 	for alpha in -1:1, beta in -1:1
 		# Extract the <SCEBasisSet> node
 		sce_basis_set = findfirst("//SCEBasisSet", doc)
@@ -34,7 +47,6 @@ function convert2tensor(input::AbstractString, atoms::Vector{Int}, cell::Integer
 					break
 				end
 			end
-
 
 			num_basis = parse(Int, salc["num_basis"])
 			# println("SALC index: $index, num_basis: $num_basis")
@@ -76,8 +88,8 @@ function convert2tensor(input::AbstractString, atoms::Vector{Int}, cell::Integer
 	# 	throw(ArgumentError("The target interaction between atoms $atom1 and $atom2 in cell $cell is not found."))
 	# end
 
-
 	# Convert the result_tmp to the tensor matrix
+	result = zeros(3, 3)
 	result[1, 1] = result_tmp[3, 3]  # jxx
 	result[1, 2] = result_tmp[3, 1]  # jxy
 	result[1, 3] = result_tmp[3, 2]  # jxz
@@ -89,8 +101,6 @@ function convert2tensor(input::AbstractString, atoms::Vector{Int}, cell::Integer
 	result[3, 3] = result_tmp[2, 2]  # jzz
 
 	result = result .* 1000
-
-
 
 	return result
 end
