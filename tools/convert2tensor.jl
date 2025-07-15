@@ -1,5 +1,7 @@
 using ArgParse
 using EzXML
+using LinearAlgebra
+using Printf
 
 function convert2tensor(input::AbstractString, atoms::Vector{Int}, cell::Integer)::Matrix{Float64}
 	atom1 = atoms[1]
@@ -127,7 +129,17 @@ function main()
 
 	args = parse_args(s)
 	tensor_matrix::Matrix{Float64} = convert2tensor(args["input"], args["atoms"], args["cell"])
+	println("Tensor matrix (meV):")
 	display(tensor_matrix)
+	println("")
+	println("--------------------------------")
+	println(@sprintf("Isotropic Jij (meV): %.6f", 1/3 * tr(tensor_matrix)))
+	println("--------------------------------")
+	println("Anisotropic symmetric part (meV): ")
+	display(1/2* (tensor_matrix + tensor_matrix') - 1/3 * tr(tensor_matrix) * I)
+	println("--------------------------------")
+	println("Anisotropic antisymmetric part (meV): ")
+	display(1/2* (tensor_matrix - tensor_matrix'))
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
