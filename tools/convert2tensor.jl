@@ -2,6 +2,17 @@ using ArgParse
 using EzXML
 using LinearAlgebra
 using Printf
+using StaticArrays
+
+# Cache for XML documents to avoid repeated file reads
+const XML_CACHE = Dict{String, EzXML.Document}()
+
+function get_cached_xml(input::AbstractString)::EzXML.Document
+    if !haskey(XML_CACHE, input)
+        XML_CACHE[input] = readxml(input)
+    end
+    return XML_CACHE[input]
+end
 
 function convert2tensor(input::AbstractString, atoms::Vector{Int}, cell::Integer)::Matrix{Float64}
 	atom1 = atoms[1]
@@ -10,8 +21,8 @@ function convert2tensor(input::AbstractString, atoms::Vector{Int}, cell::Integer
 	# tensor matrix composing jxx, jxy, jxz, jyx, jyy, jyz, jzx, jzy, jzz
 	result = zeros(3, 3)
 
-	# Read the XML file
-	doc = readxml(input)
+	# Use cached XML document
+	doc = get_cached_xml(input)
 
 	# Calculate tensor for atom1 -> atom2
 	result_forward = calculate_tensor_for_pair(doc, atom1, atom2, cell)
@@ -30,25 +41,30 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int, cell::Integer)::
 	result_tmp = zeros(3, 3)
 	is_found = false	# Flag to check the target interaction is found
 	
-	for alpha in -1:1, beta in -1:1
-		# Extract the <SCEBasisSet> node
-		sce_basis_set = findfirst("//SCEBasisSet", doc)
-		if isnothing(sce_basis_set)
-			throw(ArgumentError("<SCEBasisSet> node not found in the XML file."))
-		end
+	# Pre-fetch XML nodes to avoid repeated searches
+	sce_basis_set = findfirst("//SCEBasisSet", doc)
+	if isnothing(sce_basis_set)
+		throw(ArgumentError("<SCEBasisSet> node not found in the XML file."))
+	end
 
+	JPhi_node = findfirst("//JPhi", doc)
+	if isnothing(JPhi_node)
+		throw(ArgumentError("<JPhi> node not found in the XML file."))
+	end
+
+	# Pre-parse JPhi values for faster lookup
+	jphi_dict = Dict{String, Float64}()
+	for jphi in EzXML.findall("jphi", JPhi_node)
+		jphi_dict[jphi["salc_index"]] = parse(Float64, nodecontent(jphi))
+	end
+	
+	for alpha in -1:1, beta in -1:1
 		for salc in EzXML.findall("SALC", sce_basis_set)
 			index = parse(Int, salc["index"])
+			index_str = string(index)
 
-			# Get the SCE coefficient for the current SALC
-			JPhi_node = findfirst("//JPhi", doc)
-			j_phi = -1000
-			for jphi in EzXML.findall("jphi", JPhi_node)
-				if jphi["salc_index"] == string(index)
-					j_phi = parse(Float64, nodecontent(jphi))
-					break
-				end
-			end
+			# Use pre-parsed JPhi values
+			j_phi = get(jphi_dict, index_str, -1000.0)
 
 			num_basis = parse(Int, salc["num_basis"])
 			# println("SALC index: $index, num_basis: $num_basis")
@@ -62,7 +78,7 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int, cell::Integer)::
 					break
 				end
 
-				m_vec = fill(-10, 2)
+				m_vec = MVector{2, Int}(-10, -10)
 				for i in 1:2
 					name = "index-$i"
 					# "1 1 -1 1" → ["1","1","-1","1"] → [1,1,-1,1]
