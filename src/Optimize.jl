@@ -174,8 +174,9 @@ function construct_design_matrix_energy(
 	design_matrix[:, 1] .= 1.0
 	initialize_check[:, 1] .= true
 
-	for i in 1:num_salcs
-		for j in 1:num_spinconfigs
+	# Parallelize the outer loop over spin configurations
+	@threads for j in 1:num_spinconfigs
+		for i in 1:num_salcs
 			val =
 				calc_X_element_energy(
 					salc_list[i],
