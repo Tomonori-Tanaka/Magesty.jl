@@ -5,7 +5,6 @@ This module contains functions for optimizing the SCE coefficients.
 """
 module Optimize
 
-using Base.Threads
 using LinearAlgebra
 using Printf
 using MultivariateStats
@@ -174,9 +173,8 @@ function construct_design_matrix_energy(
 	design_matrix[:, 1] .= 1.0
 	initialize_check[:, 1] .= true
 
-	# Parallelize the outer loop over spin configurations
-	@threads for j in 1:num_spinconfigs
-		for i in 1:num_salcs
+	for i in 1:num_salcs
+		for j in 1:num_spinconfigs
 			val =
 				calc_X_element_energy(
 					salc_list[i],
@@ -250,7 +248,7 @@ function construct_design_matrix_magfield(
 	# [num_spindconif][3*num_atoms, num_salcs]
 	design_matrix_list = Vector{Matrix{Float64}}(undef, num_spinconfigs)
 
-	@threads for i in eachindex(spinconfig_list)
+	for i in eachindex(spinconfig_list)
 		design_matrix_list[i] = zeros(Float64, 3 * num_atoms, num_salcs)
 		for row_idx in 1:(3*num_atoms)
 			for isalc in eachindex(salc_list)
