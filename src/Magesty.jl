@@ -132,8 +132,7 @@ system = System("config.toml")
 function System(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)
 	config::Config4System = Config4System(input_dict)
 
-	structure::Structure = Structure(config)
-	verbosity && Structures.print_info(structure)
+	structure::Structure = Structure(config, verbosity = verbosity)
 
 	symmetry::Symmetry = Symmetry(structure, config)
 	verbosity && Symmetries.print_info(symmetry)
