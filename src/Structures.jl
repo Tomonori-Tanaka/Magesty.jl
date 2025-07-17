@@ -162,7 +162,6 @@ struct Structure
 
 		if verbosity
 			print_structure_stdout(supercell, kd_name)
-			print("\n\n")
 			elapsed_time::Float64 = (time_ns() - start_time) / 1e9
 			println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
 			println("-------------------------------------------------------------------")
@@ -456,7 +455,7 @@ function print_structure_stdout(cell::Cell, kd_name::AbstractVector{<:AbstractSt
 				length(string(cell.num_atoms)), cell.kd_int_list[i])
 		)
 	end
-	println("")
+	println("\n")
 end
 
 end
