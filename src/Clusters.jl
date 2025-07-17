@@ -634,7 +634,7 @@ function print_info(cluster::Cluster)
 			println("\t\t[$cluster_str]")
 		end
 	end
-	println("\nElapsed time: ", cluster.elapsed_time, " seconds")
+	println("\nTime Elapsed: ", cluster.elapsed_time, " seconds")
 	println("-------------------------------------------------------------------")
 end
 

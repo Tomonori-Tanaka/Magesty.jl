@@ -134,8 +134,7 @@ function System(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = tru
 
 	structure::Structure = Structure(config, verbosity = verbosity)
 
-	symmetry::Symmetry = Symmetry(structure, config)
-	verbosity && Symmetries.print_info(symmetry)
+	symmetry::Symmetry = Symmetry(structure, config, verbosity = verbosity)
 
 	cluster::Cluster = Cluster(structure, symmetry, config)
 	# verbosity && Clusters.print_info(cluster)
@@ -234,11 +233,9 @@ spin_cluster = SpinCluster(system)
 """
 function SpinCluster(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)
 	config_system::Config4System = Config4System(input_dict)
-	structure::Structure = Structure(config_system)
-	verbosity && Structures.print_info(structure)
+	structure::Structure = Structure(config_system, verbosity = verbosity)
 
-	symmetry::Symmetry = Symmetry(structure, config_system)
-	verbosity && Symmetries.print_info(symmetry)
+	symmetry::Symmetry = Symmetry(structure, config_system, verbosity = verbosity)
 
 	cluster::Cluster = Cluster(structure, symmetry, config_system)
 	# verbosity && Clusters.print_info(cluster)

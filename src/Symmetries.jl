@@ -18,6 +18,7 @@ using Combinatorics: with_replacement_combinations
 using LinearAlgebra
 using StaticArrays
 using Spglib
+using Printf
 
 using ..AtomCells
 using ..ConfigParser
@@ -139,7 +140,7 @@ struct Symmetry
 	map_s2p::Vector{Maps}   # [nat] -> corresponding atom index in primitive cel
 	symnum_translation::Vector{Int} # contains the indice of translational only operations
 
-	function Symmetry(structure::Structure, tol::Real)
+	function Symmetry(structure::Structure, tol::Real; verbosity::Bool = true)
 
 		start_time = time_ns()
 
@@ -180,8 +181,18 @@ struct Symmetry
 		atoms_in_prim = Int[map_p2s[i, 1] for i in 1:nat_prim]
 		atoms_in_prim = sort(atoms_in_prim)
 
-		# End timing
-		elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
+		if verbosity
+			print_symmetry_stdout(
+				spglib_data.international_symbol,
+				spglib_data.spacegroup_number,
+				spglib_data.n_operations,
+				ntran,
+				nat_prim)
+			elapsed_time = (time_ns() - start_time) / 1e9
+			println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
+			println("-------------------------------------------------------------------")
+		end
+
 
 		return new(
 			spglib_data.international_symbol,
@@ -200,8 +211,8 @@ struct Symmetry
 	end
 end
 
-function Symmetry(structure::Structure, config::Config4System)
-	return Symmetry(structure, config.tolerance_sym)
+function Symmetry(structure::Structure, config::Config4System; verbosity::Bool = true)
+	return Symmetry(structure, config.tolerance_sym, verbosity = verbosity)
 end
 
 function construct_symnum_translation(spglib_data::Spglib.Dataset, tol::Real)::Vector{Int}
@@ -275,8 +286,9 @@ function construct_map_sym(
 		for itype in 1:natomtypes
 			for iat in structure.atomtype_group[itype]
 				# Apply rotation and translation
-				local_x_new .= spglib_data.rotations[isym] * structure.supercell.x_frac[:, iat] +
-							 spglib_data.translations[isym]
+				local_x_new .=
+					spglib_data.rotations[isym] * structure.supercell.x_frac[:, iat] +
+					spglib_data.translations[isym]
 
 				for jat in structure.atomtype_group[itype]
 					# Calculate relative position
@@ -464,37 +476,43 @@ function print_info(symmetry::Symmetry)
 		str *= str_supercell
 	end
 	println(str)
-	println("Elapsed time: ", symmetry.elapsed_time, " seconds")
+	println("Time Elapsed: ", symmetry.elapsed_time, " seconds")
 	println("-------------------------------------------------------------------")
 end
 
-function __write_symdata(
-	symdata::AbstractVector,
-	dir::AbstractString,
-	filename::AbstractString,
+function print_symmetry_stdout(
+	international_symbol::AbstractString,
+	spacegroup_number::Integer,
+	nsym::Integer,
+	ntran::Integer,
+	nat_prim::Integer,
 )
-	mkpath(dir)
-	path = joinpath(dir, filename)
-	open(path, "w") do io
-		for (i, symop) in enumerate(symdata)
-			write(io, "operation: $i\n")
-			write(io, "rotation (fractional)\n")
+	println("""
+	SYMMETRY
+	========
+	""")
+	str = """
+	 Space group:  $(international_symbol)  ($(spacegroup_number))
+	 Number of symmetry operations = $(nsym)
 
-			# Pre-allocate vector for better performance
-			vec = Vector{Float64}(undef, 3)
-			for line in 1:3
-				vec .= symop.rotation_frac[line, :]
-				write(io, "$(vec[1])\t$(vec[2])\t$(vec[3])\n")
-			end
-
-			write(io, "translation (fractional)\n")
-			write(
-				io,
-				"$(symop.translation_frac[1])\t$(symop.translation_frac[2])\t$(symop.translation_frac[3])\n",
-			)
-			write(io, "\n")
-		end
+	"""
+	if ntran == 1
+		str_prim = """
+		 Given structure is a primitive cell.
+		 Primitive cell contains $(nat_prim) atoms.
+		"""
+		str *= str_prim
+	else
+		str_supercell = """
+		 Given structure is not a primitive cell.
+		 There are $(ntran) translation operations.
+		 Primitive cell contains $(nat_prim) atoms.
+		"""
+		str *= str_supercell
 	end
+
+	println(str)
+	println("")
 end
 
 end

@@ -618,7 +618,7 @@ function print_info(basis::BasisSet)
 		display(salc)
 	end
 
-	println(@sprintf("Elapsed time: %.6f seconds", basis.elapsed_time))
+	println(@sprintf("Time Elapsed: %.6f seconds", basis.elapsed_time))
 	println("-------------------------------------------------------------------")
 
 end
