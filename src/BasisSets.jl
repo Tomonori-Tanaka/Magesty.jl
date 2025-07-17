@@ -83,6 +83,8 @@ struct BasisSet
 		cluster::Cluster,
 		lmax::AbstractMatrix{<:Integer},    # [≤ nkd, ≤ nbody]
 		bodymax::Integer,
+		;
+		verbosity::Bool = true,
 	)
 		# Start timing
 		start_time = time_ns()
@@ -162,6 +164,13 @@ struct BasisSet
 
 		salc_list = filter(salc -> !is_identically_zero(salc), salc_list)
 
+		if verbosity
+			print_basisset_stdout(salc_list)
+			elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
+			println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
+			println("-------------------------------------------------------------------")
+		end
+
 		# End timing
 		elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
 
@@ -180,8 +189,10 @@ function BasisSet(
 	symmetry::Symmetry,
 	cluster::Cluster,
 	config::Config4System,
+	;
+	verbosity::Bool = true,
 )
-	return BasisSet(structure, symmetry, cluster, config.lmax, config.nbody)
+	return BasisSet(structure, symmetry, cluster, config.lmax, config.nbody, verbosity = verbosity)
 end
 
 function construct_basislist(
@@ -621,6 +632,23 @@ function print_info(basis::BasisSet)
 	println(@sprintf("Time Elapsed: %.6f seconds", basis.elapsed_time))
 	println("-------------------------------------------------------------------")
 
+end
+
+function print_basisset_stdout(salc_list::AbstractVector{<:SALC})
+	println(
+		"""
+		BASIS SET
+		=========
+		""",
+	)
+	println(" Number of symmetry-adapted basis functions: $(length(salc_list))\n")
+	println(" List of symmetry-adapted basis functions:")
+	println(" # multiplicity  coefficient  basis")
+	for (i, salc) in enumerate(salc_list)
+		println(" $i-th salc")
+		display(salc)
+	end
+	println("")
 end
 
 # Custom exception type for basis set errors
