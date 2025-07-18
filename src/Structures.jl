@@ -142,7 +142,6 @@ struct Structure
 	x_image_cart::Array{Float64, 3}
 	exist_image::Vector{Bool}
 	atomtype_group::Vector{Vector{Int}}
-	elapsed_time::Float64
 
 	function Structure(
 		lattice_vectors::AbstractMatrix{<:Real},
@@ -150,6 +149,8 @@ struct Structure
 		kd_name::AbstractVector{<:AbstractString},
 		kd_int_list::AbstractVector{<:Integer},
 		x_frac::AbstractMatrix{<:Real},
+		;
+		verbosity::Bool = true,
 	)
 		start_time::UInt64 = time_ns()
 		supercell::Cell = Cell(lattice_vectors, kd_int_list, x_frac)
@@ -158,7 +159,13 @@ struct Structure
 		x_image_frac, x_image_cart = calc_x_images(lattice_vectors, x_frac)
 		exist_image::Vector{Bool} = calc_exist_image(is_periodic)
 		atomtype_group::Vector{Vector{Int}} = calc_atomtype_group(kd_int_list)
-		elapsed_time::Float64 = (time_ns() - start_time) / 1e9
+
+		if verbosity
+			print_structure_stdout(supercell, kd_name)
+			elapsed_time::Float64 = (time_ns() - start_time) / 1e9
+			println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
+			println("-------------------------------------------------------------------")
+		end
 
 		return new(
 			supercell,
@@ -168,7 +175,6 @@ struct Structure
 			x_image_cart,
 			exist_image,
 			atomtype_group,
-			elapsed_time,
 		)
 	end
 end
@@ -178,7 +184,7 @@ end
 
 Create a Structure from a Config4System object.
 """
-function Structure(config::Config4System)::Structure
+function Structure(config::Config4System; verbosity::Bool = true)::Structure
 	lattice_vectors::SMatrix{3, 3, Float64} = config.lattice_vectors
 	is_periodic::SVector{3, Bool} = config.is_periodic
 	kd_name::Vector{String} = config.kd_name
@@ -191,10 +197,11 @@ function Structure(config::Config4System)::Structure
 		kd_name,
 		kd_int_list,
 		x_frac,
+		verbosity = verbosity,
 	)
 end
 
-function Structure(input_xml::String)::Structure
+function Structure(input_xml::String; verbosity::Bool = true)::Structure
 	doc = readxml(input_xml)
 
 	system_node = findfirst("//System", doc)
@@ -283,6 +290,7 @@ function Structure(input_xml::String)::Structure
 		kd_name,
 		kd_int_list,
 		x_frac,
+		verbosity = verbosity,
 	)
 end
 
@@ -417,46 +425,38 @@ function show(io::IO, structure::Structure)
 	println(io, "atomtype_group: ", structure.atomtype_group)
 end
 
-function print_info(structure::Structure)
-	supercell = structure.supercell
+
+function print_structure_stdout(cell::Cell, kd_name::AbstractVector{<:AbstractString})
 	println("""
-	======
+
 	SYSTEM
 	======
 	""")
-	println("Total Number of atoms: ", supercell.num_atoms)
-	println("Number of atomic species: ", supercell.num_elements)
-
 	println("Lattice vector (in Angstrom):")
 	for (i, label) in enumerate(["a1", "a2", "a3"])
 		println(
 			@sprintf("  %12.8e   %12.8e   %12.8e : %s",
-				supercell.lattice_vectors[:, i]..., label)
+				cell.lattice_vectors[:, i]..., label)
 		)
 	end
 	println("")
-	println("Periodicity: ", Int.(structure.is_periodic), "\n")
-
-	digits = length(string(abs(supercell.num_atoms))) + 1
 	println("Atomic species:")
-	for (i, species) in enumerate(structure.kd_name)
-		println(@sprintf("  %*d: %s", digits, i, species))
+	for (i, species) in enumerate(kd_name)
+		println(@sprintf("  %*d: %s", length(string(cell.num_atoms)), i, species))
 	end
 	println("")
-
-	println("Atomic positions in fractional coordinates and atomic species:")
-	for i in 1:supercell.num_atoms
+	println("Atomic positions in fractional basis:")
+	for i in 1:cell.num_atoms
 		println(
 			@sprintf("  %*d: %12.8e   %12.8e   %12.8e   %*d",
-				digits, i,
-				supercell.x_frac[1, i],
-				supercell.x_frac[2, i],
-				supercell.x_frac[3, i],
-				digits, supercell.kd_int_list[i])
+				length(string(cell.num_atoms)), i,
+				cell.x_frac[1, i],
+				cell.x_frac[2, i],
+				cell.x_frac[3, i],
+				length(string(cell.num_atoms)), cell.kd_int_list[i])
 		)
 	end
-	println("")
-	println(@sprintf("Elapsed time: %.6f seconds", structure.elapsed_time))
-	println("-------------------------------------------------------------------")
+	println("\n")
 end
+
 end

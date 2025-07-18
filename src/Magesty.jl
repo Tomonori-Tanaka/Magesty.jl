@@ -44,6 +44,7 @@ module Magesty
 
 using Printf
 using TOML
+using Dates
 
 include("common/version.jl")
 using .Version
@@ -130,20 +131,19 @@ system = System("config.toml")
 ```
 """
 function System(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)
+
+	if verbosity
+		print_header()
+	end
 	config::Config4System = Config4System(input_dict)
 
-	structure::Structure = Structure(config)
-	verbosity && Structures.print_info(structure)
+	structure::Structure = Structure(config, verbosity = verbosity)
 
-	symmetry::Symmetry = Symmetry(structure, config)
-	verbosity && Symmetries.print_info(symmetry)
+	symmetry::Symmetry = Symmetry(structure, config, verbosity = verbosity)
 
-	cluster::Cluster = Cluster(structure, symmetry, config)
-	# verbosity && Clusters.print_info(cluster)
-	verbosity && Clusters.print_info(structure, symmetry, cluster)
+	cluster::Cluster = Cluster(structure, symmetry, config, verbosity = verbosity)
 
-	basisset::BasisSet = BasisSet(structure, symmetry, cluster, config)
-	verbosity && BasisSets.print_info(basisset)
+	basisset::BasisSet = BasisSet(structure, symmetry, cluster, config, verbosity = verbosity)
 
 	return System(structure, symmetry, cluster, basisset)
 end
@@ -164,21 +164,6 @@ function System(toml_file::AbstractString; verbosity::Bool = true)
 	end
 end
 
-function print_info(system::System)
-	println(
-		"""
-		+-----------------------------------+
-				   Magesty v$(VERSION)      
-		+-----------------------------------+
-
-		""",
-	)
-
-	Structures.print_info(system.structure)
-	Symmetries.print_info(system.symmetry)
-	Clusters.print_info(system.cluster)
-	BasisSets.print_info(system.basisset)
-end
 
 """
 	SpinCluster
@@ -234,19 +219,19 @@ spin_cluster = SpinCluster(system)
 ```
 """
 function SpinCluster(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)
+
+	if verbosity
+		print_header()
+	end
+
 	config_system::Config4System = Config4System(input_dict)
-	structure::Structure = Structure(config_system)
-	verbosity && Structures.print_info(structure)
+	structure::Structure = Structure(config_system, verbosity = verbosity)
 
-	symmetry::Symmetry = Symmetry(structure, config_system)
-	verbosity && Symmetries.print_info(symmetry)
+	symmetry::Symmetry = Symmetry(structure, config_system, verbosity = verbosity)
 
-	cluster::Cluster = Cluster(structure, symmetry, config_system)
-	# verbosity && Clusters.print_info(cluster)
-	verbosity && Clusters.print_info(structure, symmetry, cluster)
+	cluster::Cluster = Cluster(structure, symmetry, config_system, verbosity = verbosity)
 
-	basisset::BasisSet = BasisSet(structure, symmetry, cluster, config_system)
-	verbosity && BasisSets.print_info(basisset)
+	basisset::BasisSet = BasisSet(structure, symmetry, cluster, config_system, verbosity = verbosity)
 
 	config_optimize::Config4Optimize = Config4Optimize(input_dict)
 	optimize::Optimizer = Optimizer(structure, symmetry, basisset, config_optimize)
@@ -386,31 +371,6 @@ function calc_energy(spincluster::SpinCluster, spin_config::AbstractMatrix{<:Rea
 end
 
 """
-	print_info(sc::SpinCluster)
-
-Print detailed information about the SpinCluster.
-
-# Arguments
-- `sc::SpinCluster`: The SpinCluster to display information about
-"""
-function print_info(sc::SpinCluster)
-	println(
-		"""
-		+-----------------------------------+
-				   Magesty v$(VERSION)      
-		+-----------------------------------+
-
-		""",
-	)
-
-	Structures.print_info(sc.structure)
-	Symmetries.print_info(sc.symmetry)
-	Clusters.print_info(sc.cluster)
-	BasisSets.print_info(sc.basisset)
-	Optimize.print_info(sc.optimize)
-end
-
-"""
 	write_xml(structure::Structure, basis_set::BasisSet, optimize::Optimizer, filename::AbstractString="jphi.xml"; write_jphi::Bool=true)
 	write_xml(sc::SpinCluster, filename::AbstractString="jphi.xml"; write_jphi::Bool=true)
 
@@ -495,9 +455,24 @@ end
 """
 	get the reference energy and spin-cluster coefficients
 """
-function get_j0_jphi(sc::SpinCluster)::Vector{Float64}
-	return vcat(sc.optimize.reference_energy, sc.optimize.SCE)
+function get_j0_jphi(sc::SpinCluster)::Tuple{Float64, Vector{Float64}}
+	return sc.optimize.reference_energy, sc.optimize.SCE
 end
 
+function print_header()
+	println(
+		"""
+		+-----------------------------------+
+		          Magesty v$(Version.version_string())      
+		+-----------------------------------+
+
+		Julia version: $(VERSION)
+
+		Number of threads: $(Threads.nthreads())
+
+		Job started at $(now())
+
+		""",)
+end
 
 end # module Magesty

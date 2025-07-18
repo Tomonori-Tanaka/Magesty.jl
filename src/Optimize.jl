@@ -711,7 +711,7 @@ function print_info(optimizer::Optimizer)
 	)
 	println(@sprintf(
 		"""
-		Elapsed time: %.6f seconds
+		Time Elapsed: %.6f seconds
 		""",
 		optimizer.elapsed_time,
 	))

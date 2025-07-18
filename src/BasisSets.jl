@@ -75,7 +75,6 @@ struct BasisSet
 	classified_basisdict::Dict{Int, SortedCountingUniqueVector}
 	# projection_list::Vector{Matrix{Float64}}
 	salc_list::Vector{SALC}
-	elapsed_time::Float64  # Time taken to create the basis set in seconds
 
 	function BasisSet(
 		structure::Structure,
@@ -83,6 +82,8 @@ struct BasisSet
 		cluster::Cluster,
 		lmax::AbstractMatrix{<:Integer},    # [≤ nkd, ≤ nbody]
 		bodymax::Integer,
+		;
+		verbosity::Bool = true,
 	)
 		# Start timing
 		start_time = time_ns()
@@ -162,15 +163,19 @@ struct BasisSet
 
 		salc_list = filter(salc -> !is_identically_zero(salc), salc_list)
 
-		# End timing
-		elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
+		if verbosity
+			print_basisset_stdout(salc_list)
+			elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
+			println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
+			println("-------------------------------------------------------------------")
+		end
+
 
 		return new(
 			basislist,
 			classified_basisdict,
 			# projection_list,
 			salc_list,
-			elapsed_time,
 		)
 	end
 end
@@ -180,8 +185,10 @@ function BasisSet(
 	symmetry::Symmetry,
 	cluster::Cluster,
 	config::Config4System,
+	;
+	verbosity::Bool = true,
 )
-	return BasisSet(structure, symmetry, cluster, config.lmax, config.nbody)
+	return BasisSet(structure, symmetry, cluster, config.lmax, config.nbody, verbosity = verbosity)
 end
 
 function construct_basislist(
@@ -603,24 +610,23 @@ function flip_vector_if_negative_sum(
 	return sum_v < 0 ? -v : v
 end
 
-function print_info(basis::BasisSet)
+
+function print_basisset_stdout(salc_list::AbstractVector{<:SALC})
 	println(
 		"""
-		=========
+
 		BASIS SET
 		=========
 		""",
 	)
-	println("Number of symmetry-adapted basis functions: $(length(basis.salc_list))")
-	println("# multiplicity  coefficient  basis")
-	for (i, salc) in enumerate(basis.salc_list)
-		println("$i-th salc")
+	println(" Number of symmetry-adapted basis functions: $(length(salc_list))\n")
+	println(" List of symmetry-adapted basis functions:")
+	println(" # multiplicity  coefficient  basis")
+	for (i, salc) in enumerate(salc_list)
+		println(" $i-th salc")
 		display(salc)
 	end
-
-	println(@sprintf("Elapsed time: %.6f seconds", basis.elapsed_time))
-	println("-------------------------------------------------------------------")
-
+	println("")
 end
 
 # Custom exception type for basis set errors
