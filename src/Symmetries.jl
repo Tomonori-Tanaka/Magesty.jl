@@ -129,10 +129,9 @@ struct Symmetry
 	spacegroup_number::Int
 	nsym::Int   # the number of symmetry operations
 	ntran::Int  # the number of translational only operations
-	nat_prim::Int   # the number of atoms in a primitive cell
+	nat_prim::Int   # the total number of atoms in a primitive cell
 	tol::Float64
 	atoms_in_prim::Vector{Int}
-	elapsed_time::Float64  # Time taken to create the symmetry in seconds
 
 	symdata::Vector{SymmetryOperation}
 	map_sym::Matrix{Int}    # [num_atoms, nsym] -> corresponding atom index
@@ -202,7 +201,6 @@ struct Symmetry
 			nat_prim,
 			tol,
 			atoms_in_prim,
-			elapsed_time,
 			symdata,
 			map_sym,
 			map_p2s,
@@ -449,36 +447,6 @@ end
 
 is_in_centeringcell(xf, x_image_frac) = any(xf ≈ vec for vec in x_image_frac[:, :, 1])
 
-function print_info(symmetry::Symmetry)
-	println("""
-	========
-	SYMMETRY
-	========
-	""")
-
-	str = """
-	Space group:  $(symmetry.international_symbol)  ($(symmetry.spacegroup_number))
-	Number of symmetry operations = $(symmetry.nsym)
-
-	"""
-	if symmetry.ntran == 1
-		str_prim = """
-		Given structure is a primitive cell.
-		Primitive cell contains $(symmetry.nat_prim) atoms.
-		"""
-		str *= str_prim
-	else
-		str_supercell = """
-		Given structure is not a primitive cell.
-		There are $(symmetry.ntran) translation operations.
-		Primitive cell contains $(symmetry.nat_prim) atoms.
-		"""
-		str *= str_supercell
-	end
-	println(str)
-	println("Time Elapsed: ", symmetry.elapsed_time, " seconds")
-	println("-------------------------------------------------------------------")
-end
 
 function print_symmetry_stdout(
 	international_symbol::AbstractString,
@@ -488,6 +456,7 @@ function print_symmetry_stdout(
 	nat_prim::Integer,
 )
 	println("""
+
 	SYMMETRY
 	========
 	""")

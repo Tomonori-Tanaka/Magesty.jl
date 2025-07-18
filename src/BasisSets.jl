@@ -75,7 +75,6 @@ struct BasisSet
 	classified_basisdict::Dict{Int, SortedCountingUniqueVector}
 	# projection_list::Vector{Matrix{Float64}}
 	salc_list::Vector{SALC}
-	elapsed_time::Float64  # Time taken to create the basis set in seconds
 
 	function BasisSet(
 		structure::Structure,
@@ -171,15 +170,12 @@ struct BasisSet
 			println("-------------------------------------------------------------------")
 		end
 
-		# End timing
-		elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
 
 		return new(
 			basislist,
 			classified_basisdict,
 			# projection_list,
 			salc_list,
-			elapsed_time,
 		)
 	end
 end
@@ -614,29 +610,11 @@ function flip_vector_if_negative_sum(
 	return sum_v < 0 ? -v : v
 end
 
-function print_info(basis::BasisSet)
-	println(
-		"""
-		=========
-		BASIS SET
-		=========
-		""",
-	)
-	println("Number of symmetry-adapted basis functions: $(length(basis.salc_list))")
-	println("# multiplicity  coefficient  basis")
-	for (i, salc) in enumerate(basis.salc_list)
-		println("$i-th salc")
-		display(salc)
-	end
-
-	println(@sprintf("Time Elapsed: %.6f seconds", basis.elapsed_time))
-	println("-------------------------------------------------------------------")
-
-end
 
 function print_basisset_stdout(salc_list::AbstractVector{<:SALC})
 	println(
 		"""
+
 		BASIS SET
 		=========
 		""",

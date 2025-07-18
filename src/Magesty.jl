@@ -136,9 +136,7 @@ function System(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = tru
 
 	symmetry::Symmetry = Symmetry(structure, config, verbosity = verbosity)
 
-	cluster::Cluster = Cluster(structure, symmetry, config)
-	# verbosity && Clusters.print_info(cluster)
-	verbosity && Clusters.print_info(structure, symmetry, cluster)
+	cluster::Cluster = Cluster(structure, symmetry, config, verbosity = verbosity)
 
 	basisset::BasisSet = BasisSet(structure, symmetry, cluster, config, verbosity = verbosity)
 
@@ -236,9 +234,7 @@ function SpinCluster(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool 
 
 	symmetry::Symmetry = Symmetry(structure, config_system, verbosity = verbosity)
 
-	cluster::Cluster = Cluster(structure, symmetry, config_system)
-	# verbosity && Clusters.print_info(cluster)
-	verbosity && Clusters.print_info(structure, symmetry, cluster)
+	cluster::Cluster = Cluster(structure, symmetry, config_system, verbosity = verbosity)
 
 	basisset::BasisSet = BasisSet(structure, symmetry, cluster, config_system, verbosity = verbosity)
 
