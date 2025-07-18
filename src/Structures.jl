@@ -130,9 +130,6 @@ Represents a periodic structure built from a Cell, with information about period
 - `atomtype_group::Vector{Vector{Int}}`  
   Groups of atom indices categorized by their types. Each sub-vector contains the indices of atoms belonging to a specific element type.
 
-- `elapsed_time::Float64`  
-  Time taken to create the structure in seconds.
-
 """
 struct Structure
 	supercell::Cell

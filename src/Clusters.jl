@@ -142,7 +142,6 @@ Represents a collection of interaction clusters based on the specified number of
 - `interaction_clusters::Matrix{OrderedSet{InteractionCluster}}`: Matrix of interaction clusters
 - `cluster_list::Vector{SortedVector{Vector{AtomCell}}}`: List of interacting atom clusters
 - `equivalent_atom_list::Vector{Vector{Int}}`: List of equivalent atom groups
-- `elapsed_time::Float64`: Time taken to create the cluster in seconds
 
 # Constructor
 	Cluster(structure, symmetry, nbody, cutoff_radii)

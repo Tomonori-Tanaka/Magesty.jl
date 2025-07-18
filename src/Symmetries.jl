@@ -112,7 +112,6 @@ Contains the symmetry information of a structure.
 - `nat_prim::Int`: Number of atoms in the primitive cell.
 - `tol::Float64`: Tolerance for symmetry detection.
 - `atoms_in_prim::Vector{Int}`: Indices of atoms in the primitive cell.
-- `elapsed_time::Float64`: Time taken to create the symmetry in seconds.
 - `symdata::Vector{SymmetryOperation}`: List of symmetry operations.
 - `map_sym::Matrix{Int}`: Maps atoms in the supercell to corresponding atoms under symmetry operations.
 - `map_p2s::Matrix{Int}`: Maps atoms in the primitive cell to the supercell.
