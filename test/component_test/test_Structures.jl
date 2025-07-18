@@ -46,7 +46,8 @@ using Magesty.Structures
             is_periodic,
             kd_name,
             kd_int_list,
-            x_frac
+            x_frac,
+            verbosity = false
         )
 
         @test structure.supercell.num_atoms == 2
@@ -90,7 +91,8 @@ using Magesty.Structures
             is_periodic,
             kd_name,
             kd_int_list,
-            x_frac
+            x_frac,
+            verbosity = false
         )
 
         # Test atom type grouping
