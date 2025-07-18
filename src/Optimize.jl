@@ -32,7 +32,6 @@ struct Optimizer
 	predicted_magfield_list::Vector{Float64}
 	observed_magfield_list::Vector{Float64}
 	rmse_energy::Float64  # Root Mean Square Error for energy
-	elapsed_time::Float64  # Time taken to create the optimizer in seconds
 
 	function Optimizer(
 		structure::Structure,
@@ -143,7 +142,6 @@ struct Optimizer
 			predicted_magfield_list,
 			observed_magfield_list,
 			rmse_energy,
-			elapsed_time,
 		)
 	end
 end
