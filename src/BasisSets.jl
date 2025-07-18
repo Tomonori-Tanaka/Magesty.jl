@@ -35,7 +35,6 @@ This structure is used to store and manage basis functions that are adapted to t
 - `projection_dict::Dict{Int, Matrix{Float64}}`: Dictionary of projection matrices for each symmetry label
 - `each_projection_dict::Any`: Dictionary containing individual projection information
 - `salc_list::Vector{SALC}`: List of symmetry-adapted linear combinations
-- `elapsed_time::Float64`: Time taken to create the basis set in seconds
 
 # Constructors
 	BasisSet(structure::Structure, symmetry::Symmetry, cluster::Cluster, lmax::AbstractMatrix{<:Integer}, bodymax::Integer)
@@ -88,6 +87,16 @@ struct BasisSet
 		# Start timing
 		start_time = time_ns()
 
+		if verbosity
+			println(
+				"""
+
+				BASIS SET
+				=========
+				""",
+			)
+		end
+
 		# Validate input parameters
 		nkd, nbody = size(lmax)
 		bodymax > 0 || throw(ArgumentError("bodymax must be positive"))
@@ -96,6 +105,9 @@ struct BasisSet
 
 		# Construct basis list
 		# basislist consists of all possible basis functions which is the product of spherical harmonics.
+		if verbosity
+			println("Constructing basis list...")
+		end
 		basislist = construct_basislist(
 			structure,
 			symmetry,
@@ -110,6 +122,9 @@ struct BasisSet
 		# display(classified_basisdict)
 
 		# Construct projection matrices
+		if verbosity
+			println("Constructing projection matrices...")
+		end
 		projection_list, num_nonzero_projection_list = construct_projectionmatrix(
 			classified_basisdict,
 			structure,
@@ -127,6 +142,9 @@ struct BasisSet
 		# end
 
 		# Generate symmetry-adapted linear combinations
+		if verbosity
+			println("Deriving SALCs...\n")
+		end
 		salc_list = Vector{SALC}()
 		for idx in eachindex(projection_list)
 			eigenval, eigenvec = eigen(Symmetric(projection_list[idx]))
@@ -174,7 +192,6 @@ struct BasisSet
 		return new(
 			basislist,
 			classified_basisdict,
-			# projection_list,
 			salc_list,
 		)
 	end
@@ -612,13 +629,6 @@ end
 
 
 function print_basisset_stdout(salc_list::AbstractVector{<:SALC})
-	println(
-		"""
-
-		BASIS SET
-		=========
-		""",
-	)
 	println(" Number of symmetry-adapted basis functions: $(length(salc_list))\n")
 	println(" List of symmetry-adapted basis functions:")
 	println(" # multiplicity  coefficient  basis")
