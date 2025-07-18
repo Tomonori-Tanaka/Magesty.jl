@@ -104,7 +104,7 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 
 	sclus = SpinCluster(system, input, verbosity = false)
 	Magesty.write_xml(sclus, joinpath(@__DIR__, "scecoeffs.xml"))
-	structure = Structure(joinpath(@__DIR__, "scecoeffs.xml"))
+	structure = Structure(joinpath(@__DIR__, "scecoeffs.xml"), verbosity = false)
 
 	@testset "calc_energy" begin
 		spin_config_list = sclus.optimize.spinconfig_list

@@ -98,10 +98,11 @@ using Magesty.Structures
 				kd_name,
 				kd_int_list,
 				x_frac,
+				verbosity = false
 			)
 
 			# Create symmetry with tolerance
-			symmetry = Symmetry(structure, 1e-5)
+			symmetry = Symmetry(structure, 1e-5, verbosity = false)
 
 			# Test basic properties
 			@test symmetry.international_symbol == "Pm-3m"
@@ -137,10 +138,11 @@ using Magesty.Structures
 				kd_name,
 				kd_int_list,
 				x_frac,
+				verbosity = false
 			)
 
 			# Create symmetry with tolerance
-			symmetry = Symmetry(structure, 1e-5)
+			symmetry = Symmetry(structure, 1e-5, verbosity = false)
 
 			# Test basic properties
 			@test symmetry.international_symbol == "Pm-3m"
@@ -179,10 +181,11 @@ using Magesty.Structures
 				kd_name,
 				kd_int_list,
 				x_frac,
+				verbosity = false
 			)
 
 			# Create symmetry with tolerance
-			symmetry = Symmetry(structure, 1e-5)
+			symmetry = Symmetry(structure, 1e-5, verbosity = false)
 
 			# Test basic properties
 			@test symmetry.international_symbol == "Pm-3m"
@@ -221,9 +224,10 @@ using Magesty.Structures
 				kd_name,
 				kd_int_list,
 				x_frac,
+				verbosity = false
 			)
 
-			@test_throws ArgumentError Symmetry(structure, -1.0)
+			@test_throws ArgumentError Symmetry(structure, -1.0, verbosity = false)
 		end
 	end
 end
