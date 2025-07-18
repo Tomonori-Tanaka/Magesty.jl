@@ -282,6 +282,9 @@ function SpinCluster(
 	;
 	verbosity::Bool = true,
 )
+	if verbosity
+		print_header()
+	end
 	config::Config4Optimize = Config4Optimize(input_dict)
 	optimize = Optimizer(system.structure, system.symmetry, system.basisset, config, verbosity=verbosity)
 	return SpinCluster(
@@ -305,6 +308,9 @@ function SpinCluster(
 	;
 	verbosity::Bool = true,
 )
+	if verbosity
+		print_header()
+	end
 	config::Config4Optimize = Config4Optimize(input_dict)
 	optimize = Optimizer(
 		system.structure,
