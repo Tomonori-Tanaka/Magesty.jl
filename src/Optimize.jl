@@ -5,6 +5,7 @@ This module contains functions for optimizing the SCE coefficients.
 """
 module Optimize
 
+using Base.Threads
 using LinearAlgebra
 using Printf
 using MultivariateStats
@@ -41,16 +42,33 @@ struct Optimizer
 		lambda::Real,
 		weight::Real,
 		spinconfig_list::AbstractVector{SpinConfig},
+		;
+		verbosity::Bool = true,
 	)
 		# Start timing
 		start_time = time_ns()
 
+		if verbosity
+			println("""
+
+			OPTIMIZATION
+			============
+
+			""")
+		end
+
 		# construct design matrix for energy and magfield
+		if verbosity
+			println("Constructing design matrix for energy...")
+		end
 		design_matrix_energy = construct_design_matrix_energy(
 			basisset.salc_list,
 			spinconfig_list,
 			symmetry,
 		)
+		if verbosity
+			println("Constructing design matrix for magfield...")
+		end
 		design_matrix_magfield = construct_design_matrix_magfield(
 			basisset.salc_list,
 			spinconfig_list,
@@ -70,6 +88,9 @@ struct Optimizer
 				)
 		end
 
+		if verbosity
+			println("Fitting SCE coefficients...")
+		end
 		j0, jphi = elastic_net_regression(
 			design_matrix_energy,
 			design_matrix_magfield,
@@ -79,10 +100,6 @@ struct Optimizer
 			lambda,
 			weight,
 		)
-
-		# j0, jphi = ols_energy(design_matrix_energy, observed_energy_list)
-		# j0, jphi = ols_magfield(design_matrix_energy, design_matrix_magfield, observed_energy_list, observed_magfield_list)
-
 
 		predicted_energy_list = design_matrix_energy[:, 2:end] * jphi .+ j0
 		predicted_magfield_list = design_matrix_magfield * jphi
@@ -94,8 +111,24 @@ struct Optimizer
 			mean((observed_energy_list .- predicted_energy_list) .^ 2),
 		)
 
-		# End timing
-		elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
+		if verbosity
+			print_optimize_stdout(
+				j0,
+				jphi,
+				observed_energy_list,
+				predicted_energy_list,
+				observed_magfield_list,
+				predicted_magfield_list,
+			)
+			elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
+			println("""
+
+			Time Elapsed: %.6f sec.
+			""",
+				elapsed_time,
+			)
+		end
+
 
 		return new(
 			spinconfig_list,
@@ -119,11 +152,13 @@ function Optimizer(
 	lambda::Real,
 	weight::Real,
 	datafile::AbstractString,
+	;
+	verbosity::Bool = true,
 )
 	# read datafile
 	spinconfig_list = read_embset(datafile, structure.supercell.num_atoms)
 
-	return Optimizer(structure, symmetry, basisset, alpha, lambda, weight, spinconfig_list)
+	return Optimizer(structure, symmetry, basisset, alpha, lambda, weight, spinconfig_list, verbosity=verbosity)
 end
 
 function Optimizer(
@@ -131,6 +166,8 @@ function Optimizer(
 	symmetry::Symmetry,
 	basisset::BasisSet,
 	config::Config4Optimize,
+	;
+	verbosity::Bool = true,
 )
 	return Optimizer(
 		structure,
@@ -140,6 +177,7 @@ function Optimizer(
 		config.lambda,
 		config.weight,
 		config.datafile,
+		verbosity=verbosity,
 	)
 end
 
@@ -639,38 +677,25 @@ function translate_atom_idx_of_salc(
 	return SALC(translated_basisset, salc.coeffs, salc.multiplicity)
 end
 
-function print_info(optimizer::Optimizer)
-	rmse_energy = calc_rmse(
-		optimizer.observed_energy_list,
-		optimizer.predicted_energy_list,
-	)
-	rmse_magfield = calc_rmse(
-		optimizer.observed_magfield_list,
-		optimizer.predicted_magfield_list,
-	)
-	relative_error_energy = calc_relative_error(
-		optimizer.observed_energy_list,
-		optimizer.predicted_energy_list,
-	)
-	relative_error_magfield = calc_relative_error(
-		optimizer.observed_magfield_list,
-		optimizer.predicted_magfield_list,
-	)
+function print_optimize_stdout(
+	reference_energy::Float64,
+	sce_list::AbstractVector{<:Real},
+	observed_energy_list::AbstractVector{<:Real},
+	predicted_energy_list::AbstractVector{<:Real},
+	observed_magfield_list::AbstractVector{<:Real},
+	predicted_magfield_list::AbstractVector{<:Real},
+)
 
-	delta_energy =
-		(1/2)*mean((optimizer.observed_energy_list - optimizer.predicted_energy_list) .^ 2)
-	delta_magfield =
-		(1/2)*mean((optimizer.observed_magfield_list - optimizer.predicted_magfield_list) .^ 2)
+	rmse_energy = calc_rmse(observed_energy_list, predicted_energy_list)
+	rmse_magfield = calc_rmse(observed_magfield_list, predicted_magfield_list)
+	relative_error_energy = calc_relative_error(observed_energy_list, predicted_energy_list)
+	relative_error_magfield = calc_relative_error(observed_magfield_list, predicted_magfield_list)
 
-	println(
-		"""
-		============
-		OPTIMIZATION
-		============
-		""",
-	)
-	println(@sprintf("   E_ref: %.10f", optimizer.reference_energy))
-	for (i, sce) in enumerate(optimizer.SCE)
+	delta_energy = (1/2)*mean((observed_energy_list - predicted_energy_list) .^ 2)
+	delta_magfield = (1/2)*mean((observed_magfield_list - predicted_magfield_list) .^ 2)
+
+	println(@sprintf("   E_ref: %.10f", reference_energy))
+	for (i, sce) in enumerate(sce_list)
 		println(@sprintf("%8d: %15.10f", i, sce))
 	end
 
@@ -709,12 +734,6 @@ function print_info(optimizer::Optimizer)
 			relative_error_magfield * 100,
 		)
 	)
-	println(@sprintf(
-		"""
-		Time Elapsed: %.6f seconds
-		""",
-		optimizer.elapsed_time,
-	))
 end
 
 function calc_rmse(list1::AbstractVector{<:Real}, list2::AbstractVector{<:Real})::Float64

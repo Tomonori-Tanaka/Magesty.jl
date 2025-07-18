@@ -17,8 +17,6 @@ using Magesty
 # Load configuration from a TOML file
 sc = SpinCluster("config.toml")
 
-# Display system information
-print_info(sc)
 
 # Output energy lists
 write_energy_lists(sc)
@@ -29,7 +27,6 @@ write_energy_lists(sc)
 - `SpinCluster`: Extension of System with optimization capabilities
 
 # Main Functions
-- `print_info`: Display detailed system information
 - `write_energy_lists`: Output energy lists to a file
 - `write_magfield_vertical_list`: Output magnetic field vertical components to a file
 
@@ -81,7 +78,7 @@ include("utils/CalcEnergy.jl")
 using .CalcEnergy
 
 export System,
-	SpinCluster, print_info, write_energy_lists, write_magfield_vertical_list, VERSION,
+	SpinCluster, write_energy_lists, write_magfield_vertical_list, VERSION,
 	Write
 
 """
@@ -234,8 +231,7 @@ function SpinCluster(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool 
 	basisset::BasisSet = BasisSet(structure, symmetry, cluster, config_system, verbosity = verbosity)
 
 	config_optimize::Config4Optimize = Config4Optimize(input_dict)
-	optimize::Optimizer = Optimizer(structure, symmetry, basisset, config_optimize)
-	verbosity && Optimize.print_info(optimize)
+	optimize::Optimizer = Optimizer(structure, symmetry, basisset, config_optimize, verbosity=verbosity)
 
 	return SpinCluster(structure, symmetry, cluster, basisset, optimize)
 end
@@ -287,8 +283,7 @@ function SpinCluster(
 	verbosity::Bool = true,
 )
 	config::Config4Optimize = Config4Optimize(input_dict)
-	optimize = Optimizer(system.structure, system.symmetry, system.basisset, config)
-	verbosity && Optimize.print_info(optimize)
+	optimize = Optimizer(system.structure, system.symmetry, system.basisset, config, verbosity=verbosity)
 	return SpinCluster(
 		system.structure,
 		system.symmetry,
@@ -319,8 +314,8 @@ function SpinCluster(
 		config.lambda,
 		config.weight,
 		spinconfig_list,
+		verbosity=verbosity,
 	)
-	verbosity && Optimize.print_info(optimize)
 	return SpinCluster(
 		system.structure,
 		system.symmetry,
