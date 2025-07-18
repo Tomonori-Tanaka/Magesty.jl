@@ -428,6 +428,7 @@ end
 
 function print_structure_stdout(cell::Cell, kd_name::AbstractVector{<:AbstractString})
 	println("""
+
 	SYSTEM
 	======
 	""")

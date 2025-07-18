@@ -121,12 +121,13 @@ struct InteractionCluster
 	end
 end
 
-Base.isless(intclus1::InteractionCluster, intclus2::InteractionCluster) = intclus1.atom_indices < intclus2.atom_indices
+Base.isless(intclus1::InteractionCluster, intclus2::InteractionCluster) =
+	intclus1.atom_indices < intclus2.atom_indices
 
 function ==(intclus1::InteractionCluster, intclus2::InteractionCluster)
 	return intclus1.atom_indices == intclus2.atom_indices &&
-	       intclus1.cell_indices == intclus2.cell_indices &&
-	       intclus1.max_distance == intclus2.max_distance
+		   intclus1.cell_indices == intclus2.cell_indices &&
+		   intclus1.max_distance == intclus2.max_distance
 end
 
 """
@@ -159,18 +160,19 @@ struct Cluster
 	# interaction_clusters::Matrix{OrderedSet{InteractionCluster}}
 	cluster_list::Vector{SortedVector{Vector{AtomCell}}}
 	equivalent_atom_list::Vector{Vector{Int}}
-	elapsed_time::Float64
 
 	function Cluster(
 		structure::Structure,
 		symmetry::Symmetry,
 		nbody::Integer,
 		cutoff_radii::AbstractArray{<:Real, 3},
+		;
+		verbosity::Bool = true,
 	)
 		@assert size(cutoff_radii, 3) == nbody "Cutoff radii dimensions must match nbody."
 
 		start_time = time_ns()
-		
+
 		min_distance_pairs = set_mindist_pairs(
 			structure.supercell.num_atoms,
 			structure.x_image_cart,
@@ -201,7 +203,13 @@ struct Cluster
 
 		cluster_list = generate_pairs(symmetry.atoms_in_prim, interaction_clusters, nbody)
 		equivalent_atom_list = classify_equivalent_atoms(symmetry.atoms_in_prim, symmetry.map_sym)
-		elapsed_time = (time_ns() - start_time) / 1e9
+
+		if verbosity
+			print_cluster_stdout(min_distance_pairs, symmetry.atoms_in_prim, structure.kd_name, structure.supercell.kd_int_list)
+			elapsed_time = (time_ns() - start_time) / 1e9
+			println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
+			println("-------------------------------------------------------------------")
+		end
 
 		return new(
 			nbody,
@@ -210,13 +218,17 @@ struct Cluster
 			# interaction_clusters,
 			cluster_list,
 			equivalent_atom_list,
-			elapsed_time,
 		)
 	end
 end
 
-function Cluster(structure::Structure, symmetry::Symmetry, config::Config4System)
-	return Cluster(structure, symmetry, config.nbody, config.cutoff_radii)
+function Cluster(
+	structure::Structure,
+	symmetry::Symmetry,
+	config::Config4System;
+	verbosity::Bool = true,
+)
+	return Cluster(structure, symmetry, config.nbody, config.cutoff_radii; verbosity = verbosity)
 end
 
 """
@@ -330,7 +342,8 @@ function set_interaction_by_cutoff(
 				atom_index == other_atom_index && continue
 				other_atom_type = atom_type_list[other_atom_index]
 				cutoff = cutoff_radii[atom_type, other_atom_type, body]
-				if cutoff < 0.0 || min_distance_pairs[atom_index, other_atom_index][1].distance ≤ cutoff
+				if cutoff < 0.0 ||
+				   min_distance_pairs[atom_index, other_atom_index][1].distance ≤ cutoff
 					push!(pair_list, other_atom_index)
 				end
 			end
@@ -377,7 +390,8 @@ function set_interaction_clusters(
 	@assert length(atom_type_list) > 0 "atom_type_list must not be empty."
 	@assert size(primitive_to_supercell_map, 1) == num_primitive_atoms "Number of rows in primitive_to_supercell_map must match num_primitive_atoms."
 
-	interaction_clusters = Matrix{OrderedSet{InteractionCluster}}(undef, num_primitive_atoms, num_bodies - 1)
+	interaction_clusters =
+		Matrix{OrderedSet{InteractionCluster}}(undef, num_primitive_atoms, num_bodies - 1)
 	initialized = falses(size(interaction_clusters))
 
 	@inbounds for body in 2:num_bodies, prim_atom_index in 1:num_primitive_atoms
@@ -474,8 +488,9 @@ function generate_pairs(
 	@inbounds for body in 2:num_bodies
 		sorted_clusters = SortedVector{Vector{AtomCell}}()
 		for (i, prim_atom_index) in enumerate(primitive_atom_indices)
-			for cluster in interaction_clusters[i, body-1]	# target is i-th primitive atom
-				pairs::Vector{Vector{Tuple{Int, Int}}} = generate_combinations(cluster.atom_indices, cluster.cell_indices)
+			for cluster in interaction_clusters[i, body-1]# target is i-th primitive atom
+				pairs::Vector{Vector{Tuple{Int, Int}}} =
+					generate_combinations(cluster.atom_indices, cluster.cell_indices)
 				for partners::Vector{Tuple{Int, Int}} in pairs
 					atom_cells = Vector{AtomCell}([AtomCell(prim_atom_index, 1)])
 					for (atom_index, cell_index) in partners
@@ -566,7 +581,7 @@ function generate_combinations(
 )::Vector{Vector{Tuple{Int, Int}}}
 	@assert length(atom_indices) == length(cell_indices) "Vectors must have the same length."
 	@assert length(atom_indices) > 0 "Vectors must not be empty."
-	
+
 	result = Vector{Vector{Tuple{Int, Int}}}()
 	for comb in Iterators.product(cell_indices...)
 		pairs = [(atom_idx, cell_idx) for (atom_idx, cell_idx) in zip(atom_indices, comb)]
@@ -630,7 +645,10 @@ function print_info(cluster::Cluster)
 	for i in 2:cluster.num_bodies
 		println("\t$i-body: ", length(cluster.cluster_list[i-1]))
 		for j in eachindex(cluster.cluster_list[i-1])
-			cluster_str = join(["(atom: $(ac.atom), cell: $(ac.cell))" for ac in cluster.cluster_list[i-1][j]], ", ")
+			cluster_str = join(
+				["(atom: $(ac.atom), cell: $(ac.cell))" for ac in cluster.cluster_list[i-1][j]],
+				", ",
+			)
 			println("\t\t[$cluster_str]")
 		end
 	end
@@ -658,6 +676,133 @@ function print_info(structure::Structure, symmetry::Symmetry, cluster::Cluster):
 			println()
 		end
 		println()
+	end
+end
+
+# DistList is used to sort the distance information, only used in print_cluster_stdout
+struct DistList
+	atom::Int
+	dist::Float64
+end
+
+function Base.isless(a::DistList, b::DistList)
+	return a.dist < b.dist
+end
+
+"""
+	print_cluster_stdout(min_distance_pairs, atoms_in_prim, kd_name, kd_int_list)
+
+Prints the list of neighboring atoms and distances for each atom in the primitive cell.
+
+# Arguments
+- `min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}}`: Matrix of minimum distance pairs
+- `atoms_in_prim::AbstractVector{<:Integer}`: Indices of atoms in the primitive cell
+- `kd_name::AbstractVector{<:AbstractString}`: Names of atomic elements
+- `kd_int_list::AbstractVector{<:Integer}`: List of atom types
+
+# Throws
+- `AssertionError`: If input parameters are invalid
+"""
+function print_cluster_stdout(
+	min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
+	atoms_in_prim::AbstractVector{<:Integer},
+	kd_name::AbstractVector{<:AbstractString},
+	kd_int_list::AbstractVector{<:Integer},
+)
+	@assert length(atoms_in_prim) > 0 "atoms_in_prim must not be empty."
+	@assert length(kd_name) > 0 "kd_name must not be empty."
+	@assert length(kd_int_list) > 0 "kd_int_list must not be empty."
+
+	println("""
+
+	INTERACTION
+	===========
+	""")
+	
+	num_atoms::Int = size(min_distance_pairs, 1)
+	neighbor_list = Vector{Vector{DistList}}(undef, length(atoms_in_prim))
+
+	# Create neighbor list for each primitive atom
+	for (i_prim, i_prim_atom) in enumerate(atoms_in_prim)
+		neighbor_list[i_prim] = DistList[]
+		for j in 1:num_atoms
+			push!(neighbor_list[i_prim], DistList(j, min_distance_pairs[i_prim_atom, j][1].distance))
+		end
+		sort!(neighbor_list[i_prim])
+	end
+
+	println(" List of neighboring atoms below.")
+	println(" Format [N th-nearest shell, distance (Number of atoms on the shell)]")
+	println()
+
+	# Print neighbor information for each primitive atom
+	for (i_prim, i_prim_atom) in enumerate(atoms_in_prim)
+		nth_nearest = 0
+		atom_list = Int[]
+		
+		@printf("%5d (%3s): ", i_prim_atom, kd_name[kd_int_list[i_prim_atom]])
+		
+		dist_tmp = 0.0
+		
+		for j in 1:num_atoms
+			# Skip if distance is zero (same atom)
+			if neighbor_list[i_prim][j].dist < 1e-8
+				continue
+			end
+			
+			# Check if this is a new distance shell
+			if abs(neighbor_list[i_prim][j].dist - dist_tmp) > 1e-6
+				# Print previous shell if not empty
+				if !isempty(atom_list)
+					nth_nearest += 1
+					
+					if nth_nearest > 1
+						print(" " ^ 13)
+					end
+					
+					@printf("%3d%10.6f (%3d) -", nth_nearest, dist_tmp, length(atom_list))
+					
+					# Print atoms in this shell
+					for (k, atom_idx) in enumerate(atom_list)
+						if k > 1 && k % 4 == 1
+							println()
+							print(" " ^ 34)
+						end
+						@printf("%4d(%3s)", atom_idx, kd_name[kd_int_list[atom_idx]])
+					end
+					println()
+				end
+				
+				# Start new shell
+				dist_tmp = neighbor_list[i_prim][j].dist
+				atom_list = [neighbor_list[i_prim][j].atom]
+			else
+				# Add to current shell
+				push!(atom_list, neighbor_list[i_prim][j].atom)
+			end
+		end
+		
+		# Print the last shell if not empty
+		if !isempty(atom_list)
+			nth_nearest += 1
+			
+			if nth_nearest > 1
+				print(" " ^ 13)
+			end
+			
+			@printf("%3d%10.6f (%3d) -", nth_nearest, dist_tmp, length(atom_list))
+			
+			# Print atoms in this shell
+			for (k, atom_idx) in enumerate(atom_list)
+				if k > 1 && k % 4 == 1
+					println()
+					print(" " ^ 34)
+				end
+				@printf("%4d(%3s)", atom_idx, kd_name[kd_int_list[atom_idx]])
+			end
+			println()
+		end
+		println("\n")
 	end
 end
 
