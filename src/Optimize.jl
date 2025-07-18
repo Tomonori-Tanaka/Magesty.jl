@@ -130,7 +130,7 @@ struct Optimizer
 				Time Elapsed: %.6f sec.
 				""",
 				elapsed_time,
-			))	
+			))
 		end
 
 
@@ -162,7 +162,16 @@ function Optimizer(
 	# read datafile
 	spinconfig_list = read_embset(datafile, structure.supercell.num_atoms)
 
-	return Optimizer(structure, symmetry, basisset, alpha, lambda, weight, spinconfig_list, verbosity=verbosity)
+	return Optimizer(
+		structure,
+		symmetry,
+		basisset,
+		alpha,
+		lambda,
+		weight,
+		spinconfig_list,
+		verbosity = verbosity,
+	)
 end
 
 function Optimizer(
@@ -181,7 +190,7 @@ function Optimizer(
 		config.lambda,
 		config.weight,
 		config.datafile,
-		verbosity=verbosity,
+		verbosity = verbosity,
 	)
 end
 
@@ -217,13 +226,11 @@ function construct_design_matrix_energy(
 
 	for i in 1:num_salcs
 		for j in 1:num_spinconfigs
-			val =
-				calc_X_element_energy(
-					salc_list[i],
-					spinconfig_list[j].spin_directions,
-					symmetry,
-				)
-			design_matrix[j, i+1] = val
+			design_matrix[j, i+1] = calc_X_element_energy(
+				salc_list[i],
+				spinconfig_list[j].spin_directions,
+				symmetry,
+			)
 			initialize_check[j, i+1] = true
 		end
 	end
@@ -460,21 +467,17 @@ function calc_magfield_list_of_spinconfig(
 	num_atoms::Int,
 )::Vector{Float64}
 	# Preallocate the result vector
-	magfield_vertical_list = zeros(3 * num_atoms)
+	magfield_list = zeros(3 * num_atoms)
 
 	for iatom in 1:num_atoms
-		# Get local magnetic field using SVector for better performance
-		magfield_vertical =
-			SVector{3, Float64}(spinconfig.local_magfield_vertical[:, iatom])
 
 		# Calculate magfield_vertical and store in preallocated vector
 		idx = (iatom - 1) * 3 + 1
-		# Use SVector for the multiplication
-		result = spinconfig.magmom_size[iatom] * magfield_vertical
-		magfield_vertical_list[idx:(idx+2)] = result
+		magfield_list[idx:(idx+2)] =
+			spinconfig.magmom_size[iatom] * spinconfig.local_magfield_vertical[:, iatom]
 	end
 
-	return magfield_vertical_list
+	return magfield_list
 end
 
 
@@ -506,6 +509,8 @@ function calc_derivative_of_salc(
 		throw(ArgumentError("direction must be 1, 2, or 3"))
 	end
 
+	spin_dirs = [SVector{3, Float64}(spin_directions[:, i]) for i in axes(spin_directions, 2)]
+
 	derivative_function = d_Slm[direction]
 
 	result::Float64 = 0.0
@@ -516,18 +521,18 @@ function calc_derivative_of_salc(
 		atom ∉ [indices.atom for indices in basis] && continue
 
 		# Calculate product of spherical harmonics and their derivatives
-		product = 1.0
-		for indices in basis
-			# Use SVector for better performance with vector operations
-			spin_dir = SVector{3, Float64}(spin_directions[:, indices.atom])
-			if indices.atom == atom
-				product *= derivative_function(indices.l, indices.m, spin_dir)
-			else
-				product *= Sₗₘ(indices.l, indices.m, spin_dir)
+		@fastmath begin
+			product = 1.0
+			for indices in basis
+				if indices.atom == atom
+					product *=
+						derivative_function(indices.l, indices.m, @inbounds spin_dirs[indices.atom])
+				else
+					product *= Sₗₘ(indices.l, indices.m, @inbounds spin_dirs[indices.atom])
+				end
 			end
+			result += coeff * product * multiplicity
 		end
-
-		result += coeff * product * multiplicity
 	end
 
 	return result
@@ -562,8 +567,6 @@ function elastic_net_regression(
 	# weight parameters
 	w_e = 1 - weight
 	w_m = weight
-
-	num_atoms = length(observed_magfield_list[begin])/3
 
 	# Flatten observed magfield
 	observed_magfield_flattened = vcat(observed_magfield_list...)
