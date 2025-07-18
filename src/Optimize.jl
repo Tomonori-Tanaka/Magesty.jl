@@ -77,6 +77,9 @@ struct Optimizer
 		)
 
 		# construct observed_energy_list and observed_magfield_list
+		if verbosity
+			println("Constructing observed data for energy and magfield...")
+		end
 		observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_list]
 		observed_magfield_list =
 			Vector{Vector{Float64}}(undef, length(spinconfig_list))
@@ -121,12 +124,13 @@ struct Optimizer
 				predicted_magfield_list,
 			)
 			elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
-			println("""
+			println(@sprintf(
+				"""
 
-			Time Elapsed: %.6f sec.
-			""",
+				Time Elapsed: %.6f sec.
+				""",
 				elapsed_time,
-			)
+			))	
 		end
 
 
@@ -285,12 +289,13 @@ function construct_design_matrix_magfield(
 	# construct design matrix A in Ax = b
 	# [num_spindconif][3*num_atoms, num_salcs]
 	design_matrix_list = Vector{Matrix{Float64}}(undef, num_spinconfigs)
+	init_flags = fill(false, num_spinconfigs)
 
-	for i in eachindex(spinconfig_list)
-		design_matrix_list[i] = zeros(Float64, 3 * num_atoms, num_salcs)
+	@threads for i in eachindex(spinconfig_list)
+		M = zeros(Float64, 3 * num_atoms, num_salcs)
 		for row_idx in 1:(3*num_atoms)
 			for isalc in eachindex(salc_list)
-				design_matrix_list[i][row_idx, isalc] =
+				M[row_idx, isalc] =
 					calc_X_element_magfield(
 						salc_list[isalc],
 						spinconfig_list[i].spin_directions,
@@ -299,6 +304,17 @@ function construct_design_matrix_magfield(
 					)
 			end
 		end
+		design_matrix_list[i] = M
+		init_flags[i] = true
+	end
+
+	if false in init_flags
+		false_indices = findall(x -> x == false, init_flags)
+		error("""
+			Failed to initialize the design matrix for magfield.
+			False values found at indices: $false_indices
+			Full init_flags array: $init_flags
+			""")
 	end
 
 	design_matrix = vcat(design_matrix_list...)
