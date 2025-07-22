@@ -29,6 +29,10 @@ function convert2tensor(input::AbstractString, atoms::Vector{Int}, cell::Integer
 	
 	# Calculate tensor for atom2 -> atom1 (swapped)
 	result_backward = calculate_tensor_for_pair(doc, atom2, atom1, cell)
+	antisymmetric_part = 0.5*(result_backward - result_backward')
+	symmetric_part = 0.5*(result_backward + result_backward')
+	antisymmetric_part = antisymmetric_part'
+	result_backward = antisymmetric_part + symmetric_part
 	
 	# Add both tensors together
 	result = result_forward + result_backward
