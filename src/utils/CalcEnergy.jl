@@ -30,38 +30,36 @@ function calc_energy(
 	return dot(design_list, optimize.SCE) + optimize.reference_energy
 end
 
-# function calc_energy(xml_path::AbstractString, spin_config::AbstractMatrix)
-# 	try
-# 		xml_parsed = EzXML.readxml(xml_path)
-# 	catch e
-# 		throw(ArgumentError("Failed to read XML file: $xml_path, Error: $e"))
-# 	end
+function calc_magfield(
+	salc_list::AbstractVector{SALC},
+	spin_config::AbstractMatrix{<:Real},
+	symmetry::Symmetry,
+	optimize::Optimizer,
+)::Matrix{Float64}
+	if size(spin_config, 1) != 3
+		throw(ArgumentError("spin_config must be a 3xN matrix"))
+	end
 
-# 	root_node = root(xml_parsed) # root node name is "Magesty"
-# 	system_node = findfirst(root_node, "System")
-# 	num_atoms = parse(Int, nodecontent(findfirst(system_node, "NumberOfAtoms")))
+	num_atoms = size(spin_config, 2)
+	
+	# Calculate magnetic field for each atom in each direction (x, y, z)
+	magfield = zeros(3, num_atoms)
+	
+	for atom_idx in 1:num_atoms
+		for direction in 1:3
+			row_idx = 3 * (atom_idx - 1) + direction
+			
+			# Use calc_X_element_magfield for each SALC
+			for (i, salc) in enumerate(salc_list)
+				magfield[direction, atom_idx] += 
+					Optimize.calc_X_element_magfield(salc, spin_config, symmetry, row_idx) * 
+					optimize.SCE[i]
+			end
+		end
+	end
 
-# 	# check dimensions of spin_config
-# 	if size(spin_config, 2) != num_atoms
-# 		msg =
-# 			"""Number of atoms in XML file and spin_config (number of columns) do not match.\n""" *
-# 			"""  spin configuration size: $(size(spin_config))\n""" *
-# 			"""  number of atoms: $num_atoms"""
-# 		throw(ArgumentError(msg))
-# 	end
-#     sce_basis_set_node = findfirst(root_node, "SCEBasisSet")
-# 	num_salc = parse(Int, nodecontent(findfirst(sce_basis_set_node, "NumberOfSALCs")))
+	return magfield
+end
 
-# 	salc_list = Vector{SALC}()
-# 	for i in 1:num_salc
-# 		salc_node = findfirst(sce_basis_set_node, "SALC[index='$i']")
-# 		if salc_node === nothing
-# 			throw(ArgumentError("SALC with index $i not found"))
-# 		end
-# 		push!(salc_list, SALC(salc_node))
-# 	end
 
-# 	return salc_list
-# end
-
-end # module CalcEnergy
+end
