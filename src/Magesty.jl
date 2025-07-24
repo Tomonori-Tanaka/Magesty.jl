@@ -228,10 +228,12 @@ function SpinCluster(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool 
 
 	cluster::Cluster = Cluster(structure, symmetry, config_system, verbosity = verbosity)
 
-	basisset::BasisSet = BasisSet(structure, symmetry, cluster, config_system, verbosity = verbosity)
+	basisset::BasisSet =
+		BasisSet(structure, symmetry, cluster, config_system, verbosity = verbosity)
 
 	config_optimize::Config4Optimize = Config4Optimize(input_dict)
-	optimize::Optimizer = Optimizer(structure, symmetry, basisset, config_optimize, verbosity=verbosity)
+	optimize::Optimizer =
+		Optimizer(structure, symmetry, basisset, config_optimize, verbosity = verbosity)
 
 	return SpinCluster(structure, symmetry, cluster, basisset, optimize)
 end
@@ -286,7 +288,8 @@ function SpinCluster(
 		print_header()
 	end
 	config::Config4Optimize = Config4Optimize(input_dict)
-	optimize = Optimizer(system.structure, system.symmetry, system.basisset, config, verbosity=verbosity)
+	optimize =
+		Optimizer(system.structure, system.symmetry, system.basisset, config, verbosity = verbosity)
 	return SpinCluster(
 		system.structure,
 		system.symmetry,
@@ -320,7 +323,7 @@ function SpinCluster(
 		config.lambda,
 		config.weight,
 		spinconfig_list,
-		verbosity=verbosity,
+		verbosity = verbosity,
 	)
 	return SpinCluster(
 		system.structure,
@@ -354,7 +357,7 @@ spin_config = rand(3, sc.structure.supercell.num_atoms) # Random spin configurat
 energy = calc_energy(sc, spin_config)
 ```
 """
-function calc_energy(spincluster::SpinCluster, spin_config::AbstractMatrix{<:Real})
+function calc_energy(spincluster::SpinCluster, spin_config::AbstractMatrix{<:Real})::Float64
 	if spincluster.structure.supercell.num_atoms != size(spin_config, 2)
 		num_atoms = spincluster.structure.supercell.num_atoms
 		throw(
@@ -364,6 +367,23 @@ function calc_energy(spincluster::SpinCluster, spin_config::AbstractMatrix{<:Rea
 		)
 	end
 	return CalcEnergy.calc_energy(
+		spincluster.basisset.salc_list,
+		spin_config,
+		spincluster.symmetry,
+		spincluster.optimize,
+	)
+end
+
+function calc_magfield(spincluster::SpinCluster, spin_config::AbstractMatrix{<:Real})::Matrix{Float64}
+	if spincluster.structure.supercell.num_atoms != size(spin_config, 2)
+		num_atoms = spincluster.structure.supercell.num_atoms
+		throw(
+			ArgumentError(
+				"spin_config must be 3xN matrix where N is the number of atoms in the supercell. $num_atoms",
+			),
+		)
+	end
+	return CalcEnergy.calc_magfield(
 		spincluster.basisset.salc_list,
 		spin_config,
 		spincluster.symmetry,
@@ -464,7 +484,7 @@ function print_header()
 	println(
 		"""
 		+-----------------------------------+
-		          Magesty v$(Version.version_string())      
+				  Magesty v$(Version.version_string())      
 		+-----------------------------------+
 
 		Julia version: $(VERSION)
@@ -473,7 +493,7 @@ function print_header()
 
 		Job started at $(now())
 
-		""",)
+		""")
 end
 
 end # module Magesty
