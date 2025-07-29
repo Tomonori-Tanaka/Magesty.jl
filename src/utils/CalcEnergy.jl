@@ -41,7 +41,7 @@ function calc_magfield(
 	end
 
 	num_atoms = size(spin_config, 2)
-	
+
 	# Calculate magnetic field for each atom in each direction (x, y, z)
 	magfield = zeros(3, num_atoms)
 	
