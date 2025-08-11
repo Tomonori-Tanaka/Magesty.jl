@@ -22,10 +22,9 @@ function extract_energy_magmom(
 				continue
 			end
 
-			if collecting && (occursin(":", line)) # end of magmom section (":" is intended to such as "DAV:" or "RMM:" keyword)
+			if collecting && (occursin(":", line)) || (length(split(line)) ≠ 7) # end of magmom section (":" is intended to such as "DAV:" or "RMM:" keyword)
 				collecting = false
 				magmom_listoflist = deepcopy(magmom_temp_listoflist)
-				continue
 			end
 
 			if collecting
@@ -42,7 +41,7 @@ function extract_energy_magmom(
 					push!(magmom_temp_listoflist, [moment_x, moment_y, moment_z])
 				end
 			end
-
+			
 			# extract energy
 			if occursin("F=", line)
 				if energy_kind == "f"
