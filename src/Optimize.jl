@@ -51,7 +51,7 @@ struct Optimizer
 			""")
 		end
 
-		# construct design matrix for energy and magfield
+		# construct design matrix for energy and torque
 		if verbosity
 			println("Constructing design matrix for energy...")
 		end
@@ -61,25 +61,25 @@ struct Optimizer
 			symmetry,
 		)
 		if verbosity
-			println("Constructing design matrix for magfield...")
+			println("Constructing design matrix for torque...")
 		end
-		design_matrix_magfield = construct_design_matrix_magfield(
+		design_matrix_torque = construct_design_matrix_torque(
 			basisset.salc_list,
 			spinconfig_list,
 			structure.supercell.num_atoms,
 			symmetry,
 		)
 
-		# construct observed_energy_list and observed_magfield_list
+		# construct observed_energy_list and observed_torque_list
 		if verbosity
-			println("Constructing observed data for energy and magfield...")
+			println("Constructing observed data for energy and torque...")
 		end
 		observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_list]
-		observed_magfield_list =
+		observed_torque_list =
 			Vector{Vector{Float64}}(undef, length(spinconfig_list))
 		@threads for i in eachindex(spinconfig_list)
-			observed_magfield_list[i] =
-				calc_magfield_list_of_spinconfig(
+			observed_torque_list[i] =
+				calc_torque_list_of_spinconfig(
 					spinconfig_list[i],
 					structure.supercell.num_atoms,
 				)
@@ -90,18 +90,18 @@ struct Optimizer
 		end
 		j0, jphi = elastic_net_regression(
 			design_matrix_energy,
-			design_matrix_magfield,
+			design_matrix_torque,
 			observed_energy_list,
-			observed_magfield_list,
+			observed_torque_list,
 			alpha,
 			lambda,
 			weight,
 		)
 
 		predicted_energy_list = design_matrix_energy[:, 2:end] * jphi .+ j0
-		predicted_magfield_list = design_matrix_magfield * jphi
-		observed_magfield_list =
-			-1 * vcat(observed_magfield_list...)
+		predicted_torque_list = design_matrix_torque * jphi
+		observed_torque_list =
+			-1 * vcat(observed_torque_list...)
 
 		if verbosity
 			print_optimize_stdout(
@@ -109,8 +109,8 @@ struct Optimizer
 				jphi,
 				observed_energy_list,
 				predicted_energy_list,
-				observed_magfield_list,
-				predicted_magfield_list,
+				observed_torque_list,
+				predicted_torque_list,
 			)
 			elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
 			println(@sprintf(
@@ -123,7 +123,7 @@ struct Optimizer
 		end
 
 		write_energy(observed_energy_list, predicted_energy_list, "energy_list.txt")
-		write_torque(observed_magfield_list, predicted_magfield_list, "torque_list.txt")
+		write_torque(observed_torque_list, predicted_torque_list, "torque_list.txt")
 
 
 		return new(
@@ -269,7 +269,7 @@ function calc_X_element_energy(
 	return result
 end
 
-function construct_design_matrix_magfield(
+function construct_design_matrix_torque(
 	salc_list,
 	spinconfig_list,
 	num_atoms,
@@ -289,7 +289,7 @@ function construct_design_matrix_magfield(
 		for row_idx in 1:(3*num_atoms)
 			for isalc in eachindex(salc_list)
 				M[row_idx, isalc] =
-					calc_X_element_magfield(
+					calc_X_element_torque(
 						salc_list[isalc],
 						spinconfig_list[i].spin_directions,
 						symmetry,
@@ -304,7 +304,7 @@ function construct_design_matrix_magfield(
 	if false in init_flags
 		false_indices = findall(x -> x == false, init_flags)
 		error("""
-			Failed to initialize the design matrix for magfield.
+			Failed to initialize the design matrix for torque.
 			False values found at indices: $false_indices
 			Full init_flags array: $init_flags
 			""")
@@ -316,7 +316,7 @@ function construct_design_matrix_magfield(
 end
 
 """
-	calc_X_element_magfield(salc, spin_directions, symmetry, row_idx) -> Float64
+	calc_X_element_torque(salc, spin_directions, symmetry, row_idx) -> Float64
 
 Calculate an element of the design matrix X in the case of using the derivative of SALCs.
 
@@ -327,7 +327,7 @@ Calculate an element of the design matrix X in the case of using the derivative 
 - `row_idx::Integer`: Row index corresponding to atom and direction (3*(atom-1) + dir)
 
 """
-function calc_X_element_magfield(
+function calc_X_element_torque(
 	salc::SALC,
 	spin_directions::AbstractMatrix{<:Real},
 	symmetry::Symmetry,
@@ -347,26 +347,26 @@ function calc_X_element_magfield(
 end
 
 # """
-# 	ols_energy(design_matrix_energy, design_matrix_magfield,
+# 	ols_energy(design_matrix_energy, design_matrix_torque,
 # 	-> Tuple{Vector{Float64}, Float64, Float64, Float64, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}
 
 # Optimize SCE coefficients by using ordinary least squares method.
 
 # # Arguments
 # - `design_matrix_energy::AbstractMatrix{<:Real}`: Design matrix for energy prediction
-# - `design_matrix_magfield::AbstractMatrix{<:Real}`: Design matrix for magfield prediction
+# - `design_matrix_torque::AbstractMatrix{<:Real}`: Design matrix for torque prediction
 # - `observed_energy_list::Vector{Float64}`: Observed energy list
-# - `observed_magfield_list::Vector{Vector{Float64}}`: Observed magfield list
+# - `observed_torque_list::Vector{Vector{Float64}}`: Observed torque list
 
 # # Returns
 # - `Vector{Float64}`: Optimized SCE coefficients
 # - `Float64`: Bias term
-# - `Float64`: Relative error of magfield
+# - `Float64`: Relative error of torque
 # - `Float64`: Relative error of energy
 # - `Vector{Float64}`: Predicted energy list
 # - `Vector{Float64}`: Observed energy list
-# - `Vector{Float64}`: Predicted magfield flattened list
-# - `Vector{Float64}`: Observed magfield flattened list
+# - `Vector{Float64}`: Predicted torque flattened list
+# - `Vector{Float64}`: Observed torque flattened list
 # """
 # function ols_energy(
 # 	design_matrix_energy::AbstractMatrix{<:Real},
@@ -392,38 +392,38 @@ end
 # end
 
 # """
-# 	ols_magfield(design_matrix_energy, design_matrix_magfield, observed_energy_list, observed_magfield_list)
+# 	ols_torque(design_matrix_energy, design_matrix_torque, observed_energy_list, observed_torque_list)
 # 	-> Tuple{Vector{Float64}, Float64, Float64, Float64, Vector{Float64}, Vector{Float64}, Vector{Float64}, Vector{Float64}}
 
 # Optimize SCE coefficients by using ordinary least squares method.
 
 # # Arguments
 # - `design_matrix_energy::AbstractMatrix{<:Real}`: Design matrix for energy prediction
-# - `design_matrix_magfield::AbstractMatrix{<:Real}`: Design matrix for magfield prediction
+# - `design_matrix_torque::AbstractMatrix{<:Real}`: Design matrix for torque prediction
 # - `observed_energy_list::Vector{Float64}`: Observed energy list
-# - `observed_magfield_list::Vector{Vector{Float64}}`: Observed magfield list
+# - `observed_torque_list::Vector{Vector{Float64}}`: Observed torque list
 
 # # Returns
 # - `Vector{Float64}`: Optimized SCE coefficients
 # - `Float64`: Bias term
-# - `Float64`: Relative error of magfield
+# - `Float64`: Relative error of torque
 # - `Float64`: Relative error of energy
 # - `Vector{Float64}`: Predicted energy list
 # - `Vector{Float64}`: Observed energy list
-# - `Vector{Float64}`: Predicted magfield flattened list
-# - `Vector{Float64}`: Observed magfield flattened list
+# - `Vector{Float64}`: Predicted torque flattened list
+# - `Vector{Float64}`: Observed torque flattened list
 # """
-# function ols_magfield(
+# function ols_torque(
 # 	design_matrix_energy::AbstractMatrix{<:Real},
-# 	design_matrix_magfield::AbstractMatrix{<:Real},
+# 	design_matrix_torque::AbstractMatrix{<:Real},
 # 	observed_energy_list::Vector{Float64},
-# 	observed_magfield_list::Vector{Vector{Float64}},
+# 	observed_torque_list::Vector{Vector{Float64}},
 # )
-# 	observed_magfield_flattened = vcat(observed_magfield_list...)
-# 	observed_magfield_flattened = -1 * observed_magfield_flattened
+# 	observed_torque_flattened = vcat(observed_torque_list...)
+# 	observed_torque_flattened = -1 * observed_torque_flattened
 
-# 	# calculate SCE coefficients from magfield information
-# 	ols_coeffs = design_matrix_magfield \ observed_magfield_flattened
+# 	# calculate SCE coefficients from torque information
+# 	ols_coeffs = design_matrix_torque \ observed_torque_flattened
 
 # 	# calculate reference energy term
 # 	reference_energy =
@@ -433,9 +433,9 @@ end
 # end
 
 """
-	calc_magfield_vertical_list_of_spinconfig(spinconfig, num_atoms) -> Vector{Float64}
+	calc_torque_vertical_list_of_spinconfig(spinconfig, num_atoms) -> Vector{Float64}
 
-Calculate the vertical component of magfield vectors for each atom in the spin configuration.
+Calculate the vertical component of torque vectors for each atom in the spin configuration.
 
 
 # Arguments
@@ -446,24 +446,24 @@ Calculate the vertical component of magfield vectors for each atom in the spin c
 A flattened vector of length 3*num_atoms containing the vertical components:
 [B₁ₓ, B₁ᵧ, B₁ᵣ, B₂ₓ, B₂ᵧ, B₂ᵣ, ...]
 
-where Bᵢ = μᵢ × Hᵢ (magfield_vertical = magnetic moment × local magnetic field)
+where Bᵢ = μᵢ × Hᵢ (torque_vertical = magnetic moment × local magnetic field)
 """
-function calc_magfield_list_of_spinconfig(
+function calc_torque_list_of_spinconfig(
 	spinconfig::SpinConfig,
 	num_atoms::Int,
 )::Vector{Float64}
 	# Preallocate the result vector
-	magfield_list = zeros(3 * num_atoms)
+	torque_list = zeros(3 * num_atoms)
 
 	for iatom in 1:num_atoms
 
-		# Calculate magfield_vertical and store in preallocated vector
+		# Calculate torque_vertical and store in preallocated vector
 		idx = (iatom - 1) * 3 + 1
-		magfield_list[idx:(idx+2)] =
+		torque_list[idx:(idx+2)] =
 			spinconfig.magmom_size[iatom] * spinconfig.local_magfield_vertical[:, iatom]
 	end
 
-	return magfield_list
+	return torque_list
 end
 
 
@@ -543,9 +543,9 @@ end
 
 function elastic_net_regression(
 	design_matrix_energy::AbstractMatrix{<:Real},
-	design_matrix_magfield::AbstractMatrix{<:Real},
+	design_matrix_torque::AbstractMatrix{<:Real},
 	observed_energy_list::AbstractVector{<:Real},
-	observed_magfield_list::AbstractVector{<:AbstractVector{<:Real}},
+	observed_torque_list::AbstractVector{<:AbstractVector{<:Real}},
 	alpha::Real,
 	lambda::Real,
 	weight::Real,
@@ -554,38 +554,38 @@ function elastic_net_regression(
 	w_e = 1 - weight
 	w_m = weight
 
-	# Flatten observed magfield
-	observed_magfield_flattened = vcat(observed_magfield_list...)
-	observed_magfield_flattened = -1 * observed_magfield_flattened
+	# Flatten observed torque
+	observed_torque_flattened = vcat(observed_torque_list...)
+	observed_torque_flattened = -1 * observed_torque_flattened
 
 	# Normalize the design matrices by using factor of 1/2N_data and √weight
 	num_data = size(design_matrix_energy, 1)
 	normalized_design_matrix_energy =
 		design_matrix_energy .* sqrt(w_e)
 	normalized_design_matrix_energy[:, 1] .= 1.0
-	normalized_design_matrix_magfield =
-		design_matrix_magfield .* sqrt(w_m)
+	normalized_design_matrix_torque =
+		design_matrix_torque .* sqrt(w_m)
 
 	# Also normalise the observed vectors
 	normalized_observed_energy_list =
 		observed_energy_list .* sqrt(w_e)
-	normalized_observed_magfield_flattened =
-		observed_magfield_flattened .* sqrt(w_m)
+	normalized_observed_torque_flattened =
+		observed_torque_flattened .* sqrt(w_m)
 
-	# Add 0 bias term to the design matrix for magfield
+	# Add 0 bias term to the design matrix for torque
 	# to align with the energy design matrix
-	with_bias_design_matrix_magfield =
-		hcat(zeros(size(normalized_design_matrix_magfield, 1)), normalized_design_matrix_magfield)
+	with_bias_design_matrix_torque =
+		hcat(zeros(size(normalized_design_matrix_torque, 1)), normalized_design_matrix_torque)
 
 	# Construct the augmented design matrix
 	X = vcat(
 		normalized_design_matrix_energy,
-		with_bias_design_matrix_magfield,
+		with_bias_design_matrix_torque,
 	)
 
 	y = vcat(
 		normalized_observed_energy_list,
-		normalized_observed_magfield_flattened,
+		normalized_observed_torque_flattened,
 	)
 
 	# betas = X \ y
@@ -623,41 +623,41 @@ end
 	calc_relative_error(
 		sce_coeffs_with_ref_energy::AbstractVector{<:Real},
 		design_matrix_energy::AbstractMatrix{<:Real},
-		design_matrix_magfield::AbstractMatrix{<:Real},
+		design_matrix_torque::AbstractMatrix{<:Real},
 		observed_energy_list::AbstractVector{<:Real},
-		observed_magfield_list::AbstractVector{<:Real},
+		observed_torque_list::AbstractVector{<:Real},
 	) -> Tuple{Float64, Float64}
 
-Compute the relative errors of energy and magfield
+Compute the relative errors of energy and torque
 
 # Arguments
 - `sce_coeffs_with_ref_energy::AbstractVector{<:Real}`: SCE coefficients with reference energy
 - `design_matrix_energy::AbstractMatrix{<:Real}`: Design matrix for energy
-- `design_matrix_magfield::AbstractMatrix{<:Real}`: Design matrix for magfield
+- `design_matrix_torque::AbstractMatrix{<:Real}`: Design matrix for torque
 - `observed_energy_list::AbstractVector{<:Real}`: Observed energy list
-- `observed_magfield_list::AbstractVector{<:Real}`: Observed magfield list
+- `observed_torque_list::AbstractVector{<:Real}`: Observed torque list
 """
 function calc_relative_error(
 	sce_coeffs_with_ref_energy::AbstractVector{<:Real},
 	design_matrix_energy::AbstractMatrix{<:Real},
-	design_matrix_magfield::AbstractMatrix{<:Real},
+	design_matrix_torque::AbstractMatrix{<:Real},
 	observed_energy_list::AbstractVector{<:Real},
-	observed_magfield_list::AbstractVector{<:Real},
+	observed_torque_list::AbstractVector{<:Real},
 )::Tuple{Float64, Float64}
 	predicted_energy_list = design_matrix_energy * sce_coeffs_with_ref_energy
-	predicted_magfield_list =
-		design_matrix_magfield * sce_coeffs_with_ref_energy[2:end]
+	predicted_torque_list =
+		design_matrix_torque * sce_coeffs_with_ref_energy[2:end]
 	relative_error_energy::Float64 =
 		√(
 		sum((observed_energy_list .- predicted_energy_list) .^ 2) /
 		sum(observed_energy_list .^ 2),
 	)
-	relative_error_magfield::Float64 =
+	relative_error_torque::Float64 =
 		√(
-		sum((observed_magfield_list .- predicted_magfield_list) .^ 2) /
-		sum(observed_magfield_list .^ 2),
+		sum((observed_torque_list .- predicted_torque_list) .^ 2) /
+		sum(observed_torque_list .^ 2),
 	)
-	return relative_error_energy, relative_error_magfield
+	return relative_error_energy, relative_error_torque
 end
 
 
@@ -687,17 +687,17 @@ function print_optimize_stdout(
 	sce_list::AbstractVector{<:Real},
 	observed_energy_list::AbstractVector{<:Real},
 	predicted_energy_list::AbstractVector{<:Real},
-	observed_magfield_list::AbstractVector{<:Real},
-	predicted_magfield_list::AbstractVector{<:Real},
+	observed_torque_list::AbstractVector{<:Real},
+	predicted_torque_list::AbstractVector{<:Real},
 )
 
 	rmse_energy = calc_rmse(observed_energy_list, predicted_energy_list)
-	rmse_magfield = calc_rmse(observed_magfield_list, predicted_magfield_list)
+	rmse_torque = calc_rmse(observed_torque_list, predicted_torque_list)
 	relative_error_energy = calc_relative_error(observed_energy_list, predicted_energy_list)
-	relative_error_magfield = calc_relative_error(observed_magfield_list, predicted_magfield_list)
+	relative_error_torque = calc_relative_error(observed_torque_list, predicted_torque_list)
 
 	delta_energy = (1/2)*mean((observed_energy_list - predicted_energy_list) .^ 2)
-	delta_magfield = (1/2)*mean((observed_magfield_list - predicted_magfield_list) .^ 2)
+	delta_torque = (1/2)*mean((observed_torque_list - predicted_torque_list) .^ 2)
 
 	println(@sprintf("   E_ref: %.10f", reference_energy))
 	for (i, sce) in enumerate(sce_list)
@@ -714,7 +714,7 @@ function print_optimize_stdout(
 		Delta_B: %.10f (meV)^2
 		""",
 		delta_energy * 1e6,
-		delta_magfield * 1e6,
+		delta_torque * 1e6,
 	))
 
 	println(@sprintf(
@@ -725,7 +725,7 @@ function print_optimize_stdout(
 		RMSE for magnetic field: %.4f meV
 		""",
 		rmse_energy * 1000,
-		rmse_magfield * 1000,
+		rmse_torque * 1000,
 	))
 	println(
 		@sprintf(
@@ -736,7 +736,7 @@ function print_optimize_stdout(
 			Relative error for magnetic field: %.4f %%
 			""",
 			relative_error_energy * 100,
-			relative_error_magfield * 100,
+			relative_error_torque * 100,
 		)
 	)
 end
@@ -794,8 +794,8 @@ function write_energy(
 end
 
 function write_torque(
-	observed_magfield_list::AbstractVector{<:Real},
-	predicted_magfield_list::AbstractVector{<:Real},
+	observed_torque_list::AbstractVector{<:Real},
+	predicted_torque_list::AbstractVector{<:Real},
 	filename::AbstractString = "torque_list.txt",
 )
 	# Write to file
@@ -805,8 +805,8 @@ function write_torque(
 			println(f, "#Data_num,    DFT_torque,    SCE_torque")
 
 			# Write data
-			idx_width = ndigits(length(observed_magfield_list))
-			for (i, (obs, pred)) in enumerate(zip(observed_magfield_list, predicted_magfield_list))
+			idx_width = ndigits(length(observed_torque_list))
+			for (i, (obs, pred)) in enumerate(zip(observed_torque_list, predicted_torque_list))
 				str = @sprintf(
 					" %*d    %15.10f    %15.10f\n",
 					idx_width,

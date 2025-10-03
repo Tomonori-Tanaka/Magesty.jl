@@ -17,18 +17,11 @@ using Magesty
 # Load configuration from a TOML file
 sc = SpinCluster("config.toml")
 
-
-# Output energy lists
-write_energy_lists(sc)
 ```
 
 # Main Types
 - `System`: Collection of structure, symmetry, cluster, and basis set
 - `SpinCluster`: Extension of System with optimization capabilities
-
-# Main Functions
-- `write_energy_lists`: Output energy lists to a file
-- `write_magfield_vertical_list`: Output magnetic field vertical components to a file
 
 # Submodules
 - `Structures`: Crystal structure processing
@@ -77,9 +70,7 @@ using .Write
 include("utils/CalcEnergy.jl")
 using .CalcEnergy
 
-export System,
-	SpinCluster, write_energy_lists, write_magfield_vertical_list, VERSION,
-	Write
+export System, SpinCluster, VERSION
 
 """
 	System
@@ -374,7 +365,7 @@ function calc_energy(spincluster::SpinCluster, spin_config::AbstractMatrix{<:Rea
 	)
 end
 
-function calc_magfield(spincluster::SpinCluster, spin_config::AbstractMatrix{<:Real})::Matrix{Float64}
+function calc_torque(spincluster::SpinCluster, spin_config::AbstractMatrix{<:Real})::Matrix{Float64}
 	if spincluster.structure.supercell.num_atoms != size(spin_config, 2)
 		num_atoms = spincluster.structure.supercell.num_atoms
 		throw(
@@ -383,7 +374,7 @@ function calc_magfield(spincluster::SpinCluster, spin_config::AbstractMatrix{<:R
 			),
 		)
 	end
-	return CalcEnergy.calc_magfield(
+	return CalcEnergy.calc_torque(
 		spincluster.basisset.salc_list,
 		spin_config,
 		spincluster.symmetry,
@@ -446,17 +437,6 @@ function write_xml(
 		filename;
 		write_jphi = write_jphi,
 	)
-end
-
-function write_energy(sc::SpinCluster, filename::AbstractString = "energy.txt")
-	Write.write_energy(sc.optimize, filename)
-end
-
-function write_magfield(
-	sc::SpinCluster,
-	filename::AbstractString = "magfield.txt",
-)
-	Write.write_magfield(sc.optimize, filename)
 end
 
 """
