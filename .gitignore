@@ -3,5 +3,6 @@
 .github/
 **/.DS_Store
 .DS_Store
+*_list.txt
 
 /test/develop_tmp/*

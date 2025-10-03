@@ -27,11 +27,6 @@ struct Optimizer
 	spinconfig_list::Vector{SpinConfig}
 	reference_energy::Float64
 	SCE::Vector{Float64}
-	predicted_energy_list::Vector{Float64}
-	observed_energy_list::Vector{Float64}
-	predicted_magfield_list::Vector{Float64}
-	observed_magfield_list::Vector{Float64}
-	rmse_energy::Float64  # Root Mean Square Error for energy
 
 	function Optimizer(
 		structure::Structure,
@@ -108,11 +103,6 @@ struct Optimizer
 		observed_magfield_list =
 			-1 * vcat(observed_magfield_list...)
 
-		# Calculater RMSE for energy
-		rmse_energy = sqrt(
-			mean((observed_energy_list .- predicted_energy_list) .^ 2),
-		)
-
 		if verbosity
 			print_optimize_stdout(
 				j0,
@@ -132,16 +122,14 @@ struct Optimizer
 			))
 		end
 
+		write_energy(observed_energy_list, predicted_energy_list, "energy_list.txt")
+		write_torque(observed_magfield_list, predicted_magfield_list, "torque_list.txt")
+
 
 		return new(
 			spinconfig_list,
 			j0,
 			jphi,
-			predicted_energy_list,
-			observed_energy_list,
-			predicted_magfield_list,
-			observed_magfield_list,
-			rmse_energy,
 		)
 	end
 end
@@ -770,6 +758,69 @@ function calc_relative_error(
 		throw(ArgumentError("The lengths of the two lists must be equal."))
 	end
 	return sqrt(sum((observed_list .- predicted_list) .^ 2) / sum(observed_list .^ 2))
+end
+
+
+function write_energy(
+	observed_energy_list::AbstractVector{<:Real},
+	predicted_energy_list::AbstractVector{<:Real},
+	filename::AbstractString = "energy_list.txt",
+)
+
+	# Write to file
+	try
+		open(filename, "w") do f
+			# Write header
+			println(f, "#Data_num,    DFT_Energy,    SCE_Energy")
+
+			# Write data
+			idx_width = ndigits(length(observed_energy_list))
+			for (i, (obs, pred)) in enumerate(zip(observed_energy_list, predicted_energy_list))
+				str = @sprintf(
+					" %*d    %15.10f    %15.10f\n",
+					idx_width,
+					i,
+					obs,
+					pred
+				)
+				write(f, str)
+			end
+		end
+	catch e
+		@error "Failed to write lists to file" exception = (e, catch_backtrace())
+		rethrow(e)
+	end
+
+end
+
+function write_torque(
+	observed_magfield_list::AbstractVector{<:Real},
+	predicted_magfield_list::AbstractVector{<:Real},
+	filename::AbstractString = "torque_list.txt",
+)
+	# Write to file
+	try
+		open(filename, "w") do f
+			# Write header
+			println(f, "#Data_num,    DFT_torque,    SCE_torque")
+
+			# Write data
+			idx_width = ndigits(length(observed_magfield_list))
+			for (i, (obs, pred)) in enumerate(zip(observed_magfield_list, predicted_magfield_list))
+				str = @sprintf(
+					" %*d    %15.10f    %15.10f\n",
+					idx_width,
+					i,
+					obs,
+					pred
+				)
+				write(f, str)
+			end
+		end
+	catch e
+		@error "Failed to write lists to file" exception = (e, catch_backtrace())
+		rethrow(e)
+	end
 end
 
 end
