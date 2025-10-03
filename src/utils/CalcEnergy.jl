@@ -30,7 +30,7 @@ function calc_energy(
 	return dot(design_list, optimize.SCE) + optimize.reference_energy
 end
 
-function calc_magfield(
+function calc_torque(
 	salc_list::AbstractVector{SALC},
 	spin_config::AbstractMatrix{<:Real},
 	symmetry::Symmetry,
@@ -43,22 +43,22 @@ function calc_magfield(
 	num_atoms = size(spin_config, 2)
 
 	# Calculate magnetic field for each atom in each direction (x, y, z)
-	magfield = zeros(3, num_atoms)
+	torque = zeros(3, num_atoms)
 	
 	for atom_idx in 1:num_atoms
 		for direction in 1:3
 			row_idx = 3 * (atom_idx - 1) + direction
 			
-			# Use calc_X_element_magfield for each SALC
+			# Use calc_X_element_torque for each SALC
 			for (i, salc) in enumerate(salc_list)
-				magfield[direction, atom_idx] += 
-					Optimize.calc_X_element_magfield(salc, spin_config, symmetry, row_idx) * 
+				torque[direction, atom_idx] += 
+					Optimize.calc_X_element_torque(salc, spin_config, symmetry, row_idx) * 
 					optimize.SCE[i]
 			end
 		end
 	end
 
-	return magfield
+	return torque
 end
 
 
