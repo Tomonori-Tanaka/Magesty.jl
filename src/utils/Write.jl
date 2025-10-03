@@ -119,48 +119,6 @@ function write_xml(structure::Structure,
 	end
 end
 
-function write_energy(optimize::Optimizer, filename::AbstractString = "energy.txt")
-	# Input validation
-	if isempty(optimize.spinconfig_list)
-		@warn "No spin configurations found in optimizer"
-		return
-	end
-
-	# Prepare data
-	observed_energy_list =
-		[spinconfig.energy for spinconfig in optimize.spinconfig_list]
-	predicted_energy_list = optimize.predicted_energy_list
-
-	# Format header
-	header = "# Observed_Energy" * " "^4 * "Predicted_Energy"
-
-	write_list_to_file(observed_energy_list, predicted_energy_list, filename, header)
-end
-
-function write_magfield(
-	optimize::Optimizer,
-	filename::AbstractString = "magfield.txt",
-)
-	# Input validation
-	if isempty(optimize.spinconfig_list)
-		@warn "No spin configurations found in optimizer"
-		return
-	end
-
-	# Prepare data
-	observed_magfield_list = optimize.observed_magfield_list
-	predicted_magfield_list = optimize.predicted_magfield_list
-
-	# Format header
-	header = "# Observed_magnetic_field" * " "^4 * "Predicted_magnetic_field"
-
-	write_list_to_file(
-		observed_magfield_list,
-		predicted_magfield_list,
-		filename,
-		header,
-	)
-end
 
 """
 	write_list_to_file(data_list::AbstractVector, predicted_list::AbstractVector, filename::AbstractString, header::AbstractString)

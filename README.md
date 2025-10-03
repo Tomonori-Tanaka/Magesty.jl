@@ -54,7 +54,7 @@ For detailed examples, please refer to the `test/examples` directory.
 - `calc_energy(spin_cluster, spin_config)`: Calculate energy for spin configuration
 - `write_xml(spin_cluster, filename)`: Output results in XML format
 - `write_energy(spin_cluster, filename)`: Output energy lists
-- `write_magfield(spin_cluster, filename)`: Output magnetic field data
+- `write_torque(spin_cluster, filename)`: Output magnetic field data
 - `get_j0(spin_cluster)`: Get reference energy
 - `get_jphi(spin_cluster)`: Get SCE coefficients
 
