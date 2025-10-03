@@ -777,7 +777,7 @@ function write_energy(
 			idx_width = ndigits(length(observed_energy_list))
 			for (i, (obs, pred)) in enumerate(zip(observed_energy_list, predicted_energy_list))
 				str = @sprintf(
-					" %*d    %15.10f    %15.10f\n",
+					" %*d    %15.10e    %15.10e\n",
 					idx_width,
 					i,
 					obs,
@@ -808,7 +808,7 @@ function write_torque(
 			idx_width = ndigits(length(observed_torque_list))
 			for (i, (obs, pred)) in enumerate(zip(observed_torque_list, predicted_torque_list))
 				str = @sprintf(
-					" %*d    %15.10f    %15.10f\n",
+					" %*d    %15.10e    %15.10e\n",
 					idx_width,
 					i,
 					obs,
