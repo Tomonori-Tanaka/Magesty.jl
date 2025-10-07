@@ -7,7 +7,7 @@ using .SpinConfigs
 
 # function to plot the histogram of magmom
 function plot_histogram(
-	input_path::AbstractString,
+	input::AbstractString,
 	n_atoms::Integer,
 	target_atom_indices::AbstractVector{<:Integer},
 	min_bound::Union{<:Real, Nothing},
@@ -16,8 +16,8 @@ function plot_histogram(
 	vertical_lines::Union{AbstractVector{<:Real}, Nothing},
 )
 	# check the input file
-	if !isfile(input_path)
-		error("The input file does not exist: $input_path")
+	if !isfile(input)
+		error("The input file does not exist: $input")
 	end
 
 	# check the total atoms
@@ -26,7 +26,7 @@ function plot_histogram(
 	end
 
 	# read the input file
-	embset::Vector{SpinConfig} = read_embset(input_path, n_atoms)
+	embset::Vector{SpinConfig} = read_embset(input, n_atoms)
 
 	# determine the target atoms
 	target_atoms = (-1 in target_atom_indices) ? collect(1:n_atoms) : target_atom_indices
@@ -80,7 +80,7 @@ s = ArgParseSettings(
 	description = "Plot the histogram of magmom from an EMBSET.txt format file",
 )
 @add_arg_table s begin
-	"--input_path", "-i"
+	"--input", "-i"
 	help = "The input file (i.e. EMBSET.txt)"
 	required = true
 
@@ -116,7 +116,7 @@ end
 parsed_args = parse_args(ARGS, s)
 
 plot_histogram(
-	parsed_args["input_path"],
+	parsed_args["input"],
 	parsed_args["n_atoms"],
 	parsed_args["atoms"],
 	parsed_args["min_bound"],
