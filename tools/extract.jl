@@ -41,7 +41,7 @@ function extract_energy_magmom(
 					push!(magmom_temp_listoflist, [moment_x, moment_y, moment_z])
 				end
 			end
-			
+
 			# extract energy
 			if occursin("F=", line)
 				if energy_kind == "f"
@@ -94,7 +94,12 @@ function extract_magfield(file::String, num_atoms::Int)::Matrix{Float64}
 	return magfield_matrix
 end
 
-function print_embset(concated_data::Matrix{Float64}, energy::Float64, idx::Int, file::AbstractString)
+function print_embset(
+	concated_data::Matrix{Float64},
+	energy::Float64,
+	idx::Int,
+	file::AbstractString,
+)
 	println(
 		"# $idx, $file, energy unit = eV, magmom unit = Bohr magneton, magnetic field unit = T",
 	)
@@ -111,14 +116,18 @@ function print_embset(concated_data::Matrix{Float64}, energy::Float64, idx::Int,
 end
 
 
-s = ArgParseSettings()
+s = ArgParseSettings(
+	description = """
+Extract the energy, magnetic moments, and local magnetic field from the OUTCAR file and print the result in the EMBSET format.
+""",
+)
 @add_arg_table s begin
 	"--energy_kind", "-e"
 	help = "The kind of energy. f: free energy, e0: energy(sigma->0)"
 	default = "f"
 
 	"--mint"
-	help = "flag to extract magnetic moment from \"M_int\""
+	help = "flag to extract magnetic moment from \"M_int\". If not specified, the magnetic moment is extracted from \"MW_int\". Usually, you should not use this flag."
 	action = :store_true
 
 	"--saxis", "-s"
