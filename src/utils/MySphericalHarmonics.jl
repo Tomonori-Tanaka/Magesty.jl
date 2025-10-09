@@ -605,9 +605,9 @@ validate_r̂z(-2.0)   # Throws ArgumentError
 ```
 """
 function validate_r̂z(r̂z::Real)
-	r̂z < -1.0 ||
-		r̂z > 1.0 &&
-			throw(ArgumentError("r̂z must be in the range [-1, 1] (got r̂z = $r̂z)"))
+	if r̂z < -1.0 || r̂z > 1.0
+		throw(ArgumentError("r̂z must be in the range [-1, 1] (got r̂z = $r̂z)"))
+	end
 	return nothing
 end
 
