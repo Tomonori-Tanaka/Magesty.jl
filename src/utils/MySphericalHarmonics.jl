@@ -26,7 +26,7 @@ export Sₗₘ, d_Slm, ∂ᵢSlm
 	P̄ₗₘ(l::Integer, m::Integer, r̂z::Real) -> Float64
 	P̄ₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
-Compute the normalized associated Legendre polynomial P̄ₗₘ.
+Compute P̄ₗₘ (Drautz's convention).
 
 # Arguments
 - `l`: Angular momentum quantum number (≥ 0)
@@ -34,12 +34,9 @@ Compute the normalized associated Legendre polynomial P̄ₗₘ.
 - `r̂z`: Cosine of polar angle, cos(θ) ∈ [-1,1]
 - `uvec`: Alternative input as normalized 3D direction vector
 
-# Returns
-- Normalized associated Legendre polynomial value
-
 # Mathematical Details
-The normalization follows Drautz's convention:
-P̄ₗₘ = (-1)ᵐ √((2l+1)/(4π) * (l-m)!/(l+m)!) * Pₗₘ
+Drautz's convention:
+P̄ₗₘ = (-1)ᵐ √((2l+1)/(4π) * (l-m)!/(l+m)!) * d^m/d(r̂z)^m Pₗ
 
 where Pₗₘ includes the Condon-Shortley phase from LegendrePolynomials.jl.
 
@@ -61,7 +58,7 @@ function P̄ₗₘ(l::Integer, m::Integer, r̂z::Real)::Float64
 	validate_r̂z(r̂z)
 
 	const_factor = √((2l + 1) / (4π))
-	factorial_ratio = √(factorial(l - m) / factorial(l + m))
+	factorial_ratio = √(factorial(l - abs(m)) / factorial(l + abs(m)))
 	phase = (-1)^m
 
 	return phase * const_factor * factorial_ratio * dnPl(r̂z, l, m)
@@ -76,7 +73,7 @@ end
 	dP̄ₗₘ(l::Integer, m::Integer, r̂z::Real) -> Float64
 	dP̄ₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
-Compute the derivative of the normalized associated Legendre polynomial with respect to r̂z (cos θ).
+Compute the derivative of P̄ₗₘ with respect to r̂z (cos θ).
 
 # Arguments
 - `l`: Angular momentum quantum number (≥ 0)
@@ -89,7 +86,7 @@ Compute the derivative of the normalized associated Legendre polynomial with res
 
 # Mathematical Details
 The derivative is computed using the relationship:
-dP̄ₗₘ/dr̂z = (-1)ᵐ √((2l+1)/(4π) * (l-m)!/(l+m)!) * dPₗₘ/dr̂z
+dP̄ₗₘ/dr̂z = (-1)ᵐ √((2l+1)/(4π) * (l-m)!/(l+m)!) * d^(m+1)/d(r̂z)^(m+1) Pₗ
 
 where dPₗₘ/dr̂z is computed using the LegendrePolynomials.jl package.
 
@@ -106,7 +103,7 @@ dP̄ₗₘ(2, 1, [0.0, 0.0, 1.0])  # Vector input
 function dP̄ₗₘ(l::Integer, m::Integer, r̂z::Real)::Float64
 	validate_lm(l, m)
 	validate_r̂z(r̂z)
-	normalization = √((2l + 1) / (4π) * factorial(l - m) / factorial(l + m))
+	normalization = √((2l + 1) / (4π) * factorial(l - abs(m)) / factorial(l + abs(m)))
 	phase = (-1)^m
 
 	return phase * normalization * dnPl(r̂z, l, m + 1)
