@@ -112,14 +112,14 @@ function parse_file(file::String)::Tuple{Vector{Float64}, Vector{Float64}}
 
 	# Validate that each line has exactly two elements
 	for (i, line) in enumerate(parsed_lines)
-		if length(line) != 2
+		if length(line) != 3
 			error("Line $i has $(length(line)) elements, expected 2")
 		end
 	end
 
 	# Convert to two vectors
-	observed = [line[1] for line in parsed_lines]
-	predicted = [line[2] for line in parsed_lines]
+	observed = [line[2] for line in parsed_lines]
+	predicted = [line[3] for line in parsed_lines]
 
 	return observed, predicted
 end

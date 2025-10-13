@@ -137,7 +137,8 @@ struct Config4System
 		structure_dict = input_dict["structure"]
 		lattice_vectors = hcat(structure_dict["lattice"]...)
 		kd_int_list = structure_dict["kd_list"]::Vector{Int}
-		positions = structure_dict["position"]::Vector{Vector{Float64}}
+		positions_any = structure_dict["position"]
+		positions = [Float64.(vec) for vec in positions_any]
 		x_fractional = parse_position(positions, num_atoms)
 
 		# Validate parameters
