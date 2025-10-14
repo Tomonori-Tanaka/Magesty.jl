@@ -27,6 +27,7 @@ struct Optimizer
 	spinconfig_list::Vector{SpinConfig}
 	reference_energy::Float64
 	SCE::Vector{Float64}
+	metrics::Dict{Symbol, Any}
 
 	function Optimizer(
 		structure::Structure,
@@ -103,24 +104,24 @@ struct Optimizer
 		observed_torque_list =
 			-1 * vcat(observed_torque_list...)
 
+		metrics = calc_metrics(
+			observed_energy_list,
+			predicted_energy_list,
+			observed_torque_list,
+			predicted_torque_list,
+		)
+
 		if verbosity
-			print_optimize_stdout(
-				j0,
-				jphi,
-				observed_energy_list,
-				predicted_energy_list,
-				observed_torque_list,
-				predicted_torque_list,
-			)
-			elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
+			print_metrics(metrics)
+
 			println(@sprintf(
 				"""
 
 				Time Elapsed: %.6f sec.
 				""",
-				elapsed_time,
+				(time_ns() - start_time) / 1e9,
 			))
-		end
+		end	
 
 		write_energy(observed_energy_list, predicted_energy_list, "energy_list.txt")
 		write_torque(observed_torque_list, predicted_torque_list, "torque_list.txt")
@@ -130,6 +131,7 @@ struct Optimizer
 			spinconfig_list,
 			j0,
 			jphi,
+			metrics,
 		)
 	end
 end
@@ -693,29 +695,11 @@ function print_optimize_stdout(
 
 	rmse_energy = calc_rmse(observed_energy_list, predicted_energy_list)
 	rmse_torque = calc_rmse(observed_torque_list, predicted_torque_list)
-	relative_error_energy = calc_relative_error(observed_energy_list, predicted_energy_list)
-	relative_error_torque = calc_relative_error(observed_torque_list, predicted_torque_list)
-
-	delta_energy = (1/2)*mean((observed_energy_list - predicted_energy_list) .^ 2)
-	delta_torque = (1/2)*mean((observed_torque_list - predicted_torque_list) .^ 2)
 
 	println(@sprintf("   E_ref: %.10f", reference_energy))
 	for (i, sce) in enumerate(sce_list)
 		println(@sprintf("%8d: %15.10f", i, sce))
 	end
-
-	println(@sprintf(
-		"""
-
-		Loss function part
-		------------------
-		L = (1-w)*Delta_E + w*Delta_B
-		Delta_E: %.10f (meV)^2
-		Delta_B: %.10f (meV)^2
-		""",
-		delta_energy * 1e6,
-		delta_torque * 1e6,
-	))
 
 	println(@sprintf(
 		"""
@@ -727,18 +711,6 @@ function print_optimize_stdout(
 		rmse_energy * 1000,
 		rmse_torque * 1000,
 	))
-	println(
-		@sprintf(
-			"""
-			Relative Errors
-			---------------
-			Relative error for energy: %.4f %%
-			Relative error for magnetic field: %.4f %%
-			""",
-			relative_error_energy * 100,
-			relative_error_torque * 100,
-		)
-	)
 end
 
 function calc_rmse(list1::AbstractVector{<:Real}, list2::AbstractVector{<:Real})::Float64
@@ -749,17 +721,53 @@ function calc_rmse(list1::AbstractVector{<:Real}, list2::AbstractVector{<:Real})
 	return sqrt(mean((list1 .- list2) .^ 2))
 end
 
-function calc_relative_error(
+function calc_r2score(
 	observed_list::AbstractVector{<:Real},
 	predicted_list::AbstractVector{<:Real},
 )::Float64
-	# Calculate the relative error between observed and predicted lists
-	if length(observed_list) != length(predicted_list)
-		throw(ArgumentError("The lengths of the two lists must be equal."))
-	end
-	return sqrt(sum((observed_list .- predicted_list) .^ 2) / sum(observed_list .^ 2))
+	# R² = 1 - (SS_res / SS_tot)
+	# SS_res = Σ(y_observed - y_predicted)²
+	# SS_tot = Σ(y_observed - y_mean)²
+	ss_res = sum((observed_list .- predicted_list) .^ 2)
+	ss_tot = sum((observed_list .- mean(observed_list)) .^ 2)
+	return 1 - ss_res / ss_tot
 end
 
+function calc_metrics(
+	observed_energy_list::AbstractVector{<:Real},
+	predicted_energy_list::AbstractVector{<:Real},
+	observed_torque_list::AbstractVector{<:Real},
+	predicted_torque_list::AbstractVector{<:Real},
+)::Dict{Symbol, Any}
+	return Dict(
+		:rmse_energy => calc_rmse(observed_energy_list, predicted_energy_list),
+		:rmse_torque => calc_rmse(observed_torque_list, predicted_torque_list),
+		:r2score_energy => calc_r2score(observed_energy_list, predicted_energy_list),
+		:r2score_torque => calc_r2score(observed_torque_list, predicted_torque_list),
+	)
+end
+
+function print_metrics(
+	metrics::Dict{Symbol, Any},
+)
+	println(@sprintf(
+		"""
+		Root Mean Square Error (RMSE)
+		-----------------------------
+		RMSE for energy: %.6f meV
+		RMSE for magnetic field: %.6f meV
+		
+		R^2 Score
+		---------
+		R^2 for energy: %.6f
+		R^2 for magnetic field: %.6f
+		""",
+		metrics[:rmse_energy] * 1000,
+		metrics[:rmse_torque] * 1000,
+		metrics[:r2score_energy],
+		metrics[:r2score_torque],
+	))
+end
 
 function write_energy(
 	observed_energy_list::AbstractVector{<:Real},
@@ -777,7 +785,7 @@ function write_energy(
 			idx_width = ndigits(length(observed_energy_list))
 			for (i, (obs, pred)) in enumerate(zip(observed_energy_list, predicted_energy_list))
 				str = @sprintf(
-					" %*d    %15.10e    %15.10e\n",
+					" %*d    % 15.10e    % 15.10e\n",
 					idx_width,
 					i,
 					obs,
@@ -808,7 +816,7 @@ function write_torque(
 			idx_width = ndigits(length(observed_torque_list))
 			for (i, (obs, pred)) in enumerate(zip(observed_torque_list, predicted_torque_list))
 				str = @sprintf(
-					" %*d    %15.10e    %15.10e\n",
+					" %*d    % 15.10e    % 15.10e\n",
 					idx_width,
 					i,
 					obs,
