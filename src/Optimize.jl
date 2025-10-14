@@ -77,7 +77,7 @@ struct Optimizer
 		end
 		observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_list]
 		observed_torque_list =
-			Vector{Vector{Float64}}(undef, length(spinconfig_list))
+			Vector{Matrix{Float64}}(undef, length(spinconfig_list))
 		@threads for i in eachindex(spinconfig_list)
 			observed_torque_list[i] =
 				calc_torque_list_of_spinconfig(
@@ -100,9 +100,23 @@ struct Optimizer
 		)
 
 		predicted_energy_list = design_matrix_energy[:, 2:end] * jphi .+ j0
-		predicted_torque_list = design_matrix_torque * jphi
-		observed_torque_list =
-			-1 * vcat(observed_torque_list...)
+		predicted_torque_flattened_list::Vector{Float64} = design_matrix_torque * jphi
+
+		# Reshape predicted_torque_flattened_list to a vector of matrices
+		block_size = 3 * structure.supercell.num_atoms
+		num_configs = length(spinconfig_list)
+		predicted_torque_list::Vector{Matrix{Float64}} = [
+			reshape(
+				predicted_torque_flattened_list[((i-1)*block_size+1):(i*block_size)],
+				3,
+				structure.supercell.num_atoms,
+			)
+			for i in 1:num_configs
+		]
+
+		# Reshape observed_torque_list to a vector of matrices
+		observed_torque_flattened_list::Vector{Float64} =
+			-1 * vcat(vec.(observed_torque_list)...)
 
 		metrics = calc_metrics(
 			observed_energy_list,
@@ -121,10 +135,16 @@ struct Optimizer
 				""",
 				(time_ns() - start_time) / 1e9,
 			))
-		end	
+		end
 
 		write_energy(observed_energy_list, predicted_energy_list, "energy_list.txt")
-		write_torque(observed_torque_list, predicted_torque_list, "torque_list.txt")
+		write_torque(
+			observed_torque_list,
+			predicted_torque_list,
+			structure.supercell.kd_int_list,
+			structure.kd_name,
+			"torque_list.txt",
+		)
 
 
 		return new(
@@ -445,26 +465,20 @@ Calculate the vertical component of torque vectors for each atom in the spin con
 - `num_atoms::Integer`: Number of atoms in the structure
 
 # Returns
-A flattened vector of length 3*num_atoms containing the vertical components:
-[B₁ₓ, B₁ᵧ, B₁ᵣ, B₂ₓ, B₂ᵧ, B₂ᵣ, ...]
-
-where Bᵢ = μᵢ × Hᵢ (torque_vertical = magnetic moment × local magnetic field)
+A matrix of size 3×num_atoms containing the vertical components:
+[T₁ₓ, T₂ₓ, ..., Tₙₓ
+ T₁ᵧ, T₂ᵧ, ..., Tₙᵧ
+ T₁ᵣ, T₂ᵣ, ..., Tₙᵣ]
 """
 function calc_torque_list_of_spinconfig(
 	spinconfig::SpinConfig,
 	num_atoms::Int,
-)::Vector{Float64}
-	# Preallocate the result vector
-	torque_list = zeros(3 * num_atoms)
-
-	for iatom in 1:num_atoms
-
-		# Calculate torque_vertical and store in preallocated vector
-		idx = (iatom - 1) * 3 + 1
-		torque_list[idx:(idx+2)] =
+)::Matrix{Float64}
+	torque_list = zeros(Float64, 3, num_atoms)
+	@inbounds @views for iatom in 1:num_atoms
+		torque_list[:, iatom] =
 			spinconfig.magmom_size[iatom] * spinconfig.local_magfield_vertical[:, iatom]
 	end
-
 	return torque_list
 end
 
@@ -547,7 +561,7 @@ function elastic_net_regression(
 	design_matrix_energy::AbstractMatrix{<:Real},
 	design_matrix_torque::AbstractMatrix{<:Real},
 	observed_energy_list::AbstractVector{<:Real},
-	observed_torque_list::AbstractVector{<:AbstractVector{<:Real}},
+	observed_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
 	alpha::Real,
 	lambda::Real,
 	weight::Real,
@@ -557,8 +571,7 @@ function elastic_net_regression(
 	w_m = weight
 
 	# Flatten observed torque
-	observed_torque_flattened = vcat(observed_torque_list...)
-	observed_torque_flattened = -1 * observed_torque_flattened
+	observed_torque_flattened = -1 * vcat(vec.(observed_torque_list)...)
 
 	# Normalize the design matrices by using factor of 1/2N_data and √weight
 	num_data = size(design_matrix_energy, 1)
@@ -684,35 +697,6 @@ function translate_atom_idx_of_salc(
 	return SALC(translated_basisset, salc.coeffs, salc.multiplicity)
 end
 
-function print_optimize_stdout(
-	reference_energy::Float64,
-	sce_list::AbstractVector{<:Real},
-	observed_energy_list::AbstractVector{<:Real},
-	predicted_energy_list::AbstractVector{<:Real},
-	observed_torque_list::AbstractVector{<:Real},
-	predicted_torque_list::AbstractVector{<:Real},
-)
-
-	rmse_energy = calc_rmse(observed_energy_list, predicted_energy_list)
-	rmse_torque = calc_rmse(observed_torque_list, predicted_torque_list)
-
-	println(@sprintf("   E_ref: %.10f", reference_energy))
-	for (i, sce) in enumerate(sce_list)
-		println(@sprintf("%8d: %15.10f", i, sce))
-	end
-
-	println(@sprintf(
-		"""
-		Root Mean Square Error (RMSE)
-		-----------------------------
-		RMSE for energy: %.4f meV
-		RMSE for magnetic field: %.4f meV
-		""",
-		rmse_energy * 1000,
-		rmse_torque * 1000,
-	))
-end
-
 function calc_rmse(list1::AbstractVector{<:Real}, list2::AbstractVector{<:Real})::Float64
 	# Calculate the Root Mean Square Error (RMSE) between two lists
 	if length(list1) != length(list2)
@@ -736,37 +720,42 @@ end
 function calc_metrics(
 	observed_energy_list::AbstractVector{<:Real},
 	predicted_energy_list::AbstractVector{<:Real},
-	observed_torque_list::AbstractVector{<:Real},
-	predicted_torque_list::AbstractVector{<:Real},
+	observed_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
+	predicted_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
 )::Dict{Symbol, Any}
+	observed_torque_flattened_list = vcat(vec.(observed_torque_list)...)
+	predicted_torque_flattened_list = vcat(vec.(predicted_torque_list)...)
 	return Dict(
 		:rmse_energy => calc_rmse(observed_energy_list, predicted_energy_list),
-		:rmse_torque => calc_rmse(observed_torque_list, predicted_torque_list),
+		:rmse_torque => calc_rmse(observed_torque_flattened_list, predicted_torque_flattened_list),
 		:r2score_energy => calc_r2score(observed_energy_list, predicted_energy_list),
-		:r2score_torque => calc_r2score(observed_torque_list, predicted_torque_list),
+		:r2score_torque =>
+			calc_r2score(observed_torque_flattened_list, predicted_torque_flattened_list),
 	)
 end
 
 function print_metrics(
 	metrics::Dict{Symbol, Any},
 )
-	println(@sprintf(
-		"""
-		Root Mean Square Error (RMSE)
-		-----------------------------
-		RMSE for energy: %.6f meV
-		RMSE for magnetic field: %.6f meV
-		
-		R^2 Score
-		---------
-		R^2 for energy: %.6f
-		R^2 for magnetic field: %.6f
-		""",
-		metrics[:rmse_energy] * 1000,
-		metrics[:rmse_torque] * 1000,
-		metrics[:r2score_energy],
-		metrics[:r2score_torque],
-	))
+	println(
+		@sprintf(
+			"""
+			Root Mean Square Error (RMSE)
+			-----------------------------
+			RMSE for energy: %.6f meV
+			RMSE for magnetic field: %.6f meV
+
+			R^2 Score
+			---------
+			R^2 for energy: %.6f
+			R^2 for magnetic field: %.6f
+			""",
+			metrics[:rmse_energy] * 1000,
+			metrics[:rmse_torque] * 1000,
+			metrics[:r2score_energy],
+			metrics[:r2score_torque],
+		)
+	)
 end
 
 function write_energy(
@@ -779,7 +768,7 @@ function write_energy(
 	try
 		open(filename, "w") do f
 			# Write header
-			println(f, "#Data_num,    DFT_Energy,    SCE_Energy")
+			println(f, "#data_index,    DFT_Energy,    SCE_Energy")
 
 			# Write data
 			idx_width = ndigits(length(observed_energy_list))
@@ -802,32 +791,49 @@ function write_energy(
 end
 
 function write_torque(
-	observed_torque_list::AbstractVector{<:Real},
-	predicted_torque_list::AbstractVector{<:Real},
+	observed_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
+	predicted_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
+	kd_int_list::AbstractVector{<:Integer},
+	kd_name::AbstractVector{<:AbstractString},
 	filename::AbstractString = "torque_list.txt",
 )
-	# Write to file
-	try
-		open(filename, "w") do f
-			# Write header
-			println(f, "#Data_num,    DFT_torque,    SCE_torque")
 
-			# Write data
-			idx_width = ndigits(length(observed_torque_list))
-			for (i, (obs, pred)) in enumerate(zip(observed_torque_list, predicted_torque_list))
+	predicted_torque_list_reversed = -1 * predicted_torque_list
+	# Write to file
+	open(filename, "w") do f
+		# Write header
+		println(
+			f,
+			"#atom index,    element,   DFT_torque_x,    DFT_torque_y,    DFT_torque_z,    SCE_torque_x,    SCE_torque_y,    SCE_torque_z",
+		)
+
+		# Write data
+		idx_width = ndigits(length(kd_int_list))
+		element_string_list = [kd_name[kd_int_list[elm_idx]] for elm_idx in kd_int_list]
+		element_width = maximum(length.(element_string_list))
+
+		for (ndata, (obs_torque_matrix, pred_torque_matrix)) in
+			enumerate(zip(observed_torque_list, predicted_torque_list_reversed))
+			println(f, "# data index: $ndata")
+			for (iatom, (obs_torque, pred_torque)) in
+				enumerate(zip(eachcol(obs_torque_matrix), eachcol(pred_torque_matrix)))
+				# obs_torque and pred_torque are length-3 vectors (x, y, z)
 				str = @sprintf(
-					" %*d    % 15.10e    % 15.10e\n",
+					" %*d %*s  % 15.10e   % 15.10e   % 15.10e    % 15.10e   % 15.10e   % 15.10e\n",
 					idx_width,
-					i,
-					obs,
-					pred
+					iatom,
+					element_width,
+					element_string_list[iatom],
+					obs_torque[1],
+					obs_torque[2],
+					obs_torque[3],
+					pred_torque[1],
+					pred_torque[2],
+					pred_torque[3],
 				)
 				write(f, str)
 			end
 		end
-	catch e
-		@error "Failed to write lists to file" exception = (e, catch_backtrace())
-		rethrow(e)
 	end
 end
 
