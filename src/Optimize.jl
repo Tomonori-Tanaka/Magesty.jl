@@ -817,7 +817,7 @@ function write_torque(
 
 		# Write data
 		idx_width = ndigits(length(kd_int_list))
-		element_string_list = [kd_name[kd_int_list[elm_idx]] for elm_idx in kd_int_list]
+		element_string_list = [kd_name[elm_idx] for elm_idx in kd_int_list]
 		element_width = maximum(length.(element_string_list))
 
 		for (ndata, (obs_torque_matrix, pred_torque_matrix)) in
