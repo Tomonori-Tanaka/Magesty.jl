@@ -87,7 +87,7 @@ struct Optimizer
 		end
 
 		if verbosity
-			println("Fitting SCE coefficients...")
+			println("Fitting SCE coefficients...\n")
 		end
 		j0, jphi = elastic_net_regression(
 			design_matrix_energy,
@@ -113,10 +113,7 @@ struct Optimizer
 			)
 			for i in 1:num_configs
 		]
-
-		# Reshape observed_torque_list to a vector of matrices
-		observed_torque_flattened_list::Vector{Float64} =
-			-1 * vcat(vec.(observed_torque_list)...)
+		predicted_torque_list = -1 * predicted_torque_list
 
 		metrics = calc_metrics(
 			observed_energy_list,
@@ -126,6 +123,7 @@ struct Optimizer
 		)
 
 		if verbosity
+			print_sce_coeffs(j0, jphi)
 			print_metrics(metrics)
 
 			println(@sprintf(
@@ -732,6 +730,16 @@ function calc_metrics(
 		:r2score_torque =>
 			calc_r2score(observed_torque_flattened_list, predicted_torque_flattened_list),
 	)
+end
+
+function print_sce_coeffs(reference_energy::Float64, sce_coeffs::Vector{Float64})
+	ndigit = ndigits(length(sce_coeffs))
+	println("	SCE coefficients:")
+	println(@sprintf("	  E_ref: % .10f eV", reference_energy))
+	for (i, sce_coeff) in enumerate(sce_coeffs)
+		println(@sprintf("    %*d: % .10f", ndigit, i, sce_coeff))
+	end
+	println()
 end
 
 function print_metrics(
