@@ -74,6 +74,7 @@ struct SpinConfig
 	spin_directions::Matrix{Float64}
 	local_magfield::Matrix{Float64}
 	local_magfield_vertical::Matrix{Float64}
+	torques::Matrix{Float64}
 
 	function SpinConfig(
 		energy::Real,
@@ -115,8 +116,34 @@ struct SpinConfig
 			Float64.(spin_directions),
 			Float64.(local_magfield),
 			local_magfield_vertical,
+			calc_torques(magmom_size, spin_directions, local_magfield),
 		)
 	end
+end
+
+"""
+	calc_torques(magmom_size::AbstractVector{<:Real}, spin_directions::AbstractMatrix{<:Real}, local_magfield::AbstractMatrix{<:Real})::Matrix{Float64}
+
+Calculate the torques for each atom in the spin configuration.
+
+# Arguments
+- `spin_directions::AbstractMatrix{<:Real}`: Spin direction vectors [3 × num_atoms]
+- `local_magfield::AbstractMatrix{<:Real}`: Local magnetic field vectors [3 × num_atoms]
+
+# Returns
+- `Matrix{Float64}`: Torques for each atom [3 × num_atoms]
+"""
+function calc_torques(
+	magmom_size::AbstractVector{<:Real},
+	spin_directions::AbstractMatrix{<:Real},
+	local_magfield::AbstractMatrix{<:Real},
+)::Matrix{Float64}
+	num_atoms = length(magmom_size)
+	torques = zeros(3, num_atoms)
+	for i in 1:num_atoms
+		torques[:, i] = (magmom_size[i] * spin_directions[:, i]) × local_magfield[:, i]
+	end
+	return torques
 end
 
 """
