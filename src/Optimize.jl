@@ -776,7 +776,7 @@ function write_energy(
 	try
 		open(filename, "w") do f
 			# Write header
-			println(f, "#data_index,    DFT_Energy,    SCE_Energy")
+			println(f, "# data index,    DFT_Energy,    SCE_Energy\n# unit of energy is eV")
 
 			# Write data
 			idx_width = ndigits(length(observed_energy_list))
@@ -812,7 +812,7 @@ function write_torque(
 		# Write header
 		println(
 			f,
-			"#atom index,    element,   DFT_torque_x,    DFT_torque_y,    DFT_torque_z,    SCE_torque_x,    SCE_torque_y,    SCE_torque_z",
+			"# atom index,    element,   DFT_torque_x,    DFT_torque_y,    DFT_torque_z,    SCE_torque_x,    SCE_torque_y,    SCE_torque_z\n# unit of torque is eV",
 		)
 
 		# Write data
