@@ -182,7 +182,7 @@ s = ArgParseSettings(
 		Accepts either 2 columns (observed predicted) or 3+ columns (index observed predicted).\n
 		If --lim is provided, axes are fixed to [-lim, lim] (meV).
 	""",
-	version = "1.0.0",
+	version = "0.1.0",
 	add_version = true,
 )
 
