@@ -471,7 +471,7 @@ function write_energies(
 	end
 end
 
-function write_torque_list(
+function write_torques(
 	sc::SpinCluster,
 	filename::AbstractString = "torque_list.txt",
 )
