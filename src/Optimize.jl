@@ -806,7 +806,6 @@ function write_torque(
 	filename::AbstractString = "torque_list.txt",
 )
 
-	predicted_torque_list_reversed = -1 * predicted_torque_list
 	# Write to file
 	open(filename, "w") do f
 		# Write header
@@ -821,7 +820,7 @@ function write_torque(
 		element_width = maximum(length.(element_string_list))
 
 		for (ndata, (obs_torque_matrix, pred_torque_matrix)) in
-			enumerate(zip(observed_torque_list, predicted_torque_list_reversed))
+			enumerate(zip(observed_torque_list, predicted_torque_list))
 			println(f, "# data index: $ndata")
 			for (iatom, (obs_torque, pred_torque)) in
 				enumerate(zip(eachcol(obs_torque_matrix), eachcol(pred_torque_matrix)))
