@@ -194,7 +194,7 @@ s = ArgParseSettings(
 	required = true
 
 	"--output" "-o"
-	help = "Output filename (format inferred from extension)"
+	help = "Output filename (png, svg, pdf; format inferred from extension)"
 	arg_type = String
 	default = nothing
 
