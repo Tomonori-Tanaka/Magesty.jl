@@ -439,6 +439,83 @@ function write_xml(
 	)
 end
 
+function write_energies(
+	sc::SpinCluster,
+	filename::AbstractString = "energy_list.txt",
+)
+
+	observed_energy_list = [spinconfig.energy for spinconfig in sc.optimize.spinconfig_list]
+	predicted_energy_list = sc.optimize.predicted_energy_list
+	# Write to file
+	try
+		open(filename, "w") do f
+			# Write header
+			println(f, "# data index,    DFT_Energy,    SCE_Energy\n# unit of energy is eV")
+
+			# Write data
+			idx_width = ndigits(length(observed_energy_list))
+			for i in eachindex(sc.optimize.spinconfig_list)
+				str = @sprintf(
+					" %*d    % 15.10e    % 15.10e\n",
+					idx_width,
+					i,
+					observed_energy_list[i],
+					predicted_energy_list[i],
+				)
+				write(f, str)
+			end
+		end
+	catch e
+		@error "Failed to write lists to file" exception = (e, catch_backtrace())
+		rethrow(e)
+	end
+end
+
+function write_torque_list(
+	sc::SpinCluster,
+	filename::AbstractString = "torque_list.txt",
+)
+    predicted_torque_list::Vector{Matrix{Float64}} = sc.optimize.predicted_torque_list
+    observed_torque_list::Vector{Matrix{Float64}} = [spinconfig.torques for spinconfig in sc.optimize.spinconfig_list]
+
+	# Write to file
+	open(filename, "w") do f
+		# Write header
+		println(
+			f,
+			"# atom index,    element,   DFT_torque_x,    DFT_torque_y,    DFT_torque_z,    SCE_torque_x,    SCE_torque_y,    SCE_torque_z\n# unit of torque is eV",
+		)
+
+		# Write data
+		idx_width = ndigits(length(sc.optimize.spinconfig_list))
+		element_string_list = [sc.structure.kd_name[elm_idx] for elm_idx in sc.structure.supercell.kd_int_list]
+		element_width = maximum(length.(element_string_list))
+
+    for (ndata, (obs_torque_matrix, pred_torque_matrix)) in
+        enumerate(zip(observed_torque_list, predicted_torque_list))
+        println(f, "# data index: $ndata")
+        for (iatom, (obs_torque, pred_torque)) in
+            enumerate(zip(eachcol(obs_torque_matrix), eachcol(pred_torque_matrix)))
+            # obs_torque and pred_torque are length-3 vectors (x, y, z)
+            str = @sprintf(
+                " %*d %*s  % 15.10e   % 15.10e   % 15.10e    % 15.10e   % 15.10e   % 15.10e\n",
+                idx_width,
+                iatom,
+                element_width,
+                element_string_list[iatom],
+                obs_torque[1],
+                obs_torque[2],
+                obs_torque[3],
+                pred_torque[1],
+                pred_torque[2],
+                pred_torque[3],
+            )
+            write(f, str)
+        end
+    end
+	end
+end
+
 """
 	get the reference energy
 """

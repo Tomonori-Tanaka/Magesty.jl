@@ -92,4 +92,4 @@ Magesty.jl includes a comprehensive set of utility tools in the `tools/` directo
 - **Sampling**: Generate spin configurations using various statistical methods
 - **Advanced Analysis**: Calculate micromagnetics parameters and spin wave dispersion
 
-See the [Tools](@ref) page for detailed documentation of all available tools.
+See the [Tools](tools.md) page for detailed documentation of all available tools.

@@ -302,7 +302,7 @@ s = ArgParseSettings(
 	range_tester = x -> x ∈ ["all", "norm", "dir"]
 
 	"--output", "-o"
-	help = "Output filename (format inferred from extension)"
+	help = "Output filename (png, svg, pdf; format inferred from extension)"
 	arg_type = String
 	default = nothing
 
@@ -333,7 +333,7 @@ if parsed_args["atom-indices"] !== nothing
 end
 
 if parsed_args["elements"] !== nothing
-	elements = [strip(x) for x in split(parsed_args["elements"], ",")]
+	elements = String.(strip.(split(parsed_args["elements"], ",")))
 end
 
 plot_type = parsed_args["type"] === nothing ? "all" : parsed_args["type"]
