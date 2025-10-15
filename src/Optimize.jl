@@ -87,7 +87,7 @@ struct Optimizer
 		end
 
 		if verbosity
-			println("Fitting SCE coefficients...")
+			println("Fitting SCE coefficients...\n")
 		end
 		j0, jphi = elastic_net_regression(
 			design_matrix_energy,
@@ -113,10 +113,7 @@ struct Optimizer
 			)
 			for i in 1:num_configs
 		]
-
-		# Reshape observed_torque_list to a vector of matrices
-		observed_torque_flattened_list::Vector{Float64} =
-			-1 * vcat(vec.(observed_torque_list)...)
+		predicted_torque_list = -1 * predicted_torque_list
 
 		metrics = calc_metrics(
 			observed_energy_list,
@@ -126,6 +123,7 @@ struct Optimizer
 		)
 
 		if verbosity
+			print_sce_coeffs(j0, jphi)
 			print_metrics(metrics)
 
 			println(@sprintf(
@@ -734,6 +732,16 @@ function calc_metrics(
 	)
 end
 
+function print_sce_coeffs(reference_energy::Float64, sce_coeffs::Vector{Float64})
+	ndigit = ndigits(length(sce_coeffs))
+	println("	SCE coefficients:")
+	println(@sprintf("	  E_ref: % .10f eV", reference_energy))
+	for (i, sce_coeff) in enumerate(sce_coeffs)
+		println(@sprintf("    %*d: % .10f", ndigit, i, sce_coeff))
+	end
+	println()
+end
+
 function print_metrics(
 	metrics::Dict{Symbol, Any},
 )
@@ -768,7 +776,7 @@ function write_energy(
 	try
 		open(filename, "w") do f
 			# Write header
-			println(f, "#data_index,    DFT_Energy,    SCE_Energy")
+			println(f, "# data index,    DFT_Energy,    SCE_Energy\n# unit of energy is eV")
 
 			# Write data
 			idx_width = ndigits(length(observed_energy_list))
@@ -798,22 +806,21 @@ function write_torque(
 	filename::AbstractString = "torque_list.txt",
 )
 
-	predicted_torque_list_reversed = -1 * predicted_torque_list
 	# Write to file
 	open(filename, "w") do f
 		# Write header
 		println(
 			f,
-			"#atom index,    element,   DFT_torque_x,    DFT_torque_y,    DFT_torque_z,    SCE_torque_x,    SCE_torque_y,    SCE_torque_z",
+			"# atom index,    element,   DFT_torque_x,    DFT_torque_y,    DFT_torque_z,    SCE_torque_x,    SCE_torque_y,    SCE_torque_z\n# unit of torque is eV",
 		)
 
 		# Write data
 		idx_width = ndigits(length(kd_int_list))
-		element_string_list = [kd_name[kd_int_list[elm_idx]] for elm_idx in kd_int_list]
+		element_string_list = [kd_name[elm_idx] for elm_idx in kd_int_list]
 		element_width = maximum(length.(element_string_list))
 
 		for (ndata, (obs_torque_matrix, pred_torque_matrix)) in
-			enumerate(zip(observed_torque_list, predicted_torque_list_reversed))
+			enumerate(zip(observed_torque_list, predicted_torque_list))
 			println(f, "# data index: $ndata")
 			for (iatom, (obs_torque, pred_torque)) in
 				enumerate(zip(eachcol(obs_torque_matrix), eachcol(pred_torque_matrix)))
