@@ -56,6 +56,45 @@ julia extract.jl --target_files OUTCAR1 OUTCAR2 --energy_kind f --saxis 1 0 0 --
 
 ## Visualization Tools
 
+### FitCheck_energy.jl
+Scatter plot to compare DFT and SCE energies (per-file zero-shift, in meV).
+
+**Usage:**
+```bash
+julia tools/FitCheck_energy.jl energy_list.txt -o energy.png -l 200
+```
+
+**Arguments:**
+- `files` (positional): Input files (2 or 3 columns supported; if 3, columns 2 and 3 are used)
+- `--output`, `-o`: Output filename (format inferred)
+- `--lim`, `-l`: Fix axes to [-lim, lim] (meV)
+
+**Features:**
+- eV→meV conversion, per-file center shift on observed values
+- y=x reference line, legend with RMSE per series
+
+### FitCheck_torque.jl
+Scatter plot to compare DFT and SCE torques. Supports component, magnitude, and direction comparisons, with filtering by atom indices or elements.
+
+**Usage:**
+```bash
+julia tools/FitCheck_torque.jl test/torque_list.txt -t all -o torque.png
+julia tools/FitCheck_torque.jl test/torque_list.txt -t norm -e Fe
+julia tools/FitCheck_torque.jl test/torque_list.txt -t dir -a 1,2,3 -l 50
+```
+
+**Arguments:**
+- `files` (positional): Input torque files (format: index element DFTx DFTy DFTz SCEx SCEy SCEz)
+- `--type`, `-t`: Plot type: `all` (x,y,z components), `norm` (magnitude), `dir` (direction unit vector components)
+- `--atom-indices`, `-a`: Comma-separated atom indices to include (mutually exclusive with `--elements`)
+- `--elements`, `-e`: Comma-separated element symbols to include (mutually exclusive with `--atom-indices`)
+- `--output`, `-o`: Output filename (format inferred)
+- `--lim`, `-l`: Fix axes to [-lim, lim] (units depend on plot type: meV or unitless)
+
+**Features:**
+- eV→meV conversion for `all`/`norm`, per-file center shift on observed values
+- y=x reference line, legend with RMSE per series
+
 ### histogram_magmom.jl
 Generate histograms of magnetic moments.
 
