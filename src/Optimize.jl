@@ -28,6 +28,8 @@ struct Optimizer
 	reference_energy::Float64
 	SCE::Vector{Float64}
 	metrics::Dict{Symbol, Any}
+	predicted_energy_list::Vector{Float64}
+	predicted_torque_list::Vector{Matrix{Float64}}
 
 	function Optimizer(
 		structure::Structure,
@@ -127,21 +129,13 @@ struct Optimizer
 			))
 		end
 
-		write_energy(observed_energy_list, predicted_energy_list, "energy_list.txt")
-		write_torque(
-			observed_torque_list,
-			predicted_torque_list,
-			structure.supercell.kd_int_list,
-			structure.kd_name,
-			"torque_list.txt",
-		)
-
-
 		return new(
 			spinconfig_list,
 			j0,
 			jphi,
 			metrics,
+			predicted_energy_list,
+			predicted_torque_list,
 		)
 	end
 end
@@ -563,84 +557,6 @@ function print_metrics(
 			metrics[:r2score_torque],
 		)
 	)
-end
-
-function write_energy(
-	observed_energy_list::AbstractVector{<:Real},
-	predicted_energy_list::AbstractVector{<:Real},
-	filename::AbstractString = "energy_list.txt",
-)
-
-	# Write to file
-	try
-		open(filename, "w") do f
-			# Write header
-			println(f, "# data index,    DFT_Energy,    SCE_Energy\n# unit of energy is eV")
-
-			# Write data
-			idx_width = ndigits(length(observed_energy_list))
-			for (i, (obs, pred)) in enumerate(zip(observed_energy_list, predicted_energy_list))
-				str = @sprintf(
-					" %*d    % 15.10e    % 15.10e\n",
-					idx_width,
-					i,
-					obs,
-					pred
-				)
-				write(f, str)
-			end
-		end
-	catch e
-		@error "Failed to write lists to file" exception = (e, catch_backtrace())
-		rethrow(e)
-	end
-
-end
-
-function write_torque(
-	observed_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
-	predicted_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
-	kd_int_list::AbstractVector{<:Integer},
-	kd_name::AbstractVector{<:AbstractString},
-	filename::AbstractString = "torque_list.txt",
-)
-
-	# Write to file
-	open(filename, "w") do f
-		# Write header
-		println(
-			f,
-			"# atom index,    element,   DFT_torque_x,    DFT_torque_y,    DFT_torque_z,    SCE_torque_x,    SCE_torque_y,    SCE_torque_z\n# unit of torque is eV",
-		)
-
-		# Write data
-		idx_width = ndigits(length(kd_int_list))
-		element_string_list = [kd_name[elm_idx] for elm_idx in kd_int_list]
-		element_width = maximum(length.(element_string_list))
-
-		for (ndata, (obs_torque_matrix, pred_torque_matrix)) in
-			enumerate(zip(observed_torque_list, predicted_torque_list))
-			println(f, "# data index: $ndata")
-			for (iatom, (obs_torque, pred_torque)) in
-				enumerate(zip(eachcol(obs_torque_matrix), eachcol(pred_torque_matrix)))
-				# obs_torque and pred_torque are length-3 vectors (x, y, z)
-				str = @sprintf(
-					" %*d %*s  % 15.10e   % 15.10e   % 15.10e    % 15.10e   % 15.10e   % 15.10e\n",
-					idx_width,
-					iatom,
-					element_width,
-					element_string_list[iatom],
-					obs_torque[1],
-					obs_torque[2],
-					obs_torque[3],
-					pred_torque[1],
-					pred_torque[2],
-					pred_torque[3],
-				)
-				write(f, str)
-			end
-		end
-	end
 end
 
 end
