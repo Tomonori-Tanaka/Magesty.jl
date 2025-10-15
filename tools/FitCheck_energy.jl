@@ -71,8 +71,8 @@ end
 
 function create_plot()::Tuple{Plots.Plot, String}
 	title = "Energy Comparison"
-	xlabel = "Observed Energy (meV)"
-	ylabel = "Predicted Energy (meV)"
+	xlabel = "DFT Energy (meV)"
+	ylabel = "SCE Energy (meV)"
 	unit = "meV"
 
 	p = plot(title = title,
