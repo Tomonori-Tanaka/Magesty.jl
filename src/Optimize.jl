@@ -64,7 +64,14 @@ struct Optimizer
 		if verbosity
 			println("Constructing design matrix for torque...")
 		end
-		design_matrix_torque = construct_design_matrix_torque(
+		# design_matrix_torque = construct_design_matrix_torque(
+		# 	basisset.salc_list,
+		# 	spinconfig_list,
+		# 	structure.supercell.num_atoms,
+		# 	symmetry,
+		# )
+
+		design_matrix_torque = build_design_matrix_torque(
 			basisset.salc_list,
 			spinconfig_list,
 			structure.supercell.num_atoms,
@@ -76,15 +83,16 @@ struct Optimizer
 			println("Constructing observed data for energy and torque...")
 		end
 		observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_list]
-		observed_torque_list =
-			Vector{Matrix{Float64}}(undef, length(spinconfig_list))
-		@threads for i in eachindex(spinconfig_list)
-			observed_torque_list[i] =
-				calc_torque_list_of_spinconfig(
-					spinconfig_list[i],
-					structure.supercell.num_atoms,
-				)
-		end
+		# observed_torque_list =
+		# 	Vector{Matrix{Float64}}(undef, length(spinconfig_list))
+		# @threads for i in eachindex(spinconfig_list)
+		# 	observed_torque_list[i] =
+		# 		calc_torque_list_of_spinconfig(
+		# 			spinconfig_list[i],
+		# 			structure.supercell.num_atoms,
+		# 		)
+		# end
+		observed_torque_list = [spinconfig.torques for spinconfig in spinconfig_list]
 
 		if verbosity
 			println("Fitting SCE coefficients...\n")
@@ -113,7 +121,6 @@ struct Optimizer
 			)
 			for i in 1:num_configs
 		]
-		predicted_torque_list = -1 * predicted_torque_list
 
 		metrics = calc_metrics(
 			observed_energy_list,
@@ -287,6 +294,27 @@ function calc_X_element_energy(
 	end
 
 	return result
+end
+
+function build_design_matrix_torque(salc_list, spinconfig_list, num_atoms, symmetry)::Matrix{Float64}
+	num_salcs = length(salc_list)
+	num_spinconfigs = length(spinconfig_list)
+
+	design_matrix_list = Vector{Matrix{Float64}}(undef, num_spinconfigs)
+
+	for (sc_idx, spinconfig) in enumerate(spinconfig_list)
+		torque_design_block = zeros(Float64, 3*num_atoms, num_salcs)
+		for iatom in 1:num_atoms
+			@views dir_iatom = spinconfig.spin_directions[:, iatom]
+			for (salc_idx, salc) in enumerate(salc_list)
+				grad_u = calc_∇ₑu(salc, iatom, spinconfig.spin_directions, symmetry)
+				@views torque_design_block[3*(iatom-1)+1:3*iatom, salc_idx] = cross(dir_iatom, grad_u)
+			end
+		end
+		design_matrix_list[sc_idx] = torque_design_block
+	end
+
+	return vcat(design_matrix_list...)
 end
 
 function construct_design_matrix_torque(
@@ -554,6 +582,37 @@ function calc_derivative_of_salc(
 	)
 end
 
+function calc_∇ₑu(
+	salc::SALC,
+	atom::Integer,
+	spin_directions::AbstractMatrix{<:Real},
+	symmetry::Symmetry,
+)::Vector{Float64}
+	spin_dirs = [SVector{3, Float64}(spin_directions[:, i]) for i in axes(spin_directions, 2)]
+
+	result = MVector{3, Float64}(0.0, 0.0, 0.0)
+
+	for itrans in symmetry.symnum_translation
+		translated_salc = translate_atom_idx_of_salc(salc, symmetry.map_sym, itrans)
+		for (basis, coeff, multiplicity) in
+			zip(translated_salc.basisset, translated_salc.coeffs, translated_salc.multiplicity)
+			# Skip if atom is not in the basis
+			atom ∉ [indices.atom for indices in basis] && continue
+
+			# Calculate product of spherical harmonics and their derivatives
+			product = MVector{3, Float64}(1.0, 1.0, 1.0)
+			for indices in basis
+				if indices.atom == atom
+					product .*= ∂ᵢSlm(indices.l, indices.m, @inbounds spin_dirs[indices.atom])
+				else
+					product .*= Sₗₘ(indices.l, indices.m, @inbounds spin_dirs[indices.atom])
+				end
+			end
+			result .+= product .* (coeff * multiplicity)
+		end
+	end
+	return Vector{Float64}(result)
+end
 
 function elastic_net_regression(
 	design_matrix_energy::AbstractMatrix{<:Real},
@@ -569,7 +628,7 @@ function elastic_net_regression(
 	w_m = weight
 
 	# Flatten observed torque
-	observed_torque_flattened = -1 * vcat(vec.(observed_torque_list)...)
+	observed_torque_flattened = vcat(vec.(observed_torque_list)...)
 
 	# Normalize the design matrices by using factor of 1/2N_data and √weight
 	num_data = size(design_matrix_energy, 1)
