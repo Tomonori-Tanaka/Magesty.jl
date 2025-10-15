@@ -6,9 +6,7 @@ using Magesty.Structures
 using Magesty.Symmetries
 
 
-input = TOML.parse(
-	open("./examples/febcc_2x2x2_pm/input.toml", "r"),
-)
+input = TOML.parse(open(joinpath(@__DIR__, "input.toml"), "r"))
 input["regression"]["datafile"] = joinpath(@__DIR__, "EMBSET.dat")
 
 system = System(input, verbosity = false)

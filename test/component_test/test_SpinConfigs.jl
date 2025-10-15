@@ -3,7 +3,8 @@ using LinearAlgebra
 
 @testset "SpinConfig" begin
 	# Test reading EMBSET file
-	spinconfigs::Vector{SpinConfig} = read_embset("./examples/fept_tetragonal_2x2x2/EMBSET.dat", 16)
+	embset_path = normpath(joinpath(@__DIR__, "..", "examples", "fept_tetragonal_2x2x2", "EMBSET.dat"))
+	spinconfigs::Vector{SpinConfig} = read_embset(embset_path, 16)
 
 	# Test first configuration
 	@test length(spinconfigs) >= 1  # At least 1 configurations in the file
