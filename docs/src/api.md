@@ -134,7 +134,7 @@ RotationMatrix.Δl
 
 ### Energy Calculations
 ```@docs
-CalcEnergy.calc_energy
+EnergyTorque.calc_energy
 ```
 
 ### Version Information
