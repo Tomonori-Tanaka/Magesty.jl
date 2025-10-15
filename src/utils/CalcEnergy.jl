@@ -20,7 +20,7 @@ function calc_energy(
 	design_list = Vector{Float64}(undef, length(salc_list))
 
 	for i in eachindex(salc_list)
-		design_list[i] = Optimize.calc_X_element_energy(
+		design_list[i] = Optimize.design_matrix_energy_element(
 			salc_list[i],
 			spin_config,
 			symmetry,
@@ -42,21 +42,9 @@ function calc_torque(
 
 	num_atoms = size(spin_config, 2)
 
-	# Calculate magnetic field for each atom in each direction (x, y, z)
-	torque = zeros(3, num_atoms)
-	
-	for atom_idx in 1:num_atoms
-		for direction in 1:3
-			row_idx = 3 * (atom_idx - 1) + direction
-			
-			# Use calc_X_element_torque for each SALC
-			for (i, salc) in enumerate(salc_list)
-				torque[direction, atom_idx] += 
-					Optimize.calc_X_element_torque(salc, spin_config, symmetry, row_idx) * 
-					optimize.SCE[i]
-			end
-		end
-	end
+	# 3Natom column vector
+	torque_flattened = Optimize.build_design_matrix_torque(salc_list, spin_config, symmetry,) * optimize.SCE
+	torque = reshape(torque_flattened, 3, num_atoms)
 
 	return torque
 end
