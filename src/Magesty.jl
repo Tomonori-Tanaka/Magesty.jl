@@ -67,8 +67,8 @@ using .Optimize
 
 include("utils/Write.jl")
 using .Write
-include("utils/CalcEnergy.jl")
-using .CalcEnergy
+include("utils/EnergyTorque.jl")
+using .EnergyTorque
 
 export System, SpinCluster, VERSION
 
@@ -357,7 +357,7 @@ function calc_energy(spincluster::SpinCluster, spin_config::AbstractMatrix{<:Rea
 			),
 		)
 	end
-	return CalcEnergy.calc_energy(
+	return EnergyTorque.calc_energy(
 		spincluster.basisset.salc_list,
 		spin_config,
 		spincluster.symmetry,
@@ -374,7 +374,7 @@ function calc_torque(spincluster::SpinCluster, spin_config::AbstractMatrix{<:Rea
 			),
 		)
 	end
-	return CalcEnergy.calc_torque(
+	return EnergyTorque.calc_torque(
 		spincluster.basisset.salc_list,
 		spin_config,
 		spincluster.symmetry,

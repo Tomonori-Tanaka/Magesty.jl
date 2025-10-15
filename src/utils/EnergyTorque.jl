@@ -1,4 +1,4 @@
-module CalcEnergy
+module EnergyTorque
 using EzXML
 using LinearAlgebra
 using ..SALCs
