@@ -141,7 +141,7 @@ function calc_torques(
 	num_atoms = length(magmom_size)
 	torques = zeros(3, num_atoms)
 	for i in 1:num_atoms
-		torques[:, i] = (magmom_size[i] * spin_directions[:, i]) × local_magfield[:, i]
+		torques[:, i] = -1.0 * (magmom_size[i] * spin_directions[:, i]) × local_magfield[:, i]
 	end
 	return torques
 end
