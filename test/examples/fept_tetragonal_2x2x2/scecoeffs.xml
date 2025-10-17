@@ -60,7 +60,7 @@
   </System>
   <JPhi unit="eV">
     <ReferenceEnergy>-121.36058072608984</ReferenceEnergy>
-    <jphi salc_index="1">-0.0023384731793222335</jphi>
-    <jphi salc_index="2">-0.00045709037485365897</jphi>
+    <jphi salc_index="1">-0.002338473179322236</jphi>
+    <jphi salc_index="2">-0.00045709037485365756</jphi>
   </JPhi>
 </Magesty>

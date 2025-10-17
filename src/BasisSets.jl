@@ -224,15 +224,15 @@ function construct_basislist(
 	kd_int_list = structure.supercell.kd_int_list
 	cluster_list = cluster.cluster_list
 
-	# Handle 1-body case in parallel
-	@threads for iat in symmetry.atoms_in_prim
+    # Handle 1-body case (single-thread for safety; cost is small)
+    for iat in symmetry.atoms_in_prim
 		# Use @view for better performance when accessing matrix row
 		lmax = @view(lmax_mat[kd_int_list[iat], :])
 
 		for l in 1:lmax[1]
 			iul::Vector{Indices} = indices_singleatom(iat, l, 1)
-			for indices::Indices in iul
-				push!(thread_basislists[threadid()], IndicesUniqueList(indices))
+            for indices::Indices in iul
+                push!(thread_basislists[1], IndicesUniqueList(indices))
 			end
 		end
 	end
