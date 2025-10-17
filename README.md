@@ -14,28 +14,33 @@ Magesty is a Julia package for constructing effective spin models in magnetic ma
 
 ## Installation
 
-You can install the package using Julia's package manager:
+You can install the package using Julia's package manager. If the package is not yet registered, add it by URL:
 
 ```julia
 using Pkg
-Pkg.add("Magesty")
+Pkg.add(url="https://github.com/Tomonori-Tanaka/Magesty.jl")
 ```
 
 ## Usage
 
 ```julia
 using Magesty
-using TOML
 
-# Load system data from TOML file
-input = TOML.parse("input.toml")
-system = System(input)
+# Quick start from a TOML configuration
+sc = SpinCluster("input.toml")
 
-# Estimate SCE coefficients
-spin_cluster = SpinCluster(system, input)
+# Optionally compute energy/torque for a given spin configuration
+# spins must be a 3 x N matrix (N: number of atoms in supercell)
+# energy = calc_energy(sc, spins)
+# torque  = calc_torque(sc, spins)
+
+# Write results
+write_xml(sc, "jphi.xml")
+write_energies(sc, "energy_list.txt")
+write_torques(sc, "torque_list.txt")
 ```
 
-For detailed examples, please refer to the `test/examples` directory.
+For detailed examples, please refer to the `test/examples` directory. Additional runnable inputs are also under `test/develop_tmp`.
 
 ## Main Types and Functions
 
@@ -49,12 +54,13 @@ For detailed examples, please refer to the `test/examples` directory.
 - `Optimizer`: Optimizer instance
 
 ### Main Functions
-- `System(input_dict/toml_file)`: Create a system
-- `SpinCluster(input_dict/toml_file/system)`: Create a spin cluster
+- `System(input_dict | toml_file)`: Create a system
+- `SpinCluster(input_dict | toml_file | system[, input_dict])`: Create a spin cluster
 - `calc_energy(spin_cluster, spin_config)`: Calculate energy for spin configuration
-- `write_xml(spin_cluster, filename)`: Output results in XML format
-- `write_energy(spin_cluster, filename)`: Output energy lists
-- `write_torque(spin_cluster, filename)`: Output magnetic field data
+- `calc_torque(spin_cluster, spin_config)`: Calculate torques for spin configuration
+- `write_xml(spin_cluster, filename="jphi.xml"; write_jphi=true)`: Output structure, basis, optimizer in XML
+- `write_energies(spin_cluster, filename="energy_list.txt")`: Output energy lists
+- `write_torques(spin_cluster, filename="torque_list.txt")`: Output torque lists
 - `get_j0(spin_cluster)`: Get reference energy
 - `get_jphi(spin_cluster)`: Get SCE coefficients
 
@@ -71,19 +77,17 @@ For detailed examples, please refer to the `test/examples` directory.
 ## Dependencies
 
 - Julia 1.11 or higher
-- Spglib.jl: Crystal symmetry analysis
 - TOML.jl: Configuration file parsing
+- Spglib.jl: Crystal symmetry analysis
 - StaticArrays.jl: Static arrays
-- LinearAlgebra.jl: Linear algebra operations
-- Combinatorics.jl: Combinatorial calculations
-- DataStructures.jl: Data structures
+- LinearAlgebra.jl, SparseArrays.jl, Statistics.jl, Random.jl, Dates.jl, Printf.jl
+- Combinatorics.jl, DataStructures.jl
 - EzXML.jl: XML processing
-- LegendrePolynomials.jl: Legendre polynomials
-- WignerD.jl: Wigner D functions
-- Rotations.jl: Rotation matrices
-- MultivariateStats.jl: Multivariate statistics
+- LegendrePolynomials.jl, WignerD.jl, Rotations.jl: Angular functions and rotations
+- MultivariateStats.jl
+- ArgParse.jl, JLD2.jl (tools and I/O utilities)
 
-For detailed dependencies, see `Project.toml`.
+For exact versions, see `Project.toml`.
 
 ## Input File Format
 
@@ -143,18 +147,19 @@ Example input files can be found in the `test/examples` directory.
 
 ## Analysis Tools
 
-The `tools` directory contains the following analysis tools:
+The `tools` directory contains the following analysis utilities (non-exhaustive):
 
 - `CrossValidation.jl`: Cross-validation
+- `FitCheck_energy.jl`, `FitCheck_torque.jl`: Fit quality checks
 - `micromagnetics.jl`: Micromagnetic analysis
 - `sampling_mfa.jl`: Sampling using mean field approximation
-- `yyplot.jl`: Predicted vs observed values plotting
 - `pos2toml.jl`: Generate TOML configuration files from position files
 - `convert2tensor.jl`: Tensor conversion
-- `bader2rwigs.jl`: Convert Bader analysis results
+- `extract.jl`: Data extraction helpers
 - `histogram_magmom.jl`: Magnetic moment histograms
-- `rotate_sameenergy.jl`: Rotation at same energy
 - `vasptools.jl`: VASP-related tools
+
+Personal scripts are under `tools/personal/`.
 
 ## Performance
 
@@ -188,7 +193,7 @@ We welcome contributions! Please feel free to:
 
 ## Documentation
 
-Detailed documentation is available at [Documentation Link].
+Detailed documentation is available at `docs/build/index.html`.
 
 ## Support
 
