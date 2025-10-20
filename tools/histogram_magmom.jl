@@ -97,6 +97,16 @@ function plot_histogram(
 
 	# determine the target atoms
 	target_atoms = (-1 in target_atom_indices) ? collect(1:n_atoms) : target_atom_indices
+	# validate and normalize atom indices when not selecting all
+	if !(-1 in target_atom_indices)
+		for idx in target_atoms
+			if idx < 1 || idx > n_atoms
+				error("Atom index out of range (1..$n_atoms): $idx")
+			end
+		end
+		# remove duplicates and sort for stable processing
+		target_atoms = sort(unique(target_atoms))
+	end
 
 	# collect the magmom size
 	magmom_size_list = Float64[
@@ -121,6 +131,10 @@ function plot_histogram(
 	# ensure positive step; if not, fallback
 	if !(bin_width_value > 0)
 		bin_width_value = fd_bin_width(magmom_size_list)
+	end
+	# ensure valid range
+	if max_bound_value <= min_bound_value
+		max_bound_value = min_bound_value + bin_width_value * 10
 	end
 	println("bin width: ", round(bin_width_value, digits = 6))
 
