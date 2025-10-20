@@ -44,6 +44,34 @@ function parse_atom_indices(atoms_args::AbstractVector{<:AbstractString})::Vecto
 	return indices
 end
 
+# Freedman–Diaconis rule bin width with sensible fallbacks
+function fd_bin_width(values::AbstractVector{<:Real})::Float64
+	v = collect(skipmissing(values))
+	if isempty(v)
+		return 0.1
+	end
+	n = length(v)
+	if n < 2
+		return 0.1
+	end
+	q75 = quantile(v, 0.75)
+	q25 = quantile(v, 0.25)
+	iqr = q75 - q25
+	if iqr > 0
+		h = 2 * iqr / (n^(1/3))
+		return h > 0 ? float(h) : 0.1
+	end
+	# fallback to Scott's rule if IQR == 0
+	s = std(v)
+	if s > 0
+		h = 3.49 * s / (n^(1/3))
+		return h > 0 ? float(h) : 0.1
+	end
+	# final fallback: split range into 10 bins
+	rng = maximum(v) - minimum(v)
+	return rng > 0 ? float(rng / 10) : 0.1
+end
+
 # function to plot the histogram of magmom
 function plot_histogram(
 	input::AbstractString,
@@ -89,7 +117,12 @@ function plot_histogram(
 	# set the bins parameter
 	min_bound_value = something(min_bound, 0.0)
 	max_bound_value = something(max_bound, maximum(magmom_size_list) + 1)
-	bin_width_value = something(bin_width, 0.1)
+	bin_width_value = isnothing(bin_width) ? fd_bin_width(magmom_size_list) : float(bin_width)
+	# ensure positive step; if not, fallback
+	if !(bin_width_value > 0)
+		bin_width_value = fd_bin_width(magmom_size_list)
+	end
+	println("bin width: ", round(bin_width_value, digits = 6))
 
 	bins = range(min_bound_value, max_bound_value, step = bin_width_value)
 
