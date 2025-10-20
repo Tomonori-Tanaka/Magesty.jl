@@ -5,6 +5,45 @@ using Statistics
 include("../src/SpinConfigs.jl")
 using .SpinConfigs
 
+# parse atoms argument that may include ranges like "1-5" and comma-separated tokens
+function parse_atom_indices(atoms_args::AbstractVector{<:AbstractString})::Vector{Int}
+	indices = Int[]
+	for raw_token in atoms_args
+		for token in split(raw_token, ',')
+			t = strip(token)
+			if isempty(t)
+				continue
+			end
+			if t == "-1"
+				return [-1]
+			end
+			if occursin('-', t)
+				parts = split(t, '-')
+				if length(parts) != 2
+					error("Invalid range token: $t")
+				end
+				start_str, end_str = strip.(parts)
+				start_idx = tryparse(Int, start_str)
+				end_idx = tryparse(Int, end_str)
+				if isnothing(start_idx) || isnothing(end_idx)
+					error("Invalid integer in range: $t")
+				end
+				if start_idx > end_idx
+					error("Range start greater than end: $t")
+				end
+				append!(indices, collect(start_idx:end_idx))
+			else
+				val = tryparse(Int, t)
+				if isnothing(val)
+					error("Invalid integer token: $t")
+				end
+				push!(indices, val)
+			end
+		end
+	end
+	return indices
+end
+
 # function to plot the histogram of magmom
 function plot_histogram(
 	input::AbstractString,
@@ -90,10 +129,10 @@ s = ArgParseSettings(
 	arg_type = Int
 
 	"--atoms", "-a"
-	help = "The atoms to plot. If -1 is given (default), all atoms are plotted."
+	help = "The atoms to plot. Accepts integers, ranges like 1-5, and comma-separated lists. If -1 is given (default), all atoms are plotted."
 	nargs = '+'
-	default = [-1]
-	arg_type = Int
+	default = ["-1"]
+	arg_type = String
 
 	"--min_bound", "-l"
 	help = "The lower bound of the histogram"
@@ -118,7 +157,11 @@ parsed_args = parse_args(ARGS, s)
 plot_histogram(
 	parsed_args["input"],
 	parsed_args["n_atoms"],
-	parsed_args["atoms"],
+	begin
+		atoms_arg = parsed_args["atoms"]
+		# atoms_arg is Vector{String}; convert to Vector{Int} expanding ranges
+		parse_atom_indices(atoms_arg)
+	end,
 	parsed_args["min_bound"],
 	parsed_args["max_bound"],
 	parsed_args["bin_width"],
