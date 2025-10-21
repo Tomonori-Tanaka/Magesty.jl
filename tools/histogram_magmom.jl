@@ -5,6 +5,73 @@ using Statistics
 include("../src/SpinConfigs.jl")
 using .SpinConfigs
 
+# parse atoms argument that may include ranges like "1-5" and comma-separated tokens
+function parse_atom_indices(atoms_args::AbstractVector{<:AbstractString})::Vector{Int}
+	indices = Int[]
+	for raw_token in atoms_args
+		for token in split(raw_token, ',')
+			t = strip(token)
+			if isempty(t)
+				continue
+			end
+			if t == "-1"
+				return [-1]
+			end
+			if occursin('-', t)
+				parts = split(t, '-')
+				if length(parts) != 2
+					error("Invalid range token: $t")
+				end
+				start_str, end_str = strip.(parts)
+				start_idx = tryparse(Int, start_str)
+				end_idx = tryparse(Int, end_str)
+				if isnothing(start_idx) || isnothing(end_idx)
+					error("Invalid integer in range: $t")
+				end
+				if start_idx > end_idx
+					error("Range start greater than end: $t")
+				end
+				append!(indices, collect(start_idx:end_idx))
+			else
+				val = tryparse(Int, t)
+				if isnothing(val)
+					error("Invalid integer token: $t")
+				end
+				push!(indices, val)
+			end
+		end
+	end
+	return indices
+end
+
+# Freedman–Diaconis rule bin width with sensible fallbacks
+function fd_bin_width(values::AbstractVector{<:Real})::Float64
+	v = collect(skipmissing(values))
+	if isempty(v)
+		return 0.1
+	end
+	n = length(v)
+	if n < 2
+		return 0.1
+	end
+	q75 = quantile(v, 0.75)
+	q25 = quantile(v, 0.25)
+	iqr = q75 - q25
+	if iqr > 0
+		h = 2 * iqr / (n^(1/3))
+		return h > 0 ? float(h) : 0.1
+	end
+	# fallback to Scott's rule if IQR == 0
+	s = std(v)
+	if s > 0
+		h = 3.49 * s / (n^(1/3))
+		return h > 0 ? float(h) : 0.1
+	end
+	# final fallback: split range into 10 bins
+	rng = maximum(v) - minimum(v)
+	return rng > 0 ? float(rng / 10) : 0.1
+end
+
 # function to plot the histogram of magmom
 function plot_histogram(
 	input::AbstractString,
@@ -30,6 +97,16 @@ function plot_histogram(
 
 	# determine the target atoms
 	target_atoms = (-1 in target_atom_indices) ? collect(1:n_atoms) : target_atom_indices
+	# validate and normalize atom indices when not selecting all
+	if !(-1 in target_atom_indices)
+		for idx in target_atoms
+			if idx < 1 || idx > n_atoms
+				error("Atom index out of range (1..$n_atoms): $idx")
+			end
+		end
+		# remove duplicates and sort for stable processing
+		target_atoms = sort(unique(target_atoms))
+	end
 
 	# collect the magmom size
 	magmom_size_list = Float64[
@@ -43,16 +120,41 @@ function plot_histogram(
 	std_magmom_size = std(magmom_size_list)
 	var_magmom_size = var(magmom_size_list)
 	println("statistics of magnetic moment size:")
-	println("mean: ", round(mean_magmom_size, digits = 4))
-	println("variance: ", round(var_magmom_size, digits = 4))
-	println("std: ", round(std_magmom_size, digits = 4))
+	println("mean: ", round(mean_magmom_size, digits = 8))
+	println("variance: ", round(var_magmom_size, digits = 8))
+	println("std: ", round(std_magmom_size, digits = 8))
 	
 	# set the bins parameter
 	min_bound_value = something(min_bound, 0.0)
 	max_bound_value = something(max_bound, maximum(magmom_size_list) + 1)
-	bin_width_value = something(bin_width, 0.1)
+	bin_width_value = isnothing(bin_width) ? fd_bin_width(magmom_size_list) : float(bin_width)
+	# ensure positive step; if not, fallback
+	if !(bin_width_value > 0)
+		bin_width_value = fd_bin_width(magmom_size_list)
+	end
+	# ensure valid range
+	if max_bound_value <= min_bound_value
+		max_bound_value = min_bound_value + bin_width_value * 10
+	end
+	println("bin width: ", round(bin_width_value, digits = 6))
 
 	bins = range(min_bound_value, max_bound_value, step = bin_width_value)
+	
+	# compute mode using binned data
+	bin_centers = collect(bins)
+	bin_counts = zeros(Int, length(bin_centers))
+	for val in magmom_size_list
+		# find the closest bin center
+		bin_idx = argmin(abs.(bin_centers .- val))
+		bin_counts[bin_idx] += 1
+	end
+	max_count = maximum(bin_counts)
+	if max_count > 0
+		mode_bins = bin_centers[bin_counts .== max_count]
+		println("mode (binned): ", join(round.(mode_bins, digits = 8), ", "))
+	else
+		println("mode (binned): (none)")
+	end
 
 	# plot the histogram
 	p = histogram(
@@ -80,7 +182,7 @@ s = ArgParseSettings(
 	description = "Plot the histogram of magmom from an EMBSET.txt format file",
 )
 @add_arg_table s begin
-	"--input", "-i"
+	"input"
 	help = "The input file (i.e. EMBSET.txt)"
 	required = true
 
@@ -90,10 +192,10 @@ s = ArgParseSettings(
 	arg_type = Int
 
 	"--atoms", "-a"
-	help = "The atoms to plot. If -1 is given (default), all atoms are plotted."
+	help = "The atoms to plot. Accepts integers, ranges like 1-5, and comma-separated lists. If -1 is given (default), all atoms are plotted."
 	nargs = '+'
-	default = [-1]
-	arg_type = Int
+	default = ["-1"]
+	arg_type = String
 
 	"--min_bound", "-l"
 	help = "The lower bound of the histogram"
@@ -118,7 +220,11 @@ parsed_args = parse_args(ARGS, s)
 plot_histogram(
 	parsed_args["input"],
 	parsed_args["n_atoms"],
-	parsed_args["atoms"],
+	begin
+		atoms_arg = parsed_args["atoms"]
+		# atoms_arg is Vector{String}; convert to Vector{Int} expanding ranges
+		parse_atom_indices(atoms_arg)
+	end,
 	parsed_args["min_bound"],
 	parsed_args["max_bound"],
 	parsed_args["bin_width"],
