@@ -120,9 +120,9 @@ function plot_histogram(
 	std_magmom_size = std(magmom_size_list)
 	var_magmom_size = var(magmom_size_list)
 	println("statistics of magnetic moment size:")
-	println("mean: ", round(mean_magmom_size, digits = 4))
-	println("variance: ", round(var_magmom_size, digits = 4))
-	println("std: ", round(std_magmom_size, digits = 4))
+	println("mean: ", round(mean_magmom_size, digits = 8))
+	println("variance: ", round(var_magmom_size, digits = 8))
+	println("std: ", round(std_magmom_size, digits = 8))
 	
 	# set the bins parameter
 	min_bound_value = something(min_bound, 0.0)
@@ -139,6 +139,22 @@ function plot_histogram(
 	println("bin width: ", round(bin_width_value, digits = 6))
 
 	bins = range(min_bound_value, max_bound_value, step = bin_width_value)
+	
+	# compute mode using binned data
+	bin_centers = collect(bins)
+	bin_counts = zeros(Int, length(bin_centers))
+	for val in magmom_size_list
+		# find the closest bin center
+		bin_idx = argmin(abs.(bin_centers .- val))
+		bin_counts[bin_idx] += 1
+	end
+	max_count = maximum(bin_counts)
+	if max_count > 0
+		mode_bins = bin_centers[bin_counts .== max_count]
+		println("mode (binned): ", join(round.(mode_bins, digits = 8), ", "))
+	else
+		println("mode (binned): (none)")
+	end
 
 	# plot the histogram
 	p = histogram(
@@ -166,7 +182,7 @@ s = ArgParseSettings(
 	description = "Plot the histogram of magmom from an EMBSET.txt format file",
 )
 @add_arg_table s begin
-	"--input", "-i"
+	"input"
 	help = "The input file (i.e. EMBSET.txt)"
 	required = true
 
