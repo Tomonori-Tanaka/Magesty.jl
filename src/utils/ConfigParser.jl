@@ -76,7 +76,7 @@ struct Config4System
 	kd_name::Vector{String}
 	nbody::Int
 	body1_lmax::Vector{Int}
-	bodyn_lmax::OffsetArray{Int, 1}
+	bodyn_lsum::OffsetArray{Int, 1}
 	bodyn_cutoff::OffsetArray{Float64, 3}
 	lattice_vectors::Matrix{Float64}
 	kd_int_list::Vector{Int}
@@ -138,7 +138,7 @@ struct Config4System
 		body1_lmax::Vector{Int} =
 			parse_interaction_body1(interaction_dict, kd_name)
 
-		bodyn_lmax::OffsetArray{Int, 1}, bodyn_cutoff::OffsetArray{Float64, 3} =
+		bodyn_lsum::OffsetArray{Int, 1}, bodyn_cutoff::OffsetArray{Float64, 3} =
 			parse_interaction_bodyn(interaction_dict, kd_name, nbody)
 		# lmax = parse_lmax(interaction_dict["lmax"], kd_name, nbody)
 		# cutoff_radii = parse_cutoff(interaction_dict["cutoff"], kd_name, nbody)
@@ -159,7 +159,7 @@ struct Config4System
 			kd_name = kd_name,
 			nbody = nbody,
 			body1_lmax = body1_lmax,
-			bodyn_lmax = bodyn_lmax,
+			bodyn_lsum = bodyn_lsum,
 			bodyn_cutoff = bodyn_cutoff,
 			lattice_vectors = lattice_vectors,
 			kd_int_list = kd_int_list,
@@ -168,6 +168,7 @@ struct Config4System
 			is_periodic = is_periodic,
 			tolerance_sym = tolerance_sym,
 		)
+
 
 		return new(params...)
 	end
@@ -212,7 +213,17 @@ function parse_interaction_bodyn(
 	kd_name::AbstractVector{<:AbstractString},
 	nbody::Integer,
 )::Tuple{OffsetArray{Int, 1}, OffsetArray{Float64, 3}}
-	# first, parse the lsum value
+	# Handle nbody = 1 case: return empty arrays with appropriate ranges
+	if nbody == 1
+		# Create empty arrays with range 2:1 (empty range)
+		result_lsum = OffsetArray(Int[], 2:1)
+		nkd = length(kd_name)
+		# Create empty 3D array with proper dimensions
+		result_cutoff = OffsetArray(zeros(Float64, 0, nkd, nkd), 2:1, 1:nkd, 1:nkd)
+		return result_lsum, result_cutoff
+	end
+	
+	# Parse lsum values for nbody >= 2
 	result_lsum = OffsetArray(fill(Int(-1), 2:nbody), 2:nbody)
 	for n in 2:nbody
 		bodyn_dict = interaction_dict["body$n"]
@@ -224,7 +235,7 @@ function parse_interaction_bodyn(
 		throw(ArgumentError("lsum value is missing for some body: $(join(missed_lsum, ", "))"))
 	end
 
-	# then, parse the cutoff values
+	# Parse cutoff values for nbody >= 2
 	nkd = length(kd_name)
 	result_cutoff = OffsetArray(zeros(Float64, nbody-1, nkd, nkd), 2:nbody, 1:nkd, 1:nkd)
 	initialized_check = OffsetArray(fill(false, nbody-1, nkd, nkd), 2:nbody, 1:nkd, 1:nkd)
@@ -235,6 +246,13 @@ function parse_interaction_bodyn(
 			elem1, elem2 = split(key, "-")
 			index_elem1 = findfirst(x -> x == elem1, kd_name)
 			index_elem2 = findfirst(x -> x == elem2, kd_name)
+			if isnothing(index_elem1) || isnothing(index_elem2)
+				throw(
+					ArgumentError(
+						"Invalid chemical species pair \"$key\" in cutoff dictionary.",
+					),
+				)
+			end
 			result_cutoff[n, index_elem1, index_elem2] = value
 			result_cutoff[n, index_elem2, index_elem1] = value
 			initialized_check[n, index_elem1, index_elem2] = true
