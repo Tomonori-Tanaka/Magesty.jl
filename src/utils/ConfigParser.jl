@@ -183,10 +183,10 @@ function parse_interaction_body1(
 		# Return default values (all zeros) if body1 section is missing
 		return fill(0, length(kd_name))
 	end
-	
+
 	body1_dict = interaction_dict["body1"]
 	result = fill(-1, length(kd_name))
-	
+
 	for (key, value) in body1_dict["lmax"]
 		index = findfirst(x -> x == key, kd_name)
 		if isnothing(index)
@@ -222,7 +222,7 @@ function parse_interaction_bodyn(
 		result_cutoff = OffsetArray(zeros(Float64, 0, nkd, nkd), 2:1, 1:nkd, 1:nkd)
 		return result_lsum, result_cutoff
 	end
-	
+
 	# Parse lsum values for nbody >= 2
 	result_lsum = OffsetArray(fill(Int(-1), 2:nbody), 2:nbody)
 	for n in 2:nbody
@@ -271,115 +271,6 @@ function parse_interaction_bodyn(
 	end
 
 	return result_lsum, result_cutoff
-end
-
-"""
-	parse_lmax(lmax_dict::AbstractDict{<:AbstractString, Any}, kd_name::AbstractVector{<:AbstractString}, nbody::Integer)
-
-Parse and validate maximum angular momentum values.
-
-# Arguments
-- `lmax_dict::AbstractDict{<:AbstractString, Any}`: Dictionary containing lmax values for each chemical species
-- `kd_name::AbstractVector{<:AbstractString}`: List of chemical species names
-- `nbody::Integer`: Maximum order of many-body interactions
-
-# Returns
-- `Matrix{Int}`: Matrix of lmax values for each chemical species and interaction order
-
-# Throws
-- `ArgumentError`: If lmax values are missing or invalid
-"""
-function parse_lmax(
-	lmax_dict::AbstractDict{<:AbstractString, Any},
-	kd_name::AbstractVector{<:AbstractString},
-	nbody::Integer,
-)::Matrix{Int}
-	kd_num = length(kd_name)
-	lmax_tmp = fill(-1, kd_num, nbody)
-
-	# Parse lmax values
-	for (kd_index, kd) in enumerate(kd_name)
-		if !haskey(lmax_dict, kd)
-			throw(ArgumentError("Missing lmax values for chemical species \"$kd\"."))
-		end
-
-		values = lmax_dict[kd]
-		if length(values) != nbody
-			throw(
-				ArgumentError(
-					"Length of lmax values for $kd ($(length(values))) doesn't match nbody ($nbody).",
-				),
-			)
-		end
-
-		for j in 1:nbody
-			value = values[j]
-			lmax_tmp[kd_index, j] = value
-		end
-	end
-
-	return Matrix{Int}(lmax_tmp)
-end
-
-"""
-	parse_cutoff(cutoff_dict::AbstractDict{<:AbstractString, Any}, kd_name::AbstractVector{<:AbstractString}, nbody::Integer)
-
-Parse and validate cutoff radius values.
-
-# Arguments
-- `cutoff_dict::AbstractDict{<:AbstractString, Any}`: Dictionary containing cutoff values for each chemical species pair
-- `kd_name::AbstractVector{<:AbstractString}`: List of chemical species names
-- `nbody::Integer`: Maximum order of many-body interactions
-
-# Returns
-- `Array{Float64, 3}`: Array of cutoff radii for each chemical species pair and interaction order
-
-# Throws
-- `ArgumentError`: If cutoff values are missing or invalid
-"""
-function parse_cutoff(
-	cutoff_dict::AbstractDict{<:AbstractString, Any},
-	kd_name::AbstractVector{<:AbstractString},
-	nbody::Integer,
-)::Array{Float64, 3}
-	kd_num = length(kd_name)
-	cutoff_tmp = fill(0.0, kd_num, kd_num, nbody)
-
-	# Parse cutoff values
-	for n in 1:nbody
-		if n == 1
-			cutoff_tmp[:, :, n] .= 0.0
-			continue
-		end
-
-		for (key, value) in cutoff_dict
-			if length(value) != nbody
-				throw(
-					ArgumentError(
-						"Length of cutoff values for $key ($(length(value))) doesn't match nbody ($nbody).",
-					),
-				)
-			end
-
-			elem1, elem2 = split(key, "-")
-			index_elem1 = elem1 == "*" ? 1 : findfirst(x -> x == elem1, kd_name)
-			index_elem2 = elem2 == "*" ? 1 : findfirst(x -> x == elem2, kd_name)
-
-			if isnothing(index_elem1) || isnothing(index_elem2)
-				throw(
-					ArgumentError(
-						"Invalid chemical species pair \"$key\" in cutoff dictionary.",
-					),
-				)
-			end
-
-			cutoff_value = value[n]
-			cutoff_tmp[index_elem1, index_elem2, n] = cutoff_value
-			cutoff_tmp[index_elem2, index_elem1, n] = cutoff_value
-		end
-	end
-
-	return Array{Float64}(cutoff_tmp)
 end
 
 """
