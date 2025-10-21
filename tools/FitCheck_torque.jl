@@ -275,79 +275,81 @@ function plot_torque(
 	return nothing
 end
 
-# ---- CLI ----
-s = ArgParseSettings(
-	description = """
-		Draw a scatter plot between observed and predicted magnetic torque (given in eV),\n
-		after shifting each file by its own observed-value center. Input is whitespace-separated text.\n
-		Format: atom_index element DFT_torque_x DFT_torque_y DFT_torque_z SCE_torque_x SCE_torque_y SCE_torque_z\n
-		If --lim is provided, axes are fixed to [-lim, lim] (meV).\n
-		Use --atom-indices or --elements to filter data (mutually exclusive).
-	""",
-	version = "0.1.0",
-	add_version = true,
-)
+if abspath(PROGRAM_FILE) == @__FILE__
+	# ---- CLI ----
+	s = ArgParseSettings(
+		description = """
+			Draw a scatter plot between observed and predicted magnetic torque (given in eV),\n
+			after shifting each file by its own observed-value center. Input is whitespace-separated text.\n
+			Format: atom_index element DFT_torque_x DFT_torque_y DFT_torque_z SCE_torque_x SCE_torque_y SCE_torque_z\n
+			If --lim is provided, axes are fixed to [-lim, lim] (meV).\n
+			Use --atom-indices or --elements to filter data (mutually exclusive).
+		""",
+		version = "0.1.0",
+		add_version = true,
+	)
 
-@add_arg_table s begin
-	"files"
-	help = "Input data files (multiple files allowed)"
-	arg_type = String
-	nargs = '+'
-	required = true
+	@add_arg_table s begin
+		"files"
+		help = "Input data files (multiple files allowed)"
+		arg_type = String
+		nargs = '+'
+		required = true
 
-	"--type", "-t"
-	help = "Type of data to plot (all: plot all torque components, norm: plot norm of torque, dir: plot direction of torque)"
-	arg_type = String
-	default = "all"
-	range_tester = x -> x ∈ ["all", "norm", "dir"]
+		"--type", "-t"
+		help = "Type of data to plot (all: plot all torque components, norm: plot norm of torque, dir: plot direction of torque)"
+		arg_type = String
+		default = "all"
+		range_tester = x -> x ∈ ["all", "norm", "dir"]
 
-	"--output", "-o"
-	help = "Output filename (png, svg, pdf; format inferred from extension)"
-	arg_type = String
-	default = nothing
+		"--output", "-o"
+		help = "Output filename (png, svg, pdf; format inferred from extension)"
+		arg_type = String
+		default = nothing
 
-	"--lim", "-l"
-	help = "X/Y axis limits (meV). Fix to [-lim, lim]"
-	arg_type = Float64
-	default = nothing
+		"--lim", "-l"
+		help = "X/Y axis limits (meV). Fix to [-lim, lim]"
+		arg_type = Float64
+		default = nothing
 
-	"--atom-indices", "-a"
-	help = "Atom indices to plot (comma-separated, e.g., '1,2,3')"
-	arg_type = String
-	default = nothing
+		"--atom-indices", "-a"
+		help = "Atom indices to plot (comma-separated, e.g., '1,2,3')"
+		arg_type = String
+		default = nothing
 
-	"--elements", "-e"
-	help = "Elements to plot (comma-separated, e.g., 'Fe,Co')"
-	arg_type = String
-	default = nothing
+		"--elements", "-e"
+		help = "Elements to plot (comma-separated, e.g., 'Fe,Co')"
+		arg_type = String
+		default = nothing
+	end
+
+	parsed_args = parse_args(s)
+
+	# Parse atom indices and elements
+	atom_indices = nothing
+	elements = nothing
+
+	if parsed_args["atom-indices"] !== nothing
+		atom_indices = [parse(Int, x) for x in split(parsed_args["atom-indices"], ",")]
+	end
+
+	if parsed_args["elements"] !== nothing
+		elements = String.(strip.(split(parsed_args["elements"], ",")))
+	end
+
+	plot_type = parsed_args["type"] === nothing ? "all" : parsed_args["type"]
+
+	println("Plotting $(plot_type) type of data")
+	println("Atom indices: $atom_indices")
+	println("Elements: $elements")
+	println("Output: $(parsed_args["output"])")
+	println("Lim: $(parsed_args["lim"])")
+
+
+	plot_torque(parsed_args["files"], plot_type;
+		output = parsed_args["output"],
+		lim = parsed_args["lim"],
+		atom_indices = atom_indices,
+		elements = elements,
+	)
 end
-
-parsed_args = parse_args(s)
-
-# Parse atom indices and elements
-atom_indices = nothing
-elements = nothing
-
-if parsed_args["atom-indices"] !== nothing
-	atom_indices = [parse(Int, x) for x in split(parsed_args["atom-indices"], ",")]
-end
-
-if parsed_args["elements"] !== nothing
-	elements = String.(strip.(split(parsed_args["elements"], ",")))
-end
-
-plot_type = parsed_args["type"] === nothing ? "all" : parsed_args["type"]
-
-println("Plotting $(plot_type) type of data")
-println("Atom indices: $atom_indices")
-println("Elements: $elements")
-println("Output: $(parsed_args["output"])")
-println("Lim: $(parsed_args["lim"])")
-
-
-plot_torque(parsed_args["files"], plot_type;
-	output = parsed_args["output"],
-	lim = parsed_args["lim"],
-	atom_indices = atom_indices,
-	elements = elements,
-)
