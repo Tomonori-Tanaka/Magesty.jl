@@ -27,6 +27,7 @@ module Clusters
 using Combinatorics: combinations
 using DataStructures
 using LinearAlgebra
+using OffsetArrays
 using Printf
 
 using ..SortedContainer
@@ -154,7 +155,7 @@ cluster = Cluster(structure, symmetry, 3, cutoff_radii)
 """
 struct Cluster
 	num_bodies::Int
-	cutoff_radii::Array{Float64, 3}
+	cutoff_radii::OffsetArray{Float64, 3}
 	min_distance_pairs::Matrix{Vector{DistInfo}}
 	# interaction_clusters::Matrix{OrderedSet{InteractionCluster}}
 	cluster_list::Vector{SortedVector{Vector{AtomCell}}}
@@ -227,7 +228,7 @@ function Cluster(
 	config::Config4System;
 	verbosity::Bool = true,
 )
-	return Cluster(structure, symmetry, config.nbody, config.cutoff_radii; verbosity = verbosity)
+	return Cluster(structure, symmetry, config.nbody, config.bodyn_cutoff; verbosity = verbosity)
 end
 
 """
@@ -340,7 +341,7 @@ function set_interaction_by_cutoff(
 			for other_atom_index in 1:num_atoms
 				atom_index == other_atom_index && continue
 				other_atom_type = atom_type_list[other_atom_index]
-				cutoff = cutoff_radii[atom_type, other_atom_type, body]
+				cutoff = cutoff_radii[body, atom_type, other_atom_type]
 				if cutoff < 0.0 ||
 				   min_distance_pairs[atom_index, other_atom_index][1].distance ≤ cutoff
 					push!(pair_list, other_atom_index)
