@@ -8,6 +8,7 @@ module BasisSets
 using Combinatorics
 using DataStructures
 using LinearAlgebra
+using OffsetArrays
 using Printf
 using StaticArrays
 using ..SortedContainer
@@ -79,8 +80,9 @@ struct BasisSet
 		structure::Structure,
 		symmetry::Symmetry,
 		cluster::Cluster,
-		lmax::AbstractMatrix{<:Integer},    # [≤ nkd, ≤ nbody]
-		bodymax::Integer,
+		body1_lmax::Vector{Int},
+		bodyn_lsum::OffsetArray{Int, 1},
+		nbody::Integer,
 		;
 		verbosity::Bool = true,
 	)
@@ -98,11 +100,6 @@ struct BasisSet
 		end
 
 		# Validate input parameters
-		nkd, nbody = size(lmax)
-		bodymax > 0 || throw(ArgumentError("bodymax must be positive"))
-		nbody ≥ bodymax ||
-			throw(ArgumentError("lmax matrix must have at least bodymax columns"))
-
 		# Construct basis list
 		# basislist consists of all possible basis functions which is the product of spherical harmonics.
 		if verbosity
@@ -112,8 +109,9 @@ struct BasisSet
 			structure,
 			symmetry,
 			cluster,
-			lmax,
-			bodymax,
+			body1_lmax,
+			bodyn_lsum,
+			nbody,
 		)
 
 		# Classify basis functions by symmetry
@@ -205,15 +203,16 @@ function BasisSet(
 	;
 	verbosity::Bool = true,
 )
-	return BasisSet(structure, symmetry, cluster, config.lmax, config.nbody, verbosity = verbosity)
+	return BasisSet(structure, symmetry, cluster, config.body1_lmax, config.bodyn_lsum, config.nbody, verbosity = verbosity)
 end
 
 function construct_basislist(
 	structure::Structure,
 	symmetry::Symmetry,
 	cluster::Cluster,
-	lmax_mat::AbstractMatrix{<:Integer},
-	bodymax::Integer,
+	body1_lmax::Vector{Int},
+	bodyn_lsum::OffsetArray{Int, 1},
+	nbody::Integer,
 )::SortedCountingUniqueVector{IndicesUniqueList}
 
 	result_basislist = SortedCountingUniqueVector{IndicesUniqueList}()
@@ -227,7 +226,7 @@ function construct_basislist(
     # Handle 1-body case (single-thread for safety; cost is small)
     for iat in symmetry.atoms_in_prim
 		# Use @view for better performance when accessing matrix row
-		lmax = @view(lmax_mat[kd_int_list[iat], :])
+		lmax = body1_lmax[kd_int_list[iat]]
 
 		for l in 1:lmax[1]
 			iul::Vector{Indices} = indices_singleatom(iat, l, 1)
@@ -243,7 +242,7 @@ function construct_basislist(
 	end
 
 	# Process multi-body cases
-	for body in 2:bodymax
+	for body in 2:nbody
 		for cluster in cluster_list[body-1]
 			# Convert cluster into atomlist, llist, and celllist
 			atomlist, llist, celllist =
