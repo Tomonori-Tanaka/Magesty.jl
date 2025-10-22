@@ -5,6 +5,7 @@ adapted to the symmetry of the crystal structure.
 """
 module BasisSets
 
+using Combinat
 using Combinatorics
 using DataStructures
 using LinearAlgebra
@@ -203,7 +204,15 @@ function BasisSet(
 	;
 	verbosity::Bool = true,
 )
-	return BasisSet(structure, symmetry, cluster, config.body1_lmax, config.bodyn_lsum, config.nbody, verbosity = verbosity)
+	return BasisSet(
+		structure,
+		symmetry,
+		cluster,
+		config.body1_lmax,
+		config.bodyn_lsum,
+		config.nbody,
+		verbosity = verbosity,
+	)
 end
 
 function construct_basislist(
@@ -223,15 +232,15 @@ function construct_basislist(
 	kd_int_list = structure.supercell.kd_int_list
 	cluster_list = cluster.cluster_list
 
-    # Handle 1-body case (single-thread for safety; cost is small)
-    for iat in symmetry.atoms_in_prim
+	# Handle 1-body case (single-thread for safety; cost is small)
+	for iat in symmetry.atoms_in_prim
 		# Use @view for better performance when accessing matrix row
 		lmax = body1_lmax[kd_int_list[iat]]
 
 		for l in 1:lmax[1]
 			iul::Vector{Indices} = indices_singleatom(iat, l, 1)
-            for indices::Indices in iul
-                push!(thread_basislists[1], IndicesUniqueList(indices))
+			for indices::Indices in iul
+				push!(thread_basislists[1], IndicesUniqueList(indices))
 			end
 		end
 	end
@@ -244,32 +253,55 @@ function construct_basislist(
 	# Process multi-body cases
 	for body in 2:nbody
 		for cluster in cluster_list[body-1]
-			# Convert cluster into atomlist, llist, and celllist
-			atomlist, llist, celllist =
-				get_atomsls_from_cluster(cluster, lmax_mat, kd_int_list)
+			for lsum in 1:bodyn_lsum[body]
 
-			for iul in product_indices_of_all_comb(atomlist, llist, celllist)
-				for basis in result_basislist
-					# Check for equivalent clusters in primitive cell
-					if equivalent(basis, iul)
-						result_basislist.counts[basis] += 1
-						@goto skip
-						# Check for translationally equivalent clusters
-					elseif is_translationally_equiv_basis(
-						iul,
-						basis,
-						symmetry.atoms_in_prim,
-						symmetry.map_s2p,
-						structure.x_image_cart,
-						tol = symmetry.tol,
-					)
-						result_basislist.counts[basis] += 1
-						@goto skip
+				iul_list = listup_basislist(cluster, lsum)
+
+				for iul in iul_list
+					for basis in result_basislist
+						# Check for equivalent clusters in primitive cell
+						if equivalent(basis, iul)
+							result_basislist.counts[basis] += 1
+							@goto skip
+							# Check for translationally equivalent clusters
+						elseif is_translationally_equiv_basis(
+							iul,
+							basis,
+							symmetry.atoms_in_prim,
+							symmetry.map_s2p,
+							structure.x_image_cart,
+							tol = symmetry.tol,
+						)
+							result_basislist.counts[basis] += 1
+							@goto skip
+						end
 					end
+					push!(result_basislist, iul)
+					@label skip
 				end
-				push!(result_basislist, iul)
-				@label skip
 			end
+		end
+	end
+
+	return result_basislist
+end
+
+function listup_basislist(
+	cluster::AbstractVector{AtomCell},
+	lsum::Integer,
+)::Vector{IndicesUniqueList}
+
+	result_basislist = Vector{IndicesUniqueList}()
+	nbody = length(cluster)
+
+	atomlist = [atomcell.atom for atomcell in cluster]
+	celllist = [atomcell.cell for atomcell in cluster]
+
+	l_list = Combinat.compositions(lsum, nbody; min = 1)
+	for l_vec::Vector{Int} in l_list
+		iul_list = product_indices(atomlist, l_vec, celllist)
+		for iul::IndicesUniqueList in iul_list
+			push!(result_basislist, iul)
 		end
 	end
 

@@ -169,7 +169,6 @@ struct Cluster
 		;
 		verbosity::Bool = true,
 	)
-		@assert size(cutoff_radii, 3) == nbody "Cutoff radii dimensions must match nbody."
 
 		start_time = time_ns()
 

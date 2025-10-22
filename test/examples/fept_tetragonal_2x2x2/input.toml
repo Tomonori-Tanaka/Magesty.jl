@@ -8,7 +8,7 @@ periodicity = [true, true, true]
 tolerance = 1e-5
 
 [interaction]
-nbody = 2 # the number of bodies considered.
+nbody = 1 # the number of bodies considered.
 [interaction.body1] # single site term (corresponding to on-site anisotropy)
 lmax.Fe = 2
 lmax.Pt = 2

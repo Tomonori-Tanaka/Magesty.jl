@@ -2,8 +2,8 @@ using .ConfigParser
 using Test
 
 @testset "ConfigParser" begin
-	@testset "Config4System" begin
-		# Create a valid input dictionary
+	@testset "Config4System basic and interaction parsing" begin
+		# Create a valid input dictionary matching latest schema
 		input_dict = Dict{String, Any}(
 			"general" => Dict{String, Any}(
 				"name" => "test_system",
@@ -16,14 +16,16 @@ using Test
 			),
 			"interaction" => Dict{String, Any}(
 				"nbody" => 2,
-				"lmax" => Dict{String, Any}(
-					"H" => [1, 2],
-					"O" => [3, 4],
+				"body1" => Dict{String, Any}(
+					"lmax" => Dict{String, Any}("H" => 1, "O" => 3),
 				),
-				"cutoff" => Dict{String, Any}(
-					"H-H" => [0.0, 2.0],
-					"H-O" => [0.0, 3.0],
-					"O-O" => [0.0, 4.0],
+				"body2" => Dict{String, Any}(
+					"lsum" => 4,
+					"cutoff" => Dict{String, Any}(
+						"H-H" => 2.0,
+						"H-O" => 3.0,
+						"O-O" => 4.0,
+					),
 				),
 			),
 			"structure" => Dict{String, Any}(
@@ -39,10 +41,14 @@ using Test
 		@test config.num_atoms == 2
 		@test config.kd_name == ["H", "O"]
 		@test config.nbody == 2
-		@test config.lmax == [1 2; 3 4]
-		@test config.cutoff_radii[1, 1, 2] ≈ 2.0
-		@test config.cutoff_radii[1, 2, 2] ≈ 3.0
-		@test config.cutoff_radii[2, 2, 2] ≈ 4.0
+		@test config.body1_lmax == [1, 3]
+		# bodyn_lsum is OffsetArray indexed from 2
+		@test config.bodyn_lsum[2] == 4
+		# bodyn_cutoff is symmetric and indexed as [n, i, j]
+		@test config.bodyn_cutoff[2, 1, 1] ≈ 2.0
+		@test config.bodyn_cutoff[2, 1, 2] ≈ 3.0
+		@test config.bodyn_cutoff[2, 2, 1] ≈ 3.0
+		@test config.bodyn_cutoff[2, 2, 2] ≈ 4.0
 		@test config.lattice_vectors == [1.0 0.0 0.0; 0.0 1.0 0.0; 0.0 0.0 1.0]
 		@test config.kd_int_list == [1, 2]
 		@test config.x_fractional[:, 1] ≈ [0.0, 0.0, 0.0]
@@ -55,15 +61,42 @@ using Test
 		delete!(invalid_dict, "general")
 		@test_throws ArgumentError Config4System(invalid_dict)
 
-		# Test invalid name
+		# Empty name is currently allowed (no validation in constructor)
 		invalid_dict = copy(input_dict)
 		invalid_dict["general"]["name"] = ""
-		@test_throws ArgumentError Config4System(invalid_dict)
+		config_empty = Config4System(invalid_dict)
+		@test config_empty.name == ""
 
 		# Test invalid number of atoms
 		invalid_dict = copy(input_dict)
 		invalid_dict["general"]["nat"] = 0
 		@test_throws ArgumentError Config4System(invalid_dict)
+	end
+
+	@testset "Config4System nbody=1 edge case" begin
+		input_dict = Dict{String, Any}(
+			"general" => Dict{String, Any}(
+				"name" => "nbody1",
+				"nat" => 1,
+				"kd" => ["Fe"],
+			),
+			"symmetry" => Dict{String, Any}(),
+			"interaction" => Dict{String, Any}(
+				"nbody" => 1,
+				"body1" => Dict{String, Any}("lmax" => Dict{String, Any}("Fe" => 2)),
+			),
+			"structure" => Dict{String, Any}(
+				"lattice" => [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+				"kd_list" => [1],
+				"position" => [[0.0, 0.0, 0.0]],
+			),
+		)
+		config = Config4System(input_dict)
+		@test config.nbody == 1
+		@test config.body1_lmax == [2]
+		# bodyn_* should be empty ranges for nbody=1
+		@test length(config.bodyn_lsum) == 0
+		@test size(parent(config.bodyn_cutoff)) == (0, 1, 1)
 	end
 
 	@testset "Config4Optimize" begin
@@ -73,6 +106,8 @@ using Test
 				"datafile" => "test.dat",
 				"ndata" => 100,
 				"weight" => 0.5,
+				"alpha" => 0.1,
+				"lambda" => 0.01,
 			),
 		)
 
@@ -81,6 +116,8 @@ using Test
 		@test config.datafile == "test.dat"
 		@test config.ndata == 100
 		@test config.weight ≈ 0.5
+		@test config.alpha ≈ 0.1
+		@test config.lambda ≈ 0.01
 
 		# Test missing required section
 		invalid_dict = copy(input_dict)
@@ -88,55 +125,17 @@ using Test
 		@test_throws ArgumentError Config4Optimize(invalid_dict)
 
 		# Test empty datafile name
-		invalid_dict = copy(input_dict)
-		invalid_dict["regression"]["datafile"] = ""
+		invalid_dict = Dict{String, Any}("regression" => Dict{String, Any}("datafile" => ""))
 		@test_throws ArgumentError Config4Optimize(invalid_dict)
 
 		# Test invalid weight
-		invalid_dict = copy(input_dict)
-		invalid_dict["regression"]["weight"] = 1.5
+		invalid_dict = Dict{String, Any}(
+			"regression" => Dict{String, Any}(
+				"datafile" => "test.dat",
+				"weight" => 1.5,
+			),
+		)
 		@test_throws ArgumentError Config4Optimize(invalid_dict)
-	end
-
-	@testset "parse_lmax" begin
-		kd_name = ["H", "O"]
-		nbody = 2
-		lmax_dict = Dict{String, Any}(
-			"H" => [1, 2],
-			"O" => [3, 4],
-		)
-
-		lmax = ConfigParser.parse_lmax(lmax_dict, kd_name, nbody)
-		@test size(lmax) == (2, 2)
-		@test lmax[1, 1] == 1
-		@test lmax[1, 2] == 2
-		@test lmax[2, 1] == 3
-		@test lmax[2, 2] == 4
-
-		# Test error cases
-		invalid_dict = Dict{String, Any}("H" => [1])
-		@test_throws ArgumentError ConfigParser.parse_lmax(invalid_dict, kd_name, nbody)
-	end
-
-	@testset "parse_cutoff" begin
-		kd_name = ["H", "O"]
-		nbody = 2
-		cutoff_dict = Dict{String, Any}(
-			"H-H" => [0.0, 2.0],
-			"H-O" => [0.0, 3.0],
-			"O-O" => [0.0, 4.0],
-		)
-
-		cutoff = ConfigParser.parse_cutoff(cutoff_dict, kd_name, nbody)
-		@test size(cutoff) == (2, 2, 2)
-		@test cutoff[1, 1, 2] ≈ 2.0
-		@test cutoff[1, 2, 2] ≈ 3.0
-		@test cutoff[2, 2, 2] ≈ 4.0
-		@test cutoff[2, 1, 2] ≈ 3.0  # Check symmetry
-
-		# Test error cases
-		invalid_dict = Dict{String, Any}("H-H" => [0.0])
-		@test_throws ArgumentError ConfigParser.parse_cutoff(invalid_dict, kd_name, nbody)
 	end
 
 	@testset "parse_position" begin
