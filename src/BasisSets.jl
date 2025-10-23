@@ -255,6 +255,11 @@ function construct_basislist(
 		for cluster in cluster_list[body-1]
 			for lsum in 1:bodyn_lsum[body]
 
+				# skip odd lsum cases due to the time-reversal symmetry
+				if mod(lsum, 2) == 1
+					continue
+				end
+
 				iul_list = listup_basislist(cluster, lsum)
 
 				for iul in iul_list
