@@ -72,9 +72,9 @@ function fd_bin_width(values::AbstractVector{<:Real})::Float64
 	return rng > 0 ? float(rng / 10) : 0.1
 end
 
-# function to plot the histogram of magmom
+# function to plot the histogram of magmom for multiple files
 function plot_histogram(
-	input::AbstractString,
+	inputs::AbstractVector{<:AbstractString},
 	n_atoms::Integer,
 	target_atom_indices::AbstractVector{<:Integer},
 	min_bound::Union{<:Real, Nothing},
@@ -82,18 +82,17 @@ function plot_histogram(
 	bin_width::Union{<:Real, Nothing},
 	vertical_lines::Union{AbstractVector{<:Real}, Nothing},
 )
-	# check the input file
-	if !isfile(input)
-		error("The input file does not exist: $input")
+	# check the input files
+	for input in inputs
+		if !isfile(input)
+			error("The input file does not exist: $input")
+		end
 	end
 
 	# check the total atoms
 	if n_atoms <= 0
 		error("The total number of atoms must be positive: $n_atoms")
 	end
-
-	# read the input file
-	embset::Vector{SpinConfig} = read_embset(input, n_atoms)
 
 	# determine the target atoms
 	target_atoms = (-1 in target_atom_indices) ? collect(1:n_atoms) : target_atom_indices
@@ -108,29 +107,65 @@ function plot_histogram(
 		target_atoms = sort(unique(target_atoms))
 	end
 
-	# collect the magmom size
-	magmom_size_list = Float64[
-		sconfig.magmom_size[atom]
-		for sconfig in embset
-		for atom in target_atoms
-	]
-
-	# statistical analysis
-	mean_magmom_size = mean(magmom_size_list)
-	std_magmom_size = std(magmom_size_list)
-	var_magmom_size = var(magmom_size_list)
-	println("statistics of magnetic moment size:")
-	println("mean: ", round(mean_magmom_size, digits = 8))
-	println("variance: ", round(var_magmom_size, digits = 8))
-	println("std: ", round(std_magmom_size, digits = 8))
+	# collect data from all files
+	all_magmom_data = Vector{Float64}[]
+	file_stats = []
 	
-	# set the bins parameter
+	for (file_idx, input) in enumerate(inputs)
+		# read the input file
+		embset::Vector{SpinConfig} = read_embset(input, n_atoms)
+		
+		# collect the magmom size for this file
+		magmom_size_list = Float64[
+			sconfig.magmom_size[atom]
+			for sconfig in embset
+			for atom in target_atoms
+		]
+		
+		push!(all_magmom_data, magmom_size_list)
+		
+		# statistical analysis for this file
+		mean_magmom_size = mean(magmom_size_list)
+		std_magmom_size = std(magmom_size_list)
+		var_magmom_size = var(magmom_size_list)
+		
+		file_stat = (
+			filename = basename(input),
+			mean = mean_magmom_size,
+			std = std_magmom_size,
+			var = var_magmom_size,
+			count = length(magmom_size_list)
+		)
+		push!(file_stats, file_stat)
+		
+		println("File $file_idx: $(file_stat.filename)")
+		println("  statistics of magnetic moment size:")
+		println("  mean: ", round(mean_magmom_size, digits = 8))
+		println("  variance: ", round(var_magmom_size, digits = 8))
+		println("  std: ", round(std_magmom_size, digits = 8))
+		println("  count: ", file_stat.count)
+	end
+
+	# combine all data for overall statistics and bin calculation
+	combined_magmom_data = vcat(all_magmom_data...)
+	
+	# overall statistical analysis
+	overall_mean = mean(combined_magmom_data)
+	overall_std = std(combined_magmom_data)
+	overall_var = var(combined_magmom_data)
+	println("\nOverall statistics (combined data):")
+	println("mean: ", round(overall_mean, digits = 8))
+	println("variance: ", round(overall_var, digits = 8))
+	println("std: ", round(overall_std, digits = 8))
+	println("total count: ", length(combined_magmom_data))
+	
+	# set the bins parameter using combined data
 	min_bound_value = something(min_bound, 0.0)
-	max_bound_value = something(max_bound, maximum(magmom_size_list) + 1)
-	bin_width_value = isnothing(bin_width) ? fd_bin_width(magmom_size_list) : float(bin_width)
+	max_bound_value = something(max_bound, maximum(combined_magmom_data) + 1)
+	bin_width_value = isnothing(bin_width) ? fd_bin_width(combined_magmom_data) : float(bin_width)
 	# ensure positive step; if not, fallback
 	if !(bin_width_value > 0)
-		bin_width_value = fd_bin_width(magmom_size_list)
+		bin_width_value = fd_bin_width(combined_magmom_data)
 	end
 	# ensure valid range
 	if max_bound_value <= min_bound_value
@@ -140,10 +175,10 @@ function plot_histogram(
 
 	bins = range(min_bound_value, max_bound_value, step = bin_width_value)
 	
-	# compute mode using binned data
+	# compute mode using binned data for combined data
 	bin_centers = collect(bins)
 	bin_counts = zeros(Int, length(bin_centers))
-	for val in magmom_size_list
+	for val in combined_magmom_data
 		# find the closest bin center
 		bin_idx = argmin(abs.(bin_centers .- val))
 		bin_counts[bin_idx] += 1
@@ -156,19 +191,37 @@ function plot_histogram(
 		println("mode (binned): (none)")
 	end
 
-	# plot the histogram
-	p = histogram(
-		magmom_size_list,
-		bins = bins,
-		xlabel = "Size of magnetic moment",
-		ylabel = "Frequency",
-		legend = false,
-	)
-
+	# plot the histogram with multiple files
+	p = plot()
+	
+	# Define colors for different files
+	colors = [:blue, :red, :green, :orange, :purple, :brown, :pink, :gray, :olive, :cyan]
+	
+	for (file_idx, (magmom_data, file_stat)) in enumerate(zip(all_magmom_data, file_stats))
+		color = colors[mod1(file_idx, length(colors))]
+		histogram!(
+			p,
+			magmom_data,
+			bins = bins,
+			alpha = 0.6,
+			label = "$(file_stat.filename) (n=$(file_stat.count))",
+			color = color,
+			linecolor = :black,
+			linewidth = 0.5
+		)
+	end
+	
+	# Combined histogram is not plotted
+	
+	# Set labels and title
+	xlabel!(p, "Size of magnetic moment")
+	ylabel!(p, "Frequency")
+	title!(p, "Magnetic Moment Magnitude Distribution")
+	
 	# plot the vertical lines
 	if !isnothing(vertical_lines)
-		for v::Float64 in vertical_lines
-			vline!(p, [v], color = :black)
+		for v in vertical_lines
+			vline!(p, [v], color = :black, linestyle = :dash, linewidth = 2)
 		end
 	end
 
@@ -179,11 +232,12 @@ end
 
 
 s = ArgParseSettings(
-	description = "Plot the histogram of magmom from an EMBSET.txt format file",
+	description = "Plot the histogram of magmom from EMBSET.txt format files (supports multiple files)",
 )
 @add_arg_table s begin
-	"input"
-	help = "The input file (i.e. EMBSET.txt)"
+	"inputs"
+	help = "The input files (i.e. EMBSET.txt). Multiple files can be specified."
+	nargs = '+'
 	required = true
 
 	"--n_atoms", "-n"
@@ -218,7 +272,7 @@ end
 parsed_args = parse_args(ARGS, s)
 
 plot_histogram(
-	parsed_args["input"],
+	String.(parsed_args["inputs"]),
 	parsed_args["n_atoms"],
 	begin
 		atoms_arg = parsed_args["atoms"]
