@@ -524,7 +524,9 @@ function generate_pairs_simple(
 		for (i, prim_atom_index) in enumerate(primitive_atom_indices)
 			for cluster in interaction_clusters[i, body-1]
 				sv = SortedVector([prim_atom_index, cluster.atom_indices...])
-				push!(scuv, sv)
+				multiplicity =
+					length(generate_combinations(cluster.atom_indices, cluster.cell_indices))
+				push!(scuv, sv, multiplicity)
 			end
 		end
 		cluster_dict[body] = scuv

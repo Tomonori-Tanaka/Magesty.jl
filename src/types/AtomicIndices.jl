@@ -1,14 +1,16 @@
 module AtomicIndices
 
 import Base:
-	append!, eltype, getindex, hash, in, isempty, isless, iterate, length, push!, show,
-	size, sort, ==
+	append!, eltype, getindex, hash, in, insert!, isempty, isless, iterate, length, push!,
+	searchsortedfirst, show, size, sort, ==
 
 export Indices, IndicesUniqueList, get_total_L, get_atom_l_list,
 	equivalent,
 	product_indices_of_all_comb,
 	product_indices,
+	product_shsiteindex,
 	indices_singleatom,
+	shsiteindex_singleatom,
 	SHSiteIndex, SHProduct
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -379,6 +381,37 @@ function product_indices(
 	return sort(combined_vec)
 end
 
+function product_shsiteindex(
+	atom_list::AbstractVector{<:Integer},
+	l_list::AbstractVector{<:Integer},
+)::Vector{SHProduct}
+	if length(atom_list) != length(l_list)
+		throw(
+			ErrorException(
+				"Input vectors must have the same length. Got lengths: " *
+				"atom_list=$(length(atom_list)), " *
+				"l_list=$(length(l_list))",
+			),
+		)
+	end
+
+	list_tmp = Vector{Vector{SHSiteIndex}}()
+	for (atom, l) in zip(atom_list, l_list)
+		push!(list_tmp, shsiteindex_singleatom(atom, l))
+	end
+
+	combined_vec = Vector{SHProduct}()
+	prod_iter = Iterators.product(list_tmp...)
+	for comb::Tuple{Vararg{SHSiteIndex}} in prod_iter
+		shp_tmp = SHProduct()
+		for shsi in comb
+			push!(shp_tmp, shsi)
+		end
+		push!(combined_vec, shp_tmp)
+	end
+	return sort(combined_vec)
+end
+
 """
 	indices_singleatom(atom::Integer, l::Integer, cell::Integer) -> Vector{Indices}
 
@@ -396,6 +429,14 @@ function indices_singleatom(atom::Integer, l::Integer, cell::Integer)::Vector{In
 	vec = Vector{Indices}()
 	for m in (-l):l
 		push!(vec, Indices(atom, l, m, cell))
+	end
+	return sort(vec)
+end
+
+function shsiteindex_singleatom(atom::Integer, l::Integer)::Vector{SHSiteIndex}
+	vec = Vector{SHSiteIndex}()
+	for m in (-l):l
+		push!(vec, SHSiteIndex(atom, l, m))
 	end
 	return sort(vec)
 end
@@ -439,7 +480,8 @@ function push!(shp::SHProduct, shsi::SHSiteIndex)
 	if shsi in shp
 		return shp
 	else
-		push!(shp.data, shsi)
+		idx = searchsortedfirst(shp.data, shsi)
+		insert!(shp.data, idx, shsi)
 		return shp
 	end
 end

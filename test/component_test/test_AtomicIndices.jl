@@ -378,23 +378,7 @@ using .AtomicIndices
 			push!(shp, shsi3)
 			push!(shp, shsi1)
 			push!(shp, shsi2)
-			
-			# Verify original order (unsorted)
-			@test shp[1] == shsi3
-			@test shp[2] == shsi1
-			@test shp[3] == shsi2
-			
-			# Sort creates a new sorted product
-			sorted_shp = sort(shp)
-			
-			@test sorted_shp[1] == shsi1
-			@test sorted_shp[2] == shsi2
-			@test sorted_shp[3] == shsi3
-			
-			# Original is not modified
-			@test shp[1] == shsi3
-			@test shp[2] == shsi1
-			@test shp[3] == shsi2
+			@test shp == SHProduct([shsi1, shsi2, shsi3])
 		end
 	end
 end
