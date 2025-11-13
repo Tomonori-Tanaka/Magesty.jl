@@ -5,9 +5,11 @@ adapted to the symmetry of the crystal structure.
 """
 module BasisSets
 
+using Combinat
 using Combinatorics
 using DataStructures
 using LinearAlgebra
+using OffsetArrays
 using Printf
 using StaticArrays
 using ..SortedContainer
@@ -79,8 +81,9 @@ struct BasisSet
 		structure::Structure,
 		symmetry::Symmetry,
 		cluster::Cluster,
-		lmax::AbstractMatrix{<:Integer},    # [≤ nkd, ≤ nbody]
-		bodymax::Integer,
+		body1_lmax::Vector{Int},
+		bodyn_lsum::OffsetArray{Int, 1},
+		nbody::Integer,
 		;
 		verbosity::Bool = true,
 	)
@@ -98,11 +101,6 @@ struct BasisSet
 		end
 
 		# Validate input parameters
-		nkd, nbody = size(lmax)
-		bodymax > 0 || throw(ArgumentError("bodymax must be positive"))
-		nbody ≥ bodymax ||
-			throw(ArgumentError("lmax matrix must have at least bodymax columns"))
-
 		# Construct basis list
 		# basislist consists of all possible basis functions which is the product of spherical harmonics.
 		if verbosity
@@ -112,8 +110,9 @@ struct BasisSet
 			structure,
 			symmetry,
 			cluster,
-			lmax,
-			bodymax,
+			body1_lmax,
+			bodyn_lsum,
+			nbody,
 		)
 
 		# Classify basis functions by symmetry
@@ -205,15 +204,24 @@ function BasisSet(
 	;
 	verbosity::Bool = true,
 )
-	return BasisSet(structure, symmetry, cluster, config.lmax, config.nbody, verbosity = verbosity)
+	return BasisSet(
+		structure,
+		symmetry,
+		cluster,
+		config.body1_lmax,
+		config.bodyn_lsum,
+		config.nbody,
+		verbosity = verbosity,
+	)
 end
 
 function construct_basislist(
 	structure::Structure,
 	symmetry::Symmetry,
 	cluster::Cluster,
-	lmax_mat::AbstractMatrix{<:Integer},
-	bodymax::Integer,
+	body1_lmax::Vector{Int},
+	bodyn_lsum::OffsetArray{Int, 1},
+	nbody::Integer,
 )::SortedCountingUniqueVector{IndicesUniqueList}
 
 	result_basislist = SortedCountingUniqueVector{IndicesUniqueList}()
@@ -222,10 +230,10 @@ function construct_basislist(
 	kd_int_list = structure.supercell.kd_int_list
 	cluster_list = cluster.cluster_list
 
-	# Handle 1-body case
+	# Handle 1-body case (single-thread for safety; cost is small)
 	for iat in symmetry.atoms_in_prim
 		# Use @view for better performance when accessing matrix row
-		lmax = @view(lmax_mat[kd_int_list[iat], :])
+		lmax = body1_lmax[kd_int_list[iat]]
 
 		for l in 1:lmax[1]
 			iul::Vector{Indices} = indices_singleatom(iat, l, 1)
@@ -236,34 +244,62 @@ function construct_basislist(
 	end
 
 	# Process multi-body cases
-	for body in 2:bodymax
+	for body in 2:nbody
 		for cluster in cluster_list[body-1]
-			# Convert cluster into atomlist, llist, and celllist
-			atomlist, llist, celllist =
-				get_atomsls_from_cluster(cluster, lmax_mat, kd_int_list)
+			for lsum in 1:bodyn_lsum[body]
 
-			for iul in product_indices_of_all_comb(atomlist, llist, celllist)
-				for basis in result_basislist
-					# Check for equivalent clusters in primitive cell
-					if equivalent(basis, iul)
-						result_basislist.counts[basis] += 1
-						@goto skip
-						# Check for translationally equivalent clusters
-					elseif is_translationally_equiv_basis(
-						iul,
-						basis,
-						symmetry.atoms_in_prim,
-						symmetry.map_s2p,
-						structure.x_image_cart,
-						tol = symmetry.tol,
-					)
-						result_basislist.counts[basis] += 1
-						@goto skip
-					end
+				# skip odd lsum cases due to the time-reversal symmetry
+				if mod(lsum, 2) == 1
+					continue
 				end
-				push!(result_basislist, iul)
-				@label skip
+
+				iul_list = listup_basislist(cluster, lsum)
+
+				for iul in iul_list
+					for basis in result_basislist
+						# Check for equivalent clusters in primitive cell
+						if equivalent(basis, iul)
+							result_basislist.counts[basis] += 1
+							@goto skip
+							# Check for translationally equivalent clusters
+						elseif is_translationally_equiv_basis(
+							iul,
+							basis,
+							symmetry.atoms_in_prim,
+							symmetry.map_s2p,
+							structure.x_image_cart,
+							tol = symmetry.tol,
+						)
+							result_basislist.counts[basis] += 1
+							@goto skip
+						end
+					end
+					push!(result_basislist, iul)
+					@label skip
+				end
 			end
+		end
+	end
+
+	return result_basislist
+end
+
+function listup_basislist(
+	cluster::AbstractVector{AtomCell},
+	lsum::Integer,
+)::Vector{IndicesUniqueList}
+
+	result_basislist = Vector{IndicesUniqueList}()
+	nbody = length(cluster)
+
+	atomlist = [atomcell.atom for atomcell in cluster]
+	celllist = [atomcell.cell for atomcell in cluster]
+
+	l_list = Combinat.compositions(lsum, nbody; min = 1)
+	for l_vec::Vector{Int} in l_list
+		iul_list = product_indices(atomlist, l_vec, celllist)
+		for iul::IndicesUniqueList in iul_list
+			push!(result_basislist, iul)
 		end
 	end
 

@@ -1,52 +1,51 @@
-	[general]
-	name = "l10fept2x2x2"
-	nat = 16
-	kd = [ "Fe", "Pt" ]
-	periodicity = [ true, true, true ]
+[general]
+kd = ["Fe", "Pt"]
+name = "l10fept2x2x2"
+nat = 16
+periodicity = [true, true, true]
 
-	[symmetry]
-	tolerance = 1e-5
+[symmetry]
+tolerance = 1e-5
 
-	[interaction]
-		nbody = 2
-		[interaction.lmax]
-		Fe = [ 2, 1 ] # the number of elements shoud be the same with "nbody" value.
-		Pt = [ 2, 1 ]
-		[interaction.cutoff] # unit is bohr
-		Fe-Fe = [ -1, -1 ] # first element is just dummy to align wigh lmax array
-		Fe-Pt = [ -1, -1 ]
-		Pt-Pt = [ -1, -1 ]
-		# negative cutoff means all of the possible interaction will be considered.
+[interaction]
+nbody = 1 # the number of bodies considered.
+[interaction.body1] # single site term (corresponding to on-site anisotropy)
+lmax.Fe = 2
+lmax.Pt = 2
+[interaction.body2] # 2-body term
+cutoff."Fe-Fe" = -1 
+cutoff."Fe-Pt" = -1 
+cutoff."Pt-Pt" = -1 
+lsum = 2 # sum of the angular momenta of the two atoms
 
-	[regression]
-	datafile = "EMBSET.dat"
-	weight = 1.0
-	alpha = 0
-	lambda = 0
+[regression]
+alpha = 0
+datafile = "EMBSET.dat"
+lambda = 0
+weight = 1.0
 
-
-	[structure]
-	lattice = [
-		[ 2.0, 0.0, 0.0 ],
-		[ 0.0, 2.0, 0.0 ],
-		[ 0.0, 0.0, 2.2 ],
-	]
-	kd_list = [1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2]
-	position = [
-		[ 0.00, 0.00, 0.00 ],
-		[ 0.00, 0.00, 0.50 ],
-		[ 0.00, 0.50, 0.00 ],
-		[ 0.00, 0.50, 0.50 ],
-		[ 0.50, 0.00, 0.00 ],
-		[ 0.50, 0.00, 0.50 ],
-		[ 0.50, 0.50, 0.00 ],
-		[ 0.50, 0.50, 0.50 ],
-		[ 0.25, 0.25, 0.25 ],
-		[ 0.25, 0.25, 0.75 ],
-		[ 0.25, 0.75, 0.25 ],
-		[ 0.25, 0.75, 0.75 ],
-		[ 0.75, 0.25, 0.25 ],
-		[ 0.75, 0.25, 0.75 ],
-		[ 0.75, 0.75, 0.25 ],
-		[ 0.75, 0.75, 0.75 ],
-	]
+[structure]
+kd_list = [1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2]
+lattice = [
+  [2.0, 0.0, 0.0],
+  [0.0, 2.0, 0.0],
+  [0.0, 0.0, 2.2],
+]
+position = [
+  [0.00, 0.00, 0.00],
+  [0.00, 0.00, 0.50],
+  [0.00, 0.50, 0.00],
+  [0.00, 0.50, 0.50],
+  [0.50, 0.00, 0.00],
+  [0.50, 0.00, 0.50],
+  [0.50, 0.50, 0.00],
+  [0.50, 0.50, 0.50],
+  [0.25, 0.25, 0.25],
+  [0.25, 0.25, 0.75],
+  [0.25, 0.75, 0.25],
+  [0.25, 0.75, 0.75],
+  [0.75, 0.25, 0.25],
+  [0.75, 0.25, 0.75],
+  [0.75, 0.75, 0.25],
+  [0.75, 0.75, 0.75],
+]
