@@ -158,6 +158,7 @@ struct Cluster
 	min_distance_pairs::Matrix{Vector{DistInfo}}
 	# interaction_clusters::Matrix{OrderedSet{InteractionCluster}}
 	cluster_list::Vector{SortedVector{Vector{AtomCell}}}
+	cluster_dict::Dict{Int, SortedCountingUniqueVector{SortedVector{Int}}}
 	equivalent_atom_list::Vector{Vector{Int}}
 
 	function Cluster(
@@ -200,11 +201,18 @@ struct Cluster
 			nbody,
 		)
 
+		cluster_dict = generate_pairs_simple(symmetry.atoms_in_prim, interaction_clusters, nbody)
+
 		cluster_list = generate_pairs(symmetry.atoms_in_prim, interaction_clusters, nbody)
 		equivalent_atom_list = classify_equivalent_atoms(symmetry.atoms_in_prim, symmetry.map_sym)
 
 		if verbosity
-			print_cluster_stdout(min_distance_pairs, symmetry.atoms_in_prim, structure.kd_name, structure.supercell.kd_int_list)
+			print_cluster_stdout(
+				min_distance_pairs,
+				symmetry.atoms_in_prim,
+				structure.kd_name,
+				structure.supercell.kd_int_list,
+			)
 			elapsed_time = (time_ns() - start_time) / 1e9
 			println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
 			println("-------------------------------------------------------------------")
@@ -216,6 +224,7 @@ struct Cluster
 			min_distance_pairs,
 			# interaction_clusters,
 			cluster_list,
+			cluster_dict,
 			equivalent_atom_list,
 		)
 	end
@@ -504,6 +513,25 @@ function generate_pairs(
 	return cluster_list
 end
 
+function generate_pairs_simple(
+	primitive_atom_indices::AbstractVector{<:Integer},
+	interaction_clusters::AbstractMatrix{<:AbstractSet{InteractionCluster}},
+	num_bodies::Integer,
+)::Dict{Int, SortedCountingUniqueVector{SortedVector{Int}}}
+	cluster_dict = Dict{Int, SortedCountingUniqueVector{SortedVector{Int}}}()
+	for body in 2:num_bodies
+		scuv = SortedCountingUniqueVector{SortedVector{Int}}()
+		for (i, prim_atom_index) in enumerate(primitive_atom_indices)
+			for cluster in interaction_clusters[i, body-1]
+				sv = SortedVector([prim_atom_index, cluster.atom_indices...])
+				push!(scuv, sv)
+			end
+		end
+		cluster_dict[body] = scuv
+	end
+	return cluster_dict
+end
+
 """
 	classify_equivalent_atoms(primitive_atom_indices, symmetry_map)
 
@@ -717,7 +745,7 @@ function print_cluster_stdout(
 	INTERACTION
 	===========
 	""")
-	
+
 	num_atoms::Int = size(min_distance_pairs, 1)
 	neighbor_list = Vector{Vector{DistList}}(undef, length(atoms_in_prim))
 
@@ -725,7 +753,10 @@ function print_cluster_stdout(
 	for (i_prim, i_prim_atom) in enumerate(atoms_in_prim)
 		neighbor_list[i_prim] = DistList[]
 		for j in 1:num_atoms
-			push!(neighbor_list[i_prim], DistList(j, min_distance_pairs[i_prim_atom, j][1].distance))
+			push!(
+				neighbor_list[i_prim],
+				DistList(j, min_distance_pairs[i_prim_atom, j][1].distance),
+			)
 		end
 		sort!(neighbor_list[i_prim])
 	end
@@ -738,29 +769,29 @@ function print_cluster_stdout(
 	for (i_prim, i_prim_atom) in enumerate(atoms_in_prim)
 		nth_nearest = 0
 		atom_list = Int[]
-		
+
 		@printf("%5d (%3s): ", i_prim_atom, kd_name[kd_int_list[i_prim_atom]])
-		
+
 		dist_tmp = 0.0
-		
+
 		for j in 1:num_atoms
 			# Skip if distance is zero (same atom)
 			if neighbor_list[i_prim][j].dist < 1e-8
 				continue
 			end
-			
+
 			# Check if this is a new distance shell
 			if abs(neighbor_list[i_prim][j].dist - dist_tmp) > 1e-6
 				# Print previous shell if not empty
 				if !isempty(atom_list)
 					nth_nearest += 1
-					
+
 					if nth_nearest > 1
 						print(" " ^ 13)
 					end
-					
+
 					@printf("%3d%10.6f (%3d) -", nth_nearest, dist_tmp, length(atom_list))
-					
+
 					# Print atoms in this shell
 					for (k, atom_idx) in enumerate(atom_list)
 						if k > 1 && k % 4 == 1
@@ -771,7 +802,7 @@ function print_cluster_stdout(
 					end
 					println()
 				end
-				
+
 				# Start new shell
 				dist_tmp = neighbor_list[i_prim][j].dist
 				atom_list = [neighbor_list[i_prim][j].atom]
@@ -780,17 +811,17 @@ function print_cluster_stdout(
 				push!(atom_list, neighbor_list[i_prim][j].atom)
 			end
 		end
-		
+
 		# Print the last shell if not empty
 		if !isempty(atom_list)
 			nth_nearest += 1
-			
+
 			if nth_nearest > 1
 				print(" " ^ 13)
 			end
-			
+
 			@printf("%3d%10.6f (%3d) -", nth_nearest, dist_tmp, length(atom_list))
-			
+
 			# Print atoms in this shell
 			for (k, atom_idx) in enumerate(atom_list)
 				if k > 1 && k % 4 == 1

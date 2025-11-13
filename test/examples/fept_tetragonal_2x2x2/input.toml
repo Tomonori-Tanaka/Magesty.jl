@@ -8,14 +8,14 @@
 	tolerance = 1e-5
 
 	[interaction]
-		nbody = 1
+		nbody = 2
 		[interaction.lmax]
-		Fe = [ 2 ] # the number of elements shoud be the same with "nbody" value.
-		Pt = [ 2 ]
+		Fe = [ 2, 1 ] # the number of elements shoud be the same with "nbody" value.
+		Pt = [ 2, 1 ]
 		[interaction.cutoff] # unit is bohr
-		Fe-Fe = [ -1 ] # first element is just dummy to align wigh lmax array
-		Fe-Pt = [ -1 ]
-		Pt-Pt = [ -1 ]
+		Fe-Fe = [ -1, -1 ] # first element is just dummy to align wigh lmax array
+		Fe-Pt = [ -1, -1 ]
+		Pt-Pt = [ -1, -1 ]
 		# negative cutoff means all of the possible interaction will be considered.
 
 	[regression]
