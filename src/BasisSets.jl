@@ -115,6 +115,16 @@ struct BasisSet
 			nbody,
 		)
 
+		basislist_simple = construct_basislist_simple(
+			structure,
+			symmetry,
+			cluster,
+			body1_lmax,
+			bodyn_lsum,
+			nbody,
+		)
+		@show basislist_simple
+
 		# Classify basis functions by symmetry
 		classified_basisdict = classify_basislist(basislist, symmetry.map_sym)
 
@@ -283,6 +293,65 @@ function construct_basislist(
 
 	return result_basislist
 end
+
+function construct_basislist_simple(
+	structure::Structure,
+	symmetry::Symmetry,
+	cluster::Cluster,
+	body1_lmax::Vector{Int},
+	bodyn_lsum::OffsetArray{Int, 1},
+	nbody::Integer,
+)::SortedCountingUniqueVector{IndicesUniqueList}
+
+	result_basislist = SortedCountingUniqueVector{SHProduct}()
+	cluster_dict::Dict{Int, SortedCountingUniqueVector{SortedVector{Int}}} = cluster.cluster_dict
+
+	# Handle 1-body case
+	for iat in symmetry.atoms_in_prim
+		lmax = body1_lmax[structure.supercell.kd_int_list[iat]]
+		for l in 2:lmax[1] # skip l = 1 because it is prohibited by the time-reversal symmetry
+			if l % 2 == 1 # skip odd l cases due to the time-reversal symmetry
+				continue
+			end
+			shsi_list::Vector{SHSiteIndex} = shsiteindex_singleatom(iat, l)
+			for shsi::SHSiteIndex in shsi_list
+				push!(result_basislist, SHProduct([shsi]))
+			end
+		end
+	end
+
+	# Process multi-body cases
+	for body in 2:nbody
+		for atom_list::SortedVector{Int} in cluster_dict[body]
+			count = cluster_dict[body].counts[atom_list]
+
+			shp_list::Vector{SHProduct} = listup_basislist_simple(atom_list, lsum)
+			for shp::SHProduct in shp_list
+				push!(result_basislist, shp, count)
+			end
+		end
+	end
+	return result_basislist
+end
+
+function listup_basislist_simple(
+	atom_list::SortedVector{<:Integer},
+	lsum::Integer,
+)::Vector{SHProduct}
+
+	result_basislist = Vector{SHProduct}()
+	l_list = Combinat.compositions(lsum, length(atom_list); min = 1)
+
+	for l_vec::Vector{Int} in l_list
+		shp_list = product_shsiteindex(atom_list, l_vec)
+		for shp::SHProduct in shp_list
+			push!(result_basislist, shp)
+		end
+	end
+
+	return result_basislist
+end
+
 
 function listup_basislist(
 	cluster::AbstractVector{AtomCell},
