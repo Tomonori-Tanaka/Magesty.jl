@@ -217,29 +217,22 @@ function construct_basislist(
 )::SortedCountingUniqueVector{IndicesUniqueList}
 
 	result_basislist = SortedCountingUniqueVector{IndicesUniqueList}()
-	thread_basislists =
-		[SortedCountingUniqueVector{IndicesUniqueList}() for _ in 1:nthreads()]
 
 	# Get aliases for better readability
 	kd_int_list = structure.supercell.kd_int_list
 	cluster_list = cluster.cluster_list
 
-	# Handle 1-body case in parallel
-	@threads for iat in symmetry.atoms_in_prim
+	# Handle 1-body case
+	for iat in symmetry.atoms_in_prim
 		# Use @view for better performance when accessing matrix row
 		lmax = @view(lmax_mat[kd_int_list[iat], :])
 
 		for l in 1:lmax[1]
 			iul::Vector{Indices} = indices_singleatom(iat, l, 1)
 			for indices::Indices in iul
-				push!(thread_basislists[threadid()], IndicesUniqueList(indices))
+				push!(result_basislist, IndicesUniqueList(indices))
 			end
 		end
-	end
-
-	# Efficiently merge thread results
-	for thread_basis in thread_basislists
-		append!(result_basislist, thread_basis)
 	end
 
 	# Process multi-body cases
