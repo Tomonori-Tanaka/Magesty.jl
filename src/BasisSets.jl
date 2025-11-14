@@ -138,16 +138,28 @@ struct BasisSet
 			println("Constructing projection matrices...")
 		end
 		projection_list_simple = projection_matrix_simple(classified_basisdict_simple, symmetry)
-		for (idx, proj) in enumerate(projection_list_simple)
-			eigenval, eigenvec = eigen(hermitianpart(proj))
-			@show eigenval
-		end
 
-		projection_list, num_nonzero_projection_list = construct_projectionmatrix(
-			classified_basisdict,
-			structure,
+		projection_list = projection_matrix_simple(
+			classified_basisdict_simple,
 			symmetry,
 		)
+
+		for idx in eachindex(projection_list_simple)
+			eigenvals, eigenvecs = eigen(hermitianpart(projection_list_simple[idx]))
+			eigenvals = real.(round.(eigenvals, digits = 6))
+			eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
+			!check_eigenval(eigenvals) &&
+				throw(
+					DomainError(
+						"Critical error: Eigenvalues must be either 0 or 1. index: $idx",
+					),
+				)
+			for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
+				eigenvec = eigenvecs[:, idx_eigenval]
+				eigenvec = flip_vector_if_negative_sum(eigenvec)
+			end
+		end
+		print("Done")
 
 
 		# for (idx, proj) in enumerate(projection_list)
@@ -872,31 +884,49 @@ function operate_symop(
 	symnum_translation::AbstractVector{<:Integer},
 	time_rev_sym::Bool,
 )::LinearCombo
-	possible_atom_list = sort(collect(Set{Int}(vcat(atom_list...))))
 	# Apply the symmetry operation to atoms
 	new_atom_list = [map_sym_per_symop[shsi.i] for shsi in basis]
 
 	# Shift the new atom list to the primitive cell
+	# Find the source atoms in supercell that map to new_atom_list under translation
 	prim_atom_list = similar(new_atom_list)
 	found = false
 	for i in eachindex(new_atom_list)
+		# Get translation operation for atom i
 		map_s2p_i = map_s2p[new_atom_list[i]]
-		prim_atom_list[i] = map_s2p_i.atom
 		itran = map_s2p_i.translation  # 1 <= itran <= ntran
 		symnum_translation_i = symnum_translation[itran]
+		
+		# Find source atom that maps to new_atom_list[i] under this translation
+		# i.e., find k such that map_sym[k, symnum_translation_i] == new_atom_list[i]
+		source_atom_i = findfirst(k -> map_sym[k, symnum_translation_i] == new_atom_list[i], 
+		                          1:size(map_sym, 1))
+		if source_atom_i === nothing
+			continue  # Try next reference atom
+		end
+		
+		# Set source atom for position i
+		prim_atom_list[i] = source_atom_i
+		
+		# Find source atoms for all other positions
+		all_found = true
 		for j in eachindex(new_atom_list)
 			if j == i
 				continue
 			end
-			for possible_atom in possible_atom_list
-				if map_sym[possible_atom, symnum_translation_i] == new_atom_list[j]
-					prim_atom_list[j] = possible_atom
-					break
-				end
+			# Find source atom that maps to new_atom_list[j] under the same translation
+			source_atom_j = findfirst(k -> map_sym[k, symnum_translation_i] == new_atom_list[j], 
+			                          1:size(map_sym, 1))
+			if source_atom_j === nothing
+				all_found = false
+				break
 			end
+			prim_atom_list[j] = source_atom_j
 		end
-		if prim_atom_list in atom_list
-			new_atom_list = prim_atom_list
+		
+		# Check if all atoms were found and this atom list exists in the basis list
+		if all_found && sort(prim_atom_list) in atom_list
+			new_atom_list = sort(prim_atom_list)
 			found = true
 			break
 		end
@@ -924,7 +954,11 @@ function operate_symop(
 		multiplier *= (-1)^(sum([shsi.l for shsi in new_basis]))
 	end
 	rotation_list = [Δl(shsi.l, rotmat2euler(rotmat)...) for shsi in new_basis]
-	rotmat_kron = multiplier * kron(rotation_list...)
+	if length(new_basis) == 1
+		rotmat_kron = multiplier * rotation_list[begin]
+	else
+		rotmat_kron = multiplier * kron(rotation_list...)
+	end
 
 	l_list = [shsi.l for shsi in new_basis]
 
