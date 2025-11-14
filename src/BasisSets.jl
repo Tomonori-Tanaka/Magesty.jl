@@ -140,15 +140,14 @@ struct BasisSet
 		projection_list_simple = projection_matrix_simple(classified_basisdict_simple, symmetry)
 
 		for idx in eachindex(projection_list_simple)
-			eigenvals, eigenvecs = eigen(hermitianpart(projection_list_simple[idx]))
+			eigenvals, eigenvecs = eigen(projection_list_simple[idx])
 			eigenvals = real.(round.(eigenvals, digits = 6))
 			eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
-			!check_eigenval(eigenvals) &&
-				throw(
-					DomainError(
-						"Critical error: Eigenvalues must be either 0 or 1. index: $idx",
-					),
-				)
+			if !is_proper_eigenvals(eigenvals)
+				display(classified_basisdict_simple[idx-1])
+				display(classified_basisdict_simple[idx])
+				error("Critical error: Eigenvalues must be either 0 or 1. index: $idx")
+			end
 			for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
 				eigenvec = eigenvecs[:, idx_eigenval]
 				eigenvec = flip_vector_if_negative_sum(eigenvec)
@@ -191,7 +190,7 @@ struct BasisSet
 			eigenval = real.(round.(eigenval, digits = 6))
 			eigenvec = round.(eigenvec .* (abs.(eigenvec) .≥ tol_zero), digits = 10)
 
-			!check_eigenval(eigenval, tol = tol_eigen) &&
+			!is_proper_eigenvals(eigenval, tol = tol_eigen) &&
 				throw(
 					DomainError(
 						"Critical error: Eigenvalues must be either 0 or 1. index: $idx",
@@ -654,11 +653,11 @@ eigenvals = [0.0, 1.0, 0.5, 1.0]
 is_valid = check_eigenval(eigenvals)  # false
 ```
 """
-function check_eigenval(eigenval::AbstractVector; tol = 1e-8)::Bool
+function is_proper_eigenvals(eigenval::AbstractVector; tol = 1e-8)::Bool
 	invalid_values =
 		filter(x -> !isapprox(x, 0, atol = tol) && !isapprox(x, 1, atol = tol), eigenval)
 	if !isempty(invalid_values)
-		throw(BasisSetError("Invalid eigenvalues found: $invalid_values"))
+		return false
 	end
 	return true
 end
@@ -830,9 +829,10 @@ function projection_matrix_simple(
 			local_projection_mat += projection_mat_per_symop
 		end
 		local_projection_mat = local_projection_mat ./ (2 * symmetry.nsym)
+		local_projection_mat = hermitianpart(local_projection_mat)
 		# local_projection_mat = round.(local_projection_mat, digits = 6)
 
-		if !is_symmetric(local_projection_mat, tol = 1e-6)
+		if !is_symmetric(local_projection_mat, tol = 1e-10)
 			error("Projection matrix is not symmetric. index: $idx")
 		end
 
@@ -902,18 +902,18 @@ function operate_symop(
 		map_s2p_i = map_s2p[new_atom_list[i]]
 		itran = map_s2p_i.translation  # 1 <= itran <= ntran
 		symnum_translation_i = symnum_translation[itran]
-		
+
 		# Find source atom that maps to new_atom_list[i] under this translation
 		# i.e., find k such that map_sym[k, symnum_translation_i] == new_atom_list[i]
-		source_atom_i = findfirst(k -> map_sym[k, symnum_translation_i] == new_atom_list[i], 
-		                          1:size(map_sym, 1))
+		source_atom_i = findfirst(k -> map_sym[k, symnum_translation_i] == new_atom_list[i],
+			1:size(map_sym, 1))
 		if source_atom_i === nothing
 			continue  # Try next reference atom
 		end
-		
+
 		# Set source atom for position i
 		prim_atom_list[i] = source_atom_i
-		
+
 		# Find source atoms for all other positions
 		all_found = true
 		for j in eachindex(new_atom_list)
@@ -921,15 +921,15 @@ function operate_symop(
 				continue
 			end
 			# Find source atom that maps to new_atom_list[j] under the same translation
-			source_atom_j = findfirst(k -> map_sym[k, symnum_translation_i] == new_atom_list[j], 
-			                          1:size(map_sym, 1))
+			source_atom_j = findfirst(k -> map_sym[k, symnum_translation_i] == new_atom_list[j],
+				1:size(map_sym, 1))
 			if source_atom_j === nothing
 				all_found = false
 				break
 			end
 			prim_atom_list[j] = source_atom_j
 		end
-		
+
 		# Check if all atoms were found and this atom list exists in the basis list
 		if all_found && sort(prim_atom_list) in atom_list
 			new_atom_list = sort(prim_atom_list)
