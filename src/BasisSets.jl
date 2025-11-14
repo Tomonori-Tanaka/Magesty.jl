@@ -830,6 +830,10 @@ function projection_matrix_simple(
 		end
 		local_projection_mat = local_projection_mat ./ (2 * symmetry.nsym)
 
+		if !is_symmetric(local_projection_mat, tol = 1e-10)
+			error("Projection matrix is not symmetric. index: $idx")
+		end
+
 		result_projections[idx] = local_projection_mat
 	end
 	return result_projections
@@ -1009,6 +1013,27 @@ function corresponding_idx(shp::SHProduct)::Int
 	end
 
 	return idx
+end
+
+"""
+	is_symmetric(mat::AbstractMatrix{<:Real}; tol::Float64 = 1e-10) -> Bool
+
+Check if a matrix is symmetric (i.e., `A ≈ A'`).
+
+# Arguments
+- `mat::AbstractMatrix{<:Real}`: The matrix to check
+- `tol::Float64`: Tolerance for floating-point comparison (default: 1e-10)
+
+# Returns
+- `Bool`: `true` if the matrix is symmetric within the tolerance, `false` otherwise
+"""
+function is_symmetric(mat::AbstractMatrix{<:Real}; tol::Float64 = 1e-10)::Bool
+	# Check if matrix is square
+	if size(mat, 1) != size(mat, 2)
+		return false
+	end
+	# Check if matrix is symmetric: A ≈ A'
+	return isapprox(mat, mat', rtol = tol, atol = tol)
 end
 
 end
