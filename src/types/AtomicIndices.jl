@@ -1,5 +1,6 @@
 module AtomicIndices
 
+using LinearAlgebra
 import Base:
 	append!, eltype, getindex, hash, in, insert!, isempty, isless, iterate, length, push!,
 	searchsortedfirst, show, size, sort, ==
@@ -11,7 +12,7 @@ export Indices, IndicesUniqueList, get_total_L, get_atom_l_list,
 	product_shsiteindex,
 	indices_singleatom,
 	shsiteindex_singleatom,
-	SHSiteIndex, SHProduct
+	SHSiteIndex, SHProduct, replace_atom, LinearCombo, inner_product
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Indices
@@ -501,6 +502,41 @@ function get_atom_l_list(shp::SHProduct)::Vector{Vector{Int}}
 		push!(vec, Int[atom, l])
 	end
 	return vec
+end
+
+function replace_atom(shp::SHProduct, atom_list::AbstractVector{<:Integer})
+	if length(shp) != length(atom_list)
+		throw(ErrorException("Lengths of shp and atom_map must be the same."))
+	end
+	new_shp = SHProduct()
+	for (i, shsi) in enumerate(shp)
+		push!(new_shp, SHSiteIndex(atom_list[i], shsi.l, shsi.m))
+	end
+	return new_shp
+end
+
+
+struct LinearCombo
+	data::Vector{SHProduct}
+	coeffs::Vector{Float64}
+
+	function LinearCombo(data::Vector{SHProduct}, coeffs::Vector{Float64})
+		if length(data) != length(coeffs)
+			throw(ErrorException("Lengths of data and coeffs must be the same."))
+		end
+		if !isapprox(norm(coeffs), 1.0, atol = 1e-8)
+			throw(ErrorException("The norm of the coefficient vector is not 1."))
+		end
+		new(Vector{SHProduct}(data), Vector{Float64}(coeffs))
+	end
+end
+
+function inner_product(shp::SHProduct, lco::LinearCombo)::Float64
+	if shp in lco.data
+		return lco.coeffs[findfirst(x -> x == shp, lco.data)]
+	else
+		return 0.0
+	end
 end
 
 end
