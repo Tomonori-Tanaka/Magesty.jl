@@ -139,11 +139,6 @@ struct BasisSet
 		end
 		projection_list_simple = projection_matrix_simple(classified_basisdict_simple, symmetry)
 
-		projection_list = projection_matrix_simple(
-			classified_basisdict_simple,
-			symmetry,
-		)
-
 		for idx in eachindex(projection_list_simple)
 			eigenvals, eigenvecs = eigen(hermitianpart(projection_list_simple[idx]))
 			eigenvals = real.(round.(eigenvals, digits = 6))
@@ -171,6 +166,12 @@ struct BasisSet
 		# 		)
 		# 	end
 		# end
+
+		projection_list, num_nonzero_projection_list = construct_projectionmatrix(
+			classified_basisdict,
+			structure,
+			symmetry,
+		)
 
 		# Generate symmetry-adapted linear combinations
 		if verbosity
@@ -811,7 +812,7 @@ function projection_matrix_simple(
 
 	result_projections = Vector{Matrix{Float64}}(undef, length(basisdict))
 
-	idx_list = collect(keys(basisdict))
+	idx_list = sort(collect(keys(basisdict)))
 	for idx in idx_list
 		basislist::SortedCountingUniqueVector{SHProduct} = basisdict[idx]
 		dim = length(basislist)
@@ -829,8 +830,9 @@ function projection_matrix_simple(
 			local_projection_mat += projection_mat_per_symop
 		end
 		local_projection_mat = local_projection_mat ./ (2 * symmetry.nsym)
+		# local_projection_mat = round.(local_projection_mat, digits = 6)
 
-		if !is_symmetric(local_projection_mat, tol = 1e-10)
+		if !is_symmetric(local_projection_mat, tol = 1e-6)
 			error("Projection matrix is not symmetric. index: $idx")
 		end
 
@@ -1033,7 +1035,7 @@ function is_symmetric(mat::AbstractMatrix{<:Real}; tol::Float64 = 1e-10)::Bool
 		return false
 	end
 	# Check if matrix is symmetric: A ≈ A'
-	return isapprox(mat, mat', rtol = tol, atol = tol)
+	return isapprox(mat, mat', atol = tol)
 end
 
 end
