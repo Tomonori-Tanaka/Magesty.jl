@@ -519,16 +519,25 @@ end
 struct LinearCombo
 	data::Vector{SHProduct}
 	coeffs::Vector{Float64}
+	multiplicity::Vector{Int}
 
-	function LinearCombo(data::Vector{SHProduct}, coeffs::Vector{Float64})
-		if length(data) != length(coeffs)
+	function LinearCombo(data::Vector{SHProduct}, coeffs::Vector{Float64}, multiplicity::Vector{Int})
+		if length(data) != length(coeffs) != length(multiplicity)
 			throw(ErrorException("Lengths of data and coeffs must be the same."))
 		end
 		if !isapprox(norm(coeffs), 1.0, atol = 1e-8)
 			throw(ErrorException("The norm of the coefficient vector is not 1."))
 		end
-		new(Vector{SHProduct}(data), Vector{Float64}(coeffs))
+		new(Vector{SHProduct}(data), Vector{Float64}(coeffs), Vector{Int}(multiplicity))
 	end
+end
+
+function LinearCombo(data::Vector{SHProduct}, coeffs::Vector{<:Real})
+	if length(data) != length(coeffs)
+		throw(ErrorException("Lengths of data and coeffs must be the same."))
+	end
+	multiplicity = [1 for _ in data]
+	return LinearCombo(data, coeffs, multiplicity)
 end
 
 function inner_product(shp::SHProduct, lco::LinearCombo)::Float64
