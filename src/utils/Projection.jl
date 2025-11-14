@@ -1,5 +1,4 @@
 using SparseArrays
-using Base.Threads
 using StaticArrays
 
 using ..RotationMatrix
@@ -39,7 +38,7 @@ function construct_projectionmatrix(
 
 	idx_list = collect(keys(basisdict))
 	# Process each basis function in parallel
-	@threads for idx in idx_list
+	for idx in idx_list
 		# Create thread-local storage for calculations
 		basislist = basisdict[idx]
 		dim = length(basislist)

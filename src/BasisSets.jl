@@ -123,10 +123,12 @@ struct BasisSet
 			bodyn_lsum,
 			nbody,
 		)
-		@show basislist_simple
+		# @show basislist_simple
 
 		# Classify basis functions by symmetry
 		classified_basisdict = classify_basislist(basislist, symmetry.map_sym)
+		classified_basisdict_simple = classify_basislist_simple(basislist_simple, symmetry.map_sym)
+		display(classified_basisdict_simple)
 
 		# display(classified_basisdict)
 
@@ -301,7 +303,7 @@ function construct_basislist_simple(
 	body1_lmax::Vector{Int},
 	bodyn_lsum::OffsetArray{Int, 1},
 	nbody::Integer,
-)::SortedCountingUniqueVector{IndicesUniqueList}
+)::SortedCountingUniqueVector{SHProduct}
 
 	result_basislist = SortedCountingUniqueVector{SHProduct}()
 	cluster_dict::Dict{Int, SortedCountingUniqueVector{SortedVector{Int}}} = cluster.cluster_dict
@@ -325,7 +327,7 @@ function construct_basislist_simple(
 		for atom_list::SortedVector{Int} in cluster_dict[body]
 			count = cluster_dict[body].counts[atom_list]
 
-			shp_list::Vector{SHProduct} = listup_basislist_simple(atom_list, lsum)
+			shp_list::Vector{SHProduct} = listup_basislist_simple(atom_list, bodyn_lsum[body])
 			for shp::SHProduct in shp_list
 				push!(result_basislist, shp, count)
 			end
@@ -446,6 +448,46 @@ function map_atom_l_list(
 	end
 
 	return mapped_atom_l_list
+end
+
+function classify_basislist_simple(
+	basislist::AbstractVector{SHProduct},
+	map_sym::AbstractMatrix{<:Integer},
+)::AbstractDict{Int, SortedCountingUniqueVector}
+
+	count = 1
+	label_list = zeros(Int, size(basislist))
+	for (idx, basis) in enumerate(basislist)
+		if label_list[idx] != 0
+			continue
+		end
+		atom_l_list_base = get_atom_l_list(basis)
+		for isym in 1:size(map_sym, 2)
+			mapped_list = map_atom_l_list(atom_l_list_base, map_sym, isym)
+			for (idx2, basis2) in enumerate(basislist)
+				if sort(mapped_list) == sort(get_atom_l_list(basis2))
+					label_list[idx2] = count
+				end
+			end
+		end
+		count += 1
+	end
+
+	dict = OrderedDict{Int, SortedCountingUniqueVector}()
+	for idx in 1:maximum(label_list)
+		if !haskey(dict, idx)
+			dict[idx] = SortedCountingUniqueVector{SHProduct}()
+		end
+	end
+
+	for (basis, label) in zip(basislist, label_list)
+		if !(haskey(dict, label))
+			dict[label] = SortedCountingUniqueVector{SHProduct}()
+		end
+		push!(dict[label], basis, getcount(basislist, basis))
+	end
+
+	return dict
 end
 
 """

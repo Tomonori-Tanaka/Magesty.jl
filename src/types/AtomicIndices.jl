@@ -493,4 +493,14 @@ function append!(shp::SHProduct, vec::AbstractVector{SHSiteIndex})
 	return shp
 end
 
+function get_atom_l_list(shp::SHProduct)::Vector{Vector{Int}}
+	atom_list = [shsi.i for shsi in shp.data]
+	l_list = [shsi.l for shsi in shp.data]
+	vec = Vector{Vector{Int}}()
+	for (atom, l) in zip(atom_list, l_list)
+		push!(vec, Int[atom, l])
+	end
+	return vec
+end
+
 end
