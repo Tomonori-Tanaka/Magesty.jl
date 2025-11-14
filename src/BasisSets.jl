@@ -20,6 +20,7 @@ using ..Structures
 using ..Symmetries
 using ..Clusters
 using ..SALCs
+using ..RotationMatrix
 
 include("./utils/Projection.jl")
 
@@ -128,7 +129,7 @@ struct BasisSet
 		# Classify basis functions by symmetry
 		classified_basisdict = classify_basislist(basislist, symmetry.map_sym)
 		classified_basisdict_simple = classify_basislist_simple(basislist_simple, symmetry.map_sym)
-		display(classified_basisdict_simple)
+		# display(classified_basisdict_simple)
 
 		# display(classified_basisdict)
 
@@ -136,11 +137,18 @@ struct BasisSet
 		if verbosity
 			println("Constructing projection matrices...")
 		end
+		projection_list_simple = projection_matrix_simple(classified_basisdict_simple, symmetry)
+		for (idx, proj) in enumerate(projection_list_simple)
+			eigenval, eigenvec = eigen(hermitianpart(proj))
+			@show eigenval
+		end
+
 		projection_list, num_nonzero_projection_list = construct_projectionmatrix(
 			classified_basisdict,
 			structure,
 			symmetry,
 		)
+
 
 		# for (idx, proj) in enumerate(projection_list)
 		# 	if proj != proj'
@@ -782,6 +790,191 @@ end
 # Custom exception type for basis set errors
 struct BasisSetError <: Exception
 	msg::String
+end
+
+function projection_matrix_simple(
+	basisdict::AbstractDict,
+	symmetry::Symmetry,
+)::Vector{Matrix{Float64}}
+
+	result_projections = Vector{Matrix{Float64}}(undef, length(basisdict))
+
+	idx_list = collect(keys(basisdict))
+	for idx in idx_list
+		basislist::SortedCountingUniqueVector{SHProduct} = basisdict[idx]
+		dim = length(basislist)
+		local_projection_mat = zeros(Float64, dim, dim)
+		for (n, symop) in enumerate(symmetry.symdata), time_rev_sym in [false, true]
+			projection_mat_per_symop = proj_matrix_a_symop_simple(
+				basislist,
+				symop,
+				@view(symmetry.map_sym[:, n]),
+				symmetry.map_s2p,
+				symmetry.map_sym,
+				symmetry.symnum_translation,
+				time_rev_sym,
+			)
+			local_projection_mat += projection_mat_per_symop
+		end
+		local_projection_mat = local_projection_mat ./ (2 * symmetry.nsym)
+
+		result_projections[idx] = local_projection_mat
+	end
+	return result_projections
+end
+
+function proj_matrix_a_symop_simple(
+	basislist::SortedCountingUniqueVector{SHProduct},
+	symop::SymmetryOperation,
+	map_sym_per_symop::AbstractVector{<:Integer},
+	map_s2p::AbstractVector{Maps},
+	map_sym::AbstractMatrix{<:Integer},
+	symnum_translation::AbstractVector{<:Integer},
+	time_rev_sym::Bool,
+)::Matrix{Float64}
+
+	# collect atom list in basislist used for symmetry operation
+	atom_list = [[shsi.i for shsi in basis] for basis in basislist]
+
+	projection_mat = zeros(Float64, length(basislist), length(basislist))
+
+	for (j, basis_j::SHProduct) in enumerate(basislist)
+		lco_j = operate_symop(
+			basis_j,
+			atom_list,
+			symop,
+			map_sym_per_symop,
+			map_sym,
+			map_s2p,
+			symnum_translation,
+			time_rev_sym,
+		)
+		for (i, basis_i::SHProduct) in enumerate(basislist)
+			projection_mat[i, j] = inner_product(basis_i, lco_j)
+		end
+	end
+	if all(
+		isapprox(projection_mat[i, j], 0.0, atol = 1e-8) for i in eachindex(basislist) for
+		j in eachindex(basislist)
+	)
+		@assert false "Projection matrix is zero matrix"
+	end
+	return projection_mat
+end
+
+function operate_symop(
+	basis::SHProduct,
+	atom_list::AbstractVector{<:AbstractVector{<:Integer}},
+	symop::SymmetryOperation,
+	map_sym_per_symop::AbstractVector{<:Integer},
+	map_sym::AbstractMatrix{<:Integer},
+	map_s2p::AbstractVector{Maps},
+	symnum_translation::AbstractVector{<:Integer},
+	time_rev_sym::Bool,
+)::LinearCombo
+	possible_atom_list = sort(collect(Set{Int}(vcat(atom_list...))))
+	# Apply the symmetry operation to atoms
+	new_atom_list = [map_sym_per_symop[shsi.i] for shsi in basis]
+
+	# Shift the new atom list to the primitive cell
+	prim_atom_list = similar(new_atom_list)
+	found = false
+	for i in eachindex(new_atom_list)
+		map_s2p_i = map_s2p[new_atom_list[i]]
+		prim_atom_list[i] = map_s2p_i.atom
+		itran = map_s2p_i.translation  # 1 <= itran <= ntran
+		symnum_translation_i = symnum_translation[itran]
+		for j in eachindex(new_atom_list)
+			if j == i
+				continue
+			end
+			for possible_atom in possible_atom_list
+				if map_sym[possible_atom, symnum_translation_i] == new_atom_list[j]
+					prim_atom_list[j] = possible_atom
+					break
+				end
+			end
+		end
+		if prim_atom_list in atom_list
+			new_atom_list = prim_atom_list
+			found = true
+			break
+		end
+	end
+	if !found
+		@show [shsi.i for shsi in basis]
+		@show prim_atom_list
+		@show new_atom_list
+		@show atom_list
+		error("Failed to find corresponding atom in the primitive cell.")
+	end
+
+	new_basis = replace_atom(basis, new_atom_list)# replace atom only (l and m are kept)
+	idx = corresponding_idx(new_basis)
+
+	is_proper = symop.is_proper
+	multiplier = 1.0
+	rotmat = similar(symop.rotation_cart)
+	if is_proper
+		rotmat = symop.rotation_cart
+	else
+		rotmat = -1 * symop.rotation_cart
+	end
+	if time_rev_sym
+		multiplier *= (-1)^(sum([shsi.l for shsi in new_basis]))
+	end
+	rotation_list = [Δl(shsi.l, rotmat2euler(rotmat)...) for shsi in new_basis]
+	rotmat_kron = multiplier * kron(rotation_list...)
+
+	l_list = [shsi.l for shsi in new_basis]
+
+	shp_list = product_shsiteindex(new_atom_list, l_list)
+	coeffs = rotmat_kron[:, idx]
+	return LinearCombo(shp_list, coeffs)
+end
+
+"""
+	corresponding_idx(shp::SHProduct)::Int
+
+Find the index of the rotation matrix element corresponding to a given `SHProduct`.
+
+# Example
+((l=1, m=-1), (l=1, m=-1)) -> 1
+((l=1, m=-1), (l=1, m= 1)) -> 3
+((l=1, m=1),  (l=1, m= 1)) -> 9
+((l=2, m=2),  (l=2, m=2))  -> 25
+
+# Arguments
+- `shp::SHProduct`: The basis function (product of spherical harmonics)
+
+# Returns
+- `Int`: The 1-based linear index corresponding to `shp`
+"""
+function corresponding_idx(shp::SHProduct)::Int
+	# Extract l and m from each factor
+	l_list = [shsi.l for shsi in shp]
+	m_list = [shsi.m for shsi in shp]
+
+	@assert !isempty(l_list) "SHProduct must have at least one factor"
+
+	# Local dimension of each site: d_i = 2l_i + 1
+	dims = [2*l + 1 for l in l_list]
+
+	# Map m_i = -l_i,…,l_i → p_i = 1,…,2l_i+1
+	pos = [m + l + 1 for (m, l) in zip(m_list, l_list)]
+
+	# Optional range check
+	@assert all(1 .<= pos .<= dims) "m is out of range for given l"
+
+	# Compute 1-based linear index with the last factor varying fastest
+	idx    = 1
+	stride = 1
+	@inbounds for i in length(pos):-1:1
+		idx += (pos[i] - 1) * stride
+		stride *= dims[i]
+	end
+
+	return idx
 end
 
 end
