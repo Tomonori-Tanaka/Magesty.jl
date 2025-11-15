@@ -107,14 +107,6 @@ struct BasisSet
 		if verbosity
 			println("Constructing basis list...")
 		end
-		basislist = construct_basislist(
-			structure,
-			symmetry,
-			cluster,
-			body1_lmax,
-			bodyn_lsum,
-			nbody,
-		)
 
 		basislist_simple = construct_basislist_simple(
 			structure,
@@ -127,7 +119,6 @@ struct BasisSet
 		# @show basislist_simple
 
 		# Classify basis functions by symmetry
-		classified_basisdict = classify_basislist(basislist, symmetry.map_sym)
 		classified_basisdict_simple = classify_basislist_simple(basislist_simple, symmetry.map_sym)
 		# display(classified_basisdict_simple)
 
@@ -144,8 +135,9 @@ struct BasisSet
 			eigenvals = real.(round.(eigenvals, digits = 6))
 			eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
 			if !is_proper_eigenvals(eigenvals)
-				display(classified_basisdict_simple[idx-1])
+				# display(classified_basisdict_simple[idx-1])
 				display(classified_basisdict_simple[idx])
+				println("eigenval: $(eigenvals)")
 				error("Critical error: Eigenvalues must be either 0 or 1. index: $idx")
 			end
 			for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
@@ -165,6 +157,16 @@ struct BasisSet
 		# 		)
 		# 	end
 		# end
+
+		basislist = construct_basislist(
+			structure,
+			symmetry,
+			cluster,
+			body1_lmax,
+			bodyn_lsum,
+			nbody,
+		)
+		classified_basisdict = classify_basislist(basislist, symmetry.map_sym)
 
 		projection_list, num_nonzero_projection_list = construct_projectionmatrix(
 			classified_basisdict,
@@ -191,6 +193,7 @@ struct BasisSet
 			eigenvec = round.(eigenvec .* (abs.(eigenvec) .≥ tol_zero), digits = 10)
 
 			!is_proper_eigenvals(eigenval, tol = tol_eigen) &&
+				print("eigenval: $eigenval")
 				throw(
 					DomainError(
 						"Critical error: Eigenvalues must be either 0 or 1. index: $idx",
@@ -821,8 +824,8 @@ function projection_matrix_simple(
 				basislist,
 				symop,
 				@view(symmetry.map_sym[:, n]),
-				symmetry.map_s2p,
 				symmetry.map_sym,
+				symmetry.map_sym_inv,
 				symmetry.symnum_translation,
 				time_rev_sym,
 			)
@@ -845,8 +848,8 @@ function proj_matrix_a_symop_simple(
 	basislist::SortedCountingUniqueVector{SHProduct},
 	symop::SymmetryOperation,
 	map_sym_per_symop::AbstractVector{<:Integer},
-	map_s2p::AbstractVector{Maps},
 	map_sym::AbstractMatrix{<:Integer},
+	map_sym_inv::AbstractMatrix{<:Integer},
 	symnum_translation::AbstractVector{<:Integer},
 	time_rev_sym::Bool,
 )::Matrix{Float64}
@@ -863,7 +866,7 @@ function proj_matrix_a_symop_simple(
 			symop,
 			map_sym_per_symop,
 			map_sym,
-			map_s2p,
+			map_sym_inv,
 			symnum_translation,
 			time_rev_sym,
 		)
@@ -886,7 +889,7 @@ function operate_symop(
 	symop::SymmetryOperation,
 	map_sym_per_symop::AbstractVector{<:Integer},
 	map_sym::AbstractMatrix{<:Integer},
-	map_s2p::AbstractVector{Maps},
+	map_sym_inv::AbstractMatrix{<:Integer},
 	symnum_translation::AbstractVector{<:Integer},
 	time_rev_sym::Bool,
 )::LinearCombo
@@ -894,52 +897,42 @@ function operate_symop(
 	new_atom_list = [map_sym_per_symop[shsi.i] for shsi in basis]
 
 	# Shift the new atom list to the primitive cell
-	# Find the source atoms in supercell that map to new_atom_list under translation
-	prim_atom_list = similar(new_atom_list)
+	# Try all translation operations (both forward and inverse) to find the correct primitive cell mapping
 	found = false
-	for i in eachindex(new_atom_list)
-		# Get translation operation for atom i
-		map_s2p_i = map_s2p[new_atom_list[i]]
-		itran = map_s2p_i.translation  # 1 <= itran <= ntran
-		symnum_translation_i = symnum_translation[itran]
-
-		# Find source atom that maps to new_atom_list[i] under this translation
-		# i.e., find k such that map_sym[k, symnum_translation_i] == new_atom_list[i]
-		source_atom_i = findfirst(k -> map_sym[k, symnum_translation_i] == new_atom_list[i],
-			1:size(map_sym, 1))
-		if source_atom_i === nothing
-			continue  # Try next reference atom
+	translated_atom_list = similar(new_atom_list)
+	
+	# Try each translation operation
+	for symnum_translation_i in symnum_translation
+		# Method 1: Apply forward translation (map_sym) to new_atom_list
+		for (pos, new_atom) in enumerate(new_atom_list)
+			translated_atom = map_sym[new_atom, symnum_translation_i]
+			translated_atom_list[pos] = translated_atom
 		end
-
-		# Set source atom for position i
-		prim_atom_list[i] = source_atom_i
-
-		# Find source atoms for all other positions
-		all_found = true
-		for j in eachindex(new_atom_list)
-			if j == i
-				continue
-			end
-			# Find source atom that maps to new_atom_list[j] under the same translation
-			source_atom_j = findfirst(k -> map_sym[k, symnum_translation_i] == new_atom_list[j],
-				1:size(map_sym, 1))
-			if source_atom_j === nothing
-				all_found = false
-				break
-			end
-			prim_atom_list[j] = source_atom_j
+		
+		sorted_translated = sort(translated_atom_list)
+		if sorted_translated in atom_list
+			new_atom_list = translated_atom_list
+			found = true
+			break
 		end
-
-		# Check if all atoms were found and this atom list exists in the basis list
-		if all_found && sort(prim_atom_list) in atom_list
-			new_atom_list = sort(prim_atom_list)
+		
+		# Method 2: Apply inverse translation (map_sym_inv) to new_atom_list
+		for (pos, new_atom) in enumerate(new_atom_list)
+			source_atom = map_sym_inv[new_atom, symnum_translation_i]
+			translated_atom_list[pos] = source_atom
+		end
+		
+		sorted_translated = sort(translated_atom_list)
+		if sorted_translated in atom_list
+			new_atom_list = translated_atom_list
 			found = true
 			break
 		end
 	end
+	
 	if !found
 		@show [shsi.i for shsi in basis]
-		@show prim_atom_list
+		@show translated_atom_list
 		@show new_atom_list
 		@show atom_list
 		error("Failed to find corresponding atom in the primitive cell.")
@@ -950,7 +943,6 @@ function operate_symop(
 
 	is_proper = symop.is_proper
 	multiplier = 1.0
-	rotmat = similar(symop.rotation_cart)
 	if is_proper
 		rotmat = symop.rotation_cart
 	else
