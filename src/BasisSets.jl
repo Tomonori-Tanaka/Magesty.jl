@@ -194,11 +194,11 @@ struct BasisSet
 
 			!is_proper_eigenvals(eigenval, tol = tol_eigen) &&
 				print("eigenval: $eigenval")
-				throw(
-					DomainError(
-						"Critical error: Eigenvalues must be either 0 or 1. index: $idx",
-					),
-				)
+			throw(
+				DomainError(
+					"Critical error: Eigenvalues must be either 0 or 1. index: $idx",
+				),
+			)
 
 			# Process vectors corresponding to eigenvalue 1
 			for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = tol_eigen), eigenval)
@@ -352,7 +352,18 @@ function construct_basislist_simple(
 
 			shp_list::Vector{SHProduct} = listup_basislist_simple(atom_list, bodyn_lsum[body])
 			for shp::SHProduct in shp_list
-				push!(result_basislist, shp, count)
+				for basis in result_basislist
+					if shp == basis
+						result_basislist.counts[basis] += count
+						@goto skip
+					elseif is_translationally_equiv_basis_simple(basis, shp, symmetry)
+						result_basislist.counts[basis] += count
+						@goto skip
+					end
+					# push!(result_basislist, shp, count)
+				end
+				push!(result_basislist, shp)
+				@label skip
 			end
 		end
 	end
@@ -577,6 +588,47 @@ function is_translationally_equiv_basis(
 			return true
 		end
 	end
+	return false
+end
+
+function is_translationally_equiv_basis_simple(
+	basis_target::SHProduct,
+	basis_ref::SHProduct,
+	symmetry::Symmetry,
+)::Bool
+	if length(basis_target) != length(basis_ref)
+		return false
+	end
+	# Early return if the atomlist is the same including the order
+	if [shsi.i for shsi in basis_target] == [shsi.i for shsi in basis_ref]
+		return false
+	# Early return if the first atom is the same
+	# because this function is intended to be used for different first atoms but translationally equivalent clusters
+	elseif basis_target[1].i == basis_ref[1].i
+		return false
+	end
+
+
+	basis_target_shifted = deepcopy(basis_target)
+	atom_list_target = [shsi.i for shsi in basis_target]
+
+	for itran in symmetry.symnum_translation
+		# Method 1: Apply forward translation (map_sym) to new_atom_list
+		atom_list_target_shifted = [symmetry.map_sym[atom, itran] for atom in atom_list_target]
+		basis_target_shifted = replace_atom(basis_target_shifted, atom_list_target_shifted)
+		if basis_target_shifted == basis_ref
+			return true
+		end
+
+		# Method 2: Apply inverse translation (map_sym_inv) to new_atom_list
+		atom_list_target_shifted = [symmetry.map_sym_inv[atom, itran] for atom in atom_list_target]
+		basis_target_shifted = replace_atom(basis_target_shifted, atom_list_target_shifted)
+		if basis_target_shifted == basis_ref
+			return true
+		end
+
+	end
+
 	return false
 end
 
@@ -900,7 +952,7 @@ function operate_symop(
 	# Try all translation operations (both forward and inverse) to find the correct primitive cell mapping
 	found = false
 	translated_atom_list = similar(new_atom_list)
-	
+
 	# Try each translation operation
 	for symnum_translation_i in symnum_translation
 		# Method 1: Apply forward translation (map_sym) to new_atom_list
@@ -908,20 +960,20 @@ function operate_symop(
 			translated_atom = map_sym[new_atom, symnum_translation_i]
 			translated_atom_list[pos] = translated_atom
 		end
-		
+
 		sorted_translated = sort(translated_atom_list)
 		if sorted_translated in atom_list
 			new_atom_list = translated_atom_list
 			found = true
 			break
 		end
-		
+
 		# Method 2: Apply inverse translation (map_sym_inv) to new_atom_list
 		for (pos, new_atom) in enumerate(new_atom_list)
 			source_atom = map_sym_inv[new_atom, symnum_translation_i]
 			translated_atom_list[pos] = source_atom
 		end
-		
+
 		sorted_translated = sort(translated_atom_list)
 		if sorted_translated in atom_list
 			new_atom_list = translated_atom_list
@@ -929,7 +981,7 @@ function operate_symop(
 			break
 		end
 	end
-	
+
 	if !found
 		@show [shsi.i for shsi in basis]
 		@show translated_atom_list
