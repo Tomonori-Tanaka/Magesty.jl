@@ -120,6 +120,7 @@ struct BasisSet
 
 		# Classify basis functions by symmetry
 		classified_basisdict_simple = classify_basislist_simple(basislist_simple, symmetry.map_sym)
+		@show classified_basisdict_simple
 		# display(classified_basisdict_simple)
 
 		# display(classified_basisdict)
@@ -930,6 +931,7 @@ function proj_matrix_a_symop_simple(
 		isapprox(projection_mat[i, j], 0.0, atol = 1e-8) for i in eachindex(basislist) for
 		j in eachindex(basislist)
 	)
+		display(basislist)
 		@assert false "Projection matrix is zero matrix"
 	end
 	return projection_mat
@@ -948,6 +950,8 @@ function operate_symop(
 	# Apply the symmetry operation to atoms
 	new_atom_list = [map_sym_per_symop[shsi.i] for shsi in basis]
 
+	atom_list_sorted = [sort(atom_list_i) for atom_list_i in atom_list]
+
 	# Shift the new atom list to the primitive cell
 	# Try all translation operations (both forward and inverse) to find the correct primitive cell mapping
 	found = false
@@ -962,7 +966,7 @@ function operate_symop(
 		end
 
 		sorted_translated = sort(translated_atom_list)
-		if sorted_translated in atom_list
+		if sorted_translated in atom_list_sorted
 			new_atom_list = translated_atom_list
 			found = true
 			break
@@ -975,7 +979,7 @@ function operate_symop(
 		end
 
 		sorted_translated = sort(translated_atom_list)
-		if sorted_translated in atom_list
+		if sorted_translated in atom_list_sorted
 			new_atom_list = translated_atom_list
 			found = true
 			break
