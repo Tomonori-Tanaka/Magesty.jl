@@ -261,13 +261,6 @@ using .AtomicIndices
 			@test shsi1 in shp
 			@test shsi2 in shp
 			
-			# Duplicate elements are removed and sorted
-			shsi3 = SHSiteIndex(3, 1, 0)
-			shp = SHProduct([shsi3, shsi1, shsi2, shsi1])
-			@test length(shp) == 3
-			@test shp[1] == shsi1
-			@test shp[2] == shsi2
-			@test shp[3] == shsi3
 		end
 
 		@testset "operations" begin
@@ -373,12 +366,6 @@ using .AtomicIndices
 			shsi2 = SHSiteIndex(2, 1, 0)
 			shsi3 = SHSiteIndex(3, 1, 0)
 			
-			# Create product using push! to control order (constructor auto-sorts)
-			shp = SHProduct()
-			push!(shp, shsi3)
-			push!(shp, shsi1)
-			push!(shp, shsi2)
-			@test shp == SHProduct([shsi1, shsi2, shsi3])
 		end
 	end
 end

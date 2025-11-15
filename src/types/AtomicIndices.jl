@@ -410,7 +410,7 @@ function product_shsiteindex(
 		end
 		push!(combined_vec, shp_tmp)
 	end
-	return sort(combined_vec)
+	return combined_vec
 end
 
 """
@@ -443,6 +443,9 @@ function shsiteindex_singleatom(atom::Integer, l::Integer)::Vector{SHSiteIndex}
 end
 
 
+
+
+
 struct SHProduct
 	data::Vector{SHSiteIndex}
 
@@ -451,7 +454,10 @@ struct SHProduct
 	end
 
 	function SHProduct(vec::AbstractVector{SHSiteIndex})
-		new(unique(sort(vec)))
+		if length(vec) != length(unique(vec))
+			throw(ErrorException("SHSiteIndex vector must be unique."))
+		end
+		new(vec)
 	end
 
 	function SHProduct(shsi::SHSiteIndex)
@@ -479,15 +485,16 @@ end
 
 function push!(shp::SHProduct, shsi::SHSiteIndex)
 	if shsi in shp
-		return shp
-	else
-		idx = searchsortedfirst(shp.data, shsi)
-		insert!(shp.data, idx, shsi)
-		return shp
+		throw(ErrorException("SHSiteIndex must be unique."))
 	end
+	push!(shp.data, shsi)
+	return shp
 end
 
 function append!(shp::SHProduct, vec::AbstractVector{SHSiteIndex})
+	if length(vec) != length(unique(vec))
+		throw(ErrorException("SHSiteIndex vector must be unique."))
+	end
 	for shsi in vec
 		push!(shp, shsi)
 	end
@@ -506,7 +513,7 @@ end
 
 function replace_atom(shp::SHProduct, atom_list::AbstractVector{<:Integer})
 	if length(shp) != length(atom_list)
-		throw(ErrorException("Lengths of shp and atom_map must be the same."))
+		throw(ErrorException("Lengths of shp and atom_list must be the same."))
 	end
 	new_shp = SHProduct()
 	for (i, shsi) in enumerate(shp)
