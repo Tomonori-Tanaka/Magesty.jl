@@ -548,13 +548,12 @@ function LinearCombo(data::Vector{SHProduct}, coeffs::Vector{<:Real})
 end
 
 function inner_product(shp::SHProduct, lco::LinearCombo)::Float64
-	for shp_i in lco.data
+	for (idx, shp_i) in enumerate(lco.data)
 		if sort(shp) == sort(shp_i)
-			return lco.coeffs[findfirst(x -> x == shp_i, lco.data)]
+			return lco.coeffs[idx]
 		end
 	end
 	return 0.0
-
 end
 
 end

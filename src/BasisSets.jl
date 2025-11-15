@@ -377,12 +377,20 @@ function listup_basislist_simple(
 )::Vector{SHProduct}
 
 	result_basislist = Vector{SHProduct}()
-	l_list = Combinat.compositions(lsum, length(atom_list); min = 1)
+	for l in 2:lsum
+		if l < length(atom_list)
+			return result_basislist
+		end
+		if isodd(l) # skip odd l cases due to the time-reversal symmetry
+			continue
+		end
+		l_list = Combinat.compositions(l, length(atom_list); min = 1)
 
-	for l_vec::Vector{Int} in l_list
-		shp_list = product_shsiteindex(atom_list, l_vec)
-		for shp::SHProduct in shp_list
-			push!(result_basislist, shp)
+		for l_vec::Vector{Int} in l_list
+			shp_list = product_shsiteindex(atom_list, l_vec)
+			for shp::SHProduct in shp_list
+				push!(result_basislist, shp)
+			end
 		end
 	end
 
@@ -603,8 +611,8 @@ function is_translationally_equiv_basis_simple(
 	# Early return if the atomlist is the same including the order
 	if [shsi.i for shsi in basis_target] == [shsi.i for shsi in basis_ref]
 		return false
-	# Early return if the first atom is the same
-	# because this function is intended to be used for different first atoms but translationally equivalent clusters
+		# Early return if the first atom is the same
+		# because this function is intended to be used for different first atoms but translationally equivalent clusters
 	elseif basis_target[1].i == basis_ref[1].i
 		return false
 	end
