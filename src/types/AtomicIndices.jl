@@ -524,6 +524,14 @@ function replace_atom(shp::SHProduct, atom_list::AbstractVector{<:Integer})
 	return new_shp
 end
 
+function convert2indices(shp::SHProduct)::IndicesUniqueList
+	indices = IndicesUniqueList()
+	for shsi in shp
+		push!(indices, Indices(shsi.i, shsi.l, shsi.m, 1))
+	end
+	return indices
+end
+
 
 struct LinearCombo
 	data::Vector{SHProduct}
