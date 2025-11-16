@@ -109,6 +109,38 @@ function SALC(
 	return SALC(result_basisset, result_coeffs, result_multiplicity)
 end
 
+function SALC(
+	basislist::SortedCountingUniqueVector{SHProduct},
+	coeffs::Vector{<:Real},
+)
+	length(basislist) == length(coeffs) ||
+		throw(ArgumentError("The length of basislist and coeffs must be the same"))
+
+	result_basisset = Vector{IndicesUniqueList}()
+	result_coeffs = Vector{Float64}()
+	result_multiplicity = Vector{Int}()
+
+	for (idx, basis::SHProduct) in enumerate(basislist)
+		iul::IndicesUniqueList = convert2indices(basis)
+		count = basislist.counts[basis]
+		coeff = coeffs[idx] * count
+		if !isapprox(coeff, 0.0, atol = 1e-8)
+			push!(result_basisset, iul)
+			push!(result_coeffs, coeff)
+			push!(result_multiplicity, count)
+		end
+	end
+
+	# normalize coefficient vector
+	norm_coeffs = norm(result_coeffs)
+	if isapprox(norm_coeffs, 0.0, atol = 1e-8)
+		throw(ArgumentError("The norm of the coefficient vector is zero."))
+	end
+	result_coeffs ./= norm_coeffs
+
+	return SALC(result_basisset, result_coeffs, result_multiplicity)
+end
+
 
 """
 	SALC(xml_node::EzXML.Node)

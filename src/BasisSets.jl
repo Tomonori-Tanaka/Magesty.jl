@@ -74,10 +74,10 @@ The constructor performs the following steps:
 """
 struct BasisSet
 	basislist::SortedCountingUniqueVector{IndicesUniqueList}
+	basislist_simple::SortedCountingUniqueVector{SHProduct}
 	classified_basisdict::Dict{Int, SortedCountingUniqueVector}
-	# projection_list::Vector{Matrix{Float64}}
+	classified_basisdict_simple::Dict{Int, SortedCountingUniqueVector{SHProduct}}
 	salc_list::Vector{SALC}
-	salc_list_simple::Vector{LinearCombo}
 
 	function BasisSet(
 		structure::Structure,
@@ -131,7 +131,7 @@ struct BasisSet
 			println("Constructing projection matrices...")
 		end
 		projection_list_simple = projection_matrix_simple(classified_basisdict_simple, symmetry)
-
+		salc_list_simple = Vector{SALC}()
 		for idx in eachindex(projection_list_simple)
 			eigenvals, eigenvecs = eigen(projection_list_simple[idx])
 			eigenvals = real.(round.(eigenvals, digits = 6))
@@ -147,90 +147,83 @@ struct BasisSet
 			for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
 				eigenvec = eigenvecs[:, idx_eigenval]
 				eigenvec = flip_vector_if_negative_sum(eigenvec)
+				push!(salc_list_simple, SALC(classified_basisdict_simple[idx], eigenvec / norm(eigenvec)))
 			end
 		end
 		print("Done")
 
 
-		# for (idx, proj) in enumerate(projection_list)
-		# 	if proj != proj'
-		# 		throw(
-		# 			DomainError(
-		# 				"Projection matrix at index $idx is not Hermitian)",
-		# 			),
+
+		# basislist = construct_basislist(
+		# 	structure,
+		# 	symmetry,
+		# 	cluster,
+		# 	body1_lmax,
+		# 	bodyn_lsum,
+		# 	nbody,
+		# )
+		# classified_basisdict = classify_basislist(basislist, symmetry.map_sym)
+
+		# projection_list, num_nonzero_projection_list = construct_projectionmatrix(
+		# 	classified_basisdict,
+		# 	structure,
+		# 	symmetry,
+		# )
+
+		# # Generate symmetry-adapted linear combinations
+		# if verbosity
+		# 	println("Deriving SALCs...\n")
+		# end
+		# salc_list = Vector{SALC}()
+		# for idx in eachindex(projection_list)
+		# 	eigenval, eigenvec = eigen(Symmetric(projection_list[idx]))
+		# 	# eigenval, eigenvec = eigs(projection_list[idx], nev = )
+		# 	eigenval = eigenval ./ num_nonzero_projection_list[idx]
+
+		# 	# Set tolerance constants
+		# 	tol_zero = 1e-5
+		# 	tol_eigen = 1e-8
+
+		# 	# Process eigenvalues and eigenvectors
+		# 	eigenval = real.(round.(eigenval, digits = 6))
+		# 	eigenvec = round.(eigenvec .* (abs.(eigenvec) .≥ tol_zero), digits = 10)
+
+		# 	!is_proper_eigenvals(eigenval, tol = tol_eigen) &&
+		# 		print("eigenval: $eigenval")
+		# 	throw(
+		# 		DomainError(
+		# 			"Critical error: Eigenvalues must be either 0 or 1. index: $idx",
+		# 		),
+		# 	)
+
+		# 	# Process vectors corresponding to eigenvalue 1
+		# 	for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = tol_eigen), eigenval)
+		# 		eigenvec_real = to_real_vector(eigenvec[:, idx_eigenval])
+		# 		# Filter small values in the eigenvector
+		# 		# eigenvec_real = filter_eigenvec(eigenvec_real, rtol = 1e-3)
+		# 		eigenvec_real = flip_vector_if_negative_sum(eigenvec_real)
+		# 		push!(
+		# 			salc_list,
+		# 			SALC(classified_basisdict[idx], eigenvec_real / norm(eigenvec_real)),
 		# 		)
 		# 	end
 		# end
 
-		basislist = construct_basislist(
-			structure,
-			symmetry,
-			cluster,
-			body1_lmax,
-			bodyn_lsum,
-			nbody,
-		)
-		classified_basisdict = classify_basislist(basislist, symmetry.map_sym)
+		# salc_list = filter(salc -> !is_identically_zero(salc), salc_list)
 
-		projection_list, num_nonzero_projection_list = construct_projectionmatrix(
-			classified_basisdict,
-			structure,
-			symmetry,
-		)
-
-		# Generate symmetry-adapted linear combinations
-		if verbosity
-			println("Deriving SALCs...\n")
-		end
-		salc_list = Vector{SALC}()
-		for idx in eachindex(projection_list)
-			eigenval, eigenvec = eigen(Symmetric(projection_list[idx]))
-			# eigenval, eigenvec = eigs(projection_list[idx], nev = )
-			eigenval = eigenval ./ num_nonzero_projection_list[idx]
-
-			# Set tolerance constants
-			tol_zero = 1e-5
-			tol_eigen = 1e-8
-
-			# Process eigenvalues and eigenvectors
-			eigenval = real.(round.(eigenval, digits = 6))
-			eigenvec = round.(eigenvec .* (abs.(eigenvec) .≥ tol_zero), digits = 10)
-
-			!is_proper_eigenvals(eigenval, tol = tol_eigen) &&
-				print("eigenval: $eigenval")
-			throw(
-				DomainError(
-					"Critical error: Eigenvalues must be either 0 or 1. index: $idx",
-				),
-			)
-
-			# Process vectors corresponding to eigenvalue 1
-			for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = tol_eigen), eigenval)
-				eigenvec_real = to_real_vector(eigenvec[:, idx_eigenval])
-				# Filter small values in the eigenvector
-				# eigenvec_real = filter_eigenvec(eigenvec_real, rtol = 1e-3)
-				eigenvec_real = flip_vector_if_negative_sum(eigenvec_real)
-				push!(
-					salc_list,
-					SALC(classified_basisdict[idx], eigenvec_real / norm(eigenvec_real)),
-				)
-			end
-		end
-
-		salc_list = filter(salc -> !is_identically_zero(salc), salc_list)
-
-		if verbosity
-			print_basisset_stdout(salc_list)
-			elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
-			println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
-			println("-------------------------------------------------------------------")
-		end
+		# if verbosity
+		# 	print_basisset_stdout(salc_list)
+		# 	elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
+		# 	println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
+		# 	println("-------------------------------------------------------------------")
+		# end
 
 
 		return new(
 			basislist,
+			basislist_simple,
 			classified_basisdict,
-			salc_list,
+			classified_basisdict_simple,
 			salc_list_simple,
 		)
 	end
