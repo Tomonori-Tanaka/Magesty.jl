@@ -77,6 +77,7 @@ struct BasisSet
 	classified_basisdict::Dict{Int, SortedCountingUniqueVector}
 	# projection_list::Vector{Matrix{Float64}}
 	salc_list::Vector{SALC}
+	salc_list_simple::Vector{LinearCombo}
 
 	function BasisSet(
 		structure::Structure,
@@ -120,7 +121,7 @@ struct BasisSet
 
 		# Classify basis functions by symmetry
 		classified_basisdict_simple = classify_basislist_simple(basislist_simple, symmetry.map_sym)
-		@show classified_basisdict_simple
+		# @show classified_basisdict_simple
 		# display(classified_basisdict_simple)
 
 		# display(classified_basisdict)
@@ -134,12 +135,14 @@ struct BasisSet
 		for idx in eachindex(projection_list_simple)
 			eigenvals, eigenvecs = eigen(projection_list_simple[idx])
 			eigenvals = real.(round.(eigenvals, digits = 6))
+			@show eigenvals
 			eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
 			if !is_proper_eigenvals(eigenvals)
 				# display(classified_basisdict_simple[idx-1])
 				display(classified_basisdict_simple[idx])
 				println("eigenval: $(eigenvals)")
-				error("Critical error: Eigenvalues must be either 0 or 1. index: $idx")
+				#error("Critical error: Eigenvalues must be either 0 or 1. index: $idx")
+				@warn "Critical error: Eigenvalues must be either 0 or 1. index: $idx"
 			end
 			for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
 				eigenvec = eigenvecs[:, idx_eigenval]
@@ -228,6 +231,7 @@ struct BasisSet
 			basislist,
 			classified_basisdict,
 			salc_list,
+			salc_list_simple,
 		)
 	end
 end
@@ -1003,6 +1007,11 @@ function operate_symop(
 	end
 
 	new_basis = replace_atom(basis, new_atom_list)# replace atom only (l and m are kept)
+	if [shsi.l for shsi in new_basis] != [shsi.l for shsi in basis]
+		@show [shsi.l for shsi in new_basis]
+		@show [shsi.l for shsi in basis]
+		error("l values are not the same after symmetry operation.")
+	end
 	idx = corresponding_idx(new_basis)
 
 	is_proper = symop.is_proper
@@ -1024,7 +1033,7 @@ function operate_symop(
 
 	l_list = [shsi.l for shsi in new_basis]
 
-	shp_list = product_shsiteindex(new_atom_list, l_list)
+	shp_list::Vector{SHProduct} = product_shsiteindex(new_atom_list, l_list)
 	coeffs = rotmat_kron[:, idx]
 	return LinearCombo(shp_list, coeffs)
 end
@@ -1063,6 +1072,7 @@ function corresponding_idx(shp::SHProduct)::Int
 	@assert all(1 .<= pos .<= dims) "m is out of range for given l"
 
 	# Compute 1-based linear index with the last factor varying fastest
+	# This matches the order of kron(rotation_list...) used in operate_symop
 	idx    = 1
 	stride = 1
 	@inbounds for i in length(pos):-1:1

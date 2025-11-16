@@ -402,10 +402,12 @@ function product_shsiteindex(
 	end
 
 	combined_vec = Vector{SHProduct}()
-	prod_iter = Iterators.product(list_tmp...)
+	# Reverse list_tmp to match kron order (last factor varies fastest)
+	prod_iter = Iterators.product(reverse(list_tmp)...)
 	for comb::Tuple{Vararg{SHSiteIndex}} in prod_iter
 		shp_tmp = SHProduct()
-		for shsi in comb
+		# Reverse comb to restore original order after product
+		for shsi in reverse(collect(comb))
 			push!(shp_tmp, shsi)
 		end
 		push!(combined_vec, shp_tmp)
