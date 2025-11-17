@@ -73,9 +73,9 @@ The constructor performs the following steps:
 4. Generates symmetry-adapted linear combinations (SALCs)
 """
 struct BasisSet
-	basislist::SortedCountingUniqueVector{IndicesUniqueList}
-	basislist_simple::SortedCountingUniqueVector{SHProduct}
-	classified_basisdict::Dict{Int, SortedCountingUniqueVector}
+	# basislist::SortedCountingUniqueVector{IndicesUniqueList}
+	# basislist_simple::SortedCountingUniqueVector{SHProduct}
+	# classified_basisdict::Dict{Int, SortedCountingUniqueVector}
 	classified_basisdict_simple::Dict{Int, SortedCountingUniqueVector{SHProduct}}
 	salc_list::Vector{SALC}
 
@@ -220,9 +220,9 @@ struct BasisSet
 
 
 		return new(
-			basislist,
-			basislist_simple,
-			classified_basisdict,
+			# basislist,
+			# basislist_simple,
+			# classified_basisdict,
 			classified_basisdict_simple,
 			salc_list_simple,
 		)
