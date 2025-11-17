@@ -30,6 +30,7 @@ using LinearAlgebra
 using OffsetArrays
 using Printf
 
+using ..CountingContainer
 using ..SortedContainer
 using ..AtomCells
 using ..ConfigParser
@@ -159,7 +160,7 @@ struct Cluster
 	min_distance_pairs::Matrix{Vector{DistInfo}}
 	# interaction_clusters::Matrix{OrderedSet{InteractionCluster}}
 	cluster_list::Vector{SortedVector{Vector{AtomCell}}}
-	cluster_dict::Dict{Int, SortedCountingUniqueVector{SortedVector{Int}}}
+	cluster_dict::Dict{Int, CountingUniqueVector{Vector{Int}}}
 	equivalent_atom_list::Vector{Vector{Int}}
 
 	function Cluster(
@@ -202,6 +203,7 @@ struct Cluster
 		)
 
 		cluster_dict = generate_pairs_simple(symmetry.atoms_in_prim, interaction_clusters, nbody)
+		display(cluster_dict)
 
 		cluster_list = generate_pairs(symmetry.atoms_in_prim, interaction_clusters, nbody)
 		equivalent_atom_list = classify_equivalent_atoms(symmetry.atoms_in_prim, symmetry.map_sym)
@@ -517,19 +519,20 @@ function generate_pairs_simple(
 	primitive_atom_indices::AbstractVector{<:Integer},
 	interaction_clusters::AbstractMatrix{<:AbstractSet{InteractionCluster}},
 	num_bodies::Integer,
-)::Dict{Int, SortedCountingUniqueVector{SortedVector{Int}}}
-	cluster_dict = Dict{Int, SortedCountingUniqueVector{SortedVector{Int}}}()
+)::Dict{Int, CountingUniqueVector{Vector{Int}}}
+	cluster_dict = Dict{Int, CountingUniqueVector{Vector{Int}}}()
 	for body in 2:num_bodies
-		scuv = SortedCountingUniqueVector{SortedVector{Int}}()
+		cuv = CountingUniqueVector{Vector{Int}}()
 		for (i, prim_atom_index) in enumerate(primitive_atom_indices)
 			for cluster in interaction_clusters[i, body-1]
-				sv = SortedVector([prim_atom_index, cluster.atom_indices...])
+				vec = [prim_atom_index, cluster.atom_indices...]
 				multiplicity =
 					length(generate_combinations(cluster.atom_indices, cluster.cell_indices))
-				push!(scuv, sv, multiplicity)
+				push!(cuv, vec)
+				cuv.counts[vec] = multiplicity
 			end
 		end
-		cluster_dict[body] = scuv
+		cluster_dict[body] = cuv
 	end
 	return cluster_dict
 end
