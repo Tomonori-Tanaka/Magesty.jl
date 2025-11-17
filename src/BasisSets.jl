@@ -119,7 +119,6 @@ struct BasisSet
 			bodyn_lsum,
 			nbody,
 		)
-		# @show basislist_simple
 
 		# Classify basis functions by symmetry
 		classified_basisdict_simple = classify_basislist_simple(basislist_simple, symmetry.map_sym)
@@ -894,7 +893,7 @@ function projection_matrix_simple(
 			)
 			local_projection_mat += projection_mat_per_symop
 		end
-		 local_projection_mat = local_projection_mat ./ (2 * symmetry.nsym)
+		local_projection_mat = local_projection_mat ./ (2 * symmetry.nsym)
 		# display(local_projection_mat)
 		local_projection_mat = hermitianpart(local_projection_mat)
 		# local_projection_mat = round.(local_projection_mat, digits = 6)
@@ -978,7 +977,7 @@ function operate_symop(
 
 		sorted_translated = sort(translated_atom_list)
 		if sorted_translated in atom_list_sorted
-			new_atom_list = translated_atom_list
+			new_atom_list = sorted_translated
 			found = true
 			break
 		end
@@ -991,7 +990,7 @@ function operate_symop(
 
 		sorted_translated = sort(translated_atom_list)
 		if sorted_translated in atom_list_sorted
-			new_atom_list = translated_atom_list
+			new_atom_list = sorted_translated
 			found = true
 			break
 		end
