@@ -121,17 +121,14 @@ struct BasisSet
 
 		# Classify basis functions by symmetry
 		classified_basisdict_simple = classify_basislist_simple(basislist_simple, symmetry.map_sym)
-		# @show classified_basisdict_simple
-		# display(classified_basisdict_simple)
-
-		# display(classified_basisdict)
+		display(classified_basisdict_simple)
 
 		# Construct projection matrices
 		if verbosity
 			println("Constructing projection matrices...")
 		end
 		projection_list_simple = projection_matrix_simple(classified_basisdict_simple, symmetry)
-		salc_list_simple = Vector{SALC}()
+		salc_list = Vector{SALC}()
 		for idx in eachindex(projection_list_simple)
 			eigenvals, eigenvecs = eigen(projection_list_simple[idx])
 			eigenvals = real.(round.(eigenvals, digits = 6))
@@ -147,7 +144,7 @@ struct BasisSet
 			for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
 				eigenvec = eigenvecs[:, idx_eigenval]
 				eigenvec = flip_vector_if_negative_sum(eigenvec)
-				push!(salc_list_simple, SALC(classified_basisdict_simple[idx], eigenvec / norm(eigenvec)))
+				push!(salc_list, SALC(classified_basisdict_simple[idx], eigenvec / norm(eigenvec)))
 			end
 		end
 		print("Done")
@@ -224,7 +221,7 @@ struct BasisSet
 			# basislist_simple,
 			# classified_basisdict,
 			classified_basisdict_simple,
-			salc_list_simple,
+			salc_list,
 		)
 	end
 end

@@ -371,15 +371,20 @@ function product_indices(
 	end
 
 	combined_vec = Vector{IndicesUniqueList}()
-	prod_iter = Iterators.product(list_tmp...)
+	# Iterators.product iterates with first factor varying fastest
+	# But kron orders elements with last factor varying fastest
+	# So we need to reverse the order to match kron
+	prod_iter = Iterators.product(reverse(list_tmp)...)
 	for comb::Tuple{Vararg{Indices}} in prod_iter
 		iul_tmp = IndicesUniqueList()
-		for ind in comb
+		# comb is in reversed order, so reverse it to restore original atom order
+		# but this makes the iteration order match kron (last factor varies fastest)
+		for ind in reverse(collect(comb))
 			push!(iul_tmp, ind)
 		end
 		push!(combined_vec, iul_tmp)
 	end
-	return sort(combined_vec)
+	return combined_vec
 end
 
 function product_shsiteindex(
@@ -462,11 +467,11 @@ struct SHProduct
 		if length(vec) != length(unique(vec))
 			throw(ErrorException("SHSiteIndex vector must be unique."))
 		end
-		new(vec)
+		new(sort(vec))
 	end
 
 	function SHProduct(shsi::SHSiteIndex)
-		new(Vector{SHSiteIndex}([shsi]))
+		new(Vector{SHSiteIndex}([shsi]))  # single element is already canonical
 	end
 end
 
@@ -492,7 +497,7 @@ function push!(shp::SHProduct, shsi::SHSiteIndex)
 	if shsi in shp
 		throw(ErrorException("SHSiteIndex must be unique."))
 	end
-	push!(shp.data, shsi)
+	insert!(shp.data, searchsortedfirst(shp.data, shsi), shsi)
 	return shp
 end
 
@@ -562,7 +567,7 @@ end
 
 function inner_product(shp::SHProduct, lco::LinearCombo)::Float64
 	for (idx, shp_i) in enumerate(lco.data)
-		if sort(shp) == sort(shp_i)
+		if shp == shp_i
 			return lco.coeffs[idx]
 		end
 	end
