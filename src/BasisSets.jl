@@ -12,6 +12,8 @@ using LinearAlgebra
 using OffsetArrays
 using Printf
 using StaticArrays
+
+using ..CountingContainer
 using ..SortedContainer
 using ..AtomCells
 using ..AtomicIndices
@@ -324,7 +326,7 @@ function construct_basislist_simple(
 )::SortedCountingUniqueVector{SHProduct}
 
 	result_basislist = SortedCountingUniqueVector{SHProduct}()
-	cluster_dict::Dict{Int, SortedCountingUniqueVector{SortedVector{Int}}} = cluster.cluster_dict
+	cluster_dict::Dict{Int, CountingUniqueVector{Vector{Int}}} = cluster.cluster_dict
 
 	# Handle 1-body case
 	for iat in symmetry.atoms_in_prim
@@ -342,7 +344,7 @@ function construct_basislist_simple(
 
 	# Process multi-body cases
 	for body in 2:nbody
-		for atom_list::SortedVector{Int} in cluster_dict[body]
+		for atom_list::Vector{Int} in cluster_dict[body]
 			count = cluster_dict[body].counts[atom_list]
 
 			shp_list::Vector{SHProduct} = listup_basislist_simple(atom_list, bodyn_lsum[body])
@@ -357,7 +359,9 @@ function construct_basislist_simple(
 					end
 					# push!(result_basislist, shp, count)
 				end
-				push!(result_basislist, shp)
+				for _ in 1:count
+					push!(result_basislist, shp)
+				end
 				@label skip
 			end
 		end
@@ -366,7 +370,7 @@ function construct_basislist_simple(
 end
 
 function listup_basislist_simple(
-	atom_list::SortedVector{<:Integer},
+	atom_list::Vector{<:Integer},
 	lsum::Integer,
 )::Vector{SHProduct}
 
@@ -612,21 +616,25 @@ function is_translationally_equiv_basis_simple(
 	end
 
 
-	basis_target_shifted = deepcopy(basis_target)
 	atom_list_target = [shsi.i for shsi in basis_target]
-
 	for itran in symmetry.symnum_translation
 		# Method 1: Apply forward translation (map_sym) to new_atom_list
 		atom_list_target_shifted = [symmetry.map_sym[atom, itran] for atom in atom_list_target]
-		basis_target_shifted = replace_atom(basis_target_shifted, atom_list_target_shifted)
-		if basis_target_shifted == basis_ref
+		forward_candidate = replace_atom(
+			SHProduct([shsi for shsi in basis_target]),
+			atom_list_target_shifted,
+		)
+		if forward_candidate == basis_ref
 			return true
 		end
 
 		# Method 2: Apply inverse translation (map_sym_inv) to new_atom_list
 		atom_list_target_shifted = [symmetry.map_sym_inv[atom, itran] for atom in atom_list_target]
-		basis_target_shifted = replace_atom(basis_target_shifted, atom_list_target_shifted)
-		if basis_target_shifted == basis_ref
+		inverse_candidate = replace_atom(
+			SHProduct([shsi for shsi in basis_target]),
+			atom_list_target_shifted,
+		)
+		if inverse_candidate == basis_ref
 			return true
 		end
 
