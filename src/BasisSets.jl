@@ -937,12 +937,23 @@ function proj_matrix_a_symop_simple(
 			projection_mat[i, j] = inner_product(basis_i, lco_j)
 		end
 	end
+
+	# if (symop.rotation_cart == I) && (symop.translation_frac == [0.0, 0.0, 0.0])
+	# 	display(projection_mat)
+	# end
+
 	if all(
 		isapprox(projection_mat[i, j], 0.0, atol = 1e-8) for i in eachindex(basislist) for
 		j in eachindex(basislist)
 	)
 		display(basislist)
 		@assert false "Projection matrix is zero matrix"
+	end
+	if !is_unitary(projection_mat, tol = 1e-10)
+		display(basislist)
+		println(symop)
+		display(projection_mat)
+		error("Projection matrix is not unitary")
 	end
 	return projection_mat
 end
@@ -1100,6 +1111,20 @@ function is_symmetric(mat::AbstractMatrix{<:Real}; tol::Float64 = 1e-10)::Bool
 	end
 	# Check if matrix is symmetric: A ≈ A'
 	return isapprox(mat, mat', atol = tol)
+end
+
+"""
+	is_unitary(mat::AbstractMatrix; tol::Float64 = 1e-10) -> Bool
+
+Check if a matrix is unitary (i.e., UᵀU ≈ I and UUᵀ ≈ I within tolerance).
+
+# Arguments
+- `mat`: Matrix to check
+- `tol`: Tolerance for floating-point comparison (default: 1e-10)
+"""
+function is_unitary(mat::AbstractMatrix; tol::Float64 = 1e-10)::Bool
+	size(mat, 1) == size(mat, 2) || return false
+	return isapprox(mat' * mat, I, atol = tol) && isapprox(mat * mat', I, atol = tol)
 end
 
 end
