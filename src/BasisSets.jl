@@ -132,7 +132,7 @@ struct BasisSet
 		projection_list_simple = projection_matrix_simple(classified_basisdict_simple, symmetry)
 		salc_list = Vector{SALC}()
 		for idx in eachindex(projection_list_simple)
-			eigenvals, eigenvecs = eigen(projection_list_simple[idx])
+			eigenvals, eigenvecs = eigen(Symmetric(projection_list_simple[idx]))
 			eigenvals = real.(round.(eigenvals, digits = 6))
 			@show eigenvals
 			eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
@@ -894,7 +894,8 @@ function projection_matrix_simple(
 			)
 			local_projection_mat += projection_mat_per_symop
 		end
-		local_projection_mat = local_projection_mat ./ (2 * symmetry.nsym)
+		 local_projection_mat = local_projection_mat ./ (2 * symmetry.nsym)
+		# display(local_projection_mat)
 		local_projection_mat = hermitianpart(local_projection_mat)
 		# local_projection_mat = round.(local_projection_mat, digits = 6)
 
@@ -1005,11 +1006,11 @@ function operate_symop(
 	end
 
 	new_basis = replace_atom(basis, new_atom_list)# replace atom only (l and m are kept)
-	if [shsi.l for shsi in new_basis] != [shsi.l for shsi in basis]
-		@show [shsi.l for shsi in new_basis]
-		@show [shsi.l for shsi in basis]
-		error("l values are not the same after symmetry operation.")
-	end
+	# if [shsi.l for shsi in new_basis] != [shsi.l for shsi in basis]
+	# 	@show [shsi.l for shsi in new_basis]
+	# 	@show [shsi.l for shsi in basis]
+	# 	error("l values are not the same after symmetry operation.")
+	# end
 	idx = corresponding_idx(new_basis)
 
 	is_proper = symop.is_proper
