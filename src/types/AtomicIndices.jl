@@ -12,7 +12,7 @@ export Indices, IndicesUniqueList, get_total_L, get_atom_l_list,
 	product_shsiteindex,
 	indices_singleatom,
 	shsiteindex_singleatom,
-	SHSiteIndex, SHProduct, replace_atom, LinearCombo, inner_product
+	SHSiteIndex, SHProduct, replace_atom, LinearCombo, inner_product, convert2indices
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Indices
@@ -402,11 +402,14 @@ function product_shsiteindex(
 	end
 
 	combined_vec = Vector{SHProduct}()
-	# Reverse list_tmp to match kron order (last factor varies fastest)
+	# Iterators.product iterates with first factor varying fastest
+	# But kron orders elements with last factor varying fastest
+	# So we need to reverse the order to match kron
 	prod_iter = Iterators.product(reverse(list_tmp)...)
 	for comb::Tuple{Vararg{SHSiteIndex}} in prod_iter
 		shp_tmp = SHProduct()
-		# Reverse comb to restore original order after product
+		# comb is in reversed order, so reverse it to restore original atom order
+		# but this makes the iteration order match kron (last factor varies fastest)
 		for shsi in reverse(collect(comb))
 			push!(shp_tmp, shsi)
 		end
