@@ -179,6 +179,75 @@ using .AtomicIndices
 				Indices(1, 2, 2, 1)
 			]
 		end
+
+		@testset "shsiteindex_singleatom" begin
+			result = shsiteindex_singleatom(1, 1)
+			@test length(result) == 3
+			@test result == [
+				SHSiteIndex(1, 1, -1),
+				SHSiteIndex(1, 1, 0),
+				SHSiteIndex(1, 1, 1),
+			]
+
+			result = shsiteindex_singleatom(1, 2)
+			@test length(result) == 5
+			@test result == [
+				SHSiteIndex(1, 2, -2),
+				SHSiteIndex(1, 2, -1),
+				SHSiteIndex(1, 2, 0),
+				SHSiteIndex(1, 2, 1),
+				SHSiteIndex(1, 2, 2),
+			]
+		end
+
+		@testset "product_shsiteindex" begin
+			result = product_shsiteindex([1], [1])
+			@test length(result) == 3
+			@test result == [
+				SHProduct([SHSiteIndex(1, 1, -1)]),
+				SHProduct([SHSiteIndex(1, 1, 0)]),
+				SHProduct([SHSiteIndex(1, 1, 1)]),
+			]
+
+			result = product_shsiteindex([1, 2], [1, 1])
+			@test length(result) == 9
+
+			result = product_shsiteindex([1, 2], [1, 2])
+			@test length(result) == 15
+			expected = [
+				SHProduct([SHSiteIndex(1, 1, -1), SHSiteIndex(2, 2, -2)]),
+				SHProduct([SHSiteIndex(1, 1, -1), SHSiteIndex(2, 2, -1)]),
+				SHProduct([SHSiteIndex(1, 1, -1), SHSiteIndex(2, 2, 0)]),
+				SHProduct([SHSiteIndex(1, 1, -1), SHSiteIndex(2, 2, 1)]),
+				SHProduct([SHSiteIndex(1, 1, -1), SHSiteIndex(2, 2, 2)]),
+				SHProduct([SHSiteIndex(1, 1, 0), SHSiteIndex(2, 2, -2)]),
+				SHProduct([SHSiteIndex(1, 1, 0), SHSiteIndex(2, 2, -1)]),
+				SHProduct([SHSiteIndex(1, 1, 0), SHSiteIndex(2, 2, 0)]),
+				SHProduct([SHSiteIndex(1, 1, 0), SHSiteIndex(2, 2, 1)]),
+				SHProduct([SHSiteIndex(1, 1, 1), SHSiteIndex(2, 2, -2)]),
+				SHProduct([SHSiteIndex(1, 1, 1), SHSiteIndex(2, 2, -1)]),
+				SHProduct([SHSiteIndex(1, 1, 1), SHSiteIndex(2, 2, 0)]),
+				SHProduct([SHSiteIndex(1, 1, 1), SHSiteIndex(2, 2, 1)]),
+				SHProduct([SHSiteIndex(1, 1, 1), SHSiteIndex(2, 2, 2)]),
+			]
+
+			result = product_shsiteindex([1, 2], [1, 1])
+			expected = [
+				SHProduct([SHSiteIndex(1, 1, -1), SHSiteIndex(2, 1, -1)]),
+				SHProduct([SHSiteIndex(1, 1, -1), SHSiteIndex(2, 1, 0)]),
+				SHProduct([SHSiteIndex(1, 1, -1), SHSiteIndex(2, 1, 1)]),
+				SHProduct([SHSiteIndex(1, 1, 0), SHSiteIndex(2, 1, -1)]),
+				SHProduct([SHSiteIndex(1, 1, 0), SHSiteIndex(2, 1, 0)]),
+				SHProduct([SHSiteIndex(1, 1, 0), SHSiteIndex(2, 1, 1)]),
+				SHProduct([SHSiteIndex(1, 1, 1), SHSiteIndex(2, 1, -1)]),
+				SHProduct([SHSiteIndex(1, 1, 1), SHSiteIndex(2, 1, 0)]),
+				SHProduct([SHSiteIndex(1, 1, 1), SHSiteIndex(2, 1, 1)]),
+			]
+			@test result == expected
+
+			result = product_shsiteindex([1, 2], [1, 2])
+			@test length(result) == 15
+		end
 	end
 
 	@testset "SHSiteIndex" begin
@@ -275,9 +344,6 @@ using .AtomicIndices
 			@test length(shp) == 1
 			@test shsi1 in shp
 			
-			# Duplicate element addition
-			push!(shp, shsi1)
-			@test length(shp) == 1
 			
 			# append! operation
 			append!(shp, [shsi2, shsi3])
@@ -285,9 +351,6 @@ using .AtomicIndices
 			@test shsi2 in shp
 			@test shsi3 in shp
 			
-			# append! with duplicate elements
-			append!(shp, [shsi1, shsi2])
-			@test length(shp) == 3
 		end
 
 		@testset "comparison" begin

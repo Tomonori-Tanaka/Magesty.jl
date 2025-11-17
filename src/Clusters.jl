@@ -203,7 +203,6 @@ struct Cluster
 		)
 
 		cluster_dict = generate_pairs_simple(symmetry.atoms_in_prim, interaction_clusters, nbody)
-		display(cluster_dict)
 
 		cluster_list = generate_pairs(symmetry.atoms_in_prim, interaction_clusters, nbody)
 		equivalent_atom_list = classify_equivalent_atoms(symmetry.atoms_in_prim, symmetry.map_sym)
