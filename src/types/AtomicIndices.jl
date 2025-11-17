@@ -467,7 +467,7 @@ struct SHProduct
 		if length(vec) != length(unique(vec))
 			throw(ErrorException("SHSiteIndex vector must be unique."))
 		end
-		new(sort(vec))
+		new(Vector{SHSiteIndex}(vec))
 	end
 
 	function SHProduct(shsi::SHSiteIndex)
@@ -497,7 +497,7 @@ function push!(shp::SHProduct, shsi::SHSiteIndex)
 	if shsi in shp
 		throw(ErrorException("SHSiteIndex must be unique."))
 	end
-	insert!(shp.data, searchsortedfirst(shp.data, shsi), shsi)
+	push!(shp.data, shsi)
 	return shp
 end
 
