@@ -145,10 +145,11 @@ struct BasisSet
 			for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
 				eigenvec = eigenvecs[:, idx_eigenval]
 				eigenvec = flip_vector_if_negative_sum(eigenvec)
+				eigenvec = round.(eigenvec .* (abs.(eigenvec) .≥ 1e-8), digits = 10)
 				push!(salc_list, SALC(classified_basisdict_simple[idx], eigenvec / norm(eigenvec)))
 			end
 		end
-		print("Done")
+		salc_list = filter(salc -> !is_identically_zero(salc), salc_list)
 
 
 
@@ -927,8 +928,9 @@ function proj_matrix_a_symop_simple(
 	projection_mat = zeros(Float64, length(basislist), length(basislist))
 
 	for (j, basis_j::SHProduct) in enumerate(basislist)
-		println(basis_j, "\n")
+		# println(basis_j, "\n")
 		lco_j = operate_symop(
+			basislist,
 			basis_j,
 			atom_list,
 			symop,
@@ -940,7 +942,7 @@ function proj_matrix_a_symop_simple(
 			symnum_translation,
 			time_rev_sym,
 		)
-		println(lco_j, "\n")
+		# println(lco_j, "\n")
 		for (i, basis_i::SHProduct) in enumerate(basislist)
 			projection_mat[i, j] = inner_product(basis_i, lco_j)
 		end
@@ -968,6 +970,7 @@ function proj_matrix_a_symop_simple(
 end
 
 function operate_symop(
+	basislist::SortedCountingUniqueVector{SHProduct},
 	basis::SHProduct,
 	atom_list::AbstractVector{<:AbstractVector{<:Integer}},
 	symop::SymmetryOperation,
@@ -986,60 +989,56 @@ function operate_symop(
 
 	# Shift the new atom list to the primitive cell
 	# Try all translation operations (both forward and inverse) to find the correct primitive cell mapping
-	found = false
 	# translated_atom_list = similar(new_atom_list)
-	translated_atom_list = [map_sym_per_symop[new_atom] for new_atom in new_atom_list]
-	#find translation operation to translate header atom to the primitive cell 
-	header_atom = new_atom_list[begin]
-	header_atom_in_prim = atoms_in_prim[map_s2p[header_atom].atom]
-	corresponding_translation = symnum_translation[map_s2p[header_atom].translation]
+	# translated_atom_list = [map_sym_per_symop[new_atom] for new_atom in new_atom_list]
 
-	other_atom_translated = Int[]
-	for new_atom in new_atom_list[2:end]
-		push!(other_atom_translated, map_sym_inv[new_atom, corresponding_translation])
+	new_basis_found = SHProduct()
+	translated_atom_list = similar(new_atom_list)
+
+	found = false
+	for i in eachindex(new_atom_list)
+		ref_atom = new_atom_list[i]
+		ref_atom_in_prim = atoms_in_prim[map_s2p[ref_atom].atom]
+		corresponding_translation = symnum_translation[map_s2p[ref_atom].translation]
+		atom_translated = similar(new_atom_list)
+		atom_translated[i] = ref_atom_in_prim
+		for (n, new_atom) in enumerate(new_atom_list)
+			if n == i
+				continue
+			end
+			atom_translated[n] = map_sym_inv[new_atom, corresponding_translation]
+		end
+		new_basis_candidate = replace_atom(basis, atom_translated)
+		for basis_i in basislist
+			if sort(new_basis_candidate) == sort(basis_i)
+				found = true
+				translated_atom_list = [shsi.i for shsi in basis_i]
+				new_basis_found = basis_i
+				break
+			end
+		end
+		if found
+			break
+		end
 	end
-	translated_atom_list = [header_atom_in_prim, other_atom_translated...]
+	if !found
+		error("Failed to find corresponding basis in the primitive cell.")
+	end
+	#find translation operation to translate header atom to the primitive cell 
+	# header_atom = new_atom_list[begin]
+	# header_atom_in_prim = atoms_in_prim[map_s2p[header_atom].atom]
+	# corresponding_translation = symnum_translation[map_s2p[header_atom].translation]
 
-
-	# # Try each translation operation
-	# for symnum_translation_i in symnum_translation
-	# 	# Method 1: Apply forward translation (map_sym) to new_atom_list
-	# 	for (pos, new_atom) in enumerate(new_atom_list)
-	# 		translated_atom = map_sym[new_atom, symnum_translation_i]
-	# 		translated_atom_list[pos] = translated_atom
-	# 	end
-
-	# 	sorted_translated = sort(translated_atom_list)
-	# 	if sorted_translated in atom_list_sorted
-	# 		new_atom_list = sorted_translated
-	# 		found = true
-	# 		break
-	# 	end
-
-	# 	# Method 2: Apply inverse translation (map_sym_inv) to new_atom_list
-	# 	for (pos, new_atom) in enumerate(new_atom_list)
-	# 		source_atom = map_sym_inv[new_atom, symnum_translation_i]
-	# 		translated_atom_list[pos] = source_atom
-	# 	end
-
-	# 	sorted_translated = sort(translated_atom_list)
-	# 	if sorted_translated in atom_list_sorted
-	# 		new_atom_list = sorted_translated
-	# 		found = true
-	# 		break
-	# 	end
+	# other_atom_translated = Int[]
+	# for new_atom in new_atom_list[2:end]
+	# 	push!(other_atom_translated, map_sym_inv[new_atom, corresponding_translation])
 	# end
+	# translated_atom_list = [header_atom_in_prim, other_atom_translated...]
 
-	# if !found
-	# 	@show [shsi.i for shsi in basis]
-	# 	@show translated_atom_list
-	# 	@show new_atom_list
-	# 	@show atom_list
-	# 	error("Failed to find corresponding atom in the primitive cell.")
-	# end
 
-	new_basis = replace_atom(basis, translated_atom_list)# replace atom only (l and m are kept)
-	idx = corresponding_idx(new_basis)
+
+	# new_basis = replace_atom(basis, translated_atom_list)# replace atom only (l and m are kept)
+	idx = corresponding_idx(new_basis_found)
 
 	is_proper = symop.is_proper
 	multiplier = 1.0
@@ -1049,16 +1048,16 @@ function operate_symop(
 		rotmat = -1 * symop.rotation_cart
 	end
 	if time_rev_sym
-		multiplier *= (-1)^(sum([shsi.l for shsi in new_basis]))
+		multiplier *= (-1)^(sum([shsi.l for shsi in new_basis_found]))
 	end
-	rotation_list = [Δl(shsi.l, rotmat2euler(rotmat)...) for shsi in new_basis]
-	if length(new_basis) == 1
+	rotation_list = [Δl(shsi.l, rotmat2euler(rotmat)...) for shsi in new_basis_found]
+	if length(new_basis_found) == 1
 		rotmat_kron = multiplier * rotation_list[begin]
 	else
 		rotmat_kron = multiplier * kron(rotation_list...)
 	end
 
-	l_list = [shsi.l for shsi in new_basis]
+	l_list = [shsi.l for shsi in new_basis_found]
 
 	shp_list::Vector{SHProduct} = product_shsiteindex(translated_atom_list, l_list)
 	coeffs = rotmat_kron[:, idx]
