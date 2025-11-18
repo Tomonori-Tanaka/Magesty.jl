@@ -567,7 +567,7 @@ end
 
 function inner_product(shp::SHProduct, lco::LinearCombo)::Float64
 	for (idx, shp_i) in enumerate(lco.data)
-		if shp == shp_i
+		if sort(shp) == sort(shp_i)
 			return lco.coeffs[idx]
 		end
 	end

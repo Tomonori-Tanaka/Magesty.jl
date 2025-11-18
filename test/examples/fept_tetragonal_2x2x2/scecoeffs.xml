@@ -49,7 +49,7 @@
         <map trans="8" atom="9">16</map>
       </Translations>
     </Symmetry>
-    <SCEBasisSet num_salc="36">
+    <SCEBasisSet num_salc="31">
       <SALC index="1" num_basis="1" body="1">
         <basis multiplicity="1" index-1="1 2 0 1">1.0</basis>
       </SALC>
@@ -110,765 +110,422 @@
         <basis multiplicity="8" index-1="1 1 0 1" index-2="8 1 0 1">1.0</basis>
       </SALC>
       <SALC index="15" num_basis="40" body="2">
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="1 1 1 1">5.162800000021224e-6</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="2 1 1 1">5.162800000021224e-6</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="3 1 1 1">-5.162800000021224e-6</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="4 1 1 1">-5.162800000021224e-6</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="5 1 1 1">-5.162800000021224e-6</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="6 1 1 1">-5.162800000021224e-6</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="7 1 1 1">5.162800000021224e-6</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="8 1 1 1">5.162800000021224e-6</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="1 1 -1 1">0.0083922908000345</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="1 1 0 1">0.3533541267014526</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="1 1 1 1">0.0083922908000345</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="2 1 -1 1">-0.0083922908000345</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="2 1 0 1">0.3533541267014526</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="2 1 1 1">-0.0083922908000345</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="3 1 -1 1">-0.0083922908000345</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="3 1 0 1">0.3533541267014526</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="3 1 1 1">0.0083922908000345</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="4 1 -1 1">0.0083922908000345</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="4 1 0 1">0.3533541267014526</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="4 1 1 1">-0.0083922908000345</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="5 1 -1 1">0.0083922908000345</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="5 1 0 1">0.3533541267014526</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="5 1 1 1">-0.0083922908000345</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="6 1 -1 1">-0.0083922908000345</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="6 1 0 1">0.3533541267014526</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="6 1 1 1">0.0083922908000345</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="7 1 -1 1">-0.0083922908000345</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="7 1 0 1">0.3533541267014526</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="7 1 1 1">-0.0083922908000345</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="8 1 -1 1">0.0083922908000345</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="8 1 0 1">0.3533541267014526</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="8 1 1 1">0.0083922908000345</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="1 1 -1 1">5.162800000021224e-6</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="2 1 -1 1">5.162800000021224e-6</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="3 1 -1 1">-5.162800000021224e-6</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="4 1 -1 1">-5.162800000021224e-6</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="5 1 -1 1">-5.162800000021224e-6</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="6 1 -1 1">-5.162800000021224e-6</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="7 1 -1 1">5.162800000021224e-6</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="8 1 -1 1">5.162800000021224e-6</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="9 1 1 1">-1.0012399998743677e-5</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="10 1 1 1">-1.0012399998743677e-5</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="11 1 1 1">1.0012399998743677e-5</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="12 1 1 1">1.0012399998743677e-5</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="13 1 1 1">1.0012399998743677e-5</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="14 1 1 1">1.0012399998743677e-5</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="15 1 1 1">-1.0012399998743677e-5</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="16 1 1 1">-1.0012399998743677e-5</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="9 1 -1 1">0.0020115156997476016</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="9 1 0 1">0.3535419457556387</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="9 1 1 1">0.0020115156997476016</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="10 1 -1 1">-0.0020115156997476016</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="10 1 0 1">0.3535419457556387</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="10 1 1 1">-0.0020115156997476016</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="11 1 -1 1">-0.0020115156997476016</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="11 1 0 1">0.3535419457556387</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="11 1 1 1">0.0020115156997476016</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="12 1 -1 1">0.0020115156997476016</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="12 1 0 1">0.3535419457556387</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="12 1 1 1">-0.0020115156997476016</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="13 1 -1 1">0.0020115156997476016</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="13 1 0 1">0.3535419457556387</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="13 1 1 1">-0.0020115156997476016</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="14 1 -1 1">-0.0020115156997476016</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="14 1 0 1">0.3535419457556387</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="14 1 1 1">0.0020115156997476016</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="15 1 -1 1">-0.0020115156997476016</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="15 1 0 1">0.3535419457556387</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="15 1 1 1">-0.0020115156997476016</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="16 1 -1 1">0.0020115156997476016</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="16 1 0 1">0.3535419457556387</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="16 1 1 1">0.0020115156997476016</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="9 1 -1 1">-1.0012399998743677e-5</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="10 1 -1 1">-1.0012399998743677e-5</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="11 1 -1 1">1.0012399998743677e-5</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="12 1 -1 1">1.0012399998743677e-5</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="13 1 -1 1">1.0012399998743677e-5</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="14 1 -1 1">1.0012399998743677e-5</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="15 1 -1 1">-1.0012399998743677e-5</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="16 1 -1 1">-1.0012399998743677e-5</basis>
       </SALC>
       <SALC index="16" num_basis="72" body="2">
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="1 1 -1 1">0.000385953200046736</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="1 1 0 1">-0.014022674801698038</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="1 1 1 1">-0.2496059881302254</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="2 1 -1 1">0.000385953200046736</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="2 1 0 1">0.014022674801698038</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="2 1 1 1">-0.2496059881302254</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="3 1 -1 1">0.000385953200046736</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="3 1 0 1">0.014022674801698038</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="3 1 1 1">0.2496059881302254</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="4 1 -1 1">0.000385953200046736</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="4 1 0 1">-0.014022674801698038</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="4 1 1 1">0.2496059881302254</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="5 1 -1 1">0.000385953200046736</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="5 1 0 1">-0.014022674801698038</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="5 1 1 1">0.2496059881302254</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="6 1 -1 1">0.000385953200046736</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="6 1 0 1">0.014022674801698038</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="6 1 1 1">0.2496059881302254</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="7 1 -1 1">0.000385953200046736</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="7 1 0 1">0.014022674801698038</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="7 1 1 1">-0.2496059881302254</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="8 1 -1 1">0.000385953200046736</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="8 1 0 1">-0.014022674801698038</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="8 1 1 1">-0.2496059881302254</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="1 1 -1 1">0.0002575051000311819</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="1 1 0 1">-4.937700000597918e-6</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="1 1 1 1">0.0002575051000311819</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="2 1 -1 1">-0.0002575051000311819</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="2 1 0 1">-4.937700000597918e-6</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="2 1 1 1">-0.0002575051000311819</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="3 1 -1 1">-0.0002575051000311819</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="3 1 0 1">-4.937700000597918e-6</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="3 1 1 1">0.0002575051000311819</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="4 1 -1 1">0.0002575051000311819</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="4 1 0 1">-4.937700000597918e-6</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="4 1 1 1">-0.0002575051000311819</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="5 1 -1 1">0.0002575051000311819</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="5 1 0 1">-4.937700000597918e-6</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="5 1 1 1">-0.0002575051000311819</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="6 1 -1 1">-0.0002575051000311819</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="6 1 0 1">-4.937700000597918e-6</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="6 1 1 1">0.0002575051000311819</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="7 1 -1 1">-0.0002575051000311819</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="7 1 0 1">-4.937700000597918e-6</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="7 1 1 1">-0.0002575051000311819</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="8 1 -1 1">0.0002575051000311819</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="8 1 0 1">-4.937700000597918e-6</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="8 1 1 1">0.0002575051000311819</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="1 1 -1 1">-0.2496059881302254</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="1 1 0 1">-0.014022674801698038</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="1 1 1 1">0.000385953200046736</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="2 1 -1 1">-0.2496059881302254</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="2 1 0 1">0.014022674801698038</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="2 1 1 1">0.000385953200046736</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="3 1 -1 1">0.2496059881302254</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="3 1 0 1">-0.014022674801698038</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="3 1 1 1">0.000385953200046736</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="4 1 -1 1">0.2496059881302254</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="4 1 0 1">0.014022674801698038</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="4 1 1 1">0.000385953200046736</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="5 1 -1 1">0.2496059881302254</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="5 1 0 1">0.014022674801698038</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="5 1 1 1">0.000385953200046736</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="6 1 -1 1">0.2496059881302254</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="6 1 0 1">-0.014022674801698038</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="6 1 1 1">0.000385953200046736</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="7 1 -1 1">-0.2496059881302254</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="7 1 0 1">0.014022674801698038</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="7 1 1 1">0.000385953200046736</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="8 1 -1 1">-0.2496059881302254</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="8 1 0 1">-0.014022674801698038</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="8 1 1 1">0.000385953200046736</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="9 1 -1 1">0.004429148899807124</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="9 1 0 1">-0.2499508689891154</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="9 1 1 1">-0.002223847599903158</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="10 1 -1 1">0.004429148899807124</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="10 1 0 1">0.2499508689891154</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="10 1 1 1">-0.002223847599903158</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="11 1 -1 1">0.004429148899807124</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="11 1 0 1">0.2499508689891154</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="11 1 1 1">0.002223847599903158</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="12 1 -1 1">0.004429148899807124</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="12 1 0 1">-0.2499508689891154</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="12 1 1 1">0.002223847599903158</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="13 1 -1 1">0.004429148899807124</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="13 1 0 1">-0.2499508689891154</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="13 1 1 1">0.002223847599903158</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="14 1 -1 1">0.004429148899807124</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="14 1 0 1">0.2499508689891154</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="14 1 1 1">0.002223847599903158</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="15 1 -1 1">0.004429148899807124</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="15 1 0 1">0.2499508689891154</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="15 1 1 1">-0.002223847599903158</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="16 1 -1 1">0.004429148899807124</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="16 1 0 1">-0.2499508689891154</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="16 1 1 1">-0.002223847599903158</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="9 1 -1 1">-1.527939999933463e-5</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="9 1 0 1">5.97999999973959e-8</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="9 1 1 1">-1.527939999933463e-5</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="10 1 -1 1">1.527939999933463e-5</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="10 1 0 1">5.97999999973959e-8</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="10 1 1 1">1.527939999933463e-5</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="11 1 -1 1">1.527939999933463e-5</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="11 1 0 1">5.97999999973959e-8</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="11 1 1 1">-1.527939999933463e-5</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="12 1 -1 1">-1.527939999933463e-5</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="12 1 0 1">5.97999999973959e-8</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="12 1 1 1">1.527939999933463e-5</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="13 1 -1 1">-1.527939999933463e-5</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="13 1 0 1">5.97999999973959e-8</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="13 1 1 1">1.527939999933463e-5</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="14 1 -1 1">1.527939999933463e-5</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="14 1 0 1">5.97999999973959e-8</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="14 1 1 1">-1.527939999933463e-5</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="15 1 -1 1">1.527939999933463e-5</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="15 1 0 1">5.97999999973959e-8</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="15 1 1 1">1.527939999933463e-5</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="16 1 -1 1">-1.527939999933463e-5</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="16 1 0 1">5.97999999973959e-8</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="16 1 1 1">-1.527939999933463e-5</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="9 1 -1 1">-0.002223847599903158</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="9 1 0 1">-0.2499508689891154</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="9 1 1 1">0.004429148899807124</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="10 1 -1 1">-0.002223847599903158</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="10 1 0 1">0.2499508689891154</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="10 1 1 1">0.004429148899807124</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="11 1 -1 1">0.002223847599903158</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="11 1 0 1">-0.2499508689891154</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="11 1 1 1">0.004429148899807124</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="12 1 -1 1">0.002223847599903158</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="12 1 0 1">0.2499508689891154</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="12 1 1 1">0.004429148899807124</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="13 1 -1 1">0.002223847599903158</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="13 1 0 1">0.2499508689891154</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="13 1 1 1">0.004429148899807124</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="14 1 -1 1">0.002223847599903158</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="14 1 0 1">-0.2499508689891154</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="14 1 1 1">0.004429148899807124</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="15 1 -1 1">-0.002223847599903158</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="15 1 0 1">0.2499508689891154</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="15 1 1 1">0.004429148899807124</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="16 1 -1 1">-0.002223847599903158</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="16 1 0 1">-0.2499508689891154</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="16 1 1 1">0.004429148899807124</basis>
       </SALC>
-      <SALC index="17" num_basis="40" body="2">
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="9 1 1 1">-1.00821000009612e-5</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="10 1 1 1">-1.00821000009612e-5</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="11 1 1 1">1.00821000009612e-5</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="12 1 1 1">1.00821000009612e-5</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="13 1 1 1">1.00821000009612e-5</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="14 1 1 1">1.00821000009612e-5</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="15 1 1 1">-1.00821000009612e-5</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="16 1 1 1">-1.00821000009612e-5</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="9 1 -1 1">0.00203204660019373</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="9 1 0 1">0.35354171093370573</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="9 1 1 1">0.00203204660019373</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="10 1 -1 1">-0.00203204660019373</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="10 1 0 1">0.35354171093370573</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="10 1 1 1">-0.00203204660019373</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="11 1 -1 1">-0.00203204660019373</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="11 1 0 1">0.35354171093370573</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="11 1 1 1">0.00203204660019373</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="12 1 -1 1">0.00203204660019373</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="12 1 0 1">0.35354171093370573</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="12 1 1 1">-0.00203204660019373</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="13 1 -1 1">0.00203204660019373</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="13 1 0 1">0.35354171093370573</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="13 1 1 1">-0.00203204660019373</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="14 1 -1 1">-0.00203204660019373</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="14 1 0 1">0.35354171093370573</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="14 1 1 1">0.00203204660019373</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="15 1 -1 1">-0.00203204660019373</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="15 1 0 1">0.35354171093370573</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="15 1 1 1">-0.00203204660019373</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="16 1 -1 1">0.00203204660019373</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="16 1 0 1">0.35354171093370573</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="16 1 1 1">0.00203204660019373</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="9 1 -1 1">-1.00821000009612e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="10 1 -1 1">-1.00821000009612e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="11 1 -1 1">1.00821000009612e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="12 1 -1 1">1.00821000009612e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="13 1 -1 1">1.00821000009612e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="14 1 -1 1">1.00821000009612e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="15 1 -1 1">-1.00821000009612e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="16 1 -1 1">-1.00821000009612e-5</basis>
+      <SALC index="17" num_basis="72" body="2">
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="9 1 -1 1">-3.594000000630824e-7</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="9 1 0 1">1.0770900001890524e-5</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="9 1 1 1">0.000506337100088873</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="10 1 -1 1">-3.594000000630824e-7</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="10 1 0 1">-1.0770900001890524e-5</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="10 1 1 1">0.000506337100088873</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="11 1 -1 1">-3.594000000630824e-7</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="11 1 0 1">-1.0770900001890524e-5</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="11 1 1 1">-0.000506337100088873</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="12 1 -1 1">-3.594000000630824e-7</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="12 1 0 1">1.0770900001890524e-5</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="12 1 1 1">-0.000506337100088873</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="13 1 -1 1">-3.594000000630824e-7</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="13 1 0 1">1.0770900001890524e-5</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="13 1 1 1">-0.000506337100088873</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="14 1 -1 1">-3.594000000630824e-7</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="14 1 0 1">-1.0770900001890524e-5</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="14 1 1 1">-0.000506337100088873</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="15 1 -1 1">-3.594000000630824e-7</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="15 1 0 1">-1.0770900001890524e-5</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="15 1 1 1">0.000506337100088873</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="16 1 -1 1">-3.594000000630824e-7</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="16 1 0 1">1.0770900001890524e-5</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="16 1 1 1">0.000506337100088873</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="9 1 -1 1">-0.24999139434387885</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="9 1 0 1">0.002844735700499312</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="9 1 1 1">-0.24999139434387885</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="10 1 -1 1">0.24999139434387885</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="10 1 0 1">0.002844735700499312</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="10 1 1 1">0.24999139434387885</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="11 1 -1 1">0.24999139434387885</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="11 1 0 1">0.002844735700499312</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="11 1 1 1">-0.24999139434387885</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="12 1 -1 1">-0.24999139434387885</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="12 1 0 1">0.002844735700499312</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="12 1 1 1">0.24999139434387885</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="13 1 -1 1">-0.24999139434387885</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="13 1 0 1">0.002844735700499312</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="13 1 1 1">0.24999139434387885</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="14 1 -1 1">0.24999139434387885</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="14 1 0 1">0.002844735700499312</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="14 1 1 1">-0.24999139434387885</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="15 1 -1 1">0.24999139434387885</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="15 1 0 1">0.002844735700499312</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="15 1 1 1">0.24999139434387885</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="16 1 -1 1">-0.24999139434387885</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="16 1 0 1">0.002844735700499312</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="16 1 1 1">-0.24999139434387885</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="9 1 -1 1">0.000506337100088873</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="9 1 0 1">1.0770900001890524e-5</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="9 1 1 1">-3.594000000630824e-7</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="10 1 -1 1">0.000506337100088873</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="10 1 0 1">-1.0770900001890524e-5</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="10 1 1 1">-3.594000000630824e-7</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="11 1 -1 1">-0.000506337100088873</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="11 1 0 1">1.0770900001890524e-5</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="11 1 1 1">-3.594000000630824e-7</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="12 1 -1 1">-0.000506337100088873</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="12 1 0 1">-1.0770900001890524e-5</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="12 1 1 1">-3.594000000630824e-7</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="13 1 -1 1">-0.000506337100088873</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="13 1 0 1">-1.0770900001890524e-5</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="13 1 1 1">-3.594000000630824e-7</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="14 1 -1 1">-0.000506337100088873</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="14 1 0 1">1.0770900001890524e-5</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="14 1 1 1">-3.594000000630824e-7</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="15 1 -1 1">0.000506337100088873</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="15 1 0 1">-1.0770900001890524e-5</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="15 1 1 1">-3.594000000630824e-7</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="16 1 -1 1">0.000506337100088873</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="16 1 0 1">1.0770900001890524e-5</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="16 1 1 1">-3.594000000630824e-7</basis>
       </SALC>
       <SALC index="18" num_basis="72" body="2">
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="9 1 -1 1">0.004684113399697679</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="9 1 0 1">-0.24994190308386827</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="9 1 1 1">-0.002665288499827977</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="10 1 -1 1">0.004684113399697679</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="10 1 0 1">0.24994190308386827</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="10 1 1 1">-0.002665288499827977</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="11 1 -1 1">0.004684113399697679</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="11 1 0 1">0.24994190308386827</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="11 1 1 1">0.002665288499827977</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="12 1 -1 1">0.004684113399697679</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="12 1 0 1">-0.24994190308386827</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="12 1 1 1">0.002665288499827977</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="13 1 -1 1">0.004684113399697679</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="13 1 0 1">-0.24994190308386827</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="13 1 1 1">0.002665288499827977</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="14 1 -1 1">0.004684113399697679</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="14 1 0 1">0.24994190308386827</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="14 1 1 1">0.002665288499827977</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="15 1 -1 1">0.004684113399697679</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="15 1 0 1">0.24994190308386827</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="15 1 1 1">-0.002665288499827977</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="16 1 -1 1">0.004684113399697679</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="16 1 0 1">-0.24994190308386827</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="16 1 1 1">-0.002665288499827977</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="9 1 -1 1">-2.004199999870645e-5</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="9 1 0 1">8.819999999430739e-8</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="9 1 1 1">-2.004199999870645e-5</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="10 1 -1 1">2.004199999870645e-5</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="10 1 0 1">8.819999999430739e-8</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="10 1 1 1">2.004199999870645e-5</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="11 1 -1 1">2.004199999870645e-5</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="11 1 0 1">8.819999999430739e-8</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="11 1 1 1">-2.004199999870645e-5</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="12 1 -1 1">-2.004199999870645e-5</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="12 1 0 1">8.819999999430739e-8</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="12 1 1 1">2.004199999870645e-5</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="13 1 -1 1">-2.004199999870645e-5</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="13 1 0 1">8.819999999430739e-8</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="13 1 1 1">2.004199999870645e-5</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="14 1 -1 1">2.004199999870645e-5</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="14 1 0 1">8.819999999430739e-8</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="14 1 1 1">-2.004199999870645e-5</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="15 1 -1 1">2.004199999870645e-5</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="15 1 0 1">8.819999999430739e-8</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="15 1 1 1">2.004199999870645e-5</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="16 1 -1 1">-2.004199999870645e-5</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="16 1 0 1">8.819999999430739e-8</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="16 1 1 1">-2.004199999870645e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="9 1 -1 1">-0.002665288499827977</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="9 1 0 1">-0.24994190308386827</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="9 1 1 1">0.004684113399697679</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="10 1 -1 1">-0.002665288499827977</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="10 1 0 1">0.24994190308386827</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="10 1 1 1">0.004684113399697679</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="11 1 -1 1">0.002665288499827977</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="11 1 0 1">-0.24994190308386827</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="11 1 1 1">0.004684113399697679</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="12 1 -1 1">0.002665288499827977</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="12 1 0 1">0.24994190308386827</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="12 1 1 1">0.004684113399697679</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="13 1 -1 1">0.002665288499827977</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="13 1 0 1">0.24994190308386827</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="13 1 1 1">0.004684113399697679</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="14 1 -1 1">0.002665288499827977</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="14 1 0 1">-0.24994190308386827</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="14 1 1 1">0.004684113399697679</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="15 1 -1 1">-0.002665288499827977</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="15 1 0 1">0.24994190308386827</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="15 1 1 1">0.004684113399697679</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="16 1 -1 1">-0.002665288499827977</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="16 1 0 1">-0.24994190308386827</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="16 1 1 1">0.004684113399697679</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="9 1 -1 1">0.00015609699999260916</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="9 1 0 1">-0.0022214568998948194</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="9 1 1 1">0.24998956858816357</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="10 1 -1 1">0.00015609699999260916</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="10 1 0 1">0.0022214568998948194</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="10 1 1 1">0.24998956858816357</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="11 1 -1 1">0.00015609699999260916</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="11 1 0 1">0.0022214568998948194</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="11 1 1 1">-0.24998956858816357</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="12 1 -1 1">0.00015609699999260916</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="12 1 0 1">-0.0022214568998948194</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="12 1 1 1">-0.24998956858816357</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="13 1 -1 1">0.00015609699999260916</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="13 1 0 1">-0.0022214568998948194</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="13 1 1 1">-0.24998956858816357</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="14 1 -1 1">0.00015609699999260916</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="14 1 0 1">0.0022214568998948194</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="14 1 1 1">-0.24998956858816357</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="15 1 -1 1">0.00015609699999260916</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="15 1 0 1">0.0022214568998948194</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="15 1 1 1">0.24998956858816357</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="16 1 -1 1">0.00015609699999260916</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="16 1 0 1">-0.0022214568998948194</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="16 1 1 1">0.24998956858816357</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="9 1 -1 1">0.0005062852999760286</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="9 1 0 1">8.39849999960235e-6</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="9 1 1 1">0.0005062852999760286</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="10 1 -1 1">-0.0005062852999760286</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="10 1 0 1">8.39849999960235e-6</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="10 1 1 1">-0.0005062852999760286</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="11 1 -1 1">-0.0005062852999760286</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="11 1 0 1">8.39849999960235e-6</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="11 1 1 1">0.0005062852999760286</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="12 1 -1 1">0.0005062852999760286</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="12 1 0 1">8.39849999960235e-6</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="12 1 1 1">-0.0005062852999760286</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="13 1 -1 1">0.0005062852999760286</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="13 1 0 1">8.39849999960235e-6</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="13 1 1 1">-0.0005062852999760286</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="14 1 -1 1">-0.0005062852999760286</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="14 1 0 1">8.39849999960235e-6</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="14 1 1 1">0.0005062852999760286</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="15 1 -1 1">-0.0005062852999760286</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="15 1 0 1">8.39849999960235e-6</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="15 1 1 1">-0.0005062852999760286</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="16 1 -1 1">0.0005062852999760286</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="16 1 0 1">8.39849999960235e-6</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="16 1 1 1">0.0005062852999760286</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="9 1 -1 1">0.24998956858816357</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="9 1 0 1">-0.0022214568998948194</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="9 1 1 1">0.00015609699999260916</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="10 1 -1 1">0.24998956858816357</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="10 1 0 1">0.0022214568998948194</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="10 1 1 1">0.00015609699999260916</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="11 1 -1 1">-0.24998956858816357</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="11 1 0 1">-0.0022214568998948194</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="11 1 1 1">0.00015609699999260916</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="12 1 -1 1">-0.24998956858816357</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="12 1 0 1">0.0022214568998948194</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="12 1 1 1">0.00015609699999260916</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="13 1 -1 1">-0.24998956858816357</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="13 1 0 1">0.0022214568998948194</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="13 1 1 1">0.00015609699999260916</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="14 1 -1 1">-0.24998956858816357</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="14 1 0 1">-0.0022214568998948194</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="14 1 1 1">0.00015609699999260916</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="15 1 -1 1">0.24998956858816357</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="15 1 0 1">0.0022214568998948194</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="15 1 1 1">0.00015609699999260916</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="16 1 -1 1">0.24998956858816357</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="16 1 0 1">-0.0022214568998948194</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="16 1 1 1">0.00015609699999260916</basis>
       </SALC>
-      <SALC index="19" num_basis="72" body="2">
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="1 1 -1 1">0.095592578107479</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="1 1 0 1">-0.2306302941180441</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="1 1 1 1">0.013104417901025267</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="2 1 -1 1">0.095592578107479</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="2 1 0 1">0.2306302941180441</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="2 1 1 1">0.013104417901025267</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="3 1 -1 1">0.095592578107479</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="3 1 0 1">0.2306302941180441</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="3 1 1 1">-0.013104417901025267</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="4 1 -1 1">0.095592578107479</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="4 1 0 1">-0.2306302941180441</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="4 1 1 1">-0.013104417901025267</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="5 1 -1 1">0.095592578107479</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="5 1 0 1">-0.2306302941180441</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="5 1 1 1">-0.013104417901025267</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="6 1 -1 1">0.095592578107479</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="6 1 0 1">0.2306302941180441</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="6 1 1 1">-0.013104417901025267</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="7 1 -1 1">0.095592578107479</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="7 1 0 1">0.2306302941180441</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="7 1 1 1">0.013104417901025267</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="8 1 -1 1">0.095592578107479</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="8 1 0 1">-0.2306302941180441</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="8 1 1 1">0.013104417901025267</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="1 1 -1 1">-2.6017300002035545e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="1 1 0 1">8.549000000668858e-7</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="1 1 1 1">-2.6017300002035545e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="2 1 -1 1">2.6017300002035545e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="2 1 0 1">8.549000000668858e-7</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="2 1 1 1">2.6017300002035545e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="3 1 -1 1">2.6017300002035545e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="3 1 0 1">8.549000000668858e-7</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="3 1 1 1">-2.6017300002035545e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="4 1 -1 1">-2.6017300002035545e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="4 1 0 1">8.549000000668858e-7</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="4 1 1 1">2.6017300002035545e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="5 1 -1 1">-2.6017300002035545e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="5 1 0 1">8.549000000668858e-7</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="5 1 1 1">2.6017300002035545e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="6 1 -1 1">2.6017300002035545e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="6 1 0 1">8.549000000668858e-7</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="6 1 1 1">-2.6017300002035545e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="7 1 -1 1">2.6017300002035545e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="7 1 0 1">8.549000000668858e-7</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="7 1 1 1">2.6017300002035545e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="8 1 -1 1">-2.6017300002035545e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="8 1 0 1">8.549000000668858e-7</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="8 1 1 1">-2.6017300002035545e-5</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="1 1 -1 1">0.013104417901025267</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="1 1 0 1">-0.2306302941180441</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="1 1 1 1">0.095592578107479</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="2 1 -1 1">0.013104417901025267</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="2 1 0 1">0.2306302941180441</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="2 1 1 1">0.095592578107479</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="3 1 -1 1">-0.013104417901025267</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="3 1 0 1">-0.2306302941180441</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="3 1 1 1">0.095592578107479</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="4 1 -1 1">-0.013104417901025267</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="4 1 0 1">0.2306302941180441</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="4 1 1 1">0.095592578107479</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="5 1 -1 1">-0.013104417901025267</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="5 1 0 1">0.2306302941180441</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="5 1 1 1">0.095592578107479</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="6 1 -1 1">-0.013104417901025267</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="6 1 0 1">-0.2306302941180441</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="6 1 1 1">0.095592578107479</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="7 1 -1 1">0.013104417901025267</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="7 1 0 1">0.2306302941180441</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="7 1 1 1">0.095592578107479</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="8 1 -1 1">0.013104417901025267</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="8 1 0 1">-0.2306302941180441</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="8 1 1 1">0.095592578107479</basis>
+      <SALC index="19" num_basis="64" body="2">
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="9 1 -1 1">0.24996071346120663</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="9 1 0 1">0.004430361699312417</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="9 1 1 1">-0.000116709099981887</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="10 1 -1 1">0.24996071346120663</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="10 1 0 1">-0.004430361699312417</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="10 1 1 1">-0.000116709099981887</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="11 1 -1 1">0.24996071346120663</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="11 1 0 1">-0.004430361699312417</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="11 1 1 1">0.000116709099981887</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="12 1 -1 1">0.24996071346120663</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="12 1 0 1">0.004430361699312417</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="12 1 1 1">0.000116709099981887</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="13 1 -1 1">0.24996071346120663</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="13 1 0 1">0.004430361699312417</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="13 1 1 1">0.000116709099981887</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="14 1 -1 1">0.24996071346120663</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="14 1 0 1">-0.004430361699312417</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="14 1 1 1">0.000116709099981887</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="15 1 -1 1">0.24996071346120663</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="15 1 0 1">-0.004430361699312417</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="15 1 1 1">-0.000116709099981887</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="16 1 -1 1">0.24996071346120663</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="16 1 0 1">0.004430361699312417</basis>
+        <basis multiplicity="2" index-1="1 1 -1 1" index-2="16 1 1 1">-0.000116709099981887</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="9 1 -1 1">-4.047999999371759e-7</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="9 1 1 1">-4.047999999371759e-7</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="10 1 -1 1">4.047999999371759e-7</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="10 1 1 1">4.047999999371759e-7</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="11 1 -1 1">4.047999999371759e-7</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="11 1 1 1">-4.047999999371759e-7</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="12 1 -1 1">-4.047999999371759e-7</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="12 1 1 1">4.047999999371759e-7</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="13 1 -1 1">-4.047999999371759e-7</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="13 1 1 1">4.047999999371759e-7</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="14 1 -1 1">4.047999999371759e-7</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="14 1 1 1">-4.047999999371759e-7</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="15 1 -1 1">4.047999999371759e-7</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="15 1 1 1">4.047999999371759e-7</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="16 1 -1 1">-4.047999999371759e-7</basis>
+        <basis multiplicity="2" index-1="1 1 0 1" index-2="16 1 1 1">-4.047999999371759e-7</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="9 1 -1 1">-0.000116709099981887</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="9 1 0 1">0.004430361699312417</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="9 1 1 1">0.24996071346120663</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="10 1 -1 1">-0.000116709099981887</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="10 1 0 1">-0.004430361699312417</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="10 1 1 1">0.24996071346120663</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="11 1 -1 1">0.000116709099981887</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="11 1 0 1">0.004430361699312417</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="11 1 1 1">0.24996071346120663</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="12 1 -1 1">0.000116709099981887</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="12 1 0 1">-0.004430361699312417</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="12 1 1 1">0.24996071346120663</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="13 1 -1 1">0.000116709099981887</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="13 1 0 1">-0.004430361699312417</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="13 1 1 1">0.24996071346120663</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="14 1 -1 1">0.000116709099981887</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="14 1 0 1">0.004430361699312417</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="14 1 1 1">0.24996071346120663</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="15 1 -1 1">-0.000116709099981887</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="15 1 0 1">-0.004430361699312417</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="15 1 1 1">0.24996071346120663</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="16 1 -1 1">-0.000116709099981887</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="16 1 0 1">0.004430361699312417</basis>
+        <basis multiplicity="2" index-1="1 1 1 1" index-2="16 1 1 1">0.24996071346120663</basis>
       </SALC>
-      <SALC index="20" num_basis="72" body="2">
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="1 1 -1 1">0.23100196981703822</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="1 1 0 1">0.09546220100704107</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="1 1 1 1">-0.005005795300369216</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="2 1 -1 1">0.23100196981703822</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="2 1 0 1">-0.09546220100704107</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="2 1 1 1">-0.005005795300369216</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="3 1 -1 1">0.23100196981703822</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="3 1 0 1">-0.09546220100704107</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="3 1 1 1">0.005005795300369216</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="4 1 -1 1">0.23100196981703822</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="4 1 0 1">0.09546220100704107</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="4 1 1 1">0.005005795300369216</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="5 1 -1 1">0.23100196981703822</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="5 1 0 1">0.09546220100704107</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="5 1 1 1">0.005005795300369216</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="6 1 -1 1">0.23100196981703822</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="6 1 0 1">-0.09546220100704107</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="6 1 1 1">0.005005795300369216</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="7 1 -1 1">0.23100196981703822</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="7 1 0 1">-0.09546220100704107</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="7 1 1 1">-0.005005795300369216</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="8 1 -1 1">0.23100196981703822</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="8 1 0 1">0.09546220100704107</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="8 1 1 1">-0.005005795300369216</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="1 1 -1 1">1.1526900000850199e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="1 1 0 1">-4.02100000029658e-7</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="1 1 1 1">1.1526900000850199e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="2 1 -1 1">-1.1526900000850199e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="2 1 0 1">-4.02100000029658e-7</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="2 1 1 1">-1.1526900000850199e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="3 1 -1 1">-1.1526900000850199e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="3 1 0 1">-4.02100000029658e-7</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="3 1 1 1">1.1526900000850199e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="4 1 -1 1">1.1526900000850199e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="4 1 0 1">-4.02100000029658e-7</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="4 1 1 1">-1.1526900000850199e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="5 1 -1 1">1.1526900000850199e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="5 1 0 1">-4.02100000029658e-7</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="5 1 1 1">-1.1526900000850199e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="6 1 -1 1">-1.1526900000850199e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="6 1 0 1">-4.02100000029658e-7</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="6 1 1 1">1.1526900000850199e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="7 1 -1 1">-1.1526900000850199e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="7 1 0 1">-4.02100000029658e-7</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="7 1 1 1">-1.1526900000850199e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="8 1 -1 1">1.1526900000850199e-5</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="8 1 0 1">-4.02100000029658e-7</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="8 1 1 1">1.1526900000850199e-5</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="1 1 -1 1">-0.005005795300369216</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="1 1 0 1">0.09546220100704107</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="1 1 1 1">0.23100196981703822</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="2 1 -1 1">-0.005005795300369216</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="2 1 0 1">-0.09546220100704107</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="2 1 1 1">0.23100196981703822</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="3 1 -1 1">0.005005795300369216</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="3 1 0 1">0.09546220100704107</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="3 1 1 1">0.23100196981703822</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="4 1 -1 1">0.005005795300369216</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="4 1 0 1">-0.09546220100704107</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="4 1 1 1">0.23100196981703822</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="5 1 -1 1">0.005005795300369216</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="5 1 0 1">-0.09546220100704107</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="5 1 1 1">0.23100196981703822</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="6 1 -1 1">0.005005795300369216</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="6 1 0 1">0.09546220100704107</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="6 1 1 1">0.23100196981703822</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="7 1 -1 1">-0.005005795300369216</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="7 1 0 1">-0.09546220100704107</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="7 1 1 1">0.23100196981703822</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="8 1 -1 1">-0.005005795300369216</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="8 1 0 1">0.09546220100704107</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="8 1 1 1">0.23100196981703822</basis>
-      </SALC>
-      <SALC index="21" num_basis="72" body="2">
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="9 1 -1 1">-4.3190000002709235e-7</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="9 1 0 1">1.4638000000918215e-5</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="9 1 1 1">0.0005064301000317676</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="10 1 -1 1">-4.3190000002709235e-7</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="10 1 0 1">-1.4638000000918215e-5</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="10 1 1 1">0.0005064301000317676</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="11 1 -1 1">-4.3190000002709235e-7</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="11 1 0 1">-1.4638000000918215e-5</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="11 1 1 1">-0.0005064301000317676</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="12 1 -1 1">-4.3190000002709235e-7</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="12 1 0 1">1.4638000000918215e-5</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="12 1 1 1">-0.0005064301000317676</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="13 1 -1 1">-4.3190000002709235e-7</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="13 1 0 1">1.4638000000918215e-5</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="13 1 1 1">-0.0005064301000317676</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="14 1 -1 1">-4.3190000002709235e-7</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="14 1 0 1">-1.4638000000918215e-5</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="14 1 1 1">-0.0005064301000317676</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="15 1 -1 1">-4.3190000002709235e-7</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="15 1 0 1">-1.4638000000918215e-5</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="15 1 1 1">0.0005064301000317676</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="16 1 -1 1">-4.3190000002709235e-7</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="16 1 0 1">1.4638000000918215e-5</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="16 1 1 1">0.0005064301000317676</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="9 1 -1 1">-0.2499912279156815</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="9 1 0 1">0.002873770800180267</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="9 1 1 1">-0.2499912279156815</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="10 1 -1 1">0.2499912279156815</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="10 1 0 1">0.002873770800180267</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="10 1 1 1">0.2499912279156815</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="11 1 -1 1">0.2499912279156815</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="11 1 0 1">0.002873770800180267</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="11 1 1 1">-0.2499912279156815</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="12 1 -1 1">-0.2499912279156815</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="12 1 0 1">0.002873770800180267</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="12 1 1 1">0.2499912279156815</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="13 1 -1 1">-0.2499912279156815</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="13 1 0 1">0.002873770800180267</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="13 1 1 1">0.2499912279156815</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="14 1 -1 1">0.2499912279156815</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="14 1 0 1">0.002873770800180267</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="14 1 1 1">-0.2499912279156815</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="15 1 -1 1">0.2499912279156815</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="15 1 0 1">0.002873770800180267</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="15 1 1 1">0.2499912279156815</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="16 1 -1 1">-0.2499912279156815</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="16 1 0 1">0.002873770800180267</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="16 1 1 1">-0.2499912279156815</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="9 1 -1 1">0.0005064301000317676</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="9 1 0 1">1.4638000000918215e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="9 1 1 1">-4.3190000002709235e-7</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="10 1 -1 1">0.0005064301000317676</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="10 1 0 1">-1.4638000000918215e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="10 1 1 1">-4.3190000002709235e-7</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="11 1 -1 1">-0.0005064301000317676</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="11 1 0 1">1.4638000000918215e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="11 1 1 1">-4.3190000002709235e-7</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="12 1 -1 1">-0.0005064301000317676</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="12 1 0 1">-1.4638000000918215e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="12 1 1 1">-4.3190000002709235e-7</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="13 1 -1 1">-0.0005064301000317676</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="13 1 0 1">-1.4638000000918215e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="13 1 1 1">-4.3190000002709235e-7</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="14 1 -1 1">-0.0005064301000317676</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="14 1 0 1">1.4638000000918215e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="14 1 1 1">-4.3190000002709235e-7</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="15 1 -1 1">0.0005064301000317676</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="15 1 0 1">-1.4638000000918215e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="15 1 1 1">-4.3190000002709235e-7</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="16 1 -1 1">0.0005064301000317676</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="16 1 0 1">1.4638000000918215e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="16 1 1 1">-4.3190000002709235e-7</basis>
-      </SALC>
-      <SALC index="22" num_basis="72" body="2">
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="1 1 -1 1">1.1008999999560669e-6</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="1 1 0 1">1.3967299999442613e-5</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="1 1 1 1">-0.0002586663999896775</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="2 1 -1 1">1.1008999999560669e-6</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="2 1 0 1">-1.3967299999442613e-5</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="2 1 1 1">-0.0002586663999896775</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="3 1 -1 1">1.1008999999560669e-6</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="3 1 0 1">-1.3967299999442613e-5</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="3 1 1 1">0.0002586663999896775</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="4 1 -1 1">1.1008999999560669e-6</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="4 1 0 1">1.3967299999442613e-5</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="4 1 1 1">0.0002586663999896775</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="5 1 -1 1">1.1008999999560669e-6</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="5 1 0 1">1.3967299999442613e-5</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="5 1 1 1">0.0002586663999896775</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="6 1 -1 1">1.1008999999560669e-6</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="6 1 0 1">-1.3967299999442613e-5</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="6 1 1 1">0.0002586663999896775</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="7 1 -1 1">1.1008999999560669e-6</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="7 1 0 1">-1.3967299999442613e-5</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="7 1 1 1">-0.0002586663999896775</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="8 1 -1 1">1.1008999999560669e-6</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="8 1 0 1">1.3967299999442613e-5</basis>
-        <basis multiplicity="1" index-1="9 1 -1 1" index-2="8 1 1 1">-0.0002586663999896775</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="1 1 -1 1">-0.249858964890029</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="1 1 0 1">0.01186849269952637</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="1 1 1 1">-0.249858964890029</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="2 1 -1 1">0.249858964890029</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="2 1 0 1">0.01186849269952637</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="2 1 1 1">0.249858964890029</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="3 1 -1 1">0.249858964890029</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="3 1 0 1">0.01186849269952637</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="3 1 1 1">-0.249858964890029</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="4 1 -1 1">-0.249858964890029</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="4 1 0 1">0.01186849269952637</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="4 1 1 1">0.249858964890029</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="5 1 -1 1">-0.249858964890029</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="5 1 0 1">0.01186849269952637</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="5 1 1 1">0.249858964890029</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="6 1 -1 1">0.249858964890029</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="6 1 0 1">0.01186849269952637</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="6 1 1 1">-0.249858964890029</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="7 1 -1 1">0.249858964890029</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="7 1 0 1">0.01186849269952637</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="7 1 1 1">0.249858964890029</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="8 1 -1 1">-0.249858964890029</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="8 1 0 1">0.01186849269952637</basis>
-        <basis multiplicity="1" index-1="9 1 0 1" index-2="8 1 1 1">-0.249858964890029</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="1 1 -1 1">-0.0002586663999896775</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="1 1 0 1">1.3967299999442613e-5</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="1 1 1 1">1.1008999999560669e-6</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="2 1 -1 1">-0.0002586663999896775</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="2 1 0 1">-1.3967299999442613e-5</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="2 1 1 1">1.1008999999560669e-6</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="3 1 -1 1">0.0002586663999896775</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="3 1 0 1">1.3967299999442613e-5</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="3 1 1 1">1.1008999999560669e-6</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="4 1 -1 1">0.0002586663999896775</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="4 1 0 1">-1.3967299999442613e-5</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="4 1 1 1">1.1008999999560669e-6</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="5 1 -1 1">0.0002586663999896775</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="5 1 0 1">-1.3967299999442613e-5</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="5 1 1 1">1.1008999999560669e-6</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="6 1 -1 1">0.0002586663999896775</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="6 1 0 1">1.3967299999442613e-5</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="6 1 1 1">1.1008999999560669e-6</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="7 1 -1 1">-0.0002586663999896775</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="7 1 0 1">-1.3967299999442613e-5</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="7 1 1 1">1.1008999999560669e-6</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="8 1 -1 1">-0.0002586663999896775</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="8 1 0 1">1.3967299999442613e-5</basis>
-        <basis multiplicity="1" index-1="9 1 1 1" index-2="8 1 1 1">1.1008999999560669e-6</basis>
-      </SALC>
-      <SALC index="23" num_basis="72" body="2">
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="9 1 -1 1">0.00014674500002812422</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="9 1 0 1">-0.002663041300510382</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="9 1 1 1">0.2499852601479106</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="10 1 -1 1">0.00014674500002812422</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="10 1 0 1">0.002663041300510382</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="10 1 1 1">0.2499852601479106</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="11 1 -1 1">0.00014674500002812422</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="11 1 0 1">0.002663041300510382</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="11 1 1 1">-0.2499852601479106</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="12 1 -1 1">0.00014674500002812422</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="12 1 0 1">-0.002663041300510382</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="12 1 1 1">-0.2499852601479106</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="13 1 -1 1">0.00014674500002812422</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="13 1 0 1">-0.002663041300510382</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="13 1 1 1">-0.2499852601479106</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="14 1 -1 1">0.00014674500002812422</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="14 1 0 1">0.002663041300510382</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="14 1 1 1">-0.2499852601479106</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="15 1 -1 1">0.00014674500002812422</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="15 1 0 1">0.002663041300510382</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="15 1 1 1">0.2499852601479106</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="16 1 -1 1">0.00014674500002812422</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="16 1 0 1">-0.002663041300510382</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="16 1 1 1">0.2499852601479106</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="9 1 -1 1">0.0005063103000970362</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="9 1 0 1">8.437800001617136e-6</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="9 1 1 1">0.0005063103000970362</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="10 1 -1 1">-0.0005063103000970362</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="10 1 0 1">8.437800001617136e-6</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="10 1 1 1">-0.0005063103000970362</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="11 1 -1 1">-0.0005063103000970362</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="11 1 0 1">8.437800001617136e-6</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="11 1 1 1">0.0005063103000970362</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="12 1 -1 1">0.0005063103000970362</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="12 1 0 1">8.437800001617136e-6</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="12 1 1 1">-0.0005063103000970362</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="13 1 -1 1">0.0005063103000970362</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="13 1 0 1">8.437800001617136e-6</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="13 1 1 1">-0.0005063103000970362</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="14 1 -1 1">-0.0005063103000970362</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="14 1 0 1">8.437800001617136e-6</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="14 1 1 1">0.0005063103000970362</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="15 1 -1 1">-0.0005063103000970362</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="15 1 0 1">8.437800001617136e-6</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="15 1 1 1">-0.0005063103000970362</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="16 1 -1 1">0.0005063103000970362</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="16 1 0 1">8.437800001617136e-6</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="16 1 1 1">0.0005063103000970362</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="9 1 -1 1">0.2499852601479106</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="9 1 0 1">-0.002663041300510382</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="9 1 1 1">0.00014674500002812422</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="10 1 -1 1">0.2499852601479106</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="10 1 0 1">0.002663041300510382</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="10 1 1 1">0.00014674500002812422</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="11 1 -1 1">-0.2499852601479106</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="11 1 0 1">-0.002663041300510382</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="11 1 1 1">0.00014674500002812422</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="12 1 -1 1">-0.2499852601479106</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="12 1 0 1">0.002663041300510382</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="12 1 1 1">0.00014674500002812422</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="13 1 -1 1">-0.2499852601479106</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="13 1 0 1">0.002663041300510382</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="13 1 1 1">0.00014674500002812422</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="14 1 -1 1">-0.2499852601479106</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="14 1 0 1">-0.002663041300510382</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="14 1 1 1">0.00014674500002812422</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="15 1 -1 1">0.2499852601479106</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="15 1 0 1">0.002663041300510382</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="15 1 1 1">0.00014674500002812422</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="16 1 -1 1">0.2499852601479106</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="16 1 0 1">-0.002663041300510382</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="16 1 1 1">0.00014674500002812422</basis>
-      </SALC>
-      <SALC index="24" num_basis="64" body="2">
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="9 1 -1 1">0.24995607123423433</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="9 1 0 1">0.004685411400641721</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="9 1 1 1">-9.681440001325983e-5</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="10 1 -1 1">0.24995607123423433</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="10 1 0 1">-0.004685411400641721</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="10 1 1 1">-9.681440001325983e-5</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="11 1 -1 1">0.24995607123423433</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="11 1 0 1">-0.004685411400641721</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="11 1 1 1">9.681440001325983e-5</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="12 1 -1 1">0.24995607123423433</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="12 1 0 1">0.004685411400641721</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="12 1 1 1">9.681440001325983e-5</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="13 1 -1 1">0.24995607123423433</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="13 1 0 1">0.004685411400641721</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="13 1 1 1">9.681440001325983e-5</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="14 1 -1 1">0.24995607123423433</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="14 1 0 1">-0.004685411400641721</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="14 1 1 1">9.681440001325983e-5</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="15 1 -1 1">0.24995607123423433</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="15 1 0 1">-0.004685411400641721</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="15 1 1 1">-9.681440001325983e-5</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="16 1 -1 1">0.24995607123423433</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="16 1 0 1">0.004685411400641721</basis>
-        <basis multiplicity="1" index-1="1 1 -1 1" index-2="16 1 1 1">-9.681440001325983e-5</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="9 1 -1 1">-3.5370000004844324e-7</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="9 1 1 1">-3.5370000004844324e-7</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="10 1 -1 1">3.5370000004844324e-7</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="10 1 1 1">3.5370000004844324e-7</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="11 1 -1 1">3.5370000004844324e-7</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="11 1 1 1">-3.5370000004844324e-7</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="12 1 -1 1">-3.5370000004844324e-7</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="12 1 1 1">3.5370000004844324e-7</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="13 1 -1 1">-3.5370000004844324e-7</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="13 1 1 1">3.5370000004844324e-7</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="14 1 -1 1">3.5370000004844324e-7</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="14 1 1 1">-3.5370000004844324e-7</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="15 1 -1 1">3.5370000004844324e-7</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="15 1 1 1">3.5370000004844324e-7</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="16 1 -1 1">-3.5370000004844324e-7</basis>
-        <basis multiplicity="1" index-1="1 1 0 1" index-2="16 1 1 1">-3.5370000004844324e-7</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="9 1 -1 1">-9.681440001325983e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="9 1 0 1">0.004685411400641721</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="9 1 1 1">0.24995607123423433</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="10 1 -1 1">-9.681440001325983e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="10 1 0 1">-0.004685411400641721</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="10 1 1 1">0.24995607123423433</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="11 1 -1 1">9.681440001325983e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="11 1 0 1">0.004685411400641721</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="11 1 1 1">0.24995607123423433</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="12 1 -1 1">9.681440001325983e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="12 1 0 1">-0.004685411400641721</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="12 1 1 1">0.24995607123423433</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="13 1 -1 1">9.681440001325983e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="13 1 0 1">-0.004685411400641721</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="13 1 1 1">0.24995607123423433</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="14 1 -1 1">9.681440001325983e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="14 1 0 1">0.004685411400641721</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="14 1 1 1">0.24995607123423433</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="15 1 -1 1">-9.681440001325983e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="15 1 0 1">-0.004685411400641721</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="15 1 1 1">0.24995607123423433</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="16 1 -1 1">-9.681440001325983e-5</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="16 1 0 1">0.004685411400641721</basis>
-        <basis multiplicity="1" index-1="1 1 1 1" index-2="16 1 1 1">0.24995607123423433</basis>
-      </SALC>
-      <SALC index="25" num_basis="2" body="2">
+      <SALC index="20" num_basis="2" body="2">
         <basis multiplicity="2" index-1="9 1 -1 1" index-2="10 1 -1 1">0.7071067811865476</basis>
         <basis multiplicity="2" index-1="9 1 1 1" index-2="10 1 1 1">0.7071067811865476</basis>
       </SALC>
-      <SALC index="26" num_basis="1" body="2">
+      <SALC index="21" num_basis="1" body="2">
         <basis multiplicity="2" index-1="9 1 0 1" index-2="10 1 0 1">1.0</basis>
       </SALC>
-      <SALC index="27" num_basis="2" body="2">
+      <SALC index="22" num_basis="2" body="2">
         <basis multiplicity="2" index-1="9 1 -1 1" index-2="11 1 -1 1">0.7071067811865476</basis>
         <basis multiplicity="2" index-1="9 1 1 1" index-2="13 1 1 1">0.7071067811865476</basis>
       </SALC>
-      <SALC index="28" num_basis="4" body="2">
+      <SALC index="23" num_basis="4" body="2">
         <basis multiplicity="2" index-1="9 1 -1 1" index-2="13 1 -1 1">0.613826047055398</basis>
         <basis multiplicity="2" index-1="9 1 0 1" index-2="11 1 0 1">0.3510236230744938</basis>
         <basis multiplicity="2" index-1="9 1 0 1" index-2="13 1 0 1">0.3510236230744938</basis>
         <basis multiplicity="2" index-1="9 1 1 1" index-2="11 1 1 1">0.613826047055398</basis>
       </SALC>
-      <SALC index="29" num_basis="4" body="2">
+      <SALC index="24" num_basis="4" body="2">
         <basis multiplicity="2" index-1="9 1 -1 1" index-2="13 1 -1 1">-0.3510236230744938</basis>
         <basis multiplicity="2" index-1="9 1 0 1" index-2="11 1 0 1">0.613826047055398</basis>
         <basis multiplicity="2" index-1="9 1 0 1" index-2="13 1 0 1">0.613826047055398</basis>
         <basis multiplicity="2" index-1="9 1 1 1" index-2="11 1 1 1">-0.3510236230744938</basis>
       </SALC>
-      <SALC index="30" num_basis="2" body="2">
+      <SALC index="25" num_basis="2" body="2">
         <basis multiplicity="4" index-1="9 1 -1 1" index-2="12 1 -1 1">0.7071067811865476</basis>
         <basis multiplicity="4" index-1="9 1 1 1" index-2="14 1 1 1">0.7071067811865476</basis>
       </SALC>
-      <SALC index="31" num_basis="4" body="2">
+      <SALC index="26" num_basis="4" body="2">
         <basis multiplicity="4" index-1="9 1 -1 1" index-2="14 1 -1 1">0.613826047055398</basis>
         <basis multiplicity="4" index-1="9 1 0 1" index-2="12 1 0 1">0.3510236230744938</basis>
         <basis multiplicity="4" index-1="9 1 0 1" index-2="14 1 0 1">0.3510236230744938</basis>
         <basis multiplicity="4" index-1="9 1 1 1" index-2="12 1 1 1">0.613826047055398</basis>
       </SALC>
-      <SALC index="32" num_basis="4" body="2">
+      <SALC index="27" num_basis="4" body="2">
         <basis multiplicity="4" index-1="9 1 -1 1" index-2="14 1 -1 1">-0.3510236230744938</basis>
         <basis multiplicity="4" index-1="9 1 0 1" index-2="12 1 0 1">0.613826047055398</basis>
         <basis multiplicity="4" index-1="9 1 0 1" index-2="14 1 0 1">0.613826047055398</basis>
         <basis multiplicity="4" index-1="9 1 1 1" index-2="12 1 1 1">-0.3510236230744938</basis>
       </SALC>
-      <SALC index="33" num_basis="2" body="2">
+      <SALC index="28" num_basis="2" body="2">
         <basis multiplicity="4" index-1="9 1 -1 1" index-2="15 1 -1 1">0.7071067811865476</basis>
         <basis multiplicity="4" index-1="9 1 1 1" index-2="15 1 1 1">0.7071067811865476</basis>
       </SALC>
-      <SALC index="34" num_basis="1" body="2">
+      <SALC index="29" num_basis="1" body="2">
         <basis multiplicity="4" index-1="9 1 0 1" index-2="15 1 0 1">1.0</basis>
       </SALC>
-      <SALC index="35" num_basis="2" body="2">
+      <SALC index="30" num_basis="2" body="2">
         <basis multiplicity="8" index-1="9 1 -1 1" index-2="16 1 -1 1">0.7071067811865476</basis>
         <basis multiplicity="8" index-1="9 1 1 1" index-2="16 1 1 1">0.7071067811865476</basis>
       </SALC>
-      <SALC index="36" num_basis="1" body="2">
+      <SALC index="31" num_basis="1" body="2">
         <basis multiplicity="8" index-1="9 1 0 1" index-2="16 1 0 1">1.0</basis>
       </SALC>
     </SCEBasisSet>
   </System>
   <JPhi unit="eV">
     <ReferenceEnergy>-119.24119658083438</ReferenceEnergy>
-    <jphi salc_index="1">0.0007818850756804703</jphi>
-    <jphi salc_index="2">0.0012426364239827264</jphi>
-    <jphi salc_index="3">0.027377950201776243</jphi>
-    <jphi salc_index="4">0.013465578690541727</jphi>
-    <jphi salc_index="5">-0.10554329448740597</jphi>
-    <jphi salc_index="6">-0.14613862148720194</jphi>
-    <jphi salc_index="7">-0.03705438568292132</jphi>
-    <jphi salc_index="8">-0.007789430888345411</jphi>
-    <jphi salc_index="9">-0.009399616659160061</jphi>
-    <jphi salc_index="10">-0.0026861447201685833</jphi>
-    <jphi salc_index="11">-0.03654029042039308</jphi>
-    <jphi salc_index="12">-0.024418576954100393</jphi>
-    <jphi salc_index="13">0.04271267624665809</jphi>
-    <jphi salc_index="14">0.029445250459036395</jphi>
-    <jphi salc_index="15">-0.16271536501946174</jphi>
-    <jphi salc_index="16">0.00041320762405374685</jphi>
-    <jphi salc_index="17">-0.16261815116066006</jphi>
-    <jphi salc_index="18">0.0004193484671836544</jphi>
-    <jphi salc_index="19">-0.08955807862745727</jphi>
-    <jphi salc_index="20">-0.20741658856060427</jphi>
-    <jphi salc_index="21">-0.004717993108695401</jphi>
-    <jphi salc_index="22">-0.0008194216904122075</jphi>
-    <jphi salc_index="23">-0.0010364450433454472</jphi>
-    <jphi salc_index="24">-0.22594523790928464</jphi>
-    <jphi salc_index="25">-0.0012869091839103107</jphi>
-    <jphi salc_index="26">-0.0009793620076145742</jphi>
-    <jphi salc_index="27">-0.007563288045842293</jphi>
-    <jphi salc_index="28">-0.009156747804256578</jphi>
-    <jphi salc_index="29">-0.0021223723469744895</jphi>
-    <jphi salc_index="30">-0.00228406452442398</jphi>
-    <jphi salc_index="31">-0.0027262344617532156</jphi>
-    <jphi salc_index="32">-0.0008677310897730132</jphi>
-    <jphi salc_index="33">0.00030217054629989604</jphi>
-    <jphi salc_index="34">8.551467651488917e-5</jphi>
-    <jphi salc_index="35">6.347196913053178e-5</jphi>
-    <jphi salc_index="36">-2.5093934666476287e-5</jphi>
+    <jphi salc_index="1">0.0007818850756804173</jphi>
+    <jphi salc_index="2">0.0012426364239826405</jphi>
+    <jphi salc_index="3">0.027377950201776274</jphi>
+    <jphi salc_index="4">0.013465578690541742</jphi>
+    <jphi salc_index="5">-0.10554329448740553</jphi>
+    <jphi salc_index="6">-0.14613862148720205</jphi>
+    <jphi salc_index="7">-0.037054385682921416</jphi>
+    <jphi salc_index="8">-0.007789430888345449</jphi>
+    <jphi salc_index="9">-0.009399616659160063</jphi>
+    <jphi salc_index="10">-0.002686144720168597</jphi>
+    <jphi salc_index="11">-0.036540290420393126</jphi>
+    <jphi salc_index="12">-0.024418576954100345</jphi>
+    <jphi salc_index="13">0.04271267624665804</jphi>
+    <jphi salc_index="14">0.029445250459036437</jphi>
+    <jphi salc_index="15">-0.1626185374036472</jphi>
+    <jphi salc_index="16">0.0006482914327889945</jphi>
+    <jphi salc_index="17">-0.004704631754837176</jphi>
+    <jphi salc_index="18">-0.0010530954553401772</jphi>
+    <jphi salc_index="19">-0.2259446197514722</jphi>
+    <jphi salc_index="20">-0.00128690918391044</jphi>
+    <jphi salc_index="21">-0.0009793620076146287</jphi>
+    <jphi salc_index="22">-0.0075632880458423694</jphi>
+    <jphi salc_index="23">-0.009156747804256562</jphi>
+    <jphi salc_index="24">-0.0021223723469746083</jphi>
+    <jphi salc_index="25">-0.0022840645244239805</jphi>
+    <jphi salc_index="26">-0.002726234461753332</jphi>
+    <jphi salc_index="27">-0.0008677310897729632</jphi>
+    <jphi salc_index="28">0.0003021705462998278</jphi>
+    <jphi salc_index="29">8.551467651487942e-5</jphi>
+    <jphi salc_index="30">6.34719691305523e-5</jphi>
+    <jphi salc_index="31">-2.5093934666503216e-5</jphi>
   </JPhi>
 </Magesty>

@@ -349,7 +349,7 @@ function construct_basislist_simple(
 			shp_list::Vector{SHProduct} = listup_basislist_simple(atom_list, bodyn_lsum[body])
 			for shp::SHProduct in shp_list
 				for basis in result_basislist
-					if shp == basis
+					if sort(shp) == sort(basis)
 						result_basislist.counts[basis] += count
 						@goto skip
 					elseif is_translationally_equiv_basis_simple(basis, shp, symmetry)
@@ -623,7 +623,7 @@ function is_translationally_equiv_basis_simple(
 			SHProduct([shsi for shsi in basis_target]),
 			atom_list_target_shifted,
 		)
-		if forward_candidate == basis_ref
+		if sort(forward_candidate) == sort(basis_ref)
 			return true
 		end
 
@@ -633,7 +633,7 @@ function is_translationally_equiv_basis_simple(
 			SHProduct([shsi for shsi in basis_target]),
 			atom_list_target_shifted,
 		)
-		if inverse_candidate == basis_ref
+		if sort(inverse_candidate) == sort(basis_ref)
 			return true
 		end
 
@@ -927,6 +927,7 @@ function proj_matrix_a_symop_simple(
 	projection_mat = zeros(Float64, length(basislist), length(basislist))
 
 	for (j, basis_j::SHProduct) in enumerate(basislist)
+		println(basis_j, "\n")
 		lco_j = operate_symop(
 			basis_j,
 			atom_list,
@@ -939,6 +940,7 @@ function proj_matrix_a_symop_simple(
 			symnum_translation,
 			time_rev_sym,
 		)
+		println(lco_j, "\n")
 		for (i, basis_i::SHProduct) in enumerate(basislist)
 			projection_mat[i, j] = inner_product(basis_i, lco_j)
 		end
