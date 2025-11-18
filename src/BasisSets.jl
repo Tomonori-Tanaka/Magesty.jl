@@ -377,7 +377,7 @@ function listup_basislist_simple(
 	result_basislist = Vector{SHProduct}()
 	for l in 2:lsum
 		if l < length(atom_list)
-			return result_basislist
+			continue
 		end
 		if isodd(l) # skip odd l cases due to the time-reversal symmetry
 			continue
