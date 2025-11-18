@@ -91,10 +91,9 @@ function SALC(
 
 	for (idx, basis) in enumerate(basislist)
 		count = basislist.counts[basis]
-		coeff = coeffs[idx] * count
-		if !isapprox(coeff, 0.0, atol = 1e-8)
+		if !isapprox(coeffs[idx], 0.0, atol = 1e-8)
 			push!(result_basisset, basis)
-			push!(result_coeffs, coeff)
+			push!(result_coeffs, coeffs[idx])
 			push!(result_multiplicity, count)
 		end
 	end
