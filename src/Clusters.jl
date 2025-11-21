@@ -175,6 +175,8 @@ struct Cluster
 
 		start_time = time_ns()
 
+		generate_clusters(structure, symmetry, cutoff_radii, nbody)
+
 		min_distance_pairs = set_mindist_pairs(
 			structure.supercell.num_atoms,
 			structure.x_image_cart,
@@ -498,15 +500,34 @@ function is_within_cutoff(
 	return true
 end
 
+function is_within_cutoff(
+	atomcell_list::Vector{AtomCell},
+	kd_int_list::Vector{Int},
+	cutoff_radii::AbstractArray{<:Real, 3},
+	body::Integer,
+	x_image_cart::AbstractArray{<:Real, 3},
+)::Bool
+	for comb::Vector{AtomCell} in collect(combinations(atomcell_list, 2))
+		rc = cutoff_radii[body, kd_int_list[comb[1].atom], kd_int_list[comb[2].atom]]
+		distance = distance_atomcells(comb[1], comb[2], x_image_cart)
+		if rc < 0.0 || distance ≤ rc
+			continue
+		else
+			return false
+		end
+	end
+	return true
+end
+
 
 function distance_atomcells(
 	atomcell1::AtomCell,
 	atomcell2::AtomCell,
-	x_image_frac::AbstractArray{<:Real, 3},
+	x_image_cart::AbstractArray{<:Real, 3},
 )::Float64
 	return norm(
-		x_image_frac[:, atomcell1.atom, atomcell1.cell] -
-		x_image_frac[:, atomcell2.atom, atomcell2.cell],
+		x_image_cart[:, atomcell1.atom, atomcell1.cell] -
+		x_image_cart[:, atomcell2.atom, atomcell2.cell],
 	)
 end
 
@@ -879,6 +900,94 @@ function print_cluster_stdout(
 		end
 		println("\n")
 	end
+end
+
+function generate_clusters(
+	structure::Structure,
+	symmetry::Symmetry,
+	cutoff_radii::AbstractArray{<:Real, 3},
+	nbody::Integer,
+)
+
+	min_distance_pairs = set_mindist_pairs(
+		structure.supercell.num_atoms,
+		structure.x_image_cart,
+		structure.exist_image,
+		tol = symmetry.tol,
+	)
+	interaction_cutoff_dict = Dict{Int, Dict{Int, SortedVector{AtomCell}}}()
+	for body in 2:nbody
+		interaction_cutoff_dict[body] = Dict{Int, SortedVector{AtomCell}}()
+		for prim_atom_sc in symmetry.atoms_in_prim
+			prim_atom_type = structure.supercell.kd_int_list[prim_atom_sc]
+			interaction_cutoff_dict[body][prim_atom_sc] = SortedVector{AtomCell}()
+			for other_atom_sc in 1:structure.supercell.num_atoms
+				if prim_atom_sc == other_atom_sc
+					;
+					continue;
+				end
+				other_atom_type = structure.supercell.kd_int_list[other_atom_sc]
+				rc = cutoff_radii[body, prim_atom_type, other_atom_type]
+
+				if rc < 0.0 || min_distance_pairs[prim_atom_sc, other_atom_sc][1].distance ≤ rc
+					for distinfo in min_distance_pairs[prim_atom_sc, other_atom_sc]
+						push!(
+							interaction_cutoff_dict[body][prim_atom_sc],
+							AtomCell(other_atom_sc, distinfo.cell_index),
+						)
+					end
+				end
+			end
+		end
+	end
+
+	# result[body][prim_atom_sc] = SortedVector{SortedVector{AtomCell}}()
+	result = Dict{Int, Dict{Int, Vector{SortedVector{AtomCell}}}}()
+	for body in 2:nbody
+		result[body] = Dict{Int, SortedVector{AtomCell}}()
+		for prim_atom_sc in symmetry.atoms_in_prim
+			result[body][prim_atom_sc] = SortedVector{AtomCell}()
+		end
+	end
+
+
+	for body in 2:nbody, prim_atom_sc in symmetry.atoms_in_prim
+		prim_atom_ac::AtomCell = AtomCell(prim_atom_sc, 1)
+		interactiong_atoms::SortedVector = interaction_cutoff_dict[body][prim_atom_sc]
+		if body == 2
+			for other_atom_ac::AtomCell in interactiong_atoms
+				distance = distance_atomcells(prim_atom_ac, other_atom_ac, structure.x_image_cart)
+				rc = cutoff_radii[
+					body,
+					structure.supercell.kd_int_list[prim_atom_sc],
+					structure.supercell.kd_int_list[other_atom_ac.atom],
+				]
+				if rc < 0.0 || distance ≤ rc
+					push!(result[body][prim_atom_sc], SortedVector([other_atom_ac]))
+				end
+			end
+		else
+			for atom_combination::Vector{AtomCell} in
+				collect(combinations(interactiong_atoms, body - 1))
+				atom_cell_list_all = vcat([prim_atom_ac], atom_combination)
+				if is_within_cutoff(
+					atom_cell_list_all,
+					structure.supercell.kd_int_list,
+					cutoff_radii,
+					body,
+					structure.x_image_cart,
+				)
+					sorted_vector = SortedVector(atom_combination)
+					push!(result[body][prim_atom_sc], sorted_vector)
+				end
+			end
+		end
+	end
+
+	display(result[2])
+	display(result[3])
+
+
 end
 
 end
