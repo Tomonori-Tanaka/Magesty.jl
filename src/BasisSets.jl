@@ -114,7 +114,31 @@ struct BasisSet
 
 		basislist_new =
 			construct_basislist_new(structure, symmetry, cluster, body1_lmax, bodyn_lsum, nbody)
-		display(basislist_new)
+
+		classified_basisdict_new = classify_basislist_simple(basislist_new, symmetry.map_sym)
+		display(classified_basisdict_new)
+		projection_list_new = projection_matrix_simple(classified_basisdict_new, symmetry)
+		salc_list_new = Vector{SALC}()
+		for idx in eachindex(projection_list_new)
+			eigenvals, eigenvecs = eigen(Symmetric(projection_list_new[idx]))
+			eigenvals = real.(round.(eigenvals, digits = 6))
+			@show eigenvals
+			eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
+			if !is_proper_eigenvals(eigenvals)
+				display(classified_basisdict_new[idx])
+				println("eigenval: $(eigenvals)")
+				@warn "Critical error: Eigenvalues must be either 0 or 1. index: $idx"
+			end
+			for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
+				eigenvec = eigenvecs[:, idx_eigenval]
+				eigenvec = flip_vector_if_negative_sum(eigenvec)
+				eigenvec = round.(eigenvec .* (abs.(eigenvec) .≥ 1e-8), digits = 10)
+				push!(salc_list_new, SALC(classified_basisdict_new[idx], eigenvec / norm(eigenvec)))
+			end
+		end
+		salc_list_new = filter(salc -> !is_identically_zero(salc), salc_list_new)
+
+		display(salc_list_new)
 
 		basislist_simple = construct_basislist_simple(
 			structure,
@@ -137,12 +161,12 @@ struct BasisSet
 		for idx in eachindex(projection_list_simple)
 			eigenvals, eigenvecs = eigen(Symmetric(projection_list_simple[idx]))
 			eigenvals = real.(round.(eigenvals, digits = 6))
-			@show eigenvals
+			# @show eigenvals
 			eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
 			if !is_proper_eigenvals(eigenvals)
 				# display(classified_basisdict_simple[idx-1])
-				display(classified_basisdict_simple[idx])
-				println("eigenval: $(eigenvals)")
+				# display(classified_basisdict_simple[idx])
+				# println("eigenval: $(eigenvals)")
 				#error("Critical error: Eigenvalues must be either 0 or 1. index: $idx")
 				@warn "Critical error: Eigenvalues must be either 0 or 1. index: $idx"
 			end
@@ -353,7 +377,6 @@ function construct_basislist_new(
 			cuv::CountingUniqueVector{Vector{Int}} = cluster_dict_new[body][prim_atom_sc]
 			for atom_list::Vector{Int} in cuv
 				count = cuv.counts[atom_list]
-				@show atom_list
 				shp_list::Vector{SHProduct} =
 					listup_basislist_simple(atom_list, bodyn_lsum[body])
 				for shp::SHProduct in shp_list
