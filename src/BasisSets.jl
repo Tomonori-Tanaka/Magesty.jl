@@ -377,30 +377,44 @@ function construct_basislist_new(
 
 	# Process multi-body cases
 	for body in 2:nbody
+		body_basislist = SortedCountingUniqueVector{SHProduct}()
 		for prim_atom_sc in symmetry.atoms_in_prim
 			cuv::CountingUniqueVector{Vector{Int}} = cluster_dict_new[body][prim_atom_sc]
 			for atom_list::Vector{Int} in cuv
+				println("atom_list: $atom_list")
 				count = cuv.counts[atom_list]
 				shp_list::Vector{SHProduct} =
 					listup_basislist_simple(atom_list, bodyn_lsum[body])
 				for shp::SHProduct in shp_list
-					shp_sorted = sort(shp)
-					for basis in result_basislist
-						basis_sorted = sort(basis)
-						if shp_sorted == basis_sorted
-							@goto skip
-						elseif is_translationally_equiv_basis_simple(basis, shp, symmetry)
-							@goto skip
-						end
-					end
-					push!(result_basislist, shp, count)
-					@label skip
+					push_unique_body!(body_basislist, shp, count, symmetry)
 				end
 			end
+		end
+		for basis in body_basislist
+			push!(result_basislist, basis, body_basislist.counts[basis])
 		end
 	end
 
 	return result_basislist
+end
+
+function push_unique_body!(
+	target::SortedCountingUniqueVector{SHProduct},
+	shp::SHProduct,
+	count::Integer,
+	symmetry::Symmetry,
+)
+	shp_sorted = sort(shp)
+	for basis in target
+		if sum([shsi.l for shsi in shp]) != sum([shsi.l for shsi in basis])
+			continue
+		end
+		basis_sorted = sort(basis)
+		if shp_sorted == basis_sorted || is_translationally_equiv_basis_simple(basis, shp, symmetry)
+			return
+		end
+	end
+	push!(target, shp, count)
 end
 
 
