@@ -153,6 +153,7 @@ Creates a new `Cluster` instance based on the provided structure, symmetry infor
 # Example
 ```julia
 cluster = Cluster(structure, symmetry, 3, cutoff_radii)
+```
 """
 struct Cluster
 	num_bodies::Int
