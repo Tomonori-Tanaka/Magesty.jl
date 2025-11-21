@@ -196,12 +196,12 @@ struct Cluster
 			symmetry.nat_prim,
 			structure.supercell.kd_int_list,
 			symmetry.map_p2s,
-			structure.x_image_cart,
-			structure.exist_image,
 			interaction_pairs,
 			min_distance_pairs,
 			nbody,
+			cutoff_radii,
 		)
+		display(interaction_clusters[:, 2])
 
 		cluster_dict = generate_pairs_simple(symmetry.atoms_in_prim, interaction_clusters, nbody)
 
@@ -219,6 +219,8 @@ struct Cluster
 			println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
 			println("-------------------------------------------------------------------")
 		end
+
+		display(cluster_dict)
 
 		return new(
 			nbody,
@@ -390,11 +392,10 @@ function set_interaction_clusters(
 	num_primitive_atoms::Integer,
 	atom_type_list::AbstractVector{<:Integer},
 	primitive_to_supercell_map::AbstractMatrix{<:Integer},
-	cartesian_coords::AbstractArray{<:Real, 3},
-	cell_exists::AbstractVector{Bool},
 	interaction_pairs::AbstractVector{<:AbstractVector{<:AbstractVector{<:Integer}}},
 	min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
 	num_bodies::Integer,
+	cutoff_radii::AbstractArray{<:Real, 3},
 )::Matrix{OrderedSet{InteractionCluster}}
 	@assert num_primitive_atoms > 0 "Number of primitive atoms must be positive."
 	@assert length(atom_type_list) > 0 "atom_type_list must not be empty."
@@ -422,8 +423,12 @@ function set_interaction_clusters(
 			end
 		else
 			for atom_combination in collect(combinations(interacting_atoms, body - 1))
+				atom_list = vcat([atom_index], atom_combination)
+				if !is_within_cutoff(atom_list, atom_type_list, cutoff_radii, body, min_distance_pairs)
+					continue
+				end
 				cell_indices = Vector{Vector{Int}}()
-				distance = calc_distmax(vcat([atom_index], atom_combination), min_distance_pairs)
+				distance = calc_distmax(atom_list, min_distance_pairs)
 				for other_atom_index in atom_combination
 					cell_list = Int[]
 					for distinfo in min_distance_pairs[atom_index, other_atom_index]
@@ -468,6 +473,23 @@ function calc_distmax(
 		max_distance = max(max_distance, min_distance_pairs[pair[1], pair[2]][1].distance)
 	end
 	return max_distance
+end
+
+
+function is_within_cutoff(
+	atom_list::AbstractVector{<:Integer},
+	atom_types::Vector{Int},
+	cutoff_radii::AbstractArray{<:Real, 3},
+	body::Integer,
+	min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
+)::Bool
+	for comb::Vector{Int} in collect(combinations(atom_list, 2))
+		rc = cutoff_radii[body, atom_types[comb[1]], atom_types[comb[2]]]
+		if min_distance_pairs[comb[1], comb[2]][1].distance > rc
+			return false
+		end
+	end
+	return true
 end
 
 """
