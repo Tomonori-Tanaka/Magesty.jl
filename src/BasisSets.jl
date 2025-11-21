@@ -111,6 +111,11 @@ struct BasisSet
 			println("Constructing basis list...")
 		end
 
+
+		basislist_new =
+			construct_basislist_new(structure, symmetry, cluster, body1_lmax, bodyn_lsum, nbody)
+		display(basislist_new)
+
 		basislist_simple = construct_basislist_simple(
 			structure,
 			symmetry,
@@ -122,7 +127,6 @@ struct BasisSet
 
 		# Classify basis functions by symmetry
 		classified_basisdict_simple = classify_basislist_simple(basislist_simple, symmetry.map_sym)
-		display(classified_basisdict_simple)
 
 		# Construct projection matrices
 		if verbosity
@@ -315,6 +319,63 @@ function construct_basislist(
 
 	return result_basislist
 end
+
+function construct_basislist_new(
+	structure::Structure,
+	symmetry::Symmetry,
+	cluster::Cluster,
+	body1_lmax::Vector{Int},
+	bodyn_lsum::OffsetArray{Int, 1},
+	nbody::Integer,
+)::SortedCountingUniqueVector{SHProduct}
+
+	result_basislist = SortedCountingUniqueVector{SHProduct}()
+	cluster_dict_new::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}} =
+		cluster.cluster_dict_new
+
+	# Handle 1-body case
+	for iat in symmetry.atoms_in_prim
+		lmax = body1_lmax[structure.supercell.kd_int_list[iat]]
+		for l in 2:lmax[1] # skip l = 1 because it is prohibited by the time-reversal symmetry
+			if l % 2 == 1 # skip odd l cases due to the time-reversal symmetry
+				continue
+			end
+			shsi_list::Vector{SHSiteIndex} = shsiteindex_singleatom(iat, l)
+			for shsi::SHSiteIndex in shsi_list
+				push!(result_basislist, SHProduct([shsi]))
+			end
+		end
+	end
+
+	# Process multi-body cases
+	for body in 2:nbody
+		for prim_atom_sc in symmetry.atoms_in_prim
+			cuv::CountingUniqueVector{Vector{Int}} = cluster_dict_new[body][prim_atom_sc]
+			for atom_list::Vector{Int} in cuv
+				count = cuv.counts[atom_list]
+				@show atom_list
+				shp_list::Vector{SHProduct} =
+					listup_basislist_simple(atom_list, bodyn_lsum[body])
+				for shp::SHProduct in shp_list
+					shp_sorted = sort(shp)
+					for basis in result_basislist
+						basis_sorted = sort(basis)
+						if shp_sorted == basis_sorted
+							@goto skip
+						elseif is_translationally_equiv_basis_simple(basis, shp, symmetry)
+							@goto skip
+						end
+					end
+					push!(result_basislist, shp, count)
+					@label skip
+				end
+			end
+		end
+	end
+
+	return result_basislist
+end
+
 
 function construct_basislist_simple(
 	structure::Structure,
