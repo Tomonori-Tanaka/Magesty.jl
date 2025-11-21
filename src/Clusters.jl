@@ -163,6 +163,7 @@ struct Cluster
 	cluster_list::Vector{SortedVector{Vector{AtomCell}}}
 	cluster_dict::Dict{Int, CountingUniqueVector{Vector{Int}}}
 	equivalent_atom_list::Vector{Vector{Int}}
+	cluster_dict_new::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}
 
 	function Cluster(
 		structure::Structure,
@@ -175,7 +176,8 @@ struct Cluster
 
 		start_time = time_ns()
 
-		generate_clusters(structure, symmetry, cutoff_radii, nbody)
+		cluster_dict_new::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}} =
+			generate_clusters(structure, symmetry, cutoff_radii, nbody)
 
 		min_distance_pairs = set_mindist_pairs(
 			structure.supercell.num_atoms,
@@ -203,9 +205,9 @@ struct Cluster
 			nbody,
 			cutoff_radii,
 		)
-		display(interaction_clusters[:, 2])
 
-		cluster_dict = generate_pairs_simple(symmetry.atoms_in_prim, interaction_clusters, nbody)
+		cluster_dict =
+			generate_pairs_simple(symmetry.atoms_in_prim, interaction_clusters, nbody)
 
 		cluster_list = generate_pairs(symmetry.atoms_in_prim, interaction_clusters, nbody)
 		equivalent_atom_list = classify_equivalent_atoms(symmetry.atoms_in_prim, symmetry.map_sym)
@@ -222,7 +224,6 @@ struct Cluster
 			println("-------------------------------------------------------------------")
 		end
 
-		display(cluster_dict)
 
 		return new(
 			nbody,
@@ -232,6 +233,7 @@ struct Cluster
 			cluster_list,
 			cluster_dict,
 			equivalent_atom_list,
+			cluster_dict_new,
 		)
 	end
 end
@@ -912,7 +914,7 @@ function generate_clusters(
 	symmetry::Symmetry,
 	cutoff_radii::AbstractArray{<:Real, 3},
 	nbody::Integer,
-)
+)::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}
 
 	min_distance_pairs = set_mindist_pairs(
 		structure.supercell.num_atoms,
@@ -947,12 +949,12 @@ function generate_clusters(
 	end
 
 
-	# result[body][prim_atom_sc] = SortedVector{SortedVector{AtomCell}}()
-	result = Dict{Int, Dict{Int, Vector{SortedVector{AtomCell}}}}()
+	# interaction_clusters[body][prim_atom_sc] = SortedVector{SortedVector{AtomCell}}()
+	interaction_clusters = Dict{Int, Dict{Int, Vector{SortedVector{AtomCell}}}}()
 	for body in 2:nbody
-		result[body] = Dict{Int, SortedVector{AtomCell}}()
+		interaction_clusters[body] = Dict{Int, SortedVector{AtomCell}}()
 		for prim_atom_sc in symmetry.atoms_in_prim
-			result[body][prim_atom_sc] = SortedVector{AtomCell}()
+			interaction_clusters[body][prim_atom_sc] = SortedVector{AtomCell}()
 		end
 	end
 
@@ -969,7 +971,7 @@ function generate_clusters(
 					structure.supercell.kd_int_list[other_atom_ac.atom],
 				]
 				if rc < 0.0 || distance ≤ rc
-					push!(result[body][prim_atom_sc], SortedVector([other_atom_ac]))
+					push!(interaction_clusters[body][prim_atom_sc], SortedVector([other_atom_ac]))
 				end
 			end
 		else
@@ -988,13 +990,34 @@ function generate_clusters(
 					) && (length(atom_list_all) == length(unique(atom_list_all)))
 				)
 					sorted_vector = SortedVector(atom_combination)
-					push!(result[body][prim_atom_sc], sorted_vector)
+					push!(interaction_clusters[body][prim_atom_sc], sorted_vector)
 				end
 			end
 		end
 	end
 
+	result = Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}()
+	for body in 2:nbody
+		result[body] = Dict{Int, CountingUniqueVector{Vector{Int}}}()
+		for prim_atom_sc in symmetry.atoms_in_prim
+			result[body][prim_atom_sc] = CountingUniqueVector{Vector{Int}}()
+		end
+	end
 
+	for body in 2:nbody
+		for prim_atom_sc in symmetry.atoms_in_prim
+			counting_unique_vector = CountingUniqueVector{Vector{Int}}()
+			for cluster::SortedVector{AtomCell} in interaction_clusters[body][prim_atom_sc]
+				atom_list = [atom_cell.atom for atom_cell in cluster]
+				atom_list = vcat([prim_atom_sc], atom_list)
+				push!(counting_unique_vector, atom_list)
+			end
+			result[body][prim_atom_sc] = counting_unique_vector
+		end
+	end
+
+
+	return result
 end
 
 end
