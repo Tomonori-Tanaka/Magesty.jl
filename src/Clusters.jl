@@ -506,12 +506,17 @@ function is_within_cutoff(
 	cutoff_radii::AbstractArray{<:Real, 3},
 	body::Integer,
 	x_image_cart::AbstractArray{<:Real, 3},
+	min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
 )::Bool
 	for comb::Vector{AtomCell} in collect(combinations(atomcell_list, 2))
 		rc = cutoff_radii[body, kd_int_list[comb[1].atom], kd_int_list[comb[2].atom]]
 		distance = distance_atomcells(comb[1], comb[2], x_image_cart)
-		if rc < 0.0 || distance ≤ rc
-			continue
+		if (rc < 0.0 || distance ≤ rc)
+			if min_distance_pairs[comb[1].atom, comb[2].atom][1].distance + 0.00001 > distance
+				continue
+			else
+				return false
+			end
 		else
 			return false
 		end
@@ -941,6 +946,7 @@ function generate_clusters(
 		end
 	end
 
+
 	# result[body][prim_atom_sc] = SortedVector{SortedVector{AtomCell}}()
 	result = Dict{Int, Dict{Int, Vector{SortedVector{AtomCell}}}}()
 	for body in 2:nbody
@@ -970,12 +976,16 @@ function generate_clusters(
 			for atom_combination::Vector{AtomCell} in
 				collect(combinations(interactiong_atoms, body - 1))
 				atom_cell_list_all = vcat([prim_atom_ac], atom_combination)
-				if is_within_cutoff(
-					atom_cell_list_all,
-					structure.supercell.kd_int_list,
-					cutoff_radii,
-					body,
-					structure.x_image_cart,
+				atom_list_all = [atom_cell.atom for atom_cell in atom_cell_list_all]
+				if (
+					is_within_cutoff(
+						atom_cell_list_all,
+						structure.supercell.kd_int_list,
+						cutoff_radii,
+						body,
+						structure.x_image_cart,
+						min_distance_pairs,
+					) && (length(atom_list_all) == length(unique(atom_list_all)))
 				)
 					sorted_vector = SortedVector(atom_combination)
 					push!(result[body][prim_atom_sc], sorted_vector)
@@ -983,9 +993,6 @@ function generate_clusters(
 			end
 		end
 	end
-
-	display(result[2])
-	display(result[3])
 
 
 end
