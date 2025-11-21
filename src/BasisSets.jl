@@ -78,7 +78,7 @@ struct BasisSet
 	# basislist::SortedCountingUniqueVector{IndicesUniqueList}
 	# basislist_simple::SortedCountingUniqueVector{SHProduct}
 	# classified_basisdict::Dict{Int, SortedCountingUniqueVector}
-	classified_basisdict_simple::Dict{Int, SortedCountingUniqueVector{SHProduct}}
+	# classified_basisdict_simple::Dict{Int, SortedCountingUniqueVector{SHProduct}}
 	salc_list::Vector{SALC}
 
 	function BasisSet(
@@ -116,11 +116,15 @@ struct BasisSet
 			construct_basislist_new(structure, symmetry, cluster, body1_lmax, bodyn_lsum, nbody)
 
 		classified_basisdict_new = classify_basislist_simple(basislist_new, symmetry.map_sym)
-		display(classified_basisdict_new)
+		# display(classified_basisdict_new)
+		if verbosity
+			println("Constructing projection matrices...")
+		end
 		projection_list_new = projection_matrix_simple(classified_basisdict_new, symmetry)
 		salc_list_new = Vector{SALC}()
 		for idx in eachindex(projection_list_new)
-			eigenvals, eigenvecs = eigen(Symmetric(projection_list_new[idx]))
+			println("Constructing SALC $idx...")
+			eigenvals, eigenvecs = eigen(projection_list_new[idx])
 			eigenvals = real.(round.(eigenvals, digits = 6))
 			@show eigenvals
 			eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
@@ -140,7 +144,7 @@ struct BasisSet
 
 		display(salc_list_new)
 
-		basislist_simple = construct_basislist_simple(
+		#= basislist_simple = construct_basislist_simple(
 			structure,
 			symmetry,
 			cluster,
@@ -177,7 +181,7 @@ struct BasisSet
 				push!(salc_list, SALC(classified_basisdict_simple[idx], eigenvec / norm(eigenvec)))
 			end
 		end
-		salc_list = filter(salc -> !is_identically_zero(salc), salc_list)
+		salc_list = filter(salc -> !is_identically_zero(salc), salc_list) =#
 
 
 
@@ -250,8 +254,8 @@ struct BasisSet
 			# basislist,
 			# basislist_simple,
 			# classified_basisdict,
-			classified_basisdict_simple,
-			salc_list,
+			# classified_basisdict_simple,
+			salc_list_new,
 		)
 	end
 end
