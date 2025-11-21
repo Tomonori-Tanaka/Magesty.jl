@@ -424,7 +424,13 @@ function set_interaction_clusters(
 		else
 			for atom_combination in collect(combinations(interacting_atoms, body - 1))
 				atom_list = vcat([atom_index], atom_combination)
-				if !is_within_cutoff(atom_list, atom_type_list, cutoff_radii, body, min_distance_pairs)
+				if !is_within_cutoff(
+					atom_list,
+					atom_type_list,
+					cutoff_radii,
+					body,
+					min_distance_pairs,
+				)
 					continue
 				end
 				cell_indices = Vector{Vector{Int}}()
@@ -490,6 +496,18 @@ function is_within_cutoff(
 		end
 	end
 	return true
+end
+
+
+function distance_atomcells(
+	atomcell1::AtomCell,
+	atomcell2::AtomCell,
+	x_image_frac::AbstractArray{<:Real, 3},
+)::Float64
+	return norm(
+		x_image_frac[:, atomcell1.atom, atomcell1.cell] -
+		x_image_frac[:, atomcell2.atom, atomcell2.cell],
+	)
 end
 
 """
