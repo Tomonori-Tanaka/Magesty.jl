@@ -14,7 +14,7 @@ function get_cached_xml(input::AbstractString)::EzXML.Document
 	return XML_CACHE[input]
 end
 
-function convert2tensor(input::AbstractString, atoms::Vector{Int}, cell::Integer)::Matrix{Float64}
+function convert2tensor(input::AbstractString, atoms::Vector{Int})::Matrix{Float64}
 	atom1 = atoms[1]
 	atom2 = atoms[2]
 
@@ -25,10 +25,10 @@ function convert2tensor(input::AbstractString, atoms::Vector{Int}, cell::Integer
 	doc = get_cached_xml(input)
 
 	# Calculate tensor for atom1 -> atom2
-	result_forward = calculate_tensor_for_pair(doc, atom1, atom2, cell)
+	result_forward = calculate_tensor_for_pair(doc, atom1, atom2)
 
 	# Calculate tensor for atom2 -> atom1 (swapped)
-	result_backward = calculate_tensor_for_pair(doc, atom2, atom1, cell)
+	result_backward = calculate_tensor_for_pair(doc, atom2, atom1)
 	antisymmetric_part = 0.5*(result_backward - result_backward')
 	symmetric_part = 0.5*(result_backward + result_backward')
 	antisymmetric_part = antisymmetric_part'
@@ -40,7 +40,7 @@ function convert2tensor(input::AbstractString, atoms::Vector{Int}, cell::Integer
 	return result
 end
 
-function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int, cell::Integer)::Matrix{Float64}
+function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::Matrix{Float64}
 	# tensor matrix composing j-1-1, j-10, j-11, j0-1, j00, j01, j1-1, j10, j11
 	result_tmp = zeros(3, 3)
 	is_found = false# Flag to check the target interaction is found
@@ -91,7 +91,7 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int, cell::Integer)::
 						break
 					elseif i == 1 && idx[1] == atom1
 						m_vec[1] = idx[3]  # Collect the m value
-					elseif i == 2 && idx[1] == atom2 && idx[4] == cell
+					elseif i == 2 && idx[1] == atom2
 						is_found = true
 						m_vec[2] = idx[3]  # Collect the m value
 					end
@@ -131,7 +131,6 @@ end
 function calculate_biquadratic_term(
 	input::AbstractString,
 	atoms::Vector{Int},
-	cell::Integer,
 )::Float64
 	atom1 = atoms[1]
 	atom2 = atoms[2]
@@ -143,13 +142,13 @@ function calculate_biquadratic_term(
 		throw(ArgumentError("<JPhi> node not found in the XML file."))
 	end
 
-	result_forward = calculate_biquadratic_term_for_pair(doc, atom1, atom2, cell)
-	result_backward = calculate_biquadratic_term_for_pair(doc, atom2, atom1, cell)
+	result_forward = calculate_biquadratic_term_for_pair(doc, atom1, atom2)
+	result_backward = calculate_biquadratic_term_for_pair(doc, atom2, atom1)
 
 	return result_forward + result_backward
 end
 
-function calculate_biquadratic_term_for_pair(doc, atom1::Int, atom2::Int, cell::Integer)::Float64
+function calculate_biquadratic_term_for_pair(doc, atom1::Int, atom2::Int)::Float64
 	sce_basis_set = findfirst("//SCEBasisSet", doc)
 	if isnothing(sce_basis_set)
 		throw(ArgumentError("<SCEBasisSet> node not found in the XML file."))
@@ -191,7 +190,7 @@ function calculate_biquadratic_term_for_pair(doc, atom1::Int, atom2::Int, cell::
 					break
 				elseif i == 1 && idx[1] == atom1
 					m_vec[1] = idx[3]  # Collect the angular momentum m value
-				elseif i == 2 && idx[1] == atom2 && idx[4] == cell
+				elseif i == 2 && idx[1] == atom2
 					m_vec[2] = idx[3]  # Collect the angular momentum m value
 				end
 			end
@@ -221,10 +220,6 @@ function main()
 		nargs = 2
 		arg_type = Int
 
-		"--cell", "-c"
-		help = "Cell Index of the second atom (the cell of first atom is always 1). "
-		required = true
-		arg_type = Int
 
 		"--biquadratic", "-b"
 		help = "Calculate biquadratic term"
@@ -233,11 +228,11 @@ function main()
 
 	args = parse_args(s)
 	if args["biquadratic"]
-		biquadratic_term = calculate_biquadratic_term(args["input"], args["atoms"], args["cell"])
+		biquadratic_term = calculate_biquadratic_term(args["input"], args["atoms"])
 		println("Biquadratic term (meV):")
 		println(biquadratic_term)
 	else
-		tensor_matrix::Matrix{Float64} = convert2tensor(args["input"], args["atoms"], args["cell"])
+		tensor_matrix::Matrix{Float64} = convert2tensor(args["input"], args["atoms"])
 		println("Tensor matrix (meV):")
 		display(tensor_matrix)
 		println("")
