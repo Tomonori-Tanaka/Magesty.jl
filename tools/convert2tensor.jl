@@ -82,7 +82,7 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int, cell::Integer)::
 					break
 				end
 
-				m_vec = MVector{2, Int}(-10, -10)
+				m_vec = MVector{2, Int}(-10, -10)	# Initialize with invalid m values
 				for i in 1:2
 					name = "index-$i"
 					# "1 1 -1 1" → ["1","1","-1","1"] → [1,1,-1,1]
@@ -90,18 +90,18 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int, cell::Integer)::
 					if idx[2] != 1  # Check if the angular momentum is 1
 						break
 					elseif i == 1 && idx[1] == atom1
-						m_vec[1] = idx[3]  # Collect the angular momentum l value
+						m_vec[1] = idx[3]  # Collect the m value
 					elseif i == 2 && idx[1] == atom2 && idx[4] == cell
 						is_found = true
-						m_vec[2] = idx[3]  # Collect the angular momentum l value
+						m_vec[2] = idx[3]  # Collect the m value
 					end
 				end
-				if any(x -> abs(x) > 1, m_vec)
+				if any(x -> abs(x) > 1, m_vec)	# Skip if the m value is invalid
 					continue
 				end
 				if m_vec[1] == alpha && m_vec[2] == beta
 					result_tmp[alpha+2, beta+2] +=
-						j_phi * (parse(Float64, nodecontent(basis))) * (3/4π)
+						j_phi * (parse(Float64, nodecontent(basis))) * (3/(4π))
 				end
 			end
 		end
@@ -199,7 +199,7 @@ function calculate_biquadratic_term_for_pair(doc, atom1::Int, atom2::Int, cell::
 				continue
 			end
 			if m_vec[1] == m_vec[2]
-				result += j_phi * (parse(Float64, nodecontent(basis))) * (15/8π)
+				result += j_phi * (parse(Float64, nodecontent(basis))) * (15/(8π))
 			end
 		end
 	end
