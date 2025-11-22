@@ -123,10 +123,8 @@ struct BasisSet
 		projection_list_new = projection_matrix_simple(classified_basisdict_new, symmetry)
 		salc_list_new = Vector{SALC}()
 		for idx in eachindex(projection_list_new)
-			println("Constructing SALC $idx...")
 			eigenvals, eigenvecs = eigen(projection_list_new[idx])
 			eigenvals = real.(round.(eigenvals, digits = 6))
-			@show eigenvals
 			eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
 			if !is_proper_eigenvals(eigenvals)
 				display(classified_basisdict_new[idx])
@@ -242,12 +240,12 @@ struct BasisSet
 
 		# salc_list = filter(salc -> !is_identically_zero(salc), salc_list)
 
-		# if verbosity
-		# 	print_basisset_stdout(salc_list)
-		# 	elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
-		# 	println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
-		# 	println("-------------------------------------------------------------------")
-		# end
+		if verbosity
+			print_basisset_stdout(salc_list_new)
+			elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
+			println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
+			println("-------------------------------------------------------------------")
+		end
 
 
 		return new(
@@ -381,7 +379,6 @@ function construct_basislist_new(
 		for prim_atom_sc in symmetry.atoms_in_prim
 			cuv::CountingUniqueVector{Vector{Int}} = cluster_dict_new[body][prim_atom_sc]
 			for atom_list::Vector{Int} in cuv
-				println("atom_list: $atom_list")
 				count = cuv.counts[atom_list]
 				shp_list::Vector{SHProduct} =
 					listup_basislist_simple(atom_list, bodyn_lsum[body])
