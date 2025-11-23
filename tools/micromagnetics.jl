@@ -20,7 +20,7 @@ end
 
 function calc_micromagnetics(
 	input_xml::String,
-	system::System,
+	system::Magesty.System,
 	cutoff::Union{Float64, Nothing} = nothing,
 )::Tuple{Matrix{Float64}, Matrix{Float64}}
 	num_atoms = system.structure.supercell.num_atoms
