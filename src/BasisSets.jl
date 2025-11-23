@@ -112,11 +112,14 @@ struct BasisSet
 		end
 
 
-		basislist_new =
+		basislist_new::SortedCountingUniqueVector{SHProduct} =
 			construct_basislist_new(structure, symmetry, cluster, body1_lmax, bodyn_lsum, nbody)
 
-		classified_basisdict_new = classify_basislist_simple(basislist_new, symmetry.map_sym)
-		# display(classified_basisdict_new)
+		classified_basisdict_new::Dict{Int, SortedCountingUniqueVector{SHProduct}} =
+			classify_basislist_simple(basislist_new, symmetry.map_sym)
+
+		classified_basisdict_new = filter_basisdict(classified_basisdict_new)
+
 		if verbosity
 			println("Constructing projection matrices...")
 		end
@@ -1243,4 +1246,37 @@ function is_unitary(mat::AbstractMatrix; tol::Float64 = 1e-10)::Bool
 	return isapprox(mat' * mat, I, atol = tol) && isapprox(mat * mat', I, atol = tol)
 end
 
+
+"""
+	filter_basisdict(
+		basisdict::Dict{Int, SortedCountingUniqueVector{SHProduct}},
+	) -> Dict{Int, SortedCountingUniqueVector{SHProduct}}
+
+Filter out basis entries whose `SortedCountingUniqueVector` contains at least
+one `SHProduct` with (a) multiplicity greater than 1 and (b) the sum of `l`
+quantum numbers exceeding 2. The surviving lists are deep-copied to avoid
+aliasing and relabeled sequentially (following ascending original keys) so the
+resulting dictionary has deterministic, compact indices.
+"""
+function filter_basisdict(
+	basisdict::Dict{Int, SortedCountingUniqueVector{SHProduct}},
+)::Dict{Int, SortedCountingUniqueVector{SHProduct}}
+
+	result_basisdict = Dict{Int, SortedCountingUniqueVector{SHProduct}}()
+	new_label = 1
+	for label in sort!(collect(keys(basisdict)))
+		basislist::SortedCountingUniqueVector{SHProduct} = basisdict[label]
+		has_forbidden_basis = any(basislist) do basis::SHProduct
+			basislist.counts[basis] > 1 && sum(shsi.l for shsi in basis) > 2
+		end
+		if has_forbidden_basis
+			continue
+		end
+		result_basisdict[new_label] = deepcopy(basislist)
+		new_label += 1
+	end
+	return result_basisdict
 end
+
+end # module BasisSets
+
