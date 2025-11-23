@@ -21,8 +21,8 @@ function convert2tensor(input::AbstractString, atoms::Vector{Int})::Matrix{Float
 	atom1 = atoms[1]
 	atom2 = atoms[2]
 
-	structure = Magesty.Structure(input, verbosity = true)
-	symmetry = Magesty.Symmetry(structure, 1e-5, verbosity = true)
+	structure = Magesty.Structure(input, verbosity = false)
+	symmetry = Magesty.Symmetry(structure, 1e-5, verbosity = false)
 
 	# tensor matrix composing jxx, jxy, jxz, jyx, jyy, jyz, jzx, jzy, jzz
 	result = zeros(3, 3)
@@ -34,26 +34,16 @@ function convert2tensor(input::AbstractString, atoms::Vector{Int})::Matrix{Float
 	atom1_in_prim = symmetry.map_s2p[atom1].atom
 	translation_global = symmetry.symnum_translation[symmetry.map_s2p[atom1].translation]
 	atom2_translated = symmetry.map_sym_inv[atom2, translation_global]
-	println("atom1_in_prim: $atom1_in_prim, atom2_translated: $atom2_translated")
 	result_forward = calculate_tensor_for_pair(doc, atom1_in_prim, atom2_translated)
-	print("result_forward: ")
-	display(result_forward)
 
 	# Calculate tensor for atom2 -> atom1 (swapped)
 	atom2_in_prim = symmetry.map_s2p[atom2].atom
 	translation_global = symmetry.symnum_translation[symmetry.map_s2p[atom2].translation]
 	atom1_translated = symmetry.map_sym_inv[atom1, translation_global]
-	println("atom2_in_prim: $atom2_in_prim, atom1_translated: $atom1_translated")
 	result_backward = calculate_tensor_for_pair(doc, atom2_in_prim, atom1_translated)
-	print("result_backward: ")
-	display(result_backward)
-	antisymmetric_part = 0.5*(result_backward - result_backward')
-	symmetric_part = 0.5*(result_backward + result_backward')
-	antisymmetric_part = antisymmetric_part'
-	result_backward = antisymmetric_part' + symmetric_part
 
-	# Add both tensors together
-	result = result_forward + result_backward
+	# Combine tensors so that swapping atom order yields the transpose
+	result = result_forward + result_backward'
 
 	return result
 end
