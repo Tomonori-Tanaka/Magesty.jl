@@ -20,7 +20,7 @@ end
 
 function calc_micromagnetics(
 	input_xml::String,
-	system::System,
+	system::Magesty.System,
 	cutoff::Union{Float64, Nothing} = nothing,
 )::Tuple{Matrix{Float64}, Matrix{Float64}}
 	num_atoms = system.structure.supercell.num_atoms
@@ -49,30 +49,32 @@ function calc_micromagnetics(
 				continue;
 			end
 
+			if cutoff !== nothing
+				dist_info_list = min_distance_pairs[i_atom, i_pair]
+				distance = dist_info_list[1].distance
+				if distance > cutoff
+					continue
+				end
+			end
+
+			# calculate the exchange interaction tensor
+			exchange_tensor = convert2tensor(input_xml, [i_atom, i_pair])
+			exchange_tensor = (1/2) * exchange_tensor	# convert from <i, j> (per bond) to (i, j) (allow for double counting)
+			jij = (1/3) * tr(exchange_tensor)
+			dm_vector = calc_dm_vector(exchange_tensor)
+
 			dist_info_list = min_distance_pairs[i_atom, i_pair]
 			for dist_info in dist_info_list
 				# Check cutoff distance if specified
-				if cutoff !== nothing
-					distance = norm(dist_info.relative_vector)
-					if distance > cutoff
-						continue
-					end
-				end
 
-				cell_index = dist_info.cell_index
 				# relative vector from i_atom to i_pair in Cartesian coordinates
 				relvec::Vector{Float64} = dist_info.relative_vector
 
-				# calculate the exchange interaction tensor
-				exchange_tensor = convert2tensor(input_xml, [i_atom, i_pair], cell_index)
-
-				jij = 1/3*tr(exchange_tensor)
 				# Avoid creating temporary arrays by using direct element access
 				for i in 1:3, j in 1:3
 					stiff[i, j] += 0.5 * jij * relvec[i] * relvec[j]
 				end
 
-				dm_vector = calc_dm_vector(exchange_tensor)
 				# Avoid creating temporary arrays by using direct element access
 				for i in 1:3, j in 1:3
 					spiral[i, j] += dm_vector[i] * relvec[j]
