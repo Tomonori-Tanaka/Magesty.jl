@@ -388,13 +388,13 @@ function calc_exist_image(is_periodic::SVector{3, Bool})::Vector{Bool}
 	# Use static vector for offset calculations
 	offset = MVector{3, Int}(undef)
 	
-	for i in -1:1
-		offset[1] = i
-		for j in -1:1
-			offset[2] = j
-			for k in -1:1
-				offset[3] = k
-				if i == j == k == 0
+	for z in -1:1
+		offset[3] = z
+		for y in -1:1
+			offset[2] = y
+			for x in -1:1
+				offset[1] = x
+				if z == y == x == 0
 					continue  # Skip the center cell
 				end
 				cell += 1

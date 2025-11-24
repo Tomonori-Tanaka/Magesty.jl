@@ -9,10 +9,11 @@ tolerance = 1e-5
 
 [interaction]
 nbody = 2
-[interaction.lmax]
-Fe = [0, 1] # the number of elements shoud be the same with "nbody" value.
-[interaction.cutoff] # unit is bohr
-Fe-Fe = [-1, -1] # first element is just dummy to align wigh lmax array
+[interaction.body1]
+lmax.Fe = 0
+[interaction.body2] # unit is bohr
+cutoff."Fe-Fe" = -1
+lsum = 2
 
 [regression]
 datafile = "EMBSET.dat"

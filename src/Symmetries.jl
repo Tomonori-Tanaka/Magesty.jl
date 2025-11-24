@@ -134,6 +134,7 @@ struct Symmetry
 
 	symdata::Vector{SymmetryOperation}
 	map_sym::Matrix{Int}    # [num_atoms, nsym] -> corresponding atom index
+	map_sym_inv::Matrix{Int}    # [num_atoms, nsym] -> source atom index
 	map_p2s::Matrix{Int}    # [nat_prim, ntran] -> corresponding atom index
 	map_s2p::Vector{Maps}   # [nat] -> corresponding atom index in primitive cel
 	symnum_translation::Vector{Int} # contains the indice of translational only operations
@@ -167,7 +168,7 @@ struct Symmetry
 
 		# construct mapping data
 		map_sym = construct_map_sym(spglib_data, tol, structure)
-
+		map_sym_inv = construct_map_sym_inv(map_sym)
 		# generate map_p2s (primitive cell --> supercell)
 		map_p2s = construct_map_p2s(spglib_data, cell, map_sym, symnum_translation)
 
@@ -202,6 +203,7 @@ struct Symmetry
 			atoms_in_prim,
 			symdata,
 			map_sym,
+			map_sym_inv,
 			map_p2s,
 			map_s2p,
 			symnum_translation)
@@ -313,6 +315,56 @@ function construct_map_sym(
 	end
 
 	return map_sym
+end
+
+"""
+	construct_map_sym_inv(map_sym::Matrix{Int}) -> Matrix{Int}
+
+Constructs the inverse mapping of `map_sym`.
+
+For `map_sym[i, isym] = j` (atom `i` maps to atom `j` under symmetry operation `isym`),
+`map_sym_inv[j, isym] = i` (atom `j` comes from atom `i` under symmetry operation `isym`).
+
+# Arguments
+- `map_sym::Matrix{Int}`: Symmetry mapping matrix where `map_sym[i, isym]` is the atom index
+  that atom `i` maps to under symmetry operation `isym`
+
+# Returns
+- `Matrix{Int}`: Inverse mapping matrix where `map_sym_inv[i, isym]` is the source atom index
+  that maps to atom `i` under symmetry operation `isym`
+
+# Throws
+- `ErrorException` if the inverse mapping cannot be constructed properly (e.g., non-bijective mapping)
+"""
+function construct_map_sym_inv(map_sym::AbstractMatrix{<:Integer})::Matrix{Int}
+	num_atoms, nsym = size(map_sym)
+	map_sym_inv = zeros(Int, num_atoms, nsym)
+
+	# Process each symmetry operation
+	for isym in 1:nsym
+		# For each target atom i, find the source atom j such that map_sym[j, isym] == i
+		for i in 1:num_atoms
+			found = false
+			for j in 1:num_atoms
+				if map_sym[j, isym] == i
+					if found
+						error(
+							"Non-bijective mapping detected: atom $i has multiple sources under symmetry operation $isym",
+						)
+					end
+					map_sym_inv[i, isym] = j
+					found = true
+				end
+			end
+			if !found
+				error(
+					"Incomplete mapping: atom $i has no source under symmetry operation $isym",
+				)
+			end
+		end
+	end
+
+	return map_sym_inv
 end
 
 """

@@ -1,4 +1,5 @@
 module ConfigParser
+using OffsetArrays
 
 export Config4System, Config4Optimize
 
@@ -57,8 +58,9 @@ A structure that holds system configuration parameters for molecular dynamics si
 - `num_atoms::Int`: Number of atoms in the system
 - `kd_name::Vector{String}`: List of chemical species names
 - `nbody::Int`: Maximum order of many-body interactions
-- `lmax::Matrix{Int}`: Maximum angular momentum for each chemical species and interaction order
-- `cutoff_radii::Array{Float64, 3}`: Cutoff radii for interactions between chemical species
+- `body1_lmax::Vector{Int}`: Maximum angular momentum for each body 1 and interaction order
+- `bodyn_lmax::OffsetArray{Int, 1}`: Maximum angular momentum for each body n and interaction order
+- `bodyn_cutoff::OffsetArray{Float64, 3}`: Cutoff radii for interactions between elements
 - `lattice_vectors::Matrix{Float64}`: Lattice vectors of the system
 - `kd_int_list::Vector{Int}`: List of chemical species indices for each atom
 - `x_fractional::Matrix{Float64}`: Fractional coordinates of atoms
@@ -73,8 +75,9 @@ struct Config4System
 	num_atoms::Int
 	kd_name::Vector{String}
 	nbody::Int
-	lmax::Matrix{Int}
-	cutoff_radii::Array{Float64, 3}
+	body1_lmax::Vector{Int}
+	bodyn_lsum::OffsetArray{Int, 1}
+	bodyn_cutoff::OffsetArray{Float64, 3}
 	lattice_vectors::Matrix{Float64}
 	kd_int_list::Vector{Int}
 	x_fractional::Matrix{Float64}
@@ -114,7 +117,7 @@ struct Config4System
 		general_dict = input_dict["general"]
 		name = general_dict["name"]::String
 		num_atoms = general_dict["nat"]::Int
-		kd_name = general_dict["kd"]::Vector{String}
+		kd_name = general_dict["kd"]
 		is_periodic = get(
 			general_dict,
 			"periodicity",
@@ -128,10 +131,17 @@ struct Config4System
 
 		# Parse interaction parameters
 		interaction_dict = input_dict["interaction"]
-		check_interaction_field(interaction_dict, kd_name)
 		nbody = interaction_dict["nbody"]::Int
-		lmax = parse_lmax(interaction_dict["lmax"], kd_name, nbody)
-		cutoff_radii = parse_cutoff(interaction_dict["cutoff"], kd_name, nbody)
+		if nbody < 1
+			throw(ArgumentError("nbody must be positive, got $(nbody)"))
+		end
+		body1_lmax::Vector{Int} =
+			parse_interaction_body1(interaction_dict, kd_name)
+
+		bodyn_lsum::OffsetArray{Int, 1}, bodyn_cutoff::OffsetArray{Float64, 3} =
+			parse_interaction_bodyn(interaction_dict, kd_name, nbody)
+		# lmax = parse_lmax(interaction_dict["lmax"], kd_name, nbody)
+		# cutoff_radii = parse_cutoff(interaction_dict["cutoff"], kd_name, nbody)
 
 		# Parse structure parameters
 		structure_dict = input_dict["structure"]
@@ -148,8 +158,9 @@ struct Config4System
 			num_atoms = num_atoms,
 			kd_name = kd_name,
 			nbody = nbody,
-			lmax = lmax,
-			cutoff_radii = cutoff_radii,
+			body1_lmax = body1_lmax,
+			bodyn_lsum = bodyn_lsum,
+			bodyn_cutoff = bodyn_cutoff,
 			lattice_vectors = lattice_vectors,
 			kd_int_list = kd_int_list,
 			x_fractional = x_fractional,
@@ -157,293 +168,84 @@ struct Config4System
 			is_periodic = is_periodic,
 			tolerance_sym = tolerance_sym,
 		)
-		validate_system_parameters(params)
+
 
 		return new(params...)
 	end
 end
 
-const VALIDATION_RULES_GENERAL = [
-	ValidationRule(:name, x -> !isempty(x), "Structure name cannot be empty"),
-	ValidationRule(
-		:num_atoms,
-		x -> x > 0,
-		x -> "Number of atoms must be positive, got $(x)",
-	),
-	ValidationRule(:kd_name, x -> !isempty(x), "Chemical species list cannot be empty"),
-	ValidationRule(
-		:is_periodic,
-		x -> length(x) == 3,
-		"Periodicity must be specified for all three directions",
-	),
-]
-
-function validate_general_parameters(params::NamedTuple)::Nothing
-	for rule in VALIDATION_RULES_GENERAL
-		value = getfield(params, rule.field)
-		if !rule.validator(value)
-			error_message =
-				rule.error_message isa Function ? rule.error_message(value) :
-				rule.error_message
-			throw(ArgumentError(error_message))
-		end
-	end
-	return nothing
-end
-
-const VALIDATION_RULES_SYMMETRY = [
-	ValidationRule(
-		:tolerance_sym,
-		x -> x > 0,
-		x -> "Symmetry tolerance must be positive, got $(x)",
-	),
-]
-
-function validate_symmetry_parameters(params::NamedTuple)::Nothing
-	for rule in VALIDATION_RULES_SYMMETRY
-		value = getfield(params, rule.field)
-		if !rule.validator(value)
-			error_message =
-				rule.error_message isa Function ? rule.error_message(value) :
-				rule.error_message
-			throw(ArgumentError(error_message))
-		end
-	end
-	return nothing
-end
-
-const VALIDATION_RULES_INTERACTION = [
-	ValidationRule(:nbody, x -> x > 0, x -> "nbody must be positive, got $(x)"),
-	ValidationRule(
-		:lmax,
-		x -> x isa Matrix{Int},
-		x -> "lmax must be a matrix of integers, got $(x)",
-	),
-	ValidationRule(
-		:cutoff_radii,
-		x -> x isa Array{Float64, 3},
-		x -> "cutoff_radii must be an array of floats, got $(x)",
-	),
-]
-
-function validate_interaction_parameters(params::NamedTuple)::Nothing
-	for rule in VALIDATION_RULES_INTERACTION
-		value = getfield(params, rule.field)
-		if !rule.validator(value)
-			error_message =
-				rule.error_message isa Function ? rule.error_message(value) :
-				rule.error_message
-			throw(ArgumentError(error_message))
-		end
-	end
-	return nothing
-end
-
-# Validate system parameters using defined rules
-function validate_system_parameters(params::NamedTuple)::Nothing
-	for rule in VALIDATION_RULES_SYSTEM
-		value = getfield(params, rule.field)
-		if !rule.validator(value)
-			error_message =
-				rule.error_message isa Function ? rule.error_message(value) :
-				rule.error_message
-			throw(ArgumentError(error_message))
-		end
-	end
-	validate_kd_list(params)
-	return nothing
-end
-
-# Validate kd_list parameters
-function validate_kd_list(params::NamedTuple)::Nothing
-	if length(params.kd_int_list) != params.num_atoms
-		throw(
-			ArgumentError(
-				"Length of kd_list ($(length(params.kd_int_list))) must match number of atoms ($(params.num_atoms))",
-			),
-		)
-	end
-
-	kd_int_set = Set(params.kd_int_list)
-	nkd = length(params.kd_name)
-	if nkd != length(kd_int_set)
-		throw(
-			ArgumentError(
-				"Number of chemical species ($nkd) doesn't match kd_list entries",
-			),
-		)
-	elseif any(x -> (x < 1 || nkd < x), kd_int_set)
-		throw(
-			ArgumentError(
-				"Chemical species indices must be consecutive numbers starting from 1",
-			),
-		)
-	end
-	return nothing
-end
-
-"""
-	check_interaction_field(interaction_dict::AbstractDict{<:AbstractString, Any}, kd_name::AbstractVector{<:AbstractString})
-
-Validate interaction parameters in the configuration dictionary.
-
-# Arguments
-- `interaction_dict::AbstractDict{<:AbstractString, Any}`: Dictionary containing interaction parameters
-- `kd_name::AbstractVector{<:AbstractString}`: List of chemical species names
-
-# Throws
-- `ArgumentError`: If required fields are missing or parameters are invalid
-"""
-function check_interaction_field(
+function parse_interaction_body1(
 	interaction_dict::AbstractDict{<:AbstractString, Any},
 	kd_name::AbstractVector{<:AbstractString},
-)
-	# Check required fields
-	required_fields = ["nbody", "lmax", "cutoff"]
-	for field in required_fields
-		if !haskey(interaction_dict, field)
-			throw(
-				ArgumentError(
-					"Required field \"$field\" is missing in interaction parameters.",
-				),
-			)
-		end
+)::Vector{Int}
+	# Check if body1 key exists, if not return default values
+	if !haskey(interaction_dict, "body1")
+		# Return default values (all zeros) if body1 section is missing
+		return fill(0, length(kd_name))
 	end
 
-	nbody = interaction_dict["nbody"]
-	lmax_dict = interaction_dict["lmax"]
-	cutoff_dict = interaction_dict["cutoff"]
+	body1_dict = interaction_dict["body1"]
+	result = fill(-1, length(kd_name))
 
-	# Validate lmax values
-	for (key, value) in lmax_dict
-		if !(key in kd_name)
-			throw(ArgumentError("Invalid chemical species \"$key\" in lmax dictionary."))
+	for (key, value) in body1_dict["lmax"]
+		index = findfirst(x -> x == key, kd_name)
+		if isnothing(index)
+			throw(ArgumentError("Invalid chemical species \"$key\" in interaction.body1 field."))
 		end
-		if length(value) != nbody
-			throw(
-				ArgumentError(
-					"Length of lmax values for $key ($(length(value))) doesn't match nbody ($nbody).",
-				),
-			)
-		end
-		if any(x -> x < 0, value)
-			throw(ArgumentError("Negative lmax values are not allowed for $key."))
-		end
+		result[index] = value
 	end
 
-	# Validate cutoff values
-	for (key, value) in cutoff_dict
-		key1, key2 = split(key, "-")
-		if !(key1 in kd_name) && key1 != "*"
-			throw(ArgumentError("Invalid chemical species \"$key1\" in cutoff dictionary."))
-		end
-		if !(key2 in kd_name) && key2 != "*"
-			throw(ArgumentError("Invalid chemical species \"$key2\" in cutoff dictionary."))
-		end
-		if length(value) != nbody
-			throw(
-				ArgumentError(
-					"Length of cutoff values for $key ($(length(value))) doesn't match nbody ($nbody).",
-				),
-			)
-		end
+	# Check for missing species only if body1 section exists
+	missed_kd = kd_name[result .== -1]
+	if !isempty(missed_kd)
+		throw(
+			ArgumentError(
+				"lmax value (interaction.body1) is missing for some chemical species: $(join(missed_kd, ", "))",
+			),
+		)
 	end
 
-	return nothing
+	return result
 end
 
-"""
-	parse_lmax(lmax_dict::AbstractDict{<:AbstractString, Any}, kd_name::AbstractVector{<:AbstractString}, nbody::Integer)
-
-Parse and validate maximum angular momentum values.
-
-# Arguments
-- `lmax_dict::AbstractDict{<:AbstractString, Any}`: Dictionary containing lmax values for each chemical species
-- `kd_name::AbstractVector{<:AbstractString}`: List of chemical species names
-- `nbody::Integer`: Maximum order of many-body interactions
-
-# Returns
-- `Matrix{Int}`: Matrix of lmax values for each chemical species and interaction order
-
-# Throws
-- `ArgumentError`: If lmax values are missing or invalid
-"""
-function parse_lmax(
-	lmax_dict::AbstractDict{<:AbstractString, Any},
+function parse_interaction_bodyn(
+	interaction_dict::AbstractDict{<:AbstractString, Any},
 	kd_name::AbstractVector{<:AbstractString},
 	nbody::Integer,
-)::Matrix{Int}
-	kd_num = length(kd_name)
-	lmax_tmp = fill(-1, kd_num, nbody)
-
-	# Parse lmax values
-	for (kd_index, kd) in enumerate(kd_name)
-		if !haskey(lmax_dict, kd)
-			throw(ArgumentError("Missing lmax values for chemical species \"$kd\"."))
-		end
-
-		values = lmax_dict[kd]
-		if length(values) != nbody
-			throw(
-				ArgumentError(
-					"Length of lmax values for $kd ($(length(values))) doesn't match nbody ($nbody).",
-				),
-			)
-		end
-
-		for j in 1:nbody
-			value = values[j]
-			lmax_tmp[kd_index, j] = value
-		end
+)::Tuple{OffsetArray{Int, 1}, OffsetArray{Float64, 3}}
+	# Handle nbody = 1 case: return empty arrays with appropriate ranges
+	if nbody == 1
+		# Create empty arrays with range 2:1 (empty range)
+		result_lsum = OffsetArray(Int[], 2:1)
+		nkd = length(kd_name)
+		# Create empty 3D array with proper dimensions
+		result_cutoff = OffsetArray(zeros(Float64, 0, nkd, nkd), 2:1, 1:nkd, 1:nkd)
+		return result_lsum, result_cutoff
 	end
 
-	return Matrix{Int}(lmax_tmp)
-end
+	# Parse lsum values for nbody >= 2
+	result_lsum = OffsetArray(fill(Int(-1), 2:nbody), 2:nbody)
+	for n in 2:nbody
+		bodyn_dict = interaction_dict["body$n"]
+		result_lsum[n] = bodyn_dict["lsum"]::Int
+	end
 
-"""
-	parse_cutoff(cutoff_dict::AbstractDict{<:AbstractString, Any}, kd_name::AbstractVector{<:AbstractString}, nbody::Integer)
+	missed_lsum::Vector{Int} = findall(x -> x == -1, result_lsum)
+	if !isempty(missed_lsum)
+		throw(ArgumentError("lsum value is missing for some body: $(join(missed_lsum, ", "))"))
+	end
 
-Parse and validate cutoff radius values.
-
-# Arguments
-- `cutoff_dict::AbstractDict{<:AbstractString, Any}`: Dictionary containing cutoff values for each chemical species pair
-- `kd_name::AbstractVector{<:AbstractString}`: List of chemical species names
-- `nbody::Integer`: Maximum order of many-body interactions
-
-# Returns
-- `Array{Float64, 3}`: Array of cutoff radii for each chemical species pair and interaction order
-
-# Throws
-- `ArgumentError`: If cutoff values are missing or invalid
-"""
-function parse_cutoff(
-	cutoff_dict::AbstractDict{<:AbstractString, Any},
-	kd_name::AbstractVector{<:AbstractString},
-	nbody::Integer,
-)::Array{Float64, 3}
-	kd_num = length(kd_name)
-	cutoff_tmp = fill(0.0, kd_num, kd_num, nbody)
-
-	# Parse cutoff values
-	for n in 1:nbody
-		if n == 1
-			cutoff_tmp[:, :, n] .= 0.0
-			continue
-		end
-
-		for (key, value) in cutoff_dict
-			if length(value) != nbody
-				throw(
-					ArgumentError(
-						"Length of cutoff values for $key ($(length(value))) doesn't match nbody ($nbody).",
-					),
-				)
-			end
-
+	# Parse cutoff values for nbody >= 2
+	nkd = length(kd_name)
+	result_cutoff = OffsetArray(zeros(Float64, nbody-1, nkd, nkd), 2:nbody, 1:nkd, 1:nkd)
+	initialized_check = OffsetArray(fill(false, nbody-1, nkd, nkd), 2:nbody, 1:nkd, 1:nkd)
+	for n in 2:nbody
+		bodyn_dict = interaction_dict["body$n"]
+		for (key, value) in bodyn_dict["cutoff"]
+			# key is "<elem1>-<elem2>"
 			elem1, elem2 = split(key, "-")
-			index_elem1 = elem1 == "*" ? 1 : findfirst(x -> x == elem1, kd_name)
-			index_elem2 = elem2 == "*" ? 1 : findfirst(x -> x == elem2, kd_name)
-
+			index_elem1 = findfirst(x -> x == elem1, kd_name)
+			index_elem2 = findfirst(x -> x == elem2, kd_name)
 			if isnothing(index_elem1) || isnothing(index_elem2)
 				throw(
 					ArgumentError(
@@ -451,14 +253,24 @@ function parse_cutoff(
 					),
 				)
 			end
-
-			cutoff_value = value[n]
-			cutoff_tmp[index_elem1, index_elem2, n] = cutoff_value
-			cutoff_tmp[index_elem2, index_elem1, n] = cutoff_value
+			result_cutoff[n, index_elem1, index_elem2] = value
+			result_cutoff[n, index_elem2, index_elem1] = value
+			initialized_check[n, index_elem1, index_elem2] = true
+			initialized_check[n, index_elem2, index_elem1] = true
 		end
 	end
 
-	return Array{Float64}(cutoff_tmp)
+	for n in 2:nbody
+		if !all(initialized_check[n, :, :])
+			throw(
+				ArgumentError(
+					"cutoff value is missing for body $(n)",
+				),
+			)
+		end
+	end
+
+	return result_lsum, result_cutoff
 end
 
 """
@@ -514,7 +326,7 @@ end
 const DEFAULT_VALUES_OPTIMIZE = Dict{Symbol, Any}(
 	:ndata => -1,
 	:weight => 0.0, # 0 means magnetic field only, 1 means energy only
-	:alpha => 0.0,	# 0 means ridge regression, 1 means LASSO regression
+	:alpha => 0.0,# 0 means ridge regression, 1 means LASSO regression
 	:lambda => 0.0, # 0 means no regularization
 )
 

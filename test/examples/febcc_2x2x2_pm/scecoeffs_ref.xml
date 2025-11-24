@@ -49,9 +49,8 @@
         <map trans="16" atom="1">13</map>
       </Translations>
     </Symmetry>
-    <SCEBasisSet>
-      <NumberOfSALCs>7</NumberOfSALCs>
-      <SALC index="1" num_basis="48">
+    <SCEBasisSet num_salc="7">
+      <SALC index="1" num_basis="48" body="2">
         <basis multiplicity="1" index-1="1 1 -1 1" index-2="2 1 0 1">0.14433756729740646</basis>
         <basis multiplicity="1" index-1="1 1 -1 1" index-2="2 1 1 1">0.14433756729740646</basis>
         <basis multiplicity="1" index-1="1 1 -1 1" index-2="6 1 0 6">-0.14433756729740646</basis>
@@ -101,7 +100,7 @@
         <basis multiplicity="1" index-1="1 1 1 1" index-2="16 1 -1 2">0.14433756729740646</basis>
         <basis multiplicity="1" index-1="1 1 1 1" index-2="16 1 0 2">0.14433756729740646</basis>
       </SALC>
-      <SALC index="2" num_basis="24">
+      <SALC index="2" num_basis="24" body="2">
         <basis multiplicity="1" index-1="1 1 -1 1" index-2="2 1 -1 1">0.20412414523193156</basis>
         <basis multiplicity="1" index-1="1 1 -1 1" index-2="6 1 -1 6">0.20412414523193156</basis>
         <basis multiplicity="1" index-1="1 1 -1 1" index-2="7 1 -1 14">0.20412414523193156</basis>
@@ -127,7 +126,7 @@
         <basis multiplicity="1" index-1="1 1 1 1" index-2="14 1 1 11">0.20412414523193156</basis>
         <basis multiplicity="1" index-1="1 1 1 1" index-2="16 1 1 2">0.20412414523193156</basis>
       </SALC>
-      <SALC index="3" num_basis="6">
+      <SALC index="3" num_basis="6" body="2">
         <basis multiplicity="1" index-1="1 1 -1 1" index-2="5 1 -1 1">0.4082482904638631</basis>
         <basis multiplicity="1" index-1="1 1 -1 1" index-2="5 1 -1 12">0.4082482904638631</basis>
         <basis multiplicity="1" index-1="1 1 0 1" index-2="3 1 0 1">0.4082482904638631</basis>
@@ -135,7 +134,7 @@
         <basis multiplicity="1" index-1="1 1 1 1" index-2="4 1 1 1">0.4082482904638631</basis>
         <basis multiplicity="1" index-1="1 1 1 1" index-2="4 1 1 14">0.4082482904638631</basis>
       </SALC>
-      <SALC index="4" num_basis="12">
+      <SALC index="4" num_basis="12" body="2">
         <basis multiplicity="1" index-1="1 1 -1 1" index-2="3 1 -1 1">0.2886751345948129</basis>
         <basis multiplicity="1" index-1="1 1 -1 1" index-2="3 1 -1 6">0.2886751345948129</basis>
         <basis multiplicity="1" index-1="1 1 -1 1" index-2="4 1 -1 1">0.2886751345948129</basis>
@@ -149,7 +148,7 @@
         <basis multiplicity="1" index-1="1 1 1 1" index-2="5 1 1 1">0.2886751345948129</basis>
         <basis multiplicity="1" index-1="1 1 1 1" index-2="5 1 1 12">0.2886751345948129</basis>
       </SALC>
-      <SALC index="5" num_basis="12">
+      <SALC index="5" num_basis="12" body="2">
         <basis multiplicity="1" index-1="1 1 -1 1" index-2="10 1 -1 1">0.2886751345948129</basis>
         <basis multiplicity="1" index-1="1 1 -1 1" index-2="10 1 -1 5">0.2886751345948129</basis>
         <basis multiplicity="1" index-1="1 1 -1 1" index-2="10 1 -1 6">0.2886751345948129</basis>
@@ -163,7 +162,7 @@
         <basis multiplicity="1" index-1="1 1 1 1" index-2="9 1 1 6">0.2886751345948129</basis>
         <basis multiplicity="1" index-1="1 1 1 1" index-2="9 1 1 12">0.2886751345948129</basis>
       </SALC>
-      <SALC index="6" num_basis="24">
+      <SALC index="6" num_basis="24" body="2">
         <basis multiplicity="1" index-1="1 1 -1 1" index-2="9 1 -1 1">0.20412414523193156</basis>
         <basis multiplicity="1" index-1="1 1 -1 1" index-2="9 1 -1 3">0.20412414523193156</basis>
         <basis multiplicity="1" index-1="1 1 -1 1" index-2="9 1 -1 6">0.20412414523193156</basis>
@@ -189,7 +188,7 @@
         <basis multiplicity="1" index-1="1 1 1 1" index-2="11 1 1 12">0.20412414523193156</basis>
         <basis multiplicity="1" index-1="1 1 1 1" index-2="11 1 1 14">0.20412414523193156</basis>
       </SALC>
-      <SALC index="7" num_basis="24">
+      <SALC index="7" num_basis="24" body="2">
         <basis multiplicity="1" index-1="1 1 -1 1" index-2="15 1 -1 1">0.20412414523193156</basis>
         <basis multiplicity="1" index-1="1 1 -1 1" index-2="15 1 -1 2">0.20412414523193156</basis>
         <basis multiplicity="1" index-1="1 1 -1 1" index-2="15 1 -1 3">0.20412414523193156</basis>
@@ -219,12 +218,12 @@
   </System>
   <JPhi unit="eV">
     <ReferenceEnergy>-128.65123808343753</ReferenceEnergy>
-    <jphi salc_index="1">0.0012539859067522492</jphi>
-    <jphi salc_index="2">-0.595724799522232</jphi>
-    <jphi salc_index="3">0.00912111031164126</jphi>
-    <jphi salc_index="4">0.010340428593847614</jphi>
-    <jphi salc_index="5">0.0073595047484456425</jphi>
-    <jphi salc_index="6">0.011557279906222497</jphi>
-    <jphi salc_index="7">0.04790229369321588</jphi>
+    <jphi salc_index="1">0.001253985906752255</jphi>
+    <jphi salc_index="2">-0.5957247995222336</jphi>
+    <jphi salc_index="3">0.00912111031164125</jphi>
+    <jphi salc_index="4">0.01034042859384757</jphi>
+    <jphi salc_index="5">0.007359504748445621</jphi>
+    <jphi salc_index="6">0.011557279906222507</jphi>
+    <jphi salc_index="7">0.04790229369321599</jphi>
   </JPhi>
 </Magesty>

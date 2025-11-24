@@ -55,8 +55,14 @@ mutable struct SortedVector{T} <: AbstractSortedVector{T}
 		new{eltype(data)}(sorted_data)
 	end
 
+	function SortedVector(data::AbstractVector{T}) where T
+		sorted_data = sort(collect(data))
+		new{T}(sorted_data)
+	end
+
 	# Empty constructors
 	SortedVector{T}() where T = new{T}(Vector{T}())
+	SortedVector{T}(data::AbstractVector{T}) where T = new{T}(sort(collect(data)))
 	SortedVector() = new{Any}(Vector())
 end
 

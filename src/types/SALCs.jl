@@ -91,13 +91,56 @@ function SALC(
 
 	for (idx, basis) in enumerate(basislist)
 		count = basislist.counts[basis]
-		coeff = coeffs[idx] * count
-		if !isapprox(coeff, 0.0, atol = 1e-8)
+		if !isapprox(coeffs[idx], 0.0, atol = 1e-8)
 			push!(result_basisset, basis)
-			push!(result_coeffs, coeff)
+			push!(result_coeffs, coeffs[idx])
 			push!(result_multiplicity, count)
 		end
 	end
+
+	# normalize coefficient vector
+	norm_coeffs = norm(result_coeffs)
+	if isapprox(norm_coeffs, 0.0, atol = 1e-8)
+		throw(ArgumentError("The norm of the coefficient vector is zero."))
+	end
+	result_coeffs ./= norm_coeffs
+
+	return SALC(result_basisset, result_coeffs, result_multiplicity)
+end
+
+function SALC(
+	basislist::SortedCountingUniqueVector{SHProduct},
+	coeffs::Vector{<:Real},
+)
+	length(basislist) == length(coeffs) ||
+		throw(ArgumentError("The length of basislist and coeffs must be the same"))
+
+	result_basisset = Vector{IndicesUniqueList}()
+	result_coeffs = Vector{Float64}()
+	result_multiplicity = Vector{Int}()
+	basis_index_map = Dict{IndicesUniqueList, Int}()
+
+	for (idx, basis::SHProduct) in enumerate(basislist)
+		iul::IndicesUniqueList = convert2indices(basis)
+		count = basislist.counts[basis]
+		coeff = coeffs[idx] * count
+		if haskey(basis_index_map, iul)
+			acc_idx = basis_index_map[iul]
+			result_coeffs[acc_idx] += coeff
+			result_multiplicity[acc_idx] += count
+		else
+			push!(result_basisset, iul)
+			push!(result_coeffs, coeff)
+			push!(result_multiplicity, count)
+			basis_index_map[iul] = length(result_basisset)
+		end
+	end
+
+	# remove near-zero coefficients
+	keep_mask = .!isapprox.(result_coeffs, 0.0, atol = 1e-8)
+	result_basisset = result_basisset[keep_mask]
+	result_coeffs = result_coeffs[keep_mask]
+	result_multiplicity = result_multiplicity[keep_mask]
 
 	# normalize coefficient vector
 	norm_coeffs = norm(result_coeffs)

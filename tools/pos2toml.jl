@@ -186,34 +186,40 @@ function create_toml(data::NamedTuple, output_file::String)
         symmetry["tolerance"] = 1e-5
         toml_data["symmetry"] = symmetry
         
-        # [interaction] section
+        # [interaction] section (latest format)
         interaction = OrderedDict{String, Any}()
         interaction["nbody"] = 2
         
-        # interaction.lmax
+        # [interaction.body1]
+        body1 = OrderedDict{String, Any}()
         lmax = OrderedDict{String, Any}()
         for element in data.element_symbols
-            lmax[element] = [0, 1]
+            lmax[element] = 0
         end
-        interaction["lmax"] = lmax
+        body1["lmax"] = lmax
         
-        # interaction.cutoff
+        # [interaction.body2]
+        body2 = OrderedDict{String, Any}()
         cutoff = OrderedDict{String, Any}()
         for i in 1:length(data.element_symbols)
             for j in i:length(data.element_symbols)
                 pair = join(sort([data.element_symbols[i], data.element_symbols[j]]), "-")
-                cutoff[pair] = [-1, -1]
+                cutoff[pair] = -1
             end
         end
-        interaction["cutoff"] = cutoff
-        toml_data["interaction"] = interaction
+        body2["cutoff"] = cutoff
+        body2["lsum"] = 2
         
-        # [regression] section
+        # store sections for output formatting
+        interaction_sections = (interaction = interaction, body1 = body1, body2 = body2)
+        toml_data["interaction"] = interaction_sections
+        
+        # [regression] section (defaults aligned with examples)
         regression = OrderedDict{String, Any}()
-        regression["weight"] = 0.0
-        regression["alpha"] = 0.0
+        regression["datafile"] = "EMBSET.dat"
+        regression["weight"] = 1.0
+        regression["alpha"] = 0
         regression["lambda"] = 0.0
-        regression["datafile"] = "EMBSET"
         toml_data["regression"] = regression
         
         # [structure] section
@@ -240,13 +246,16 @@ function create_toml(data::NamedTuple, output_file::String)
         
         # Write the TOML data to the output file with formatting
         open(output_file, "w") do io
-            # Write each section with custom formatting
+            # [general]
             write(io, "[general]\n")
             for (key, value) in general
                 if key == "kd"
-                    write(io, "kd = [\"$(join(value, "\", \""))\"]\n")
+                    # print as array of quoted strings, e.g., ["Fe", "Pt"]
+                    quoted = join(["\"$(v)\"" for v in value], ", ")
+                    write(io, "kd = [$quoted]\n")
                 elseif key == "periodicity"
-                    write(io, "periodicity = [$(join(value, ", "))]\n")
+                    joined = join(string.(value), ", ")
+                    write(io, "periodicity = [$joined]\n")
                 elseif key == "name"
                     write(io, "name = \"$value\"\n")
                 else
@@ -255,27 +264,32 @@ function create_toml(data::NamedTuple, output_file::String)
             end
             write(io, "\n")
             
+            # [symmetry]
             write(io, "[symmetry]\n")
             for (key, value) in symmetry
                 write(io, "$key = $value\n")
             end
             write(io, "\n")
             
+            # [interaction]
             write(io, "[interaction]\n")
             write(io, "nbody = $(interaction["nbody"])\n\n")
             
-            write(io, "[interaction.lmax]\n")
+            # [interaction.body1] with dotted lmax keys
+            write(io, "[interaction.body1]\n")
             for (element, value) in lmax
-                write(io, "$element = [$(join(value, ", "))]\n")
+                write(io, "lmax.$element = $value\n")
             end
             write(io, "\n")
             
-            write(io, "[interaction.cutoff]\n")
+            # [interaction.body2]
+            write(io, "[interaction.body2]\n")
             for (pair, value) in cutoff
-                write(io, "$pair = [$(join(value, ", "))]\n")
+                write(io, "cutoff.\"$pair\" = $value\n")
             end
-            write(io, "\n")
+            write(io, "lsum = $(body2["lsum"])\n\n")
             
+            # [regression]
             write(io, "[regression]\n")
             for (key, value) in regression
                 if key == "datafile"
@@ -286,41 +300,39 @@ function create_toml(data::NamedTuple, output_file::String)
             end
             write(io, "\n")
             
+            # [structure]
             write(io, "[structure]\n")
+            # lattice
             write(io, "lattice = [\n")
             for vec in structure["lattice"]
-                write(io, "        [ $(join(vec, ", ")) ],\n")
+                write(io, "  [$(join(vec, ", "))],\n")
             end
             write(io, "]\n")
             
+            # kd_list (keep multi-line blocks grouped by value, with commas)
             write(io, "kd_list = [\n")
-            # Break line every 20 atoms or when the value changes
             current_line = Int[]
             current_value = kd_list[1]
-            
             for (i, value) in enumerate(kd_list)
                 if value != current_value || length(current_line) >= 20
                     if !isempty(current_line)
-                        write(io, "        $(join(current_line, ", ")),\n")
+                        write(io, "  $(join(current_line, ", ")),\n")
                     end
                     current_line = Int[]
                     current_value = value
                 end
                 push!(current_line, value)
             end
-            
-            # Output the last line
             if !isempty(current_line)
-                write(io, "        $(join(current_line, ", ")),\n")
+                write(io, "  $(join(current_line, ", ")),\n")
             end
             write(io, "]\n")
             
-            # Format position array with aligned decimal points
+            # position
             write(io, "position = [\n")
             for pos in positions
-                # Format each coordinate with fixed width
-                formatted_pos = map(x -> rpad(@sprintf("%.15f", x), 20), pos)
-                write(io, "        [ $(join(formatted_pos, ", ")) ],\n")
+                formatted_pos = map(x -> @sprintf("%.15f", x), pos)
+                write(io, "  [$(join(formatted_pos, ", "))],\n")
             end
             write(io, "]\n")
         end
