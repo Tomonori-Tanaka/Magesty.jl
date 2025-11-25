@@ -4,7 +4,9 @@ using LinearAlgebra
 using Printf
 using StaticArrays
 
-include("../src/Magesty.jl")
+if !@isdefined(Magesty)
+	include("../src/Magesty.jl")
+end
 using .Magesty
 
 # Cache for XML documents to avoid repeated file reads
