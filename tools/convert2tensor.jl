@@ -5,7 +5,7 @@ using Printf
 using StaticArrays
 
 if !@isdefined(Magesty)
-	include("../src/Magesty.jl")
+include("../src/Magesty.jl")
 end
 using .Magesty
 
