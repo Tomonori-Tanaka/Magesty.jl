@@ -8,9 +8,14 @@ using EzXML
 using JLD2
 using Base.Threads
 
-include("../src/Magesty.jl")
+@isdefined(Magesty) || begin
+	include("../src/Magesty.jl")
+end
 using .Magesty
-include("./convert2tensor.jl")
+
+@isdefined(convert2tensor) || begin
+	include("./convert2tensor.jl")
+end
 
 
 function calc_dm_vector(j_ex::Array{Float64, 2})::Vector{Float64}
@@ -59,7 +64,7 @@ function calc_micromagnetics(
 
 			# calculate the exchange interaction tensor
 			exchange_tensor = convert2tensor(input_xml, [i_atom, i_pair])
-			exchange_tensor = (1/2) * exchange_tensor	# convert from <i, j> (per bond) to (i, j) (allow for double counting)
+			exchange_tensor = (1/2) * exchange_tensor# convert from <i, j> (per bond) to (i, j) (allow for double counting)
 			jij = (1/3) * tr(exchange_tensor)
 			dm_vector = calc_dm_vector(exchange_tensor)
 
@@ -123,4 +128,6 @@ function main()
 	display(spiralization_matrix)
 end
 
-main()
+if abspath(PROGRAM_FILE) == @__FILE__
+	main()
+end
