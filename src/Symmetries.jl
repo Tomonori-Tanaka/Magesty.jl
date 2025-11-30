@@ -8,13 +8,11 @@ A module for handling symmetry operations in crystal structures using `Spglib`. 
 - **`Symmetry`**: Represents the symmetry information of a structure, including symmetry operations, mappings, and metadata.
 
 # Functions
-- `is_compatible_cart(rot_cart)`: Check if a rotation matrix is compatible with Cartesian axes.
 - `Symmetry(structure, tol)`: Generate a `Symmetry` object for a given structure with a specified tolerance.
 """
 module Symmetries
 
 using Base.Threads
-using Combinatorics: with_replacement_combinations
 using LinearAlgebra
 using StaticArrays
 using Spglib
@@ -37,7 +35,6 @@ Represents a symmetry operation, including rotation and translation components.
 - `rotation_cart::SMatrix{3, 3, Float64, 9}`: The 3x3 rotation matrix in Cartesian coordinates.
 - `translation_frac::SVector{3, Float64}`: The 3x1 translation vector in fractional coordinates.
 - `is_translation::Bool`: True if the operation is a pure translation.
-- `is_translation_included::Bool`: True if the operation includes a translation.
 - `is_proper::Bool`: True if the rotation is proper (determinant > 0).
 
 # Examples
@@ -48,7 +45,6 @@ symop = SymmetryOperation(
 	rotation_cart = [1 0 0; 0 1 0; 0 0 1],
 	translation_frac = [0.0, 0.0, 0.0],
 	is_translation = true,
-	is_translation_included = false,
 	is_proper = true
 )
 ```
@@ -58,7 +54,6 @@ struct SymmetryOperation
 	rotation_cart::SMatrix{3, 3, Float64, 9}
 	translation_frac::SVector{3, Float64}
 	is_translation::Bool
-	is_translation_included::Bool
 	is_proper::Bool
 end
 
@@ -66,14 +61,12 @@ function isless(symop1::SymmetryOperation, symop2::SymmetryOperation)
 	symop1_rot_flatten = vec(transpose(symop1.rotation_frac))
 	symop2_rot_flatten = vec(transpose(symop2.rotation_frac))
 
-	# if matrix element < 0, add 1.0
+	# Normalize translation vectors: if element < 0, add 1.0
 	symop1_translation = [
-		symop1.translation_frac[i] < 0.0 ? 1.0 + symop1.translation_frac[i] :
-		symop1.translation_frac[i] for i in 1:3
+		val < 0.0 ? 1.0 + val : val for val in symop1.translation_frac
 	]
 	symop2_translation = [
-		symop2.translation_frac[i] < 0.0 ? 1.0 + symop2.translation_frac[i] :
-		symop2.translation_frac[i] for i in 1:3
+		val < 0.0 ? 1.0 + val : val for val in symop2.translation_frac
 	]
 
 	return vcat(symop1_rot_flatten, symop1_translation) <
@@ -81,14 +74,13 @@ function isless(symop1::SymmetryOperation, symop2::SymmetryOperation)
 end
 
 function show(io::IO, symop::SymmetryOperation)
-	println("rotation_frac: ")
-	display(symop.rotation_frac)
-	println("rotation_cart: ")
-	display(symop.rotation_cart)
-	println("translation_frac: ", symop.translation_frac)
-	println("is_translation: ", symop.is_translation)
-	println("is_translation_included: ", symop.is_translation_included)
-	println("is_proper: ", symop.is_proper)
+	println(io, "rotation_frac: ")
+	print(io, symop.rotation_frac)
+	println(io, "\nrotation_cart: ")
+	print(io, symop.rotation_cart)
+	println(io, "\ntranslation_frac: ", symop.translation_frac)
+	println(io, "is_translation: ", symop.is_translation)
+	println(io, "is_proper: ", symop.is_proper)
 end
 
 """ Maps
@@ -149,7 +141,7 @@ struct Symmetry
 
 		cell = structure.supercell
 		# convert x_frac::Matrix{Float64} to x_frac::Vector{Vector{Float64}}
-		x_frac_vec = [col for col in eachcol(cell.x_frac)]
+		x_frac_vec = collect(eachcol(cell.x_frac))
 		spglib_data::Spglib.Dataset =
 			get_dataset(Spglib.Cell(cell.lattice_vectors, x_frac_vec, cell.kd_int_list))
 
@@ -172,12 +164,12 @@ struct Symmetry
 		# generate map_p2s (primitive cell --> supercell)
 		map_p2s = construct_map_p2s(spglib_data, cell, map_sym, symnum_translation)
 
-		nat_prim = max(spglib_data.mapping_to_primitive...)
+		nat_prim = maximum(spglib_data.mapping_to_primitive)
 		# generate map_s2p (supercell -> primitive cell)
 		map_s2p = construct_map_s2p(cell, map_p2s, nat_prim, ntran)
 
 		# collect atom indices in primitive cell from map_p2s
-		atoms_in_prim = Int[map_p2s[i, 1] for i in 1:nat_prim]
+		atoms_in_prim = [map_p2s[i, 1] for i in 1:nat_prim]
 		atoms_in_prim = sort(atoms_in_prim)
 
 		if verbosity
@@ -235,31 +227,15 @@ function construct_symdata(
 		rotation_cart =
 			cell.lattice_vectors * spglib_data.rotations[i] * cell.reciprocal_vectors
 
-		if det(rotation_cart) > 0 ? is_proper = true : is_proper = false
-		end
+		is_proper = det(rotation_cart) > 0
 		translation_frac =
 			(abs.(spglib_data.translations[i]) .>= tol) .* spglib_data.translations[i]
-		# check a translation vector is included in the symmetry operation.
-		is_translation_included = false
-		for itrans in Base.tail(Tuple(symnum_translation))
-			for (elem_translation_frac, elem_translation) in
-				zip(translation_frac, spglib_data.translations[itrans])
-				if isapprox(elem_translation, 0.0, atol = tol)
-					continue
-				end
-				if elem_translation_frac >= elem_translation
-					is_translation_included = true
-					break
-				end
-			end
-		end
 
 		symdata_elem = SymmetryOperation(
-			spglib_data.rotations[i],
-			rotation_cart,
-			translation_frac,
+			SMatrix{3, 3, Float64, 9}(spglib_data.rotations[i]),
+			SMatrix{3, 3, Float64, 9}(rotation_cart),
+			SVector{3, Float64}(translation_frac),
 			isapprox(spglib_data.rotations[i], I, atol = tol),
-			is_translation_included,
 			is_proper,
 		)
 		symdata[i] = symdata_elem
@@ -290,8 +266,10 @@ function construct_map_sym(
 					spglib_data.translations[isym]
 
 				for jat in structure.atomtype_group[itype]
-					# Calculate relative position
-					local_tmp .= (abs.(structure.supercell.x_frac[:, jat] - local_x_new)) .% 1.0
+					# Calculate periodic distance in fractional coordinates
+					diff = structure.supercell.x_frac[:, jat] - local_x_new
+					local_tmp .= abs.(diff) .% 1.0
+					# Take minimum distance considering periodic boundary
 					for (i, val) in enumerate(local_tmp)
 						local_tmp[i] = min(val, 1 - val)
 					end
@@ -407,7 +385,7 @@ function construct_map_p2s(
 		end
 		jat += 1
 	end
-	if 0 in map_p2s
+	if any(==(0), map_p2s)
 		error("something wrong in generating map_p2s")
 	end
 	return map_p2s
@@ -445,58 +423,12 @@ function construct_map_s2p(
 			initialized[atomnum_translated] = true
 		end
 	end
-	undef_indices = findall(x -> x == false, initialized)
-	if length(undef_indices) >= 1
+	undef_indices = findall(!, initialized)
+	if !isempty(undef_indices)
 		error("undef is detected in `map_s2p` variable: $undef_indices")
 	end
 	return map_s2p
 end
-
-"""
-	find_matching_image_cell(symop::SymmetryOperation, x_image::AbstractArray{<:Real, 3}, atom::Integer, cell::Integer) -> Int
-
-Finds the matching image cell index for a given symmetry operation applied to an atom within a supercell.
-
-# Arguments
-- `symop::SymmetryOperation`: The symmetry operation to be applied
-- `x_image::AbstractArray{<:Real, 3}`: Fractional coordinates of atoms in different images
-- `atom::Integer`: Index of the atom to apply symmetry operation to
-- `cell::Integer`: Image cell index of the atom
-- `tol::Real`: Tolerance for floating point comparisons (default: 1e-5)
-
-# Returns
-- `Int`: The matching image cell index if found, -1 if not found
-
-# Throws
-- `ArgumentError`: If atom or cell indices are out of bounds
-- `ErrorException`: If multiple matches are found
-"""
-function find_matching_image_cell(
-	x_new::MVector{3, Float64},
-	x_image::AbstractArray{<:Real, 3},
-	;
-	tol::Real = 1e-5,
-)::Int
-	# Use views for better performance
-	matches = [
-		(n, m) for n in 1:size(x_image, 2), m in 1:size(x_image, 3)
-		if isapprox(
-			SVector{3, Float64}(@view(x_image[:, n, m])),
-			SVector{3, Float64}(x_new);
-			atol = tol,
-		)
-	]
-
-	if isempty(matches)
-		return -1
-	elseif length(matches) == 1
-		return matches[1][2]
-	else
-		error("Multiple matching image cells found. ")
-	end
-end
-
-is_in_centeringcell(xf, x_image_frac) = any(xf ≈ vec for vec in x_image_frac[:, :, 1])
 
 
 function print_symmetry_stdout(
