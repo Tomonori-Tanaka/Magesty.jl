@@ -96,7 +96,7 @@ Represents a collection of interaction clusters based on the specified number of
 - `num_bodies::Int`: Number of interacting bodies
 - `cutoff_radii::OffsetArray{Float64, 3}`: Cutoff radii for each atomic element pair and interaction body
 - `min_distance_pairs::Matrix{Vector{DistInfo}}`: Matrix of minimum distance pairs between atoms
-- `cluster_dict_new::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}`: Dictionary of interaction clusters organized by body and primitive atom index
+- `cluster_dict::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}`: Dictionary of interaction clusters organized by body and primitive atom index
 
 # Constructor
 	Cluster(structure, symmetry, nbody, cutoff_radii)
@@ -112,7 +112,7 @@ struct Cluster
 	num_bodies::Int
 	cutoff_radii::OffsetArray{Float64, 3}
 	min_distance_pairs::Matrix{Vector{DistInfo}}
-	cluster_dict_new::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}
+	cluster_dict::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}
 
 	function Cluster(
 		structure::Structure,
@@ -125,7 +125,7 @@ struct Cluster
 
 		start_time = time_ns()
 
-		cluster_dict_new::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}} =
+		cluster_dict::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}} =
 			generate_clusters(structure, symmetry, cutoff_radii, nbody)
 
 		min_distance_pairs = set_mindist_pairs(
@@ -153,7 +153,7 @@ struct Cluster
 			nbody,
 			cutoff_radii,
 			min_distance_pairs,
-			cluster_dict_new,
+			cluster_dict,
 		)
 	end
 end

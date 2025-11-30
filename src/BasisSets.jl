@@ -359,8 +359,8 @@ function construct_basislist_new(
 )::SortedCountingUniqueVector{SHProduct}
 
 	result_basislist = SortedCountingUniqueVector{SHProduct}()
-	cluster_dict_new::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}} =
-		cluster.cluster_dict_new
+	cluster_dict::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}} =
+		cluster.cluster_dict
 
 	# Handle 1-body case
 	for iat in symmetry.atoms_in_prim
@@ -380,7 +380,7 @@ function construct_basislist_new(
 	for body in 2:nbody
 		body_basislist = SortedCountingUniqueVector{SHProduct}()
 		for prim_atom_sc in symmetry.atoms_in_prim
-			cuv::CountingUniqueVector{Vector{Int}} = cluster_dict_new[body][prim_atom_sc]
+			cuv::CountingUniqueVector{Vector{Int}} = cluster_dict[body][prim_atom_sc]
 			for atom_list::Vector{Int} in cuv
 				count = cuv.counts[atom_list]
 				shp_list::Vector{SHProduct} =
