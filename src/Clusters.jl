@@ -19,7 +19,7 @@ This module provides data structures and functions for managing and analyzing cl
 
 module Clusters
 
-using Combinatorics: combinations
+using Combinat
 using DataStructures
 using LinearAlgebra
 using OffsetArrays

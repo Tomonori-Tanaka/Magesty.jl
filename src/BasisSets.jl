@@ -6,7 +6,6 @@ adapted to the symmetry of the crystal structure.
 module BasisSets
 
 using Combinat
-using Combinatorics
 using DataStructures
 using LinearAlgebra
 using OffsetArrays
@@ -23,8 +22,6 @@ using ..Symmetries
 using ..Clusters
 using ..SALCs
 using ..RotationMatrix
-
-include("./utils/Projection.jl")
 
 export BasisSet
 
@@ -75,10 +72,6 @@ The constructor performs the following steps:
 4. Generates symmetry-adapted linear combinations (SALCs)
 """
 struct BasisSet
-	# basislist::SortedCountingUniqueVector{IndicesUniqueList}
-	# basislist_simple::SortedCountingUniqueVector{SHProduct}
-	# classified_basisdict::Dict{Int, SortedCountingUniqueVector}
-	# classified_basisdict_simple::Dict{Int, SortedCountingUniqueVector{SHProduct}}
 	salc_list::Vector{SALC}
 
 	function BasisSet(
@@ -108,30 +101,30 @@ struct BasisSet
 		# Construct basis list
 		# basislist consists of all possible basis functions which is the product of spherical harmonics.
 		if verbosity
-			println("Constructing basis list...")
+			print("Constructing basis list...")
 		end
 
-
-		basislist_new::SortedCountingUniqueVector{SHProduct} =
-			construct_basislist_new(structure, symmetry, cluster, body1_lmax, bodyn_lsum, nbody)
+		basislist::SortedCountingUniqueVector{SHProduct} =
+			construct_basislist(structure, symmetry, cluster, body1_lmax, bodyn_lsum, nbody)
 
 		classified_basisdict_new::Dict{Int, SortedCountingUniqueVector{SHProduct}} =
-			classify_basislist_simple(basislist_new, symmetry.map_sym)
+			classify_basislist(basislist, symmetry.map_sym)
 
 		classified_basisdict_new = filter_basisdict(classified_basisdict_new)
+		if verbosity
+			print(" done\n")
+		end
 
 		if verbosity
-			println("Constructing projection matrices...")
+			print("Constructing projection matrices...")
 		end
-		projection_list_new = projection_matrix_simple(classified_basisdict_new, symmetry)
+		projection_list_new = projection_matrix(classified_basisdict_new, symmetry)
 		salc_list_new = Vector{SALC}()
 		for idx in eachindex(projection_list_new)
 			eigenvals, eigenvecs = eigen(projection_list_new[idx])
 			eigenvals = real.(round.(eigenvals, digits = 6))
 			eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
 			if !is_proper_eigenvals(eigenvals)
-				display(classified_basisdict_new[idx])
-				println("eigenval: $(eigenvals)")
 				@warn "Critical error: Eigenvalues must be either 0 or 1. index: $idx"
 			end
 			for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
@@ -143,105 +136,10 @@ struct BasisSet
 		end
 		salc_list_new = filter(salc -> !is_identically_zero(salc), salc_list_new)
 
-		display(salc_list_new)
-
-		#= basislist_simple = construct_basislist_simple(
-			structure,
-			symmetry,
-			cluster,
-			body1_lmax,
-			bodyn_lsum,
-			nbody,
-		)
-
-		# Classify basis functions by symmetry
-		classified_basisdict_simple = classify_basislist_simple(basislist_simple, symmetry.map_sym)
-
-		# Construct projection matrices
 		if verbosity
-			println("Constructing projection matrices...")
+			print(" done\n")
 		end
-		projection_list_simple = projection_matrix_simple(classified_basisdict_simple, symmetry)
-		salc_list = Vector{SALC}()
-		for idx in eachindex(projection_list_simple)
-			eigenvals, eigenvecs = eigen(Symmetric(projection_list_simple[idx]))
-			eigenvals = real.(round.(eigenvals, digits = 6))
-			# @show eigenvals
-			eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
-			if !is_proper_eigenvals(eigenvals)
-				# display(classified_basisdict_simple[idx-1])
-				# display(classified_basisdict_simple[idx])
-				# println("eigenval: $(eigenvals)")
-				#error("Critical error: Eigenvalues must be either 0 or 1. index: $idx")
-				@warn "Critical error: Eigenvalues must be either 0 or 1. index: $idx"
-			end
-			for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
-				eigenvec = eigenvecs[:, idx_eigenval]
-				eigenvec = flip_vector_if_negative_sum(eigenvec)
-				eigenvec = round.(eigenvec .* (abs.(eigenvec) .≥ 1e-8), digits = 10)
-				push!(salc_list, SALC(classified_basisdict_simple[idx], eigenvec / norm(eigenvec)))
-			end
-		end
-		salc_list = filter(salc -> !is_identically_zero(salc), salc_list) =#
 
-
-
-		# basislist = construct_basislist(
-		# 	structure,
-		# 	symmetry,
-		# 	cluster,
-		# 	body1_lmax,
-		# 	bodyn_lsum,
-		# 	nbody,
-		# )
-		# classified_basisdict = classify_basislist(basislist, symmetry.map_sym)
-
-		# projection_list, num_nonzero_projection_list = construct_projectionmatrix(
-		# 	classified_basisdict,
-		# 	structure,
-		# 	symmetry,
-		# )
-
-		# # Generate symmetry-adapted linear combinations
-		# if verbosity
-		# 	println("Deriving SALCs...\n")
-		# end
-		# salc_list = Vector{SALC}()
-		# for idx in eachindex(projection_list)
-		# 	eigenval, eigenvec = eigen(Symmetric(projection_list[idx]))
-		# 	# eigenval, eigenvec = eigs(projection_list[idx], nev = )
-		# 	eigenval = eigenval ./ num_nonzero_projection_list[idx]
-
-		# 	# Set tolerance constants
-		# 	tol_zero = 1e-5
-		# 	tol_eigen = 1e-8
-
-		# 	# Process eigenvalues and eigenvectors
-		# 	eigenval = real.(round.(eigenval, digits = 6))
-		# 	eigenvec = round.(eigenvec .* (abs.(eigenvec) .≥ tol_zero), digits = 10)
-
-		# 	!is_proper_eigenvals(eigenval, tol = tol_eigen) &&
-		# 		print("eigenval: $eigenval")
-		# 	throw(
-		# 		DomainError(
-		# 			"Critical error: Eigenvalues must be either 0 or 1. index: $idx",
-		# 		),
-		# 	)
-
-		# 	# Process vectors corresponding to eigenvalue 1
-		# 	for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = tol_eigen), eigenval)
-		# 		eigenvec_real = to_real_vector(eigenvec[:, idx_eigenval])
-		# 		# Filter small values in the eigenvector
-		# 		# eigenvec_real = filter_eigenvec(eigenvec_real, rtol = 1e-3)
-		# 		eigenvec_real = flip_vector_if_negative_sum(eigenvec_real)
-		# 		push!(
-		# 			salc_list,
-		# 			SALC(classified_basisdict[idx], eigenvec_real / norm(eigenvec_real)),
-		# 		)
-		# 	end
-		# end
-
-		# salc_list = filter(salc -> !is_identically_zero(salc), salc_list)
 
 		if verbosity
 			print_basisset_stdout(salc_list_new)
@@ -252,10 +150,6 @@ struct BasisSet
 
 
 		return new(
-			# basislist,
-			# basislist_simple,
-			# classified_basisdict,
-			# classified_basisdict_simple,
 			salc_list_new,
 		)
 	end
@@ -281,75 +175,6 @@ function BasisSet(
 end
 
 function construct_basislist(
-	structure::Structure,
-	symmetry::Symmetry,
-	cluster::Cluster,
-	body1_lmax::Vector{Int},
-	bodyn_lsum::OffsetArray{Int, 1},
-	nbody::Integer,
-)::SortedCountingUniqueVector{IndicesUniqueList}
-
-	result_basislist = SortedCountingUniqueVector{IndicesUniqueList}()
-
-	# Get aliases for better readability
-	kd_int_list = structure.supercell.kd_int_list
-	cluster_list = cluster.cluster_list
-
-	# Handle 1-body case (single-thread for safety; cost is small)
-	for iat in symmetry.atoms_in_prim
-		# Use @view for better performance when accessing matrix row
-		lmax = body1_lmax[kd_int_list[iat]]
-
-		for l in 1:lmax[1]
-			iul::Vector{Indices} = indices_singleatom(iat, l, 1)
-			for indices::Indices in iul
-				push!(result_basislist, IndicesUniqueList(indices))
-			end
-		end
-	end
-
-	# Process multi-body cases
-	for body in 2:nbody
-		for cluster in cluster_list[body-1]
-			for lsum in 1:bodyn_lsum[body]
-
-				# skip odd lsum cases due to the time-reversal symmetry
-				if mod(lsum, 2) == 1
-					continue
-				end
-
-				iul_list = listup_basislist(cluster, lsum)
-
-				for iul in iul_list
-					for basis in result_basislist
-						# Check for equivalent clusters in primitive cell
-						if equivalent(basis, iul)
-							result_basislist.counts[basis] += 1
-							@goto skip
-							# Check for translationally equivalent clusters
-						elseif is_translationally_equiv_basis(
-							iul,
-							basis,
-							symmetry.atoms_in_prim,
-							symmetry.map_s2p,
-							structure.x_image_cart,
-							tol = symmetry.tol,
-						)
-							result_basislist.counts[basis] += 1
-							@goto skip
-						end
-					end
-					push!(result_basislist, iul)
-					@label skip
-				end
-			end
-		end
-	end
-
-	return result_basislist
-end
-
-function construct_basislist_new(
 	structure::Structure,
 	symmetry::Symmetry,
 	cluster::Cluster,
@@ -384,7 +209,7 @@ function construct_basislist_new(
 			for atom_list::Vector{Int} in cuv
 				count = cuv.counts[atom_list]
 				shp_list::Vector{SHProduct} =
-					listup_basislist_simple(atom_list, bodyn_lsum[body])
+					listup_basislist(atom_list, bodyn_lsum[body])
 				for shp::SHProduct in shp_list
 					push_unique_body!(body_basislist, shp, count, symmetry)
 				end
@@ -410,7 +235,7 @@ function push_unique_body!(
 			continue
 		end
 		basis_sorted = sort(basis)
-		if shp_sorted == basis_sorted || is_translationally_equiv_basis_simple(basis, shp, symmetry)
+		if shp_sorted == basis_sorted || is_translationally_equiv_basis(basis, shp, symmetry)
 			return
 		end
 	end
@@ -418,60 +243,7 @@ function push_unique_body!(
 end
 
 
-function construct_basislist_simple(
-	structure::Structure,
-	symmetry::Symmetry,
-	cluster::Cluster,
-	body1_lmax::Vector{Int},
-	bodyn_lsum::OffsetArray{Int, 1},
-	nbody::Integer,
-)::SortedCountingUniqueVector{SHProduct}
-
-	result_basislist = SortedCountingUniqueVector{SHProduct}()
-	cluster_dict::Dict{Int, CountingUniqueVector{Vector{Int}}} = cluster.cluster_dict
-
-	# Handle 1-body case
-	for iat in symmetry.atoms_in_prim
-		lmax = body1_lmax[structure.supercell.kd_int_list[iat]]
-		for l in 2:lmax[1] # skip l = 1 because it is prohibited by the time-reversal symmetry
-			if l % 2 == 1 # skip odd l cases due to the time-reversal symmetry
-				continue
-			end
-			shsi_list::Vector{SHSiteIndex} = shsiteindex_singleatom(iat, l)
-			for shsi::SHSiteIndex in shsi_list
-				push!(result_basislist, SHProduct([shsi]))
-			end
-		end
-	end
-
-	# Process multi-body cases
-	for body in 2:nbody
-		for atom_list::Vector{Int} in cluster_dict[body]
-			count = cluster_dict[body].counts[atom_list]
-
-			shp_list::Vector{SHProduct} = listup_basislist_simple(atom_list, bodyn_lsum[body])
-			for shp::SHProduct in shp_list
-				for basis in result_basislist
-					if sort(shp) == sort(basis)
-						result_basislist.counts[basis] += count
-						@goto skip
-					elseif is_translationally_equiv_basis_simple(basis, shp, symmetry)
-						result_basislist.counts[basis] += count
-						@goto skip
-					end
-					# push!(result_basislist, shp, count)
-				end
-				for _ in 1:count
-					push!(result_basislist, shp)
-				end
-				@label skip
-			end
-		end
-	end
-	return result_basislist
-end
-
-function listup_basislist_simple(
+function listup_basislist(
 	atom_list::Vector{<:Integer},
 	lsum::Integer,
 )::Vector{SHProduct}
@@ -498,87 +270,6 @@ function listup_basislist_simple(
 end
 
 
-function listup_basislist(
-	cluster::AbstractVector{AtomCell},
-	lsum::Integer,
-)::Vector{IndicesUniqueList}
-
-	result_basislist = Vector{IndicesUniqueList}()
-	nbody = length(cluster)
-
-	atomlist = [atomcell.atom for atomcell in cluster]
-	celllist = [atomcell.cell for atomcell in cluster]
-
-	l_list = Combinat.compositions(lsum, nbody; min = 1)
-	for l_vec::Vector{Int} in l_list
-		iul_list = product_indices(atomlist, l_vec, celllist)
-		for iul::IndicesUniqueList in iul_list
-			push!(result_basislist, iul)
-		end
-	end
-
-	return result_basislist
-end
-
-function get_atomsls_from_cluster(
-	cluster::AbstractVector{AtomCell}, # [≤ nbody]
-	lmax::AbstractMatrix{<:Integer},
-	kd_int_list::AbstractVector{<:Integer},
-)::Tuple{Vector{Int}, Vector{Int}, Vector{Int}}
-
-	atomlist = [atomcell.atom for atomcell in cluster]
-	celllist = [atomcell.cell for atomcell in cluster]
-
-	body = length(cluster)
-	llist = [lmax[kd_int_list[atomcell.atom], body] for atomcell in cluster]
-
-	return atomlist, llist, celllist
-end
-
-function classify_basislist(
-	basislist::AbstractVector{IndicesUniqueList},
-	map_sym::AbstractMatrix{<:Integer},
-)::AbstractDict{Int, SortedCountingUniqueVector}
-
-	count = 1
-	label_list = zeros(Int, size(basislist))
-	for (idx, basis) in enumerate(basislist)
-		if label_list[idx] != 0
-			continue
-		end
-
-		atom_l_list_base = get_atom_l_list(basis)
-
-		for isym in 1:size(map_sym, 2)
-			mapped_list = map_atom_l_list(atom_l_list_base, map_sym, isym)
-			for (idx2, basis2) in enumerate(basislist)
-				if sort(mapped_list) == sort(get_atom_l_list(basis2))
-					label_list[idx2] = count
-				end
-			end
-		end
-		count += 1
-	end
-
-
-	dict = OrderedDict{Int, SortedCountingUniqueVector}()
-
-	for idx in 1:maximum(label_list)
-		if !haskey(dict, idx)
-			dict[idx] = SortedCountingUniqueVector{IndicesUniqueList}()
-		end
-	end
-
-	for (basis, label) in zip(basislist, label_list)
-		if !(haskey(dict, label))
-			dict[label] = SortedCountingUniqueVector{IndicesUniqueList}()
-		end
-		push!(dict[label], basis, getcount(basislist, basis))
-	end
-
-	return dict
-end
-
 function map_atom_l_list(
 	atom_l_list::AbstractVector{<:AbstractVector{<:Integer}},
 	map_sym::AbstractMatrix{<:Integer},
@@ -593,7 +284,7 @@ function map_atom_l_list(
 	return mapped_atom_l_list
 end
 
-function classify_basislist_simple(
+function classify_basislist(
 	basislist::AbstractVector{SHProduct},
 	map_sym::AbstractMatrix{<:Integer},
 )::AbstractDict{Int, SortedCountingUniqueVector}
@@ -700,7 +391,7 @@ function is_translationally_equiv_basis(
 	return false
 end
 
-function is_translationally_equiv_basis_simple(
+function is_translationally_equiv_basis(
 	basis_target::SHProduct,
 	basis_ref::SHProduct,
 	symmetry::Symmetry,
@@ -830,19 +521,6 @@ function is_proper_eigenvals(eigenval::AbstractVector; tol = 1e-8)::Bool
 	return true
 end
 
-function to_real_vector(v::AbstractVector, atol::Real = 1e-12)
-	if eltype(v) <: Complex && any(zi -> !isapprox(imag(zi), 0, atol = atol), v)
-		idx = findfirst(zi -> !isapprox(imag(zi), 0, atol = atol), v)
-		throw(
-			DomainError(
-				v[idx],
-				"Vector contains complex numbers with significant imaginary parts",
-			),
-		)
-	end
-	return real.(v)
-end
-
 """
 	is_identically_zero(salc::SALC, atol::Real = 1e-8)::Bool
 
@@ -912,26 +590,6 @@ function group_same_basis(salc::SALC)::Vector{Vector{Int}}
 end
 
 """
-	filter_eigenvec(eigenvec::AbstractVector{<:Real}, rtol::Real = 1e-3)::Vector{Float64}
-Filter the eigenvector to remove small values based on a relative tolerance and re-normalize the filtered vector.
-
-"""
-function filter_eigenvec(eigenvec::AbstractVector{<:Real}; rtol::Real = 1e-3)
-	# Get the maximum absolute value in the eigenvector
-	max_abs = maximum(abs.(eigenvec))
-	# Filter the eigenvector to keep only values that are significant relative to the maximum
-	filtered_vec = deepcopy(eigenvec)
-	for i in eachindex(eigenvec)
-		if abs(eigenvec[i]) < rtol * max_abs
-			filtered_vec[i] = 0.0
-		end
-	end
-	# Re-normalize the filtered vector
-	return filtered_vec ./ norm(filtered_vec)  # Ensure the filtered vector is normalized
-
-end
-
-"""
 	flip_vector_if_negative_sum(v::AbstractVector{<:Real}; tol::Real=1e-10)::AbstractVector{<:Real}
 
 Flip the sign of the vector if the sum of the elements is negative.
@@ -967,12 +625,7 @@ function print_basisset_stdout(salc_list::AbstractVector{<:SALC})
 	println("")
 end
 
-# Custom exception type for basis set errors
-struct BasisSetError <: Exception
-	msg::String
-end
-
-function projection_matrix_simple(
+function projection_matrix(
 	basisdict::AbstractDict,
 	symmetry::Symmetry,
 )::Vector{Matrix{Float64}}
@@ -985,7 +638,7 @@ function projection_matrix_simple(
 		dim = length(basislist)
 		local_projection_mat = zeros(Float64, dim, dim)
 		for (n, symop) in enumerate(symmetry.symdata), time_rev_sym in [false, true]
-			projection_mat_per_symop = proj_matrix_a_symop_simple(
+			projection_mat_per_symop = proj_matrix_a_symop(
 				basislist,
 				symop,
 				@view(symmetry.map_sym[:, n]),
@@ -1012,7 +665,7 @@ function projection_matrix_simple(
 	return result_projections
 end
 
-function proj_matrix_a_symop_simple(
+function proj_matrix_a_symop(
 	basislist::SortedCountingUniqueVector{SHProduct},
 	symop::SymmetryOperation,
 	map_sym_per_symop::AbstractVector{<:Integer},
