@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Magesty>
-  <version>0.1.0</version>
+  <version>0.0.2</version>
   <System>
     <NumberOfAtoms>16</NumberOfAtoms>
     <NumberOfElements>1</NumberOfElements>
