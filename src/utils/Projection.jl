@@ -93,10 +93,6 @@ function proj_matrix_a_symop(
 
 	result_matrix = spzeros(Float64, length(basislist), length(basislist))
 
-	# Early return if the symmetry operation includes translation part beyond the primitive cell.
-	# if symop.is_translation_included == true
-	# 	return result_matrix
-	# end
 
 	# aliases
 	rotation_cart = SMatrix{3, 3, Float64}(symop.rotation_cart)

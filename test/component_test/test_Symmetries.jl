@@ -24,7 +24,6 @@ using Magesty.Structures
 				rotation_cart,
 				translation_frac,
 				false,  # is_translation
-				false,  # is_translation_included
 				true,   # is_proper
 			)
 
@@ -32,7 +31,6 @@ using Magesty.Structures
 			@test symop.rotation_cart == rotation_cart
 			@test symop.translation_frac == translation_frac
 			@test !symop.is_translation
-			@test !symop.is_translation_included
 			@test symop.is_proper
 		end
 
@@ -57,7 +55,7 @@ using Magesty.Structures
 					0.0 0.0 1.0
 				]),  # rotation_cart
 				SVector{3, Float64}([0.0, 0.0, 0.0]),  # translation_frac
-				false, false, true,
+				false, true,
 			)
 
 			symop2 = SymmetryOperation(
@@ -72,7 +70,7 @@ using Magesty.Structures
 					0.0 0.0 1.0
 				]),  # rotation_cart
 				SVector{3, Float64}([0.1, 0.0, 0.0]),  # translation_frac
-				false, true, true,
+				false, true,
 			)
 
 			@test symop1 < symop2
