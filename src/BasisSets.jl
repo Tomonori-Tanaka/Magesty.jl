@@ -32,14 +32,11 @@ Represents a set of basis functions for atomic interactions in a crystal structu
 This structure is used to store and manage basis functions that are adapted to the symmetry of the crystal.
 
 # Fields
-- `basislist::SortedCountingUniqueVector{IndicesUniqueList}`: List of unique basis indices with their counts
-- `classified_basisdict::Dict{Int, SortedCountingUniqueVector}`: Dictionary mapping symmetry labels to basis sets
-- `projection_dict::Dict{Int, Matrix{Float64}}`: Dictionary of projection matrices for each symmetry label
-- `each_projection_dict::Any`: Dictionary containing individual projection information
 - `salc_list::Vector{SALC}`: List of symmetry-adapted linear combinations
 
 # Constructors
-	BasisSet(structure::Structure, symmetry::Symmetry, cluster::Cluster, lmax::AbstractMatrix{<:Integer}, bodymax::Integer)
+	BasisSet(structure, symmetry, cluster, body1_lmax, bodyn_lsum, nbody; verbosity=true)
+	BasisSet(structure, symmetry, cluster, config; verbosity=true)
 
 Constructs a new `BasisSet` instance for atomic interactions in a crystal structure.
 
@@ -47,21 +44,23 @@ Constructs a new `BasisSet` instance for atomic interactions in a crystal struct
 - `structure::Structure`: Structure information containing atomic positions and species
 - `symmetry::Symmetry`: Symmetry information for the crystal structure
 - `cluster::Cluster`: Cluster information for atomic interactions
-- `lmax::AbstractMatrix{<:Integer}`: Matrix of maximum angular momentum values for each atomic species and body [nkd × nbody]
-- `bodymax::Integer`: Maximum number of bodies in interactions
+- `body1_lmax::Vector{Int}`: Maximum angular momentum values for 1-body interactions for each atomic species
+- `bodyn_lsum::OffsetArray{Int, 1}`: Maximum sum of angular momentum values for multi-body interactions
+- `nbody::Integer`: Maximum number of bodies in interactions
+- `verbosity::Bool`: Whether to print progress information (default: `true`)
 
 # Returns
-- `BasisSet`: A new basis set instance containing:
-  - List of unique basis functions
-  - Symmetry-classified basis dictionary
-  - Projection matrices
-  - Symmetry-adapted linear combinations
+- `BasisSet`: A new basis set instance containing symmetry-adapted linear combinations (SALCs)
 
 # Examples
 ```julia
-# Create a basis set for a structure with 2 atomic species and 3-body interactions
-lmax_matrix = [2 3; 3 2]  # lmax for each species and body
-basis = BasisSet(structure, symmetry, cluster, lmax_matrix, 3)
+# Create a basis set using explicit parameters
+body1_lmax = [2, 3]  # lmax for each atomic species
+bodyn_lsum = OffsetArray([0, 0, 4, 6], 0:3)  # lsum for each body
+basis = BasisSet(structure, symmetry, cluster, body1_lmax, bodyn_lsum, 3)
+
+# Create a basis set using configuration
+basis = BasisSet(structure, symmetry, cluster, config)
 ```
 
 # Note
@@ -73,86 +72,82 @@ The constructor performs the following steps:
 """
 struct BasisSet
 	salc_list::Vector{SALC}
+end
 
-	function BasisSet(
-		structure::Structure,
-		symmetry::Symmetry,
-		cluster::Cluster,
-		body1_lmax::Vector{Int},
-		bodyn_lsum::OffsetArray{Int, 1},
-		nbody::Integer,
-		;
-		verbosity::Bool = true,
-	)
-		# Start timing
-		start_time = time_ns()
+function BasisSet(
+	structure::Structure,
+	symmetry::Symmetry,
+	cluster::Cluster,
+	body1_lmax::Vector{Int},
+	bodyn_lsum::OffsetArray{Int, 1},
+	nbody::Integer,
+	;
+	verbosity::Bool = true,
+)
+	# Start timing
+	start_time = time_ns()
 
-		if verbosity
-			println(
-				"""
+	if verbosity
+		println(
+			"""
 
-				BASIS SET
-				=========
-				""",
-			)
-		end
-
-		# Validate input parameters
-		# Construct basis list
-		# basislist consists of all possible basis functions which is the product of spherical harmonics.
-		if verbosity
-			print("Constructing basis list...")
-		end
-
-		basislist::SortedCountingUniqueVector{SHProduct} =
-			construct_basislist(structure, symmetry, cluster, body1_lmax, bodyn_lsum, nbody)
-
-		classified_basisdict_new::Dict{Int, SortedCountingUniqueVector{SHProduct}} =
-			classify_basislist(basislist, symmetry.map_sym)
-
-		classified_basisdict_new = filter_basisdict(classified_basisdict_new)
-		if verbosity
-			print(" done\n")
-		end
-
-		if verbosity
-			print("Constructing projection matrices...")
-		end
-		projection_list_new = projection_matrix(classified_basisdict_new, symmetry)
-		salc_list_new = Vector{SALC}()
-		for idx in eachindex(projection_list_new)
-			eigenvals, eigenvecs = eigen(projection_list_new[idx])
-			eigenvals = real.(round.(eigenvals, digits = 6))
-			eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
-			if !is_proper_eigenvals(eigenvals)
-				@warn "Critical error: Eigenvalues must be either 0 or 1. index: $idx"
-			end
-			for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
-				eigenvec = eigenvecs[:, idx_eigenval]
-				eigenvec = flip_vector_if_negative_sum(eigenvec)
-				eigenvec = round.(eigenvec .* (abs.(eigenvec) .≥ 1e-8), digits = 10)
-				push!(salc_list_new, SALC(classified_basisdict_new[idx], eigenvec / norm(eigenvec)))
-			end
-		end
-		salc_list_new = filter(salc -> !is_identically_zero(salc), salc_list_new)
-
-		if verbosity
-			print(" done\n")
-		end
-
-
-		if verbosity
-			print_basisset_stdout(salc_list_new)
-			elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
-			println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
-			println("-------------------------------------------------------------------")
-		end
-
-
-		return new(
-			salc_list_new,
+			BASIS SET
+			=========
+			""",
 		)
 	end
+
+	# Validate input parameters
+	# Construct basis list
+	# basislist consists of all possible basis functions which is the product of spherical harmonics.
+	if verbosity
+		print("Constructing basis list...")
+	end
+
+	basislist::SortedCountingUniqueVector{SHProduct} =
+		construct_basislist(structure, symmetry, cluster, body1_lmax, bodyn_lsum, nbody)
+
+	classified_basisdict::Dict{Int, SortedCountingUniqueVector{SHProduct}} =
+		classify_basislist(basislist, symmetry.map_sym)
+
+	classified_basisdict = filter_basisdict(classified_basisdict)
+	if verbosity
+		print(" Done\n")
+	end
+
+	if verbosity
+		print("Constructing projection matrices...")
+	end
+	projection_list = projection_matrix(classified_basisdict, symmetry)
+	salc_list = Vector{SALC}()
+	for idx in eachindex(projection_list)
+		eigenvals, eigenvecs = eigen(projection_list[idx])
+		eigenvals = real.(round.(eigenvals, digits = 6))
+		eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
+		if !is_proper_eigenvals(eigenvals)
+			@warn "Critical error: Eigenvalues must be either 0 or 1. index: $idx"
+		end
+		for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
+			eigenvec = eigenvecs[:, idx_eigenval]
+			eigenvec = flip_vector_if_negative_sum(eigenvec)
+			eigenvec = round.(eigenvec .* (abs.(eigenvec) .≥ 1e-8), digits = 10)
+			push!(salc_list, SALC(classified_basisdict[idx], eigenvec / norm(eigenvec)))
+		end
+	end
+	salc_list = filter(salc -> !is_identically_zero(salc), salc_list)
+
+	if verbosity
+		print(" Done\n")
+	end
+
+	if verbosity
+		print_basisset_stdout(salc_list)
+		elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
+		println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
+		println("-------------------------------------------------------------------")
+	end
+
+	return BasisSet(salc_list)
 end
 
 function BasisSet(
@@ -247,25 +242,17 @@ function listup_basislist(
 	atom_list::Vector{<:Integer},
 	lsum::Integer,
 )::Vector{SHProduct}
-
 	result_basislist = Vector{SHProduct}()
 	for l in 2:lsum
-		if l < length(atom_list)
-			continue
-		end
-		if isodd(l) # skip odd l cases due to the time-reversal symmetry
+		if l < length(atom_list) || isodd(l)
 			continue
 		end
 		l_list = Combinat.compositions(l, length(atom_list); min = 1)
-
 		for l_vec::Vector{Int} in l_list
 			shp_list = product_shsiteindex(atom_list, l_vec)
-			for shp::SHProduct in shp_list
-				push!(result_basislist, shp)
-			end
+			append!(result_basislist, shp_list)
 		end
 	end
-
 	return result_basislist
 end
 
@@ -275,13 +262,7 @@ function map_atom_l_list(
 	map_sym::AbstractMatrix{<:Integer},
 	isym::Integer,
 )::Vector{Vector{Int}}
-	mapped_atom_l_list = Vector{Vector{Int}}()
-	for atom_l_vec in atom_l_list
-		mapped_atom = map_sym[atom_l_vec[1], isym]
-		push!(mapped_atom_l_list, [mapped_atom, atom_l_vec[2]])
-	end
-
-	return mapped_atom_l_list
+	return [[map_sym[atom_l_vec[1], isym], atom_l_vec[2]] for atom_l_vec in atom_l_list]
 end
 
 function classify_basislist(
@@ -298,8 +279,9 @@ function classify_basislist(
 		atom_l_list_base = get_atom_l_list(basis)
 		for isym in 1:size(map_sym, 2)
 			mapped_list = map_atom_l_list(atom_l_list_base, map_sym, isym)
+			sorted_mapped = sort(mapped_list)
 			for (idx2, basis2) in enumerate(basislist)
-				if sort(mapped_list) == sort(get_atom_l_list(basis2))
+				if label_list[idx2] == 0 && sort(get_atom_l_list(basis2)) == sorted_mapped
 					label_list[idx2] = count
 				end
 			end
@@ -308,16 +290,14 @@ function classify_basislist(
 	end
 
 	dict = OrderedDict{Int, SortedCountingUniqueVector}()
-	for idx in 1:maximum(label_list)
-		if !haskey(dict, idx)
+	max_label = maximum(label_list)
+	if max_label > 0
+		for idx in 1:max_label
 			dict[idx] = SortedCountingUniqueVector{SHProduct}()
 		end
 	end
 
 	for (basis, label) in zip(basislist, label_list)
-		if !(haskey(dict, label))
-			dict[label] = SortedCountingUniqueVector{SHProduct}()
-		end
 		push!(dict[label], basis, getcount(basislist, basis))
 	end
 
@@ -348,11 +328,14 @@ function is_translationally_equiv_basis(
 )::Bool
 
 	# Early return if the atomlist is the same including the order
-	if [indices.atom for indices in basis_target] == [indices.atom for indices in basis_ref]
+	atom_list_target = [indices.atom for indices in basis_target]
+	atom_list_ref = [indices.atom for indices in basis_ref]
+	if atom_list_target == atom_list_ref
 		return false
-		# Early return if the first atom is the same
-		# because this function is intended to be used for different first atoms but translationally equivalent clusters
-	elseif basis_target[1].atom == basis_ref[1].atom
+	end
+	# Early return if the first atom is the same
+	# because this function is intended to be used for different first atoms but translationally equivalent clusters
+	if basis_target[1].atom == basis_ref[1].atom
 		return false
 	end
 
@@ -391,6 +374,17 @@ function is_translationally_equiv_basis(
 	return false
 end
 
+"""
+Checks if two basis sets (SHProduct) are translationally equivalent.
+
+# Arguments
+- `basis_target::SHProduct`: The target basis set to check
+- `basis_ref::SHProduct`: The reference basis set
+- `symmetry::Symmetry`: Symmetry information containing translation mappings
+
+# Returns
+- `Bool`: `true` if the basis sets are translationally equivalent, `false` otherwise
+"""
 function is_translationally_equiv_basis(
 	basis_target::SHProduct,
 	basis_ref::SHProduct,
@@ -400,19 +394,20 @@ function is_translationally_equiv_basis(
 		return false
 	end
 	# Early return if the atomlist is the same including the order
-	if [shsi.i for shsi in basis_target] == [shsi.i for shsi in basis_ref]
+	atom_list_target = [shsi.i for shsi in basis_target]
+	atom_list_ref = [shsi.i for shsi in basis_ref]
+	if atom_list_target == atom_list_ref
 		return false
-		# Early return if the first atom is the same
-		# because this function is intended to be used for different first atoms but translationally equivalent clusters
-	elseif basis_target[1].i == basis_ref[1].i
+	end
+	# Early return if the first atom is the same
+	# because this function is intended to be used for different first atoms but translationally equivalent clusters
+	if basis_target[1].i == basis_ref[1].i
 		return false
 	end
 
-
-	atom_list_target = [shsi.i for shsi in basis_target]
 	for itran in symmetry.symnum_translation
 		# Method 1: Apply forward translation (map_sym) to new_atom_list
-		atom_list_target_shifted = [symmetry.map_sym[atom, itran] for atom in atom_list_target]
+		atom_list_target_shifted = [symmetry.map_sym[shsi.i, itran] for shsi in basis_target]
 		forward_candidate = replace_atom(
 			SHProduct([shsi for shsi in basis_target]),
 			atom_list_target_shifted,
@@ -422,7 +417,7 @@ function is_translationally_equiv_basis(
 		end
 
 		# Method 2: Apply inverse translation (map_sym_inv) to new_atom_list
-		atom_list_target_shifted = [symmetry.map_sym_inv[atom, itran] for atom in atom_list_target]
+		atom_list_target_shifted = [symmetry.map_sym_inv[shsi.i, itran] for shsi in basis_target]
 		inverse_candidate = replace_atom(
 			SHProduct([shsi for shsi in basis_target]),
 			atom_list_target_shifted,
@@ -446,11 +441,9 @@ function calc_relvec_in_cart(
 	atom2::NTuple{2, Integer},
 	x_image_cart::AbstractArray{<:Real, 3},
 )::SVector{3, Float64}
-	# Use SVector for better performance with vector operations
-	relvec = SVector{3, Float64}(
+	return SVector{3, Float64}(
 		x_image_cart[:, atom1[1], atom1[2]] - x_image_cart[:, atom2[1], atom2[2]],
 	)
-	return relvec
 end
 
 """
@@ -486,7 +479,7 @@ function find_corresponding_atom(
 end
 
 """
-	check_eigenval(eigenval::AbstractVector; tol = 1e-8)::Bool
+	is_proper_eigenvals(eigenval::AbstractVector; tol = 1e-8)::Bool
 
 Checks whether all eigenvalues in the given vector are approximately 0 or 1.
 
@@ -501,24 +494,19 @@ Checks whether all eigenvalues in the given vector are approximately 0 or 1.
 ```julia
 # Check eigenvalues from a projection matrix
 eigenvals = [0.0, 1.0, 0.0, 1.0]
-is_valid = check_eigenval(eigenvals)  # true
+is_valid = is_proper_eigenvals(eigenvals)  # true
 
 # With some tolerance
 eigenvals = [0.0, 1.0 + 1e-9, 0.0, 1.0]
-is_valid = check_eigenval(eigenvals)  # true
+is_valid = is_proper_eigenvals(eigenvals)  # true
 
 # Invalid eigenvalues
 eigenvals = [0.0, 1.0, 0.5, 1.0]
-is_valid = check_eigenval(eigenvals)  # false
+is_valid = is_proper_eigenvals(eigenvals)  # false
 ```
 """
 function is_proper_eigenvals(eigenval::AbstractVector; tol = 1e-8)::Bool
-	invalid_values =
-		filter(x -> !isapprox(x, 0, atol = tol) && !isapprox(x, 1, atol = tol), eigenval)
-	if !isempty(invalid_values)
-		return false
-	end
-	return true
+	return all(x -> isapprox(x, 0, atol = tol) || isapprox(x, 1, atol = tol), eigenval)
 end
 
 """
@@ -536,7 +524,6 @@ Check if a SALC (Symmetry-Adapted Linear Combination) always returns zero for ar
 """
 function is_identically_zero(salc::SALC, atol::Real = 1e-6)::Bool
 	group_lists::Vector{Vector{Int}} = group_same_basis(salc)
-	# println("group_lists:", group_lists)
 	for index_list in group_lists
 		partial_sum::Float64 = 0.0
 		for index in index_list
@@ -613,7 +600,6 @@ function flip_vector_if_negative_sum(
 	return sum_v < 0 ? -v : v
 end
 
-
 function print_basisset_stdout(salc_list::AbstractVector{<:SALC})
 	println(" Number of symmetry-adapted basis functions: $(length(salc_list))\n")
 	println(" List of symmetry-adapted basis functions:")
@@ -629,7 +615,6 @@ function projection_matrix(
 	basisdict::AbstractDict,
 	symmetry::Symmetry,
 )::Vector{Matrix{Float64}}
-
 	result_projections = Vector{Matrix{Float64}}(undef, length(basisdict))
 
 	idx_list = sort(collect(keys(basisdict)))
@@ -642,7 +627,6 @@ function projection_matrix(
 				basislist,
 				symop,
 				@view(symmetry.map_sym[:, n]),
-				symmetry.map_sym,
 				symmetry.map_sym_inv,
 				symmetry.map_s2p,
 				symmetry.atoms_in_prim,
@@ -652,9 +636,7 @@ function projection_matrix(
 			local_projection_mat += projection_mat_per_symop
 		end
 		local_projection_mat = local_projection_mat ./ (2 * symmetry.nsym)
-		# display(local_projection_mat)
 		local_projection_mat = hermitianpart(local_projection_mat)
-		# local_projection_mat = round.(local_projection_mat, digits = 6)
 
 		if !is_symmetric(local_projection_mat, tol = 1e-10)
 			error("Projection matrix is not symmetric. index: $idx")
@@ -669,43 +651,30 @@ function proj_matrix_a_symop(
 	basislist::SortedCountingUniqueVector{SHProduct},
 	symop::SymmetryOperation,
 	map_sym_per_symop::AbstractVector{<:Integer},
-	map_sym::AbstractMatrix{<:Integer},
 	map_sym_inv::AbstractMatrix{<:Integer},
 	map_s2p::AbstractVector{<:Maps},
 	atoms_in_prim::AbstractVector{<:Integer},
 	symnum_translation::AbstractVector{<:Integer},
 	time_rev_sym::Bool,
 )::Matrix{Float64}
-
-	# collect atom list in basislist used for symmetry operation
-	atom_list = [[shsi.i for shsi in basis] for basis in basislist]
-
 	projection_mat = zeros(Float64, length(basislist), length(basislist))
 
 	for (j, basis_j::SHProduct) in enumerate(basislist)
-		# println(basis_j, "\n")
 		lco_j = operate_symop(
 			basislist,
 			basis_j,
-			atom_list,
 			symop,
 			map_sym_per_symop,
-			map_sym,
 			map_sym_inv,
 			map_s2p,
 			atoms_in_prim,
 			symnum_translation,
 			time_rev_sym,
 		)
-		# println(lco_j, "\n")
 		for (i, basis_i::SHProduct) in enumerate(basislist)
 			projection_mat[i, j] = inner_product(basis_i, lco_j)
 		end
 	end
-
-	# if (symop.rotation_cart == I) && (symop.translation_frac == [0.0, 0.0, 0.0])
-	# 	display(projection_mat)
-	# end
 
 	if all(
 		isapprox(projection_mat[i, j], 0.0, atol = 1e-8) for i in eachindex(basislist) for
@@ -716,9 +685,9 @@ function proj_matrix_a_symop(
 		@assert false "Projection matrix is zero matrix"
 	end
 	if !is_unitary(projection_mat, tol = 1e-10)
-		display(basislist)
-		println(symop)
-		display(projection_mat)
+		# display(basislist)
+		# println(symop)
+		# display(projection_mat)
 		error("Projection matrix is not unitary")
 	end
 	return projection_mat
@@ -727,10 +696,8 @@ end
 function operate_symop(
 	basislist::SortedCountingUniqueVector{SHProduct},
 	basis::SHProduct,
-	atom_list::AbstractVector{<:AbstractVector{<:Integer}},
 	symop::SymmetryOperation,
 	map_sym_per_symop::AbstractVector{<:Integer},
-	map_sym::AbstractMatrix{<:Integer},
 	map_sym_inv::AbstractMatrix{<:Integer},
 	map_s2p::AbstractVector{<:Maps},
 	atoms_in_prim::AbstractVector{<:Integer},
@@ -740,13 +707,7 @@ function operate_symop(
 	# Apply the symmetry operation to atoms
 	new_atom_list = [map_sym_per_symop[shsi.i] for shsi in basis]
 
-	# atom_list_sorted = [sort(atom_list_i) for atom_list_i in atom_list]
-
 	# Shift the new atom list to the primitive cell
-	# Try all translation operations (both forward and inverse) to find the correct primitive cell mapping
-	# translated_atom_list = similar(new_atom_list)
-	# translated_atom_list = [map_sym_per_symop[new_atom] for new_atom in new_atom_list]
-
 	new_basis_found = SHProduct()
 	translated_atom_list = similar(new_atom_list)
 
@@ -779,20 +740,7 @@ function operate_symop(
 	if !found
 		error("Failed to find corresponding basis in the primitive cell.")
 	end
-	#find translation operation to translate header atom to the primitive cell 
-	# header_atom = new_atom_list[begin]
-	# header_atom_in_prim = atoms_in_prim[map_s2p[header_atom].atom]
-	# corresponding_translation = symnum_translation[map_s2p[header_atom].translation]
 
-	# other_atom_translated = Int[]
-	# for new_atom in new_atom_list[2:end]
-	# 	push!(other_atom_translated, map_sym_inv[new_atom, corresponding_translation])
-	# end
-	# translated_atom_list = [header_atom_in_prim, other_atom_translated...]
-
-
-
-	# new_basis = replace_atom(basis, translated_atom_list)# replace atom only (l and m are kept)
 	idx = corresponding_idx(new_basis_found)
 
 	is_proper = symop.is_proper
@@ -886,15 +834,18 @@ function is_symmetric(mat::AbstractMatrix{<:Real}; tol::Float64 = 1e-10)::Bool
 end
 
 """
-	is_unitary(mat::AbstractMatrix; tol::Float64 = 1e-10) -> Bool
+	is_unitary(mat::AbstractMatrix{<:Real}; tol::Float64 = 1e-10) -> Bool
 
 Check if a matrix is unitary (i.e., UᵀU ≈ I and UUᵀ ≈ I within tolerance).
 
 # Arguments
-- `mat`: Matrix to check
-- `tol`: Tolerance for floating-point comparison (default: 1e-10)
+- `mat::AbstractMatrix{<:Real}`: Matrix to check
+- `tol::Float64`: Tolerance for floating-point comparison (default: 1e-10)
+
+# Returns
+- `Bool`: `true` if the matrix is unitary within the tolerance, `false` otherwise
 """
-function is_unitary(mat::AbstractMatrix; tol::Float64 = 1e-10)::Bool
+function is_unitary(mat::AbstractMatrix{<:Real}; tol::Float64 = 1e-10)::Bool
 	size(mat, 1) == size(mat, 2) || return false
 	return isapprox(mat' * mat, I, atol = tol) && isapprox(mat * mat', I, atol = tol)
 end
@@ -914,7 +865,6 @@ resulting dictionary has deterministic, compact indices.
 function filter_basisdict(
 	basisdict::Dict{Int, SortedCountingUniqueVector{SHProduct}},
 )::Dict{Int, SortedCountingUniqueVector{SHProduct}}
-
 	result_basisdict = Dict{Int, SortedCountingUniqueVector{SHProduct}}()
 	new_label = 1
 	for label in sort!(collect(keys(basisdict)))
