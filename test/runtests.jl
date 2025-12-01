@@ -8,6 +8,7 @@ include("../src/utils/RotationMatrix.jl")
 include("../src/utils/MySphericalHarmonics.jl")
 include("../src/utils/ConfigParser.jl")
 include("../src/types/SALCs.jl")
+include("../src/utils/AngularMomentumCoupling.jl")
 include("helpers/fileutils.jl")
 
 using Magesty
@@ -18,6 +19,7 @@ const TEST_MODE = get(ENV, "TEST_MODE", "all")
 if TEST_MODE in ("unit", "all")
 	@testset "component tests" begin
 		include("./component_test/test_MySphericalHarmonics.jl")
+		include("./component_test/test_AngularMomentumCoupling.jl")
 		include("./component_test/test_SortedContainer.jl")
 		include("./component_test/test_CountingContainer.jl")
 		include("./component_test/test_AtomicIndices.jl")
