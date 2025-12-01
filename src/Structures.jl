@@ -70,12 +70,17 @@ function Cell(
 )
 	validate_lattice_vectors(lattice_vectors)
 
-	return Cell(lattice_vectors,
-		calc_reciprocal_vectors(lattice_vectors),
-		length(kd_int_list),
-		length(Set(kd_int_list)),
-		kd_int_list,
-		x_frac,
+	# Ensure concrete storage that matches the struct field types
+	lattice_matrix = SMatrix{3, 3, Float64}(lattice_vectors)
+	kd_vector = Vector{Int}(kd_int_list)
+	x_frac_matrix = Matrix{Float64}(x_frac)
+
+	return Cell(lattice_matrix,
+		calc_reciprocal_vectors(lattice_matrix),
+		length(kd_vector),
+		length(Set(kd_vector)),
+		kd_vector,
+		x_frac_matrix,
 	)
 end
 
@@ -297,7 +302,7 @@ end
 Group atom indices by their types.
 """
 function calc_atomtype_group(kd_int_list::AbstractVector{<:Integer})::Vector{Vector{Int}}
-	unique_vals::Vector{Int} = unique(kd_int_list)
+	unique_vals::Vector{Int} = sort(unique(kd_int_list))
 	return [findall(x -> x == val, kd_int_list) for val in unique_vals]
 end
 
@@ -328,7 +333,7 @@ function calc_x_images(
 	for k in -1:1
 		for j in -1:1
 			for i in -1:1
-				if i == j == k == 0
+				if i == 0 && j == 0 && k == 0
 					continue  # Skip the center cell
 				end
 				cell += 1
@@ -394,7 +399,7 @@ function calc_exist_image(is_periodic::SVector{3, Bool})::Vector{Bool}
 			offset[2] = y
 			for x in -1:1
 				offset[1] = x
-				if z == y == x == 0
+				if x == 0 && y == 0 && z == 0
 					continue  # Skip the center cell
 				end
 				cell += 1

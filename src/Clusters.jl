@@ -5,26 +5,21 @@ This module provides data structures and functions for managing and analyzing cl
 
 # Types
 - `DistInfo`: Represents distance information between two atoms
-- `InteractionCluster`: Represents a cluster of interacting atoms
 - `Cluster`: Manages multiple interaction clusters based on structure parameters
+- `DistList`: Internal structure for sorting distance information
 
 # Functions
 - `Cluster(structure, symmetry, nbody, cutoff_radii)`: Constructs a `Cluster` instance
 - `set_mindist_pairs(num_atoms, cartesian_coords, cell_exists)`: Computes minimum distance pairs
-- `set_interaction_by_cutoff(num_atoms, num_primitive_atoms, atom_type_list, ...)`: Determines interacting pairs
-- `set_interaction_clusters(num_primitive_atoms, atom_type_list, ...)`: Organizes interaction clusters
-- `is_within_cutoff(atom_indices, atom_types, cutoff_radii, min_distance_pairs)`: Checks cutoff conditions
-- `calc_distmax(atom_indices, min_distance_pairs)`: Calculates maximum distance
-- `generate_pairs(primitive_atom_indices, interaction_clusters, num_bodies)`: Generates atom pairs
-- `classify_equivalent_atoms(primitive_atom_indices, symmetry_map)`: Classifies equivalent atoms
-- `generate_combinations(atom_indices, cell_indices)`: Generates combinations
-- `all_atomlist_by_symop(atom_indices, symmetry_map)`: Generates atom lists by symmetry
-- `print_info(cluster)`: Prints cluster information
+- `is_within_cutoff(atomcell_list, kd_int_list, cutoff_radii, body, x_image_cart, min_distance_pairs)`: Checks cutoff conditions
+- `distance_atomcells(atomcell1, atomcell2, x_image_cart)`: Calculates distance between two atoms in different cells
+- `generate_clusters(structure, symmetry, cutoff_radii, nbody)`: Generates interaction clusters
+- `print_cluster_stdout(min_distance_pairs, atoms_in_prim, kd_name, kd_int_list)`: Prints cluster information to stdout
 """
 
 module Clusters
 
-using Combinatorics: combinations
+using Combinat
 using DataStructures
 using LinearAlgebra
 using OffsetArrays
@@ -91,46 +86,6 @@ function Base.isless(distinfo1::DistInfo, distinfo2::DistInfo)::Bool
 	end
 end
 
-"""
-	struct InteractionCluster
-
-Represents a cluster of interacting atoms within a crystal structure.
-
-# Fields
-- `atom_indices::Vector{Int}`: List of partner atom indices (length ≤ body-1)
-- `cell_indices::Vector{Vector{Int}}`: List of cell indices for each partner atom
-- `max_distance::Float64`: Maximum distance between any pair of atoms in the cluster
-
-# Examples
-```julia
-# Create a 2-body interaction cluster
-cluster = InteractionCluster([2], [[1]], 2.5)
-
-# Create a 3-body interaction cluster
-cluster = InteractionCluster([2, 3], [[1], [2]], 3.0)
-```
-"""
-struct InteractionCluster
-	atom_indices::Vector{Int}
-	cell_indices::Vector{Vector{Int}}
-	max_distance::Float64
-
-	function InteractionCluster(atoms::Vector{Int}, cells::Vector{Vector{Int}}, distmax::Real)
-		@assert length(atoms) > 0 "Atoms vector must not be empty."
-		@assert length(atoms) == length(cells) "Length of atoms and cells must match."
-		@assert distmax ≥ 0.0 "Maximum distance must be non-negative."
-		return new(atoms, cells, Float64(distmax))
-	end
-end
-
-Base.isless(intclus1::InteractionCluster, intclus2::InteractionCluster) =
-	intclus1.atom_indices < intclus2.atom_indices
-
-function ==(intclus1::InteractionCluster, intclus2::InteractionCluster)
-	return intclus1.atom_indices == intclus2.atom_indices &&
-		   intclus1.cell_indices == intclus2.cell_indices &&
-		   intclus1.max_distance == intclus2.max_distance
-end
 
 """
 	struct Cluster
@@ -139,11 +94,9 @@ Represents a collection of interaction clusters based on the specified number of
 
 # Fields
 - `num_bodies::Int`: Number of interacting bodies
-- `cutoff_radii::Array{Float64, 3}`: Cutoff radii for each atomic element pair and interaction body
+- `cutoff_radii::OffsetArray{Float64, 3}`: Cutoff radii for each atomic element pair and interaction body
 - `min_distance_pairs::Matrix{Vector{DistInfo}}`: Matrix of minimum distance pairs between atoms
-- `interaction_clusters::Matrix{OrderedSet{InteractionCluster}}`: Matrix of interaction clusters
-- `cluster_list::Vector{SortedVector{Vector{AtomCell}}}`: List of interacting atom clusters
-- `equivalent_atom_list::Vector{Vector{Int}}`: List of equivalent atom groups
+- `cluster_dict::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}`: Dictionary of interaction clusters organized by body and primitive atom index
 
 # Constructor
 	Cluster(structure, symmetry, nbody, cutoff_radii)
@@ -159,11 +112,7 @@ struct Cluster
 	num_bodies::Int
 	cutoff_radii::OffsetArray{Float64, 3}
 	min_distance_pairs::Matrix{Vector{DistInfo}}
-	# interaction_clusters::Matrix{OrderedSet{InteractionCluster}}
-	cluster_list::Vector{SortedVector{Vector{AtomCell}}}
-	cluster_dict::Dict{Int, CountingUniqueVector{Vector{Int}}}
-	equivalent_atom_list::Vector{Vector{Int}}
-	cluster_dict_new::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}
+	cluster_dict::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}
 
 	function Cluster(
 		structure::Structure,
@@ -176,7 +125,7 @@ struct Cluster
 
 		start_time = time_ns()
 
-		cluster_dict_new::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}} =
+		cluster_dict::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}} =
 			generate_clusters(structure, symmetry, cutoff_radii, nbody)
 
 		min_distance_pairs = set_mindist_pairs(
@@ -186,31 +135,6 @@ struct Cluster
 			tol = symmetry.tol,
 		)
 
-		interaction_pairs = set_interaction_by_cutoff(
-			structure.supercell.num_atoms,
-			symmetry.nat_prim,
-			structure.supercell.kd_int_list,
-			symmetry.map_p2s,
-			cutoff_radii,
-			nbody,
-			min_distance_pairs,
-		)
-
-		interaction_clusters = set_interaction_clusters(
-			symmetry.nat_prim,
-			structure.supercell.kd_int_list,
-			symmetry.map_p2s,
-			interaction_pairs,
-			min_distance_pairs,
-			nbody,
-			cutoff_radii,
-		)
-
-		cluster_dict =
-			generate_pairs_simple(symmetry.atoms_in_prim, interaction_clusters, nbody)
-
-		cluster_list = generate_pairs(symmetry.atoms_in_prim, interaction_clusters, nbody)
-		equivalent_atom_list = classify_equivalent_atoms(symmetry.atoms_in_prim, symmetry.map_sym)
 
 		if verbosity
 			print_cluster_stdout(
@@ -229,11 +153,7 @@ struct Cluster
 			nbody,
 			cutoff_radii,
 			min_distance_pairs,
-			# interaction_clusters,
-			cluster_list,
 			cluster_dict,
-			equivalent_atom_list,
-			cluster_dict_new,
 		)
 	end
 end
@@ -311,197 +231,23 @@ function set_mindist_pairs(
 	return min_distance_pairs
 end
 
-"""
-	set_interaction_by_cutoff(num_atoms, num_primitive_atoms, atom_type_list, ...)
 
-Determines interacting pairs of atoms based on cutoff radii.
+"""
+	is_within_cutoff(atomcell_list, kd_int_list, cutoff_radii, body, x_image_cart, min_distance_pairs) -> Bool
+
+Checks if all pairs of atoms in the given atom cell list are within the cutoff radius.
 
 # Arguments
-- `num_atoms::Integer`: Number of atoms in the structure
-- `num_primitive_atoms::Integer`: Number of atoms in the primitive cell
-- `atom_type_list::AbstractVector{<:Integer}`: List of atom types
-- `primitive_to_supercell_map::AbstractMatrix{<:Integer}`: Mapping from primitive to supercell
+- `atomcell_list::Vector{AtomCell}`: List of atom-cell pairs to check
+- `kd_int_list::Vector{Int}`: List of atom types
 - `cutoff_radii::AbstractArray{<:Real, 3}`: Cutoff radii for interactions
-- `num_bodies::Integer`: Number of interacting bodies
-- `min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}}`: Minimum distance pairs
+- `body::Integer`: Number of interacting bodies
+- `x_image_cart::AbstractArray{<:Real, 3}`: Cartesian coordinates of atoms in different image cells
+- `min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}}`: Minimum distance pairs between atoms
 
 # Returns
-- `Vector{Vector{Vector{Int}}}`: List of interacting pairs for each body
-
-# Throws
-- `AssertionError`: If input parameters are invalid
+- `Bool`: `true` if all atom pairs are within cutoff, `false` otherwise
 """
-function set_interaction_by_cutoff(
-	num_atoms::Integer,
-	num_primitive_atoms::Integer,
-	atom_type_list::AbstractVector{<:Integer},
-	primitive_to_supercell_map::AbstractMatrix{<:Integer},
-	cutoff_radii::AbstractArray{<:Real, 3},
-	num_bodies::Integer,
-	min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
-)::Vector{Vector{Vector{Int}}}
-	@assert num_atoms > 0 "Number of atoms must be positive."
-	@assert num_primitive_atoms > 0 "Number of primitive atoms must be positive."
-	@assert length(atom_type_list) == num_atoms "Length of atom_type_list must match num_atoms."
-	@assert size(primitive_to_supercell_map, 1) == num_primitive_atoms "Number of rows in primitive_to_supercell_map must match num_primitive_atoms."
-
-	interaction_pairs = Vector{Vector{Vector{Int}}}()
-
-	@inbounds for body in 2:num_bodies
-		pairs_per_body = Vector{Vector{Int}}()
-		for prim_atom_index in 1:num_primitive_atoms
-			pair_list = Int[]
-			atom_index = primitive_to_supercell_map[prim_atom_index, 1]
-			atom_type = atom_type_list[atom_index]
-
-			for other_atom_index in 1:num_atoms
-				atom_index == other_atom_index && continue
-				other_atom_type = atom_type_list[other_atom_index]
-				cutoff = cutoff_radii[body, atom_type, other_atom_type]
-				if cutoff < 0.0 ||
-				   min_distance_pairs[atom_index, other_atom_index][1].distance ≤ cutoff
-					push!(pair_list, other_atom_index)
-				end
-			end
-			push!(pairs_per_body, pair_list)
-		end
-		push!(interaction_pairs, pairs_per_body)
-	end
-	return interaction_pairs
-end
-
-"""
-	set_interaction_clusters(num_primitive_atoms, atom_type_list, ...)
-
-Organizes interaction clusters based on cutoff radii and minimum distances.
-
-# Arguments
-- `num_primitive_atoms::Integer`: Number of atoms in the primitive cell
-- `atom_type_list::AbstractVector{<:Integer}`: List of atom types
-- `primitive_to_supercell_map::AbstractMatrix{<:Integer}`: Mapping from primitive to supercell
-- `cartesian_coords::AbstractArray{<:Real, 3}`: Cartesian coordinates of atoms
-- `cell_exists::AbstractVector{Bool}`: Indicates which virtual cells exist
-- `interaction_pairs::AbstractVector{<:AbstractVector{<:AbstractVector{<:Integer}}}`: Interacting pairs
-- `cutoff_radii::AbstractArray{<:Real, 3}`: Cutoff radii for interactions
-- `min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}}`: Minimum distance pairs
-- `num_bodies::Integer`: Number of interacting bodies
-
-# Returns
-- `Matrix{OrderedSet{InteractionCluster}}`: Matrix of interaction clusters
-
-# Throws
-- `AssertionError`: If input parameters are invalid
-"""
-function set_interaction_clusters(
-	num_primitive_atoms::Integer,
-	atom_type_list::AbstractVector{<:Integer},
-	primitive_to_supercell_map::AbstractMatrix{<:Integer},
-	interaction_pairs::AbstractVector{<:AbstractVector{<:AbstractVector{<:Integer}}},
-	min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
-	num_bodies::Integer,
-	cutoff_radii::AbstractArray{<:Real, 3},
-)::Matrix{OrderedSet{InteractionCluster}}
-	@assert num_primitive_atoms > 0 "Number of primitive atoms must be positive."
-	@assert length(atom_type_list) > 0 "atom_type_list must not be empty."
-	@assert size(primitive_to_supercell_map, 1) == num_primitive_atoms "Number of rows in primitive_to_supercell_map must match num_primitive_atoms."
-
-	interaction_clusters =
-		Matrix{OrderedSet{InteractionCluster}}(undef, num_primitive_atoms, num_bodies - 1)
-	initialized = falses(size(interaction_clusters))
-
-	@inbounds for body in 2:num_bodies, prim_atom_index in 1:num_primitive_atoms
-		cluster_set = OrderedSet{InteractionCluster}()
-		atom_index = primitive_to_supercell_map[prim_atom_index, 1]
-		interacting_atoms = interaction_pairs[body-1][prim_atom_index]
-		sort!(interacting_atoms)
-
-		if body == 2
-			for other_atom_index in interacting_atoms
-				atom_indices = [other_atom_index]
-				cell_indices = Int[]
-				for distinfo in min_distance_pairs[atom_index, other_atom_index]
-					push!(cell_indices, distinfo.cell_index)
-				end
-				distance = min_distance_pairs[atom_index, other_atom_index][1].distance
-				push!(cluster_set, InteractionCluster(atom_indices, [cell_indices], distance))
-			end
-		else
-			for atom_combination in collect(combinations(interacting_atoms, body - 1))
-				atom_list = vcat([atom_index], atom_combination)
-				if !is_within_cutoff(
-					atom_list,
-					atom_type_list,
-					cutoff_radii,
-					body,
-					min_distance_pairs,
-				)
-					continue
-				end
-				cell_indices = Vector{Vector{Int}}()
-				distance = calc_distmax(atom_list, min_distance_pairs)
-				for other_atom_index in atom_combination
-					cell_list = Int[]
-					for distinfo in min_distance_pairs[atom_index, other_atom_index]
-						push!(cell_list, distinfo.cell_index)
-					end
-					push!(cell_indices, cell_list)
-				end
-				push!(cluster_set, InteractionCluster(atom_combination, cell_indices, distance))
-			end
-		end
-		interaction_clusters[prim_atom_index, body-1] = cluster_set
-		initialized[prim_atom_index, body-1] = true
-	end
-
-	@assert all(initialized) "Unassigned indices in interaction_clusters variable"
-	return interaction_clusters
-end
-
-"""
-	calc_distmax(atom_indices, min_distance_pairs)
-
-Calculates the maximum distance between any pair of atoms in a cluster.
-
-# Arguments
-- `atom_indices::AbstractVector{<:Integer}`: Indices of atoms in the cluster
-- `min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}}`: Minimum distance pairs
-
-# Returns
-- `Float64`: Maximum distance between any pair of atoms
-
-# Throws
-- `AssertionError`: If input parameters are invalid
-"""
-function calc_distmax(
-	atom_indices::AbstractVector{<:Integer},
-	min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
-)::Float64
-	@assert length(atom_indices) > 1 "atom_indices must contain at least 2 elements."
-
-	max_distance = -1.0
-	@inbounds for pair in collect(combinations(atom_indices, 2))
-		max_distance = max(max_distance, min_distance_pairs[pair[1], pair[2]][1].distance)
-	end
-	return max_distance
-end
-
-
-function is_within_cutoff(
-	atom_list::AbstractVector{<:Integer},
-	atom_types::Vector{Int},
-	cutoff_radii::AbstractArray{<:Real, 3},
-	body::Integer,
-	min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
-)::Bool
-	for comb::Vector{Int} in collect(combinations(atom_list, 2))
-		rc = cutoff_radii[body, atom_types[comb[1]], atom_types[comb[2]]]
-		if min_distance_pairs[comb[1], comb[2]][1].distance > rc
-			return false
-		end
-	end
-	return true
-end
-
 function is_within_cutoff(
 	atomcell_list::Vector{AtomCell},
 	kd_int_list::Vector{Int},
@@ -527,6 +273,19 @@ function is_within_cutoff(
 end
 
 
+"""
+	distance_atomcells(atomcell1, atomcell2, x_image_cart) -> Float64
+
+Calculates the Cartesian distance between two atoms in different cells.
+
+# Arguments
+- `atomcell1::AtomCell`: First atom-cell pair
+- `atomcell2::AtomCell`: Second atom-cell pair
+- `x_image_cart::AbstractArray{<:Real, 3}`: Cartesian coordinates of atoms in different image cells
+
+# Returns
+- `Float64`: Distance between the two atoms in Angstroms
+"""
 function distance_atomcells(
 	atomcell1::AtomCell,
 	atomcell2::AtomCell,
@@ -538,248 +297,141 @@ function distance_atomcells(
 	)
 end
 
-"""
-	generate_pairs(primitive_atom_indices, interaction_clusters, num_bodies)
 
-Generates pairs of interacting atoms for each interaction body.
+
+"""
+	generate_clusters(structure, symmetry, cutoff_radii, nbody) -> Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}
+
+Generates interaction clusters based on cutoff radii and structure information.
 
 # Arguments
-- `primitive_atom_indices::AbstractVector{<:Integer}`: Indices of atoms in the primitive cell
-- `interaction_clusters::AbstractMatrix{<:AbstractSet{InteractionCluster}}`: Interaction clusters
-- `num_bodies::Integer`: Number of interacting bodies
+- `structure::Structure`: Crystal structure information
+- `symmetry::Symmetry`: Symmetry operations
+- `cutoff_radii::AbstractArray{<:Real, 3}`: Cutoff radii for interactions
+- `nbody::Integer`: Number of interacting bodies
 
 # Returns
-- `Vector{SortedVector{Vector{AtomCell}}}`: List of interacting atom pairs
-
-# Throws
-- `AssertionError`: If input parameters are invalid
+- `Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}`: Dictionary of clusters organized by body and primitive atom index
 """
-function generate_pairs(
-	primitive_atom_indices::AbstractVector{<:Integer},
-	interaction_clusters::AbstractMatrix{<:AbstractSet{InteractionCluster}},
-	num_bodies::Integer,
-)::Vector{SortedVector{Vector{AtomCell}}}
-	@assert length(primitive_atom_indices) > 0 "primitive_atom_indices must not be empty."
+function generate_clusters(
+	structure::Structure,
+	symmetry::Symmetry,
+	cutoff_radii::AbstractArray{<:Real, 3},
+	nbody::Integer,
+)::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}
 
-	cluster_list = Vector{SortedVector{Vector{AtomCell}}}()
+	min_distance_pairs = set_mindist_pairs(
+		structure.supercell.num_atoms,
+		structure.x_image_cart,
+		structure.exist_image,
+		tol = symmetry.tol,
+	)
+	interaction_cutoff_dict = Dict{Int, Dict{Int, SortedVector{AtomCell}}}()
+	for body in 2:nbody
+		interaction_cutoff_dict[body] = Dict{Int, SortedVector{AtomCell}}()
+		for prim_atom_sc in symmetry.atoms_in_prim
+			prim_atom_type = structure.supercell.kd_int_list[prim_atom_sc]
+			interaction_cutoff_dict[body][prim_atom_sc] = SortedVector{AtomCell}()
+			for other_atom_sc in 1:structure.supercell.num_atoms
+				if prim_atom_sc == other_atom_sc
+					;
+					continue;
+				end
+				other_atom_type = structure.supercell.kd_int_list[other_atom_sc]
+				rc = cutoff_radii[body, prim_atom_type, other_atom_type]
 
-	@inbounds for body in 2:num_bodies
-		sorted_clusters = SortedVector{Vector{AtomCell}}()
-		for (i, prim_atom_index) in enumerate(primitive_atom_indices)
-			for cluster in interaction_clusters[i, body-1]# target is i-th primitive atom
-				pairs::Vector{Vector{Tuple{Int, Int}}} =
-					generate_combinations(cluster.atom_indices, cluster.cell_indices)
-				for partners::Vector{Tuple{Int, Int}} in pairs
-					atom_cells = Vector{AtomCell}([AtomCell(prim_atom_index, 1)])
-					for (atom_index, cell_index) in partners
-						push!(atom_cells, AtomCell(atom_index, cell_index))
+				if rc < 0.0 || min_distance_pairs[prim_atom_sc, other_atom_sc][1].distance ≤ rc
+					for distinfo in min_distance_pairs[prim_atom_sc, other_atom_sc]
+						push!(
+							interaction_cutoff_dict[body][prim_atom_sc],
+							AtomCell(other_atom_sc, distinfo.cell_index),
+						)
 					end
-					push!(sorted_clusters, atom_cells)
 				end
 			end
 		end
-		push!(cluster_list, sorted_clusters)
 	end
-	return cluster_list
-end
 
-function generate_pairs_simple(
-	primitive_atom_indices::AbstractVector{<:Integer},
-	interaction_clusters::AbstractMatrix{<:AbstractSet{InteractionCluster}},
-	num_bodies::Integer,
-)::Dict{Int, CountingUniqueVector{Vector{Int}}}
-	cluster_dict = Dict{Int, CountingUniqueVector{Vector{Int}}}()
-	for body in 2:num_bodies
-		cuv = CountingUniqueVector{Vector{Int}}()
-		for (i, prim_atom_index) in enumerate(primitive_atom_indices)
-			for cluster in interaction_clusters[i, body-1]
-				vec = [prim_atom_index, cluster.atom_indices...]
-				multiplicity =
-					length(generate_combinations(cluster.atom_indices, cluster.cell_indices))
-				push!(cuv, vec)
-				cuv.counts[vec] = multiplicity
+
+	# interaction_clusters[body][prim_atom_sc] = SortedVector{SortedVector{AtomCell}}()
+	interaction_clusters = Dict{Int, Dict{Int, Vector{SortedVector{AtomCell}}}}()
+	for body in 2:nbody
+		interaction_clusters[body] = Dict{Int, SortedVector{AtomCell}}()
+		for prim_atom_sc in symmetry.atoms_in_prim
+			interaction_clusters[body][prim_atom_sc] = SortedVector{AtomCell}()
+		end
+	end
+
+
+	for body in 2:nbody, prim_atom_sc in symmetry.atoms_in_prim
+		prim_atom_ac::AtomCell = AtomCell(prim_atom_sc, 1)
+		interactiong_atoms::SortedVector = interaction_cutoff_dict[body][prim_atom_sc]
+		if body == 2
+			for other_atom_ac::AtomCell in interactiong_atoms
+				distance = distance_atomcells(prim_atom_ac, other_atom_ac, structure.x_image_cart)
+				rc = cutoff_radii[
+					body,
+					structure.supercell.kd_int_list[prim_atom_sc],
+					structure.supercell.kd_int_list[other_atom_ac.atom],
+				]
+				if rc < 0.0 || distance ≤ rc
+					push!(interaction_clusters[body][prim_atom_sc], SortedVector([other_atom_ac]))
+				end
+			end
+		else
+			for atom_combination::Vector{AtomCell} in
+				collect(combinations(interactiong_atoms, body - 1))
+				atom_cell_list_all = vcat([prim_atom_ac], atom_combination)
+				atom_list_all = [atom_cell.atom for atom_cell in atom_cell_list_all]
+				if (
+					is_within_cutoff(
+						atom_cell_list_all,
+						structure.supercell.kd_int_list,
+						cutoff_radii,
+						body,
+						structure.x_image_cart,
+						min_distance_pairs,
+					) && (length(atom_list_all) == length(unique(atom_list_all)))
+				)
+					sorted_vector = SortedVector(atom_combination)
+					push!(interaction_clusters[body][prim_atom_sc], sorted_vector)
+				end
 			end
 		end
-		cluster_dict[body] = cuv
 	end
-	return cluster_dict
-end
 
-"""
-	classify_equivalent_atoms(primitive_atom_indices, symmetry_map)
-
-Classifies atoms in the primitive cell into equivalent groups based on symmetry operations.
-
-# Arguments
-- `primitive_atom_indices::AbstractVector{<:Integer}`: Indices of atoms in the primitive cell
-- `symmetry_map::AbstractMatrix{<:Integer}`: Symmetry mapping matrix
-
-# Returns
-- `Vector{Vector{Int}}`: List of equivalent atom groups
-
-# Throws
-- `AssertionError`: If input parameters are invalid
-"""
-function classify_equivalent_atoms(
-	primitive_atom_indices::AbstractVector{<:Integer},
-	symmetry_map::AbstractMatrix{<:Integer},
-)::Vector{Vector{Int}}
-	@assert length(primitive_atom_indices) > 0 "primitive_atom_indices must not be empty."
-	@assert size(symmetry_map, 1) ≥ maximum(primitive_atom_indices) "symmetry_map must cover all atoms in primitive_atom_indices."
-
-	equivalent_groups = Vector{Vector{Int}}()
-	checked = falses(size(primitive_atom_indices))
-	num_symmetry_ops = size(symmetry_map, 2)
-
-	@inbounds for (idx, atom_index) in enumerate(primitive_atom_indices)
-		checked[idx] && continue
-
-		equivalent_atoms = Int[atom_index]
-		for sym_op in 1:num_symmetry_ops
-			equivalent_atom = symmetry_map[atom_index, sym_op]
-			atom_index == equivalent_atom && continue
-			if equivalent_atom in primitive_atom_indices && !(equivalent_atom in equivalent_atoms)
-				eq_idx = findfirst(x -> x == equivalent_atom, primitive_atom_indices)
-				checked[eq_idx] = true
-				push!(equivalent_atoms, equivalent_atom)
-			end
+	result = Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}()
+	for body in 2:nbody
+		result[body] = Dict{Int, CountingUniqueVector{Vector{Int}}}()
+		for prim_atom_sc in symmetry.atoms_in_prim
+			result[body][prim_atom_sc] = CountingUniqueVector{Vector{Int}}()
 		end
-		push!(equivalent_groups, equivalent_atoms)
 	end
 
-	return equivalent_groups
-end
-
-"""
-	generate_combinations(atom_indices, cell_indices)
-
-Generates all possible combinations of atom indices and cell indices.
-
-# Arguments
-- `atom_indices::AbstractVector`: List of atom indices
-- `cell_indices::AbstractVector{<:AbstractVector}`: List of cell indices for each atom
-
-# Returns
-- `Vector{Vector{Tuple{Int, Int}}}`: List of tuples containing atom and cell index pairs
-
-# Examples
-```julia
-julia> generate_combinations([2, 3], [[1, 4], [5, 6]])
-4-element Vector{Vector{Tuple{Int64, Int64}}}:
- [(2, 1), (3, 5)]
- [(2, 1), (3, 6)]
- [(2, 4), (3, 5)]
- [(2, 4), (3, 6)]
-```
-
-# Throws
-- `AssertionError`: If input parameters are invalid
-"""
-function generate_combinations(
-	atom_indices::AbstractVector,
-	cell_indices::AbstractVector{<:AbstractVector},
-)::Vector{Vector{Tuple{Int, Int}}}
-	@assert length(atom_indices) == length(cell_indices) "Vectors must have the same length."
-	@assert length(atom_indices) > 0 "Vectors must not be empty."
-
-	result = Vector{Vector{Tuple{Int, Int}}}()
-	for comb in Iterators.product(cell_indices...)
-		pairs = [(atom_idx, cell_idx) for (atom_idx, cell_idx) in zip(atom_indices, comb)]
-		push!(result, pairs)
+	for body in 2:nbody
+		for prim_atom_sc in symmetry.atoms_in_prim
+			counting_unique_vector = CountingUniqueVector{Vector{Int}}()
+			for cluster::SortedVector{AtomCell} in interaction_clusters[body][prim_atom_sc]
+				atom_list = [atom_cell.atom for atom_cell in cluster]
+				atom_list = vcat([prim_atom_sc], atom_list)
+				push!(counting_unique_vector, atom_list)
+			end
+			result[body][prim_atom_sc] = counting_unique_vector
+		end
 	end
+
 	return result
 end
 
 """
-	all_atomlist_by_symop(atom_indices, symmetry_map)
+	struct DistList
 
-Generates all possible atom lists by applying symmetry operations.
+Internal structure used to sort distance information in `print_cluster_stdout`.
 
-# Arguments
-- `atom_indices::AbstractVector{<:Integer}`: List of atom indices
-- `symmetry_map::AbstractMatrix{<:Integer}`: Symmetry mapping matrix
-
-# Returns
-- `Vector{Vector{Int}}`: List of unique atom lists
-
-# Throws
-- `AssertionError`: If input parameters are invalid
+# Fields
+- `atom::Int`: Atom index
+- `dist::Float64`: Distance value
 """
-function all_atomlist_by_symop(
-	atom_indices::AbstractVector{<:Integer},
-	symmetry_map::AbstractMatrix{<:Integer},
-)::Vector{Vector{Int}}
-	@assert length(atom_indices) > 0 "atom_indices must not be empty."
-	@assert size(symmetry_map, 1) ≥ maximum(atom_indices) "symmetry_map must cover all atoms in atom_indices."
-
-	num_symmetry_ops = size(symmetry_map, 2)
-	atom_lists = Vector{Vector{Int}}()
-
-	@inbounds for sym_op in 1:num_symmetry_ops
-		transformed_atoms = Int[]
-		for atom_index in atom_indices
-			push!(transformed_atoms, symmetry_map[atom_index, sym_op])
-		end
-		push!(atom_lists, transformed_atoms)
-	end
-
-	return unique(atom_lists)
-end
-
-"""
-	print_info(cluster)
-
-Prints information about a cluster.
-
-# Arguments
-- `cluster::Cluster`: The cluster to print information about
-"""
-function print_info(cluster::Cluster)
-	println("""
-	========
-	CLUSTER
-	========
-	""")
-	println("Number of interacting bodies (nbody): ", cluster.num_bodies)
-	println("Number of interaction clusters:")
-	for i in 2:cluster.num_bodies
-		println("\t$i-body: ", length(cluster.cluster_list[i-1]))
-		for j in eachindex(cluster.cluster_list[i-1])
-			cluster_str = join(
-				["(atom: $(ac.atom), cell: $(ac.cell))" for ac in cluster.cluster_list[i-1][j]],
-				", ",
-			)
-			println("\t\t[$cluster_str]")
-		end
-	end
-	println("\nTime Elapsed: ", cluster.elapsed_time, " seconds")
-	println("-------------------------------------------------------------------")
-end
-
-function print_info(structure::Structure, symmetry::Symmetry, cluster::Cluster)::Nothing
-	println("""
-	=====
-	PAIRS
-	=====
-	""")
-	atoms_in_prim::Vector{Int} = symmetry.atoms_in_prim
-	num_atoms::Int = structure.supercell.num_atoms
-	min_distance_pairs::Matrix{Vector{DistInfo}} = cluster.min_distance_pairs
-	for i_prim in atoms_in_prim
-		println("Atom: $i_prim")
-		for j in 1:num_atoms
-			println("\tAtom: $j, Distance: $(min_distance_pairs[i_prim, j][1].distance)")
-			print("\t\tCell: ")
-			for distinfo in min_distance_pairs[i_prim, j]
-				print("$(distinfo.cell_index) ")
-			end
-			println()
-		end
-		println()
-	end
-end
-
-# DistList is used to sort the distance information, only used in print_cluster_stdout
 struct DistList
 	atom::Int
 	dist::Float64
@@ -909,115 +561,5 @@ function print_cluster_stdout(
 	end
 end
 
-function generate_clusters(
-	structure::Structure,
-	symmetry::Symmetry,
-	cutoff_radii::AbstractArray{<:Real, 3},
-	nbody::Integer,
-)::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}
-
-	min_distance_pairs = set_mindist_pairs(
-		structure.supercell.num_atoms,
-		structure.x_image_cart,
-		structure.exist_image,
-		tol = symmetry.tol,
-	)
-	interaction_cutoff_dict = Dict{Int, Dict{Int, SortedVector{AtomCell}}}()
-	for body in 2:nbody
-		interaction_cutoff_dict[body] = Dict{Int, SortedVector{AtomCell}}()
-		for prim_atom_sc in symmetry.atoms_in_prim
-			prim_atom_type = structure.supercell.kd_int_list[prim_atom_sc]
-			interaction_cutoff_dict[body][prim_atom_sc] = SortedVector{AtomCell}()
-			for other_atom_sc in 1:structure.supercell.num_atoms
-				if prim_atom_sc == other_atom_sc
-					;
-					continue;
-				end
-				other_atom_type = structure.supercell.kd_int_list[other_atom_sc]
-				rc = cutoff_radii[body, prim_atom_type, other_atom_type]
-
-				if rc < 0.0 || min_distance_pairs[prim_atom_sc, other_atom_sc][1].distance ≤ rc
-					for distinfo in min_distance_pairs[prim_atom_sc, other_atom_sc]
-						push!(
-							interaction_cutoff_dict[body][prim_atom_sc],
-							AtomCell(other_atom_sc, distinfo.cell_index),
-						)
-					end
-				end
-			end
-		end
-	end
-
-
-	# interaction_clusters[body][prim_atom_sc] = SortedVector{SortedVector{AtomCell}}()
-	interaction_clusters = Dict{Int, Dict{Int, Vector{SortedVector{AtomCell}}}}()
-	for body in 2:nbody
-		interaction_clusters[body] = Dict{Int, SortedVector{AtomCell}}()
-		for prim_atom_sc in symmetry.atoms_in_prim
-			interaction_clusters[body][prim_atom_sc] = SortedVector{AtomCell}()
-		end
-	end
-
-
-	for body in 2:nbody, prim_atom_sc in symmetry.atoms_in_prim
-		prim_atom_ac::AtomCell = AtomCell(prim_atom_sc, 1)
-		interactiong_atoms::SortedVector = interaction_cutoff_dict[body][prim_atom_sc]
-		if body == 2
-			for other_atom_ac::AtomCell in interactiong_atoms
-				distance = distance_atomcells(prim_atom_ac, other_atom_ac, structure.x_image_cart)
-				rc = cutoff_radii[
-					body,
-					structure.supercell.kd_int_list[prim_atom_sc],
-					structure.supercell.kd_int_list[other_atom_ac.atom],
-				]
-				if rc < 0.0 || distance ≤ rc
-					push!(interaction_clusters[body][prim_atom_sc], SortedVector([other_atom_ac]))
-				end
-			end
-		else
-			for atom_combination::Vector{AtomCell} in
-				collect(combinations(interactiong_atoms, body - 1))
-				atom_cell_list_all = vcat([prim_atom_ac], atom_combination)
-				atom_list_all = [atom_cell.atom for atom_cell in atom_cell_list_all]
-				if (
-					is_within_cutoff(
-						atom_cell_list_all,
-						structure.supercell.kd_int_list,
-						cutoff_radii,
-						body,
-						structure.x_image_cart,
-						min_distance_pairs,
-					) && (length(atom_list_all) == length(unique(atom_list_all)))
-				)
-					sorted_vector = SortedVector(atom_combination)
-					push!(interaction_clusters[body][prim_atom_sc], sorted_vector)
-				end
-			end
-		end
-	end
-
-	result = Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}()
-	for body in 2:nbody
-		result[body] = Dict{Int, CountingUniqueVector{Vector{Int}}}()
-		for prim_atom_sc in symmetry.atoms_in_prim
-			result[body][prim_atom_sc] = CountingUniqueVector{Vector{Int}}()
-		end
-	end
-
-	for body in 2:nbody
-		for prim_atom_sc in symmetry.atoms_in_prim
-			counting_unique_vector = CountingUniqueVector{Vector{Int}}()
-			for cluster::SortedVector{AtomCell} in interaction_clusters[body][prim_atom_sc]
-				atom_list = [atom_cell.atom for atom_cell in cluster]
-				atom_list = vcat([prim_atom_sc], atom_list)
-				push!(counting_unique_vector, atom_list)
-			end
-			result[body][prim_atom_sc] = counting_unique_vector
-		end
-	end
-
-
-	return result
-end
 
 end
