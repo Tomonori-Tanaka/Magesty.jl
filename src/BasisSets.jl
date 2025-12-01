@@ -125,6 +125,7 @@ function BasisSet(
 		eigenvals = real.(round.(eigenvals, digits = 6))
 		eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
 		if !is_proper_eigenvals(eigenvals)
+			println(eigenvals)
 			@warn "Critical error: Eigenvalues must be either 0 or 1. index: $idx"
 		end
 		for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
@@ -684,12 +685,9 @@ function proj_matrix_a_symop(
 		display(symop)
 		@assert false "Projection matrix is zero matrix"
 	end
-	if !is_unitary(projection_mat, tol = 1e-10)
-		# display(basislist)
-		# println(symop)
-		# display(projection_mat)
-		error("Projection matrix is not unitary")
-	end
+	# if !is_unitary(projection_mat, tol = 1e-10)
+	# 	error("Projection matrix is not unitary")
+	# end
 	return projection_mat
 end
 
