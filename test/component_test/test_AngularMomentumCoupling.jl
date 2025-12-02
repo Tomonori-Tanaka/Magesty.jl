@@ -297,12 +297,6 @@ using OffsetArrays
 		# Lf = 1
 		Lf = 1
 		tensor = bases[1][1]
-		display(tensor[:, :, 1])
-		display([ 0.0 0.0 sqrt(3/5);
-		0.0 -sqrt(3/10) 0.0;
-		sqrt(1/10) 0.0 0.0;
-		0.0 0.0 0.0;
-		0.0 0.0 0.0])
 
 		@test isapprox(tensor[:, :, 1],
 			[ 0.0 0.0 sqrt(3/5);
