@@ -48,6 +48,11 @@ include("types/SALCs.jl")
 include("SpinConfigs.jl")
 using .SpinConfigs
 
+include("utils/AngularMomentumCoupling.jl")
+include("types/Basis.jl")
+using .AngularMomentumCoupling
+using .Basis
+
 include("utils/ConfigParser.jl")
 include("utils/RotationMatrix.jl")
 include("utils/MySphericalHarmonics.jl")
@@ -475,8 +480,9 @@ function write_torques(
 	sc::SpinCluster,
 	filename::AbstractString = "torque_list.txt",
 )
-    predicted_torque_list::Vector{Matrix{Float64}} = sc.optimize.predicted_torque_list
-    observed_torque_list::Vector{Matrix{Float64}} = [spinconfig.torques for spinconfig in sc.optimize.spinconfig_list]
+	predicted_torque_list::Vector{Matrix{Float64}} = sc.optimize.predicted_torque_list
+	observed_torque_list::Vector{Matrix{Float64}} =
+		[spinconfig.torques for spinconfig in sc.optimize.spinconfig_list]
 
 	# Write to file
 	open(filename, "w") do f
@@ -488,31 +494,32 @@ function write_torques(
 
 		# Write data
 		idx_width = ndigits(length(sc.optimize.spinconfig_list))
-		element_string_list = [sc.structure.kd_name[elm_idx] for elm_idx in sc.structure.supercell.kd_int_list]
+		element_string_list =
+			[sc.structure.kd_name[elm_idx] for elm_idx in sc.structure.supercell.kd_int_list]
 		element_width = maximum(length.(element_string_list))
 
-    for (ndata, (obs_torque_matrix, pred_torque_matrix)) in
-        enumerate(zip(observed_torque_list, predicted_torque_list))
-        println(f, "# data index: $ndata")
-        for (iatom, (obs_torque, pred_torque)) in
-            enumerate(zip(eachcol(obs_torque_matrix), eachcol(pred_torque_matrix)))
-            # obs_torque and pred_torque are length-3 vectors (x, y, z)
-            str = @sprintf(
-                " %*d %*s  % 15.10e   % 15.10e   % 15.10e    % 15.10e   % 15.10e   % 15.10e\n",
-                idx_width,
-                iatom,
-                element_width,
-                element_string_list[iatom],
-                obs_torque[1],
-                obs_torque[2],
-                obs_torque[3],
-                pred_torque[1],
-                pred_torque[2],
-                pred_torque[3],
-            )
-            write(f, str)
-        end
-    end
+		for (ndata, (obs_torque_matrix, pred_torque_matrix)) in
+			enumerate(zip(observed_torque_list, predicted_torque_list))
+			println(f, "# data index: $ndata")
+			for (iatom, (obs_torque, pred_torque)) in
+				enumerate(zip(eachcol(obs_torque_matrix), eachcol(pred_torque_matrix)))
+				# obs_torque and pred_torque are length-3 vectors (x, y, z)
+				str = @sprintf(
+					" %*d %*s  % 15.10e   % 15.10e   % 15.10e    % 15.10e   % 15.10e   % 15.10e\n",
+					idx_width,
+					iatom,
+					element_width,
+					element_string_list[iatom],
+					obs_torque[1],
+					obs_torque[2],
+					obs_torque[3],
+					pred_torque[1],
+					pred_torque[2],
+					pred_torque[3],
+				)
+				write(f, str)
+			end
+		end
 	end
 end
 

@@ -470,6 +470,7 @@ end
 export mrange,
 	S_real_to_complex,
 	enumerate_paths_left_all,
+	nmode_mul,
 	coeff_tensor_complex,
 	coeff_tensor_complex_mindexed,
 	complex_to_real_tensor,
