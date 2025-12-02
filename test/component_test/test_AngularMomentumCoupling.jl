@@ -177,7 +177,8 @@ using OffsetArrays
 						if abs(m1+m2) > Lseq[1]
 							continue
 						end
-						expected[i, j, k, q] = Float64(clebschgordan(ls[1], m1, ls[2], m2, Lseq[1], m1+m2)) *
+						expected[i, j, k, q] =
+							Float64(clebschgordan(ls[1], m1, ls[2], m2, Lseq[1], m1+m2)) *
 							Float64(clebschgordan(Lseq[1], m1+m2, ls[3], m3, Lf, Mf))
 					end
 				end
@@ -208,8 +209,11 @@ using OffsetArrays
 							if abs(m1+m2+m3) > Lseq[2]
 								continue
 							end
-							expected[i, j, k, l, q] = Float64(clebschgordan(ls[1], m1, ls[2], m2, Lseq[1], m1+m2)) *
-								Float64(clebschgordan(Lseq[1], m1+m2, ls[3], m3, Lseq[2], m1+m2+m3)) *
+							expected[i, j, k, l, q] =
+								Float64(clebschgordan(ls[1], m1, ls[2], m2, Lseq[1], m1+m2)) *
+								Float64(
+									clebschgordan(Lseq[1], m1+m2, ls[3], m3, Lseq[2], m1+m2+m3),
+								) *
 								Float64(clebschgordan(Lseq[2], m1+m2+m3, ls[4], m4, Lf, Mf))
 						end
 					end
@@ -241,6 +245,7 @@ using OffsetArrays
 		L2_M1_matrix = L2_matrix[:, :, 4]
 		L2_M2_matrix = L2_matrix[:, :, 5]
 
+		# check normality
 		@test sum((L0_matrix) .^ 2) ≈ 1.0
 		@test sum((L1_Mm1_matrix) .^ 2) ≈ 1.0
 		@test sum((L1_M0_matrix) .^ 2) ≈ 1.0
@@ -251,27 +256,62 @@ using OffsetArrays
 		@test sum((L2_M1_matrix) .^ 2) ≈ 1.0
 		@test sum((L2_M2_matrix) .^ 2) ≈ 1.0
 
-		@test isapprox(sum(L0_matrix .* L1_Mm1_matrix), 0.0, atol=1e-10)
-		@test isapprox(sum(L0_matrix .* L1_M0_matrix), 0.0, atol=1e-10)
-		@test isapprox(sum(L0_matrix .* L1_M1_matrix), 0.0, atol=1e-10)
-		@test isapprox(sum(L0_matrix .* L2_Mm2_matrix), 0.0, atol=1e-10)
-		@test isapprox(sum(L0_matrix .* L2_Mm1_matrix), 0.0, atol=1e-10)
-		@test isapprox(sum(L0_matrix .* L2_M0_matrix), 0.0, atol=1e-10)
-		@test isapprox(sum(L0_matrix .* L2_M1_matrix), 0.0, atol=1e-10)
-		@test isapprox(sum(L0_matrix .* L2_M2_matrix), 0.0, atol=1e-10)
-		@test isapprox(sum(L1_Mm1_matrix .* L2_Mm1_matrix), 0.0, atol=1e-10)
-		@test isapprox(sum(L1_Mm1_matrix .* L2_M0_matrix), 0.0, atol=1e-10)
-		@test isapprox(sum(L1_Mm1_matrix .* L2_M1_matrix), 0.0, atol=1e-10)
-		@test isapprox(sum(L1_Mm1_matrix .* L2_M2_matrix), 0.0, atol=1e-10)
-		@test isapprox(sum(L1_M0_matrix .* L2_Mm2_matrix), 0.0, atol=1e-10)
-		@test isapprox(sum(L1_M0_matrix .* L2_Mm1_matrix), 0.0, atol=1e-10)
-		@test isapprox(sum(L1_M0_matrix .* L2_M0_matrix), 0.0, atol=1e-10)
-		@test isapprox(sum(L1_M0_matrix .* L2_M1_matrix), 0.0, atol=1e-10)
-		@test isapprox(sum(L1_M0_matrix .* L2_M2_matrix), 0.0, atol=1e-10)
-		@test isapprox(sum(L1_M1_matrix .* L2_Mm1_matrix), 0.0, atol=1e-10)
-		@test isapprox(sum(L1_M1_matrix .* L2_M0_matrix), 0.0, atol=1e-10)
-		@test isapprox(sum(L1_M1_matrix .* L2_M1_matrix), 0.0, atol=1e-10)
-		@test isapprox(sum(L1_M1_matrix .* L2_M2_matrix), 0.0, atol=1e-10)
-		@test isapprox(sum(L2_Mm2_matrix .* L2_Mm1_matrix), 0.0, atol=1e-10)
+		# check orthogonality
+		@test isapprox(sum(L0_matrix .* L1_Mm1_matrix), 0.0, atol = 1e-10)
+		@test isapprox(sum(L0_matrix .* L1_M0_matrix), 0.0, atol = 1e-10)
+		@test isapprox(sum(L0_matrix .* L1_M1_matrix), 0.0, atol = 1e-10)
+		@test isapprox(sum(L0_matrix .* L2_Mm2_matrix), 0.0, atol = 1e-10)
+		@test isapprox(sum(L0_matrix .* L2_Mm1_matrix), 0.0, atol = 1e-10)
+		@test isapprox(sum(L0_matrix .* L2_M0_matrix), 0.0, atol = 1e-10)
+		@test isapprox(sum(L0_matrix .* L2_M1_matrix), 0.0, atol = 1e-10)
+		@test isapprox(sum(L0_matrix .* L2_M2_matrix), 0.0, atol = 1e-10)
+		@test isapprox(sum(L1_Mm1_matrix .* L2_Mm1_matrix), 0.0, atol = 1e-10)
+		@test isapprox(sum(L1_Mm1_matrix .* L2_M0_matrix), 0.0, atol = 1e-10)
+		@test isapprox(sum(L1_Mm1_matrix .* L2_M1_matrix), 0.0, atol = 1e-10)
+		@test isapprox(sum(L1_Mm1_matrix .* L2_M2_matrix), 0.0, atol = 1e-10)
+		@test isapprox(sum(L1_M0_matrix .* L2_Mm2_matrix), 0.0, atol = 1e-10)
+		@test isapprox(sum(L1_M0_matrix .* L2_Mm1_matrix), 0.0, atol = 1e-10)
+		@test isapprox(sum(L1_M0_matrix .* L2_M0_matrix), 0.0, atol = 1e-10)
+		@test isapprox(sum(L1_M0_matrix .* L2_M1_matrix), 0.0, atol = 1e-10)
+		@test isapprox(sum(L1_M0_matrix .* L2_M2_matrix), 0.0, atol = 1e-10)
+		@test isapprox(sum(L1_M1_matrix .* L2_Mm1_matrix), 0.0, atol = 1e-10)
+		@test isapprox(sum(L1_M1_matrix .* L2_M0_matrix), 0.0, atol = 1e-10)
+		@test isapprox(sum(L1_M1_matrix .* L2_M1_matrix), 0.0, atol = 1e-10)
+		@test isapprox(sum(L1_M1_matrix .* L2_M2_matrix), 0.0, atol = 1e-10)
+		@test isapprox(sum(L2_Mm2_matrix .* L2_Mm1_matrix), 0.0, atol = 1e-10)
+
+
+		ls = [2, 1]
+		bases, paths = build_all_complex_bases(ls)
+		@test length(bases) == 3
+		@test (length(bases[1]) == 1) && (length(bases[2]) == 1) && (length(bases[3]) == 1)
+		@test length(paths) == 3
+		@test (length(paths[1]) == 1) && (length(paths[2]) == 1) && (length(paths[3]) == 1)
+		@test (paths[1][1] == Int[]) && (paths[2][1] == Int[]) && (paths[3][1] == Int[])
+
+		# dimensionality check
+		@test size(bases[1][1]) == (5, 3, 3)
+		@test size(bases[2][1]) == (5, 3, 5)
+		@test size(bases[3][1]) == (5, 3, 7)
+
+		# Lf = 1
+		Lf = 1
+		tensor = bases[1][1]
+		display(tensor[:, :, 1])
+		display([ 0.0 0.0 sqrt(3/5);
+		0.0 -sqrt(3/10) 0.0;
+		sqrt(1/10) 0.0 0.0;
+		0.0 0.0 0.0;
+		0.0 0.0 0.0])
+
+		@test isapprox(tensor[:, :, 1],
+			[ 0.0 0.0 sqrt(3/5);
+				0.0 -sqrt(3/10) 0.0;
+				sqrt(1/10) 0.0 0.0;
+				0.0 0.0 0.0;
+				0.0 0.0 0.0], atol = 1e-10)
+
+
+
 	end
 end
