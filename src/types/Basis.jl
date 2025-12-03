@@ -8,7 +8,9 @@ export LinearCombo,
 	permute_atoms!,
 	permute_atoms,
 	*,
-	linear_combos_from_complex_bases
+	linear_combos_from_complex_bases,
+	tesseral_linear_combos_from_tesseral_bases,
+	tesseral_linear_combos_from_complex_bases
 
 """
 	LinearCombo{T,N}
@@ -52,8 +54,8 @@ struct LinearCombo{T <: Number, N}
 	) where {T <: Number}
 		N = length(ls)
 
-		length(Lseq) == N - 1 ||
-			throw(ArgumentError("length(Lseq) must be N-1; got $(length(Lseq)), N=$N"))
+		length(Lseq) == N - 2 ||
+			throw(ArgumentError("length(Lseq) must be N-2; got $(length(Lseq)), N=$N"))
 
 		length(atoms) == N ||
 			throw(ArgumentError("length(atoms) must equal N; got $(length(atoms)), N=$N"))
@@ -177,10 +179,10 @@ function tesseral_linear_combos_from_complex_bases(
 		for (tensor, Lseq) in zip(tensors, Lseqs)
 			nd = ndims(tensor)                  # should be N+1
 			@assert nd == length(ls) + 1 "tensor rank must be N+1"
-			
+
 			# Apply transformation to Mf axis (last axis) once
 			tensor_Mf_tesseral = nmode_mul(tensor, Cl_matrix, nd)
-			
+
 			site_axes = ntuple(_ -> Colon(), nd - 1)
 			for Mf_tesseral_idx in 1:(2*Lf+1)
 				coeffs = zeros(Float64, 2*Lf+1)
