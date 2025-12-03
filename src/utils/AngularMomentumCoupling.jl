@@ -254,25 +254,25 @@ function complex_to_real_tensor(Ccx::AbstractArray{<:Number}, ls::Vector{Int}, L
 	N = length(ls)
 	C = Ccx
 
-	# 1) サイト側（bra）：complex -> real は conj(C) を掛ける
+	# 1) Site-side (bra): apply transformation from complex to real
 	for i in 1:N
 		S = UniMatCl(ls[i]).umat_cl     # real = C * complex
-		C = nmode_mul(C, S, i)   # 係数側は C* を掛ける
+		C = nmode_mul(C, S, i)   # For coefficient tensors, apply C* transformation
 	end
 
-	# 2) 最終多重項（ket 側も係数では bra と同様に conj を掛ける）
+	# 2) Final multiplet (ket): apply transformation from complex to real (same as bra side for coefficients)
 	Sfinal = UniMatCl(Lf).umat_cl
 	C = nmode_mul(C, Sfinal, N+1)
 
-	# 3) 位相合わせ（必要に応じて）。整数 l では全体位相だけで十分なことが多い
+	# 3) Phase alignment (rephase). For integer l, global phase alignment is often sufficient
 	if rephase == :global
-		# 最大絶対値の要素の位相を基準に全体を回す
+		# Global phase alignment: rotate entire tensor by phase of maximum absolute value element
 		_, lin = findmax(abs.(C))
 		φ = angle(C[lin])
 		C .*= exp(-1im*φ)
 	elseif rephase == :perM
-		# 最終軸（Mf）ごとに位相を独立に揃える（テンソル基底の再位相）
-		allcols = ntuple(_->Colon(), N)  # N 個の :
+		# Per-Mf phase alignment: align phase independently for each Mf slice (tensor basis rephasing)
+		allcols = ntuple(_->Colon(), N)  # N colons
 		for q in axes(C, N+1)
 			s = @view C[allcols..., q]
 			_, lin = findmax(abs.(s))
@@ -281,11 +281,11 @@ function complex_to_real_tensor(Ccx::AbstractArray{<:Number}, ls::Vector{Int}, L
 		end
 	end
 
-	# 4) 虚部の検査→実数化
+	# 4) Check imaginary parts and convert to real
 	max_imag = maximum(abs.(imag.(C)))
 	@assert max_imag ≤ tol "complex_to_real_tensor: imaginary residue too large = $(max_imag)"
 
-	Creal = Array{Float64}(real.(C))  # ← ここで“常に”実数（型も Float64）
+	Creal = Array{Float64}(real.(C))  # Always real at this point (type is also Float64)
 	return Creal
 end
 

@@ -280,6 +280,13 @@ using OffsetArrays
 		@test isapprox(sum(L1_M1_matrix .* L2_M2_matrix), 0.0, atol = 1e-10)
 		@test isapprox(sum(L2_Mm2_matrix .* L2_Mm1_matrix), 0.0, atol = 1e-10)
 
+		# display(bases[1][1][:, :, 3])
+
+		# bases, paths = build_all_complex_bases(ls)
+		# display(bases[1][1][:, :, 1])
+
+
+
 
 		ls = [2, 1]
 		bases, paths = build_all_complex_bases(ls)
