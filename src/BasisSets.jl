@@ -112,8 +112,18 @@ function BasisSet(
 		bodyn_lsum,
 		nbody,
 	)
-	for lc in tesseral_basislist
-		@show lc, tesseral_basislist.counts[lc]
+
+	# Classify tesseral_basislist by symmetry operations
+	classified_tesseral_basisdict::Dict{Int, SortedCountingUniqueVector{Basis.LinearCombo}} =
+		classify_tesseral_basislist(tesseral_basislist, symmetry.map_sym)
+
+	keys_list = sort(collect(keys(classified_tesseral_basisdict)))
+	for key in keys_list
+		println("key : $key")
+		lc_list = classified_tesseral_basisdict[key]
+		for lc in lc_list
+			println("  lc : $lc")
+		end
 	end
 
 	basislist::SortedCountingUniqueVector{SHProduct} =
@@ -562,6 +572,27 @@ function map_atom_l_list(
 	return [[map_sym[atom_l_vec[1], isym], atom_l_vec[2]] for atom_l_vec in atom_l_list]
 end
 
+"""
+	get_atom_l_list(lc::Basis.LinearCombo) -> Vector{Vector{Int}}
+
+Get the atom-l list from a `LinearCombo` object.
+
+# Arguments
+- `lc::Basis.LinearCombo`: The `LinearCombo` object
+
+# Returns
+- `Vector{Vector{Int}}`: List of `[atom, l]` pairs
+"""
+function get_atom_l_list(lc::Basis.LinearCombo)::Vector{Vector{Int}}
+	atom_list = lc.atoms
+	ls_list = collect(lc.ls)
+	vec = Vector{Vector{Int}}()
+	for (atom, l) in zip(atom_list, ls_list)
+		push!(vec, Int[atom, l])
+	end
+	return vec
+end
+
 function classify_basislist(
 	basislist::AbstractVector{SHProduct},
 	map_sym::AbstractMatrix{<:Integer},
@@ -596,6 +627,84 @@ function classify_basislist(
 
 	for (basis, label) in zip(basislist, label_list)
 		push!(dict[label], basis, getcount(basislist, basis))
+	end
+
+	return dict
+end
+
+"""
+	classify_tesseral_basislist(
+		tesseral_basislist::AbstractVector{Basis.LinearCombo},
+		map_sym::AbstractMatrix{<:Integer},
+	) -> Dict{Int, SortedCountingUniqueVector{Basis.LinearCombo}}
+
+Classify `tesseral_basislist` (a list of `LinearCombo` objects) by symmetry operations.
+Only combinations that can have finite matrix elements under symmetry operations are grouped together.
+
+This function groups `LinearCombo` objects that are related by symmetry operations,
+meaning they can have non-zero matrix elements between them.
+
+Classification criteria:
+- `atom_l_list` (atom and l pairs) must be related by symmetry operations
+- `Lf` (total angular momentum) must be the same (invariant under rotations)
+- `Lseq` (intermediate L values) must be the same (invariant under rotations)
+
+# Arguments
+- `tesseral_basislist::AbstractVector{Basis.LinearCombo}`: List of `LinearCombo` objects to classify
+- `map_sym::AbstractMatrix{<:Integer}`: Symmetry mapping matrix
+
+# Returns
+- `Dict{Int, SortedCountingUniqueVector{Basis.LinearCombo}}`: Dictionary mapping classification labels to groups of `LinearCombo` objects
+
+# Examples
+```julia
+classified_dict = classify_tesseral_basislist(tesseral_basislist, symmetry.map_sym)
+```
+"""
+function classify_tesseral_basislist(
+	tesseral_basislist::AbstractVector{Basis.LinearCombo},
+	map_sym::AbstractMatrix{<:Integer},
+)::Dict{Int, SortedCountingUniqueVector{Basis.LinearCombo}}
+	count = 1
+	label_list = zeros(Int, length(tesseral_basislist))
+	for (idx, lc) in enumerate(tesseral_basislist)
+		if label_list[idx] != 0
+			continue
+		end
+		atom_l_list_base = get_atom_l_list(lc)
+		Lf_base = lc.Lf
+		Lseq_base = lc.Lseq
+		for isym in 1:size(map_sym, 2)
+			mapped_list = map_atom_l_list(atom_l_list_base, map_sym, isym)
+			sorted_mapped = sort(mapped_list)
+			for (idx2, lc2) in enumerate(tesseral_basislist)
+				if label_list[idx2] == 0 &&
+				   sort(get_atom_l_list(lc2)) == sorted_mapped &&
+				   lc2.Lf == Lf_base &&
+				   lc2.Lseq == Lseq_base
+					label_list[idx2] = count
+				end
+			end
+		end
+		count += 1
+	end
+
+	dict = OrderedDict{Int, SortedCountingUniqueVector{Basis.LinearCombo}}()
+	max_label = maximum(label_list)
+	if max_label > 0
+		for idx in 1:max_label
+			dict[idx] = SortedCountingUniqueVector{Basis.LinearCombo}()
+		end
+	end
+
+	for (lc, label) in zip(tesseral_basislist, label_list)
+		# Get count from the original tesseral_basislist if it's a SortedCountingUniqueVector
+		if tesseral_basislist isa SortedCountingUniqueVector
+			count_val = tesseral_basislist.counts[lc]
+			push!(dict[label], lc, count_val)
+		else
+			push!(dict[label], lc, 1)
+		end
 	end
 
 	return dict
