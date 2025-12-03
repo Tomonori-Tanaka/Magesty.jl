@@ -9,6 +9,7 @@ include("../src/utils/MySphericalHarmonics.jl")
 include("../src/utils/ConfigParser.jl")
 include("../src/types/SALCs.jl")
 include("../src/utils/AngularMomentumCoupling.jl")
+include("../src/types/Basis.jl")
 include("helpers/fileutils.jl")
 
 using Magesty

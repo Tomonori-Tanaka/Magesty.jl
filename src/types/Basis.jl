@@ -3,6 +3,7 @@ module Basis
 using ..UnitaryMatrixCl
 using ..AngularMomentumCoupling
 using LinearAlgebra
+using DataStructures
 
 export LinearCombo,
 	permute_atoms!,
@@ -37,13 +38,26 @@ struct LinearCombo{T <: Number, N}
 
 	User-facing constructor.
 
-	- `ls`           : `AbstractVector{<:Integer}` (length N)
+	- `ls`           : `AbstractVector{<:Integer}` or `NTuple{N, <:Integer}` (length N)
 	- `Lf`           : `Integer`
 	- `Lseq`         : `AbstractVector{<:Integer}` (length N-1)
 	- `atoms`        : `AbstractVector{<:Integer}` (length N), stored internally as `Vector{Int}`
 	- `coeff_list`   : `AbstractVector{T}` with `T<:Number`
 	- `coeff_tensor` : `AbstractArray{T}` with `ndims(coeff_tensor) == N`
 	"""
+	# Constructor accepting NTuple for ls
+	function LinearCombo(
+		ls::NTuple{N, <:Integer},
+		Lf::Integer,
+		Lseq::AbstractVector{<:Integer},
+		atoms::AbstractVector{<:Integer},
+		coeff_list::AbstractVector{T},
+		coeff_tensor::AbstractArray{T},
+	) where {T <: Number, N}
+		return LinearCombo(collect(Int.(ls)), Lf, Lseq, atoms, coeff_list, coeff_tensor)
+	end
+
+	# Constructor accepting AbstractVector for ls
 	function LinearCombo(
 		ls::AbstractVector{<:Integer},
 		Lf::Integer,
@@ -74,6 +88,17 @@ struct LinearCombo{T <: Number, N}
 	end
 end
 
+function Base.show(io::IO, lc::LinearCombo{T, N}) where {T, N}
+	print(io, "LinearCombo{$T, $N}(")
+	print(io, "ls=$(lc.ls), ")
+	print(io, "Lf=$(lc.Lf), ")
+	print(io, "Lseq=$(lc.Lseq), ")
+	print(io, "atoms=$(lc.atoms), ")
+	print(io, "coeff_list=$(lc.coeff_list), ")
+	print(io, "coeff_tensor=$(size(lc.coeff_tensor))")
+	print(io, ")")
+end
+
 function Base.:*(mat::AbstractMatrix{<:Number}, lc::LinearCombo{T, N}) where {T <: Number, N}
 	@assert size(mat, 1) == size(mat, 2) "Matrix must be square"
 	@assert (length(lc.coeff_list) == size(mat, 1)) "Dimension mismatch: length(coeff_list) = $(length(lc.coeff_list)), size(mat, 1) = $(size(mat, 1))"
@@ -100,6 +125,79 @@ function permute_atoms(lc::LinearCombo, perm::AbstractVector{<:Integer})
 		lc.coeff_list,
 		lc.coeff_tensor,
 	)
+end
+
+# Helper function to find a permutation that matches (atom, l) pairs
+function _find_matching_permutation(
+	pairs1::Vector{Tuple{Int, Int}},
+	pairs2::Vector{Tuple{Int, Int}},
+)::Union{Vector{Int}, Nothing}
+	N = length(pairs1)
+	N != length(pairs2) && return nothing
+
+	# Quick check: count occurrences of each pair
+	count1 = counter(pairs1)
+	count2 = counter(pairs2)
+	count1 != count2 && return nothing
+
+	# Backtracking to find a permutation
+	perm = zeros(Int, N)
+	used = falses(N)
+
+	function backtrack(i::Int)::Bool
+		if i > N
+			return true
+		end
+		target_pair = pairs1[i]
+		for j in 1:N
+			if !used[j] && pairs2[j] == target_pair
+				perm[i] = j
+				used[j] = true
+				if backtrack(i + 1)
+					return true
+				end
+				used[j] = false
+			end
+		end
+		return false
+	end
+
+	return backtrack(1) ? perm : nothing
+end
+
+"""
+	dot(lc1::LinearCombo, lc2::LinearCombo)
+
+Compute the inner product of two `LinearCombo` objects.
+
+The inner product is zero if:
+- `Lf` values differ
+- `Lseq` values differ
+- `ls` values differ (even if permuted)
+- `(atom, l)` pairs cannot be matched by any permutation
+
+If the `(atom, l)` pairs can be matched by a permutation, returns the dot product
+of `coeff_list` vectors.
+"""
+function LinearAlgebra.dot(lc1::LinearCombo{T1, N1}, lc2::LinearCombo{T2, N2}) where {T1, T2, N1, N2}
+	# Different number of sites
+	N1 != N2 && return zero(promote_type(T1, T2))
+
+	# Different Lf
+	lc1.Lf != lc2.Lf && return zero(promote_type(T1, T2))
+
+	# Different Lseq
+	lc1.Lseq != lc2.Lseq && return zero(promote_type(T1, T2))
+
+	# Check if (atom, l) pairs match (with possible permutation)
+	# This automatically ensures ls values match after permutation
+	pairs1 = collect(zip(lc1.atoms, collect(lc1.ls)))
+	pairs2 = collect(zip(lc2.atoms, collect(lc2.ls)))
+	perm = _find_matching_permutation(pairs1, pairs2)
+	perm === nothing && return zero(promote_type(T1, T2))
+
+	# All checks passed: compute dot product of coeff_list
+	return dot(lc1.coeff_list, lc2.coeff_list)
 end
 
 """
