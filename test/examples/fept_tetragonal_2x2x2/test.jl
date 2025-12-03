@@ -10,5 +10,5 @@ input["regression"]["datafile"] = joinpath(@__DIR__, "EMBSET.dat")
 system = System(input, verbosity = false)
 
 
-sclus = SpinCluster(system, input, verbosity = false)
-Magesty.write_xml(sclus, joinpath(@__DIR__, "scecoeffs.xml"))
+#sclus = SpinCluster(system, input, verbosity = false)
+#Magesty.write_xml(sclus, joinpath(@__DIR__, "scecoeffs.xml"))
