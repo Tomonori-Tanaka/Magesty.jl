@@ -178,6 +178,77 @@
 					@test dot(lc1, lc2) == 0.0
 				end
 			end
+
+			@testset "N=1 (single atom) case" begin
+				@testset "Same LinearCombo" begin
+					atoms = [1]
+					ls = [2]
+					lc_list = tesseral_linear_combos_from_tesseral_bases(ls, atoms)
+					@test length(lc_list) == 5  # 2*Lf+1 = 2*2+1 = 5
+					# Check that Lseq is empty for N=1
+					for lc in lc_list
+						@test lc.Lseq == Int[]
+						@test length(lc.coeff_list) == 5
+						@test size(lc.coeff_tensor) == (5,)
+					end
+					# Same LinearCombo should have dot product of 1.0
+					for (i, lc1) in enumerate(lc_list), (j, lc2) in enumerate(lc_list)
+						if i == j
+							@test dot(lc1, lc2) ≈ 1.0
+						else
+							@test dot(lc1, lc2) == 0.0
+						end
+					end
+				end
+
+				@testset "Different Lf" begin
+					atoms = [1]
+					ls = [2]
+					lc_list = tesseral_linear_combos_from_tesseral_bases(ls, atoms)
+					# Find LinearCombos with different Lf
+					lc_lf2 = lc_list[findfirst(lc -> lc.Lf == 2, lc_list)]
+					# Create another LinearCombo with Lf=0
+					ls_lf0 = [2]
+					Lf0 = 0
+					Lseq0 = Int[]
+					coeff_list0 = [1.0]
+					coeff_tensor0 = [1.0]
+					lc_lf0 = LinearCombo(ls_lf0, Lf0, Lseq0, atoms, coeff_list0, coeff_tensor0)
+					@test dot(lc_lf2, lc_lf0) == 0.0
+				end
+
+				@testset "Different atom" begin
+					atoms1 = [1]
+					atoms2 = [2]
+					ls = [2]
+					lc_list1 = tesseral_linear_combos_from_tesseral_bases(ls, atoms1)
+					lc_list2 = tesseral_linear_combos_from_tesseral_bases(ls, atoms2)
+					# Different atoms should give zero dot product
+					for (i, lc1) in enumerate(lc_list1), (j, lc2) in enumerate(lc_list2)
+						@test dot(lc1, lc2) == 0.0
+					end
+				end
+
+				@testset "Different coeff_list" begin
+					atoms = [1]
+					ls = [2]
+					lc_list = tesseral_linear_combos_from_tesseral_bases(ls, atoms)
+					lc1 = lc_list[1]
+					# Create a LinearCombo with different coeff_list
+					coeff_list2 = [1/sqrt(2), 1/sqrt(2), 0.0, 0.0, 0.0]
+					lc2 = LinearCombo(
+						lc1.ls,
+						lc1.Lf,
+						lc1.Lseq,
+						lc1.atoms,
+						coeff_list2,
+						lc1.coeff_tensor,
+					)
+					# Dot product should be the dot product of coeff_list vectors
+					expected = dot(lc1.coeff_list, coeff_list2)
+					@test dot(lc1, lc2) ≈ expected
+				end
+			end
 		end
 	end
 end
