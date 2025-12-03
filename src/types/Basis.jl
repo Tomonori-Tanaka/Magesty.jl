@@ -194,4 +194,51 @@ function tesseral_linear_combos_from_complex_bases(
 	return combo_list
 end
 
+"""
+	tesseral_linear_combos_from_tesseral_bases(ls, atoms; normalize=:none, isotropy::Bool=false)
+
+Construct a flat list of `LinearCombo` objects from the output of
+`AngularMomentumCoupling.build_all_real_bases`.
+
+The input tensors are already in real (tesseral) basis for all sites and the final multiplet,
+so no additional transformation is needed. Each coupled basis tensor (for a given coupling path
+and final `Lf`) is wrapped into a `LinearCombo` with a single scalar coefficient `1.0` for
+each Mf tesseral index.
+"""
+function tesseral_linear_combos_from_tesseral_bases(
+	ls::AbstractVector{<:Integer},
+	atoms::AbstractVector{<:Integer};
+	normalize::Symbol = :none,
+	isotropy::Bool = false,
+)
+	bases_by_L, paths_by_L =
+		build_all_real_bases(
+			collect(Int.(ls));
+			normalize = normalize,
+			isotropy = isotropy,
+		)
+
+	combo_list = LinearCombo[]
+
+	for Lf in sort(collect(keys(bases_by_L)))
+		tensors::Vector{Array{Float64}} = bases_by_L[Lf]
+		Lseqs::Vector{Vector{Int}} = paths_by_L[Lf]
+
+		for (tensor, Lseq) in zip(tensors, Lseqs)
+			nd = ndims(tensor)                  # should be N+1
+			@assert nd == length(ls) + 1 "tensor rank must be N+1"
+
+			site_axes = ntuple(_ -> Colon(), nd - 1)
+			for Mf_tesseral_idx in 1:(2*Lf+1)
+				coeffs = zeros(Float64, 2*Lf+1)
+				coeffs[Mf_tesseral_idx] = 1.0
+				coeff_tensor = Array(tensor[site_axes..., Mf_tesseral_idx])
+				push!(combo_list, LinearCombo(ls, Lf, Lseq, atoms, coeffs, coeff_tensor))
+			end
+		end
+	end
+
+	return combo_list
+end
+
 end # module Basis
