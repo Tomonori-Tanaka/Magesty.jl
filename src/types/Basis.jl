@@ -11,7 +11,9 @@ export LinearCombo,
 	*,
 	linear_combos_from_complex_bases,
 	tesseral_linear_combos_from_tesseral_bases,
-	tesseral_linear_combos_from_complex_bases
+	tesseral_linear_combos_from_complex_bases,
+	is_physically_equivalent,
+	remove_duplicate_linear_combos
 
 """
 	LinearCombo{T,N}
@@ -40,9 +42,9 @@ struct LinearCombo{T <: Number, N}
 
 	- `ls`           : `AbstractVector{<:Integer}` or `NTuple{N, <:Integer}` (length N)
 	- `Lf`           : `Integer`
-	- `Lseq`         : `AbstractVector{<:Integer}` (length N-1)
+	- `Lseq`         : `AbstractVector{<:Integer}` (length N-2 for N≥2, empty for N=1)
 	- `atoms`        : `AbstractVector{<:Integer}` (length N), stored internally as `Vector{Int}`
-	- `coeff_list`   : `AbstractVector{T}` with `T<:Number`
+	- `coeff_list`   : `AbstractVector{T}` with `T<:Number` (length 2*Lf+1)
 	- `coeff_tensor` : `AbstractArray{T}` with `ndims(coeff_tensor) == N`
 	"""
 	# Constructor accepting NTuple for ls
@@ -67,6 +69,16 @@ struct LinearCombo{T <: Number, N}
 		coeff_tensor::AbstractArray{T},
 	) where {T <: Number}
 		N = length(ls)
+		if N == 1
+			return new{T, 1}(
+				NTuple{1, Int}(Int.(ls)),
+				Int(Lf),
+				Int[],
+				Int[atoms[1]],
+				collect(coeff_list),
+				Array{T}(coeff_tensor),
+			)
+		end
 
 		length(Lseq) == N - 2 ||
 			throw(ArgumentError("length(Lseq) must be N-2; got $(length(Lseq)), N=$N"))
@@ -179,7 +191,10 @@ The inner product is zero if:
 If the `(atom, l)` pairs can be matched by a permutation, returns the dot product
 of `coeff_list` vectors.
 """
-function LinearAlgebra.dot(lc1::LinearCombo{T1, N1}, lc2::LinearCombo{T2, N2}) where {T1, T2, N1, N2}
+function LinearAlgebra.dot(
+	lc1::LinearCombo{T1, N1},
+	lc2::LinearCombo{T2, N2},
+) where {T1, T2, N1, N2}
 	# Different number of sites
 	N1 != N2 && return zero(promote_type(T1, T2))
 
@@ -339,6 +354,83 @@ function tesseral_linear_combos_from_tesseral_bases(
 	end
 
 	return combo_list
+end
+
+"""
+	is_physically_equivalent(lc1::LinearCombo, lc2::LinearCombo) -> Bool
+
+Check if two `LinearCombo` objects are physically equivalent.
+
+Two `LinearCombo` objects are physically equivalent if:
+- They have the same `Lf`
+- They have the same `Lseq`
+- Their `(atom, l)` pairs match as multisets (order doesn't matter)
+- Their `coeff_list` values are the same
+
+# Examples
+```julia
+lc1 = LinearCombo([1, 1], 0, Int[], [1, 5], [1.0], ...)
+lc2 = LinearCombo([1, 1], 0, Int[], [5, 1], [1.0], ...)
+is_physically_equivalent(lc1, lc2)  # true
+
+lc3 = LinearCombo([1, 1], 0, Int[], [1, 5], [0.0, 1.0], ...)
+is_physically_equivalent(lc1, lc3)  # false (different coeff_list)
+```
+"""
+function is_physically_equivalent(
+	lc1::LinearCombo{T1, N1},
+	lc2::LinearCombo{T2, N2},
+) where {T1, T2, N1, N2}
+	# Different number of sites
+	N1 != N2 && return false
+
+	# Different Lf
+	lc1.Lf != lc2.Lf && return false
+
+	# Different Lseq
+	lc1.Lseq != lc2.Lseq && return false
+
+	# Different coeff_list means different basis functions
+	if lc1.coeff_list != lc2.coeff_list
+		return false
+	end
+
+	# Check if (atom, l) pairs match as multisets
+	pairs1 = collect(zip(lc1.atoms, collect(lc1.ls)))
+	pairs2 = collect(zip(lc2.atoms, collect(lc2.ls)))
+	perm = _find_matching_permutation(pairs1, pairs2)
+	return perm !== nothing
+end
+
+"""
+	remove_duplicate_linear_combos(lc_list::Vector{<:LinearCombo}) -> Vector{LinearCombo}
+
+Remove physically equivalent `LinearCombo` objects from a list, keeping only the first occurrence
+of each physically distinct combination.
+
+# Examples
+```julia
+lc1 = LinearCombo([1, 1], 0, Int[], [1, 5], [1.0], ...)
+lc2 = LinearCombo([1, 1], 0, Int[], [5, 1], [1.0], ...)
+lc_list = [lc1, lc2, ...]
+unique_list = remove_duplicate_linear_combos(lc_list)  # lc2 is removed
+```
+"""
+function remove_duplicate_linear_combos(lc_list::Vector{<:LinearCombo})::Vector{LinearCombo}
+	result = LinearCombo[]
+	for lc in lc_list
+		is_duplicate = false
+		for existing_lc in result
+			if is_physically_equivalent(lc, existing_lc)
+				is_duplicate = true
+				break
+			end
+		end
+		if !is_duplicate
+			push!(result, lc)
+		end
+	end
+	return result
 end
 
 end # module Basis

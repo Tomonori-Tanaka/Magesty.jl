@@ -22,6 +22,7 @@ using ..Symmetries
 using ..Clusters
 using ..SALCs
 using ..RotationMatrix
+using ..Basis
 
 export BasisSet
 
@@ -102,6 +103,17 @@ function BasisSet(
 	# basislist consists of all possible basis functions which is the product of spherical harmonics.
 	if verbosity
 		print("Constructing basis list...")
+	end
+	tesseral_basislist::Vector{Basis.LinearCombo} = construct_tesseral_basislist(
+		structure,
+		symmetry,
+		cluster,
+		body1_lmax,
+		bodyn_lsum,
+		nbody,
+	)
+	for lc in tesseral_basislist
+		@show lc
 	end
 
 	basislist::SortedCountingUniqueVector{SHProduct} =
@@ -255,6 +267,281 @@ function listup_basislist(
 		end
 	end
 	return result_basislist
+end
+
+"""
+	listup_tesseral_basislist(atom_list, lsum; normalize=:none, isotropy::Bool=false)
+
+List up all tesseral (real) basis functions as `LinearCombo` objects for a given atom list and maximum angular momentum sum.
+
+This function generates all possible combinations of angular momenta that sum to `lsum` or less,
+and constructs tesseral basis functions using `tesseral_linear_combos_from_tesseral_bases`.
+
+# Arguments
+- `atom_list::Vector{<:Integer}`: List of atom indices
+- `lsum::Integer`: Maximum sum of angular momentum values
+- `normalize::Symbol`: Normalization option (`:none` or `:fro`, default: `:none`)
+- `isotropy::Bool`: If `true`, only include isotropic terms (Lf=0), default: `false`
+
+# Returns
+- `Vector{LinearCombo}`: List of `LinearCombo` objects representing tesseral basis functions
+
+# Examples
+```julia
+atom_list = [1, 2]
+lsum = 4
+basis_list = listup_tesseral_basislist(atom_list, lsum)
+```
+"""
+function listup_tesseral_basislist(
+	atom_list::Vector{<:Integer},
+	lsum::Integer;
+	normalize::Symbol = :none,
+	isotropy::Bool = false,
+)::Vector{Basis.LinearCombo}
+	result_basislist = Vector{Basis.LinearCombo}()
+	for l in 2:lsum
+		if l < length(atom_list) || isodd(l)
+			continue
+		end
+		l_list = Combinat.compositions(l, length(atom_list); min = 1)
+		for l_vec::Vector{Int} in l_list
+			lc_list = tesseral_linear_combos_from_tesseral_bases(
+				l_vec,
+				atom_list;
+				normalize = normalize,
+				isotropy = isotropy,
+			)
+			append!(result_basislist, lc_list)
+		end
+	end
+	# Remove physically equivalent LinearCombos
+	return Basis.remove_duplicate_linear_combos(result_basislist)
+end
+
+"""
+	construct_tesseral_basislist(
+		structure::Structure,
+		symmetry::Symmetry,
+		cluster::Cluster,
+		body1_lmax::Vector{Int},
+		bodyn_lsum::OffsetArray{Int, 1},
+		nbody::Integer;
+		normalize::Symbol = :none,
+		isotropy::Bool = false,
+	)
+
+Construct a list of tesseral (real) basis functions as `LinearCombo` objects, similar to `construct_basislist`
+but using `tesseral_linear_combos_from_tesseral_bases` instead of `SHProduct`.
+
+This function follows the same structure as `construct_basislist`:
+1. Handles 1-body case (skipping l=1 and odd l due to time-reversal symmetry)
+2. Processes multi-body cases (body=2 to nbody)
+3. Uses `listup_tesseral_basislist` to generate basis functions for each atom list
+
+# Arguments
+- `structure::Structure`: Structure information containing atomic positions and species
+- `symmetry::Symmetry`: Symmetry information for the crystal structure
+- `cluster::Cluster`: Cluster information for atomic interactions
+- `body1_lmax::Vector{Int}`: Maximum angular momentum values for 1-body interactions for each atomic species
+- `bodyn_lsum::OffsetArray{Int, 1}`: Maximum sum of angular momentum values for multi-body interactions
+- `nbody::Integer`: Maximum number of bodies in interactions
+- `normalize::Symbol`: Normalization option (`:none` or `:fro`, default: `:none`)
+- `isotropy::Bool`: If `true`, only include isotropic terms (Lf=0), default: `false`
+
+# Returns
+- `Vector{LinearCombo}`: List of `LinearCombo` objects representing tesseral basis functions
+
+# Examples
+```julia
+body1_lmax = [2, 3]
+bodyn_lsum = OffsetArray([0, 0, 4, 6], 0:3)
+basis_list = construct_tesseral_basislist(structure, symmetry, cluster, body1_lmax, bodyn_lsum, 3)
+```
+"""
+function construct_tesseral_basislist(
+	structure::Structure,
+	symmetry::Symmetry,
+	cluster::Cluster,
+	body1_lmax::Vector{Int},
+	bodyn_lsum::OffsetArray{Int, 1},
+	nbody::Integer;
+	normalize::Symbol = :none,
+	isotropy::Bool = false,
+)::Vector{Basis.LinearCombo}
+	result_basislist = Vector{Basis.LinearCombo}()
+	cluster_dict::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}} =
+		cluster.cluster_dict
+
+	# Handle 1-body case
+	for iat in symmetry.atoms_in_prim
+		lmax = body1_lmax[structure.supercell.kd_int_list[iat]]
+		for l in 2:lmax[1] # skip l = 1 because it is prohibited by the time-reversal symmetry
+			if l % 2 == 1 # skip odd l cases due to the time-reversal symmetry
+				continue
+			end
+			# For 1-body case, create LinearCombo with single atom
+			lc_list = tesseral_linear_combos_from_tesseral_bases(
+				[l],
+				[iat];
+				normalize = normalize,
+				isotropy = isotropy,
+			)
+			append!(result_basislist, lc_list)
+		end
+	end
+
+	# Process multi-body cases
+	for body in 2:nbody
+		body_basislist = Vector{Basis.LinearCombo}()
+		for prim_atom_sc in symmetry.atoms_in_prim
+			cuv::CountingUniqueVector{Vector{Int}} = cluster_dict[body][prim_atom_sc]
+			for atom_list::Vector{Int} in cuv
+				lc_list::Vector{Basis.LinearCombo} =
+					listup_tesseral_basislist(atom_list, bodyn_lsum[body];
+						normalize = normalize,
+						isotropy = isotropy,
+					)
+				for lc::Basis.LinearCombo in lc_list
+					push_unique_tesseral_body!(body_basislist, lc, symmetry)
+				end
+			end
+		end
+		append!(result_basislist, body_basislist)
+	end
+
+	# Remove physically equivalent LinearCombos (for cases where same (atom, l) pairs appear with different orders)
+	return Basis.remove_duplicate_linear_combos(result_basislist)
+end
+
+"""
+	is_translationally_equivalent_linear_combo(lc1::Basis.LinearCombo, lc2::Basis.LinearCombo, symmetry::Symmetry) -> Bool
+
+Check if two `LinearCombo` objects are translationally equivalent.
+
+Two `LinearCombo` objects are translationally equivalent if:
+- They are physically equivalent (same `Lf`, `Lseq`, and `(atom, l)` pairs)
+- Their atom lists are related by a translation operation in the supercell
+
+This function checks if the atom lists can be mapped to each other via translation operations
+defined in `symmetry.symnum_translation`.
+
+# Arguments
+- `lc1::Basis.LinearCombo`: First `LinearCombo` to compare
+- `lc2::Basis.LinearCombo`: Second `LinearCombo` to compare
+- `symmetry::Symmetry`: Symmetry information containing translation mappings
+
+# Returns
+- `Bool`: `true` if the `LinearCombo` objects are translationally equivalent, `false` otherwise
+"""
+function is_translationally_equivalent_linear_combo(
+	lc1::Basis.LinearCombo{T1, N1},
+	lc2::Basis.LinearCombo{T2, N2},
+	symmetry::Symmetry,
+) where {T1, T2, N1, N2}
+	# Different number of sites
+	N1 != N2 && return false
+
+	# Different Lf
+	lc1.Lf != lc2.Lf && return false
+
+	# Different Lseq
+	lc1.Lseq != lc2.Lseq && return false
+
+	# Different coeff_list means different basis functions
+	if lc1.coeff_list != lc2.coeff_list
+		return false
+	end
+
+	# Different ls values (as multisets) means different basis functions
+	ls1_sorted = sort(collect(lc1.ls))
+	ls2_sorted = sort(collect(lc2.ls))
+	if ls1_sorted != ls2_sorted
+		return false
+	end
+
+	# Check if atom lists are translationally equivalent
+	atom_list1 = lc1.atoms
+	atom_list2 = lc2.atoms
+
+	# Early return if atom lists are the same
+	if atom_list1 == atom_list2
+		return false
+	end
+
+	# Early return if first atom is the same
+	# because this function is intended to be used for different first atoms but translationally equivalent clusters
+	if atom_list1[1] == atom_list2[1]
+		return false
+	end
+
+	# Check translation operations
+	for itran in symmetry.symnum_translation
+		# Method 1: Apply forward translation (map_sym) to atom_list1
+		atom_list1_shifted = [symmetry.map_sym[atom, itran] for atom in atom_list1]
+		# Sort both lists to compare as multisets (order doesn't matter)
+		if sort(atom_list1_shifted) == sort(atom_list2)
+			return true
+		end
+
+		# Method 2: Apply inverse translation (map_sym_inv) to atom_list1
+		atom_list1_shifted = [symmetry.map_sym_inv[atom, itran] for atom in atom_list1]
+		# Sort both lists to compare as multisets (order doesn't matter)
+		if sort(atom_list1_shifted) == sort(atom_list2)
+			return true
+		end
+	end
+
+	return false
+end
+
+"""
+	push_unique_tesseral_body!(target::Vector{Basis.LinearCombo}, lc::Basis.LinearCombo, symmetry::Symmetry)
+
+Add a `LinearCombo` to the target list only if it is not physically or translationally equivalent
+to any existing `LinearCombo` in the list.
+
+This function checks:
+1. If the sum of `l` values matches
+2. If the `LinearCombo` is physically equivalent (same `Lf`, `Lseq`, `(atom, l)` pairs, and `coeff_list`)
+3. If the `LinearCombo` is translationally equivalent (same cluster shifted by translation)
+
+Similar to `push_unique_body!` but for `LinearCombo` objects.
+Note: `coeff_list` must also match for two `LinearCombo` objects to be considered equivalent,
+since different `coeff_list` values represent different basis functions.
+"""
+function push_unique_tesseral_body!(
+	target::Vector{Basis.LinearCombo},
+	lc::Basis.LinearCombo,
+	symmetry::Symmetry,
+)
+	# Quick check: sum of l values
+	lsum_lc = sum(collect(lc.ls))
+	for existing_lc in target
+		lsum_existing = sum(collect(existing_lc.ls))
+		if lsum_lc != lsum_existing
+			continue
+		end
+		# Check if physically equivalent (same Lf, Lseq, (atom, l) pairs, and coeff_list)
+		# This checks for exact matches (same atoms, same ls order)
+		if Basis.is_physically_equivalent(lc, existing_lc)
+			# If physically equivalent and atoms are the same, they are duplicates
+			if lc.atoms == existing_lc.atoms
+				return
+			end
+			# If physically equivalent but atoms differ, check if translationally equivalent
+			if is_translationally_equivalent_linear_combo(lc, existing_lc, symmetry)
+				return
+			end
+		else
+			# If not physically equivalent, still check if translationally equivalent
+			# (e.g., [1, 10] vs [9, 2] with same ls and coeff_list)
+			if is_translationally_equivalent_linear_combo(lc, existing_lc, symmetry)
+				return
+			end
+		end
+	end
+	push!(target, lc)
 end
 
 
@@ -701,7 +988,7 @@ function operate_symop(
 	atoms_in_prim::AbstractVector{<:Integer},
 	symnum_translation::AbstractVector{<:Integer},
 	time_rev_sym::Bool,
-)::LinearCombo
+)::AtomicIndices.LinearCombo
 	# Apply the symmetry operation to atoms
 	new_atom_list = [map_sym_per_symop[shsi.i] for shsi in basis]
 
@@ -762,7 +1049,7 @@ function operate_symop(
 
 	shp_list::Vector{SHProduct} = product_shsiteindex(translated_atom_list, l_list)
 	coeffs = rotmat_kron[:, idx]
-	return LinearCombo(shp_list, coeffs)
+	return AtomicIndices.LinearCombo(shp_list, coeffs)
 end
 
 """
