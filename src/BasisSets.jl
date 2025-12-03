@@ -24,7 +24,146 @@ using ..SALCs
 using ..RotationMatrix
 using ..Basis
 
-export BasisSet
+export BasisSet, SALC_LinearCombo
+
+"""
+	SALC_LinearCombo
+
+A structure representing a symmetry-adapted linear combination of `LinearCombo` objects.
+
+# Fields
+- `basisset::Vector{Basis.LinearCombo}`: The basis set of `LinearCombo` objects
+- `coeffs::Vector{Float64}`: The coefficients of the linear combination
+- `multiplicity::Vector{Int}`: The multiplicity of each basis element
+
+# Constructors
+- `SALC_LinearCombo(basisset::Vector{Basis.LinearCombo}, coeffs::Vector{Float64}, multiplicity::Vector{Int})`:
+  Create a SALC_LinearCombo from a basis set, coefficients, and multiplicity
+- `SALC_LinearCombo(basislist::SortedCountingUniqueVector{Basis.LinearCombo}, coeffs::Vector{<:Real})`:
+  Create a SALC_LinearCombo from a basis list and coefficients
+"""
+struct SALC_LinearCombo
+	basisset::Vector{Basis.LinearCombo}
+	coeffs::Vector{Float64}
+	multiplicity::Vector{Int}
+
+	function SALC_LinearCombo(
+		basisset::Vector{Basis.LinearCombo},
+		coeffs::Vector{Float64},
+		multiplicity::Vector{Int},
+	)
+		length(basisset) == length(coeffs) == length(multiplicity) ||
+			throw(ArgumentError("All vectors must have the same length"))
+		all(x -> x > 0, multiplicity) ||
+			throw(ArgumentError("Multiplicity must be positive"))
+		new(basisset, coeffs, multiplicity)
+	end
+end
+
+"""
+	SALC_LinearCombo(
+		basislist::SortedCountingUniqueVector{Basis.LinearCombo},
+		coeffs::Vector{<:Real},
+	) -> SALC_LinearCombo
+
+Create a SALC_LinearCombo from a basis list and coefficients.
+
+# Arguments
+- `basislist::SortedCountingUniqueVector{Basis.LinearCombo}`: The basis list with counts
+- `coeffs::Vector{<:Real}`: The coefficients for each basis element
+
+# Returns
+- `SALC_LinearCombo`: A new symmetry-adapted linear combination
+
+# Throws
+- `ArgumentError` if the lengths of `basislist` and `coeffs` differ
+- `ArgumentError` if the resulting coefficient vector has zero norm
+"""
+function SALC_LinearCombo(
+	basislist::SortedCountingUniqueVector{Basis.LinearCombo},
+	coeffs::Vector{<:Real},
+)
+	length(basislist) == length(coeffs) ||
+		throw(ArgumentError("The length of basislist and coeffs must be the same"))
+
+	result_basisset = Vector{Basis.LinearCombo}()
+	result_coeffs = Vector{Float64}()
+	result_multiplicity = Vector{Int}()
+
+	for (idx, basis) in enumerate(basislist)
+		count = basislist.counts[basis]
+		if !isapprox(coeffs[idx], 0.0, atol = 1e-8)
+			push!(result_basisset, basis)
+			push!(result_coeffs, coeffs[idx])
+			push!(result_multiplicity, count)
+		end
+	end
+
+	# normalize coefficient vector
+	norm_coeffs = norm(result_coeffs)
+	if isapprox(norm_coeffs, 0.0, atol = 1e-8)
+		throw(ArgumentError("The norm of the coefficient vector is zero."))
+	end
+	result_coeffs ./= norm_coeffs
+
+	return SALC_LinearCombo(result_basisset, result_coeffs, result_multiplicity)
+end
+
+"""
+	show(io::IO, salc::SALC_LinearCombo)
+
+Display a SALC_LinearCombo in a human-readable format.
+
+# Arguments
+- `io::IO`: The output stream
+- `salc::SALC_LinearCombo`: The SALC_LinearCombo to display
+
+# Output Format
+```
+number of terms: N
+M  COEFFICIENT  LinearCombo(...)
+```
+where:
+- N is the number of terms
+- M is the multiplicity
+- COEFFICIENT is the normalized coefficient
+- LinearCombo(...) is the basis element
+"""
+function Base.show(io::IO, salc::SALC_LinearCombo)
+	println(io, "number of terms: ", length(salc.basisset))
+	for (basis, coeff, multiplicity) in zip(salc.basisset, salc.coeffs, salc.multiplicity)
+		println(io, @sprintf("%2d  % 15.10f  %s", multiplicity, coeff, basis))
+	end
+end
+
+"""
+	print_basisset_stdout_linearcombo(salc_list::AbstractVector{<:SALC_LinearCombo})
+
+Print symmetry-adapted basis functions constructed from `LinearCombo` objects.
+
+# Arguments
+- `salc_list::AbstractVector{<:SALC_LinearCombo}`: List of SALC_LinearCombo objects
+
+# Output Format
+```
+ Number of symmetry-adapted basis functions: N
+
+ List of symmetry-adapted basis functions:
+ # multiplicity  coefficient  LinearCombo
+ 1-th salc
+ ...
+```
+"""
+function print_basisset_stdout_linearcombo(salc_list::AbstractVector{<:SALC_LinearCombo})
+	println(" Number of symmetry-adapted basis functions: $(length(salc_list))\n")
+	println(" List of symmetry-adapted basis functions:")
+	println(" # multiplicity  coefficient  LinearCombo")
+	for (i, salc) in enumerate(salc_list)
+		println(" $i-th salc")
+		display(salc)
+	end
+	println("")
+end
 
 """
 	struct BasisSet
@@ -33,7 +172,7 @@ Represents a set of basis functions for atomic interactions in a crystal structu
 This structure is used to store and manage basis functions that are adapted to the symmetry of the crystal.
 
 # Fields
-- `salc_list::Vector{SALC}`: List of symmetry-adapted linear combinations
+- `salc_linearcombo_list::Vector{SALC_LinearCombo}`: List of symmetry-adapted linear combinations of `LinearCombo` objects
 
 # Constructors
 	BasisSet(structure, symmetry, cluster, body1_lmax, bodyn_lsum, nbody; verbosity=true)
@@ -51,7 +190,7 @@ Constructs a new `BasisSet` instance for atomic interactions in a crystal struct
 - `verbosity::Bool`: Whether to print progress information (default: `true`)
 
 # Returns
-- `BasisSet`: A new basis set instance containing symmetry-adapted linear combinations (SALCs)
+- `BasisSet`: A new basis set instance containing symmetry-adapted linear combinations (SALCs) of `LinearCombo` objects
 
 # Examples
 ```julia
@@ -66,13 +205,13 @@ basis = BasisSet(structure, symmetry, cluster, config)
 
 # Note
 The constructor performs the following steps:
-1. Constructs the basis list by considering all possible combinations of atoms and angular momenta
+1. Constructs the tesseral basis list using `LinearCombo` objects
 2. Classifies basis functions by symmetry operations
 3. Constructs projection matrices for each symmetry label
-4. Generates symmetry-adapted linear combinations (SALCs)
+4. Generates symmetry-adapted linear combinations (SALCs) of `LinearCombo` objects
 """
 struct BasisSet
-	salc_list::Vector{SALC}
+	salc_linearcombo_list::Vector{SALC_LinearCombo}
 end
 
 function BasisSet(
@@ -127,36 +266,10 @@ function BasisSet(
 	# end
 
 	projection_list = projection_matrix_linearcombo(classified_tesseral_basisdict, symmetry)
+	salc_linearcombo_list = Vector{SALC_LinearCombo}()
 	for (idx, projection_mat) in enumerate(projection_list)
-		println("projection_mat: $idx")
+		basislist = classified_tesseral_basisdict[idx]
 		eigenvals, eigenvecs = eigen(projection_mat)
-		eigenvals = real.(round.(eigenvals, digits = 6))
-		eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
-		println("eigenvals: $eigenvals")
-		if !is_proper_eigenvals(eigenvals)
-			println(eigenvals)
-			@warn "Critical error: Eigenvalues must be either 0 or 1. index: $idx"
-		end
-	end
-
-	basislist::SortedCountingUniqueVector{SHProduct} =
-		construct_basislist(structure, symmetry, cluster, body1_lmax, bodyn_lsum, nbody)
-
-	classified_basisdict::Dict{Int, SortedCountingUniqueVector{SHProduct}} =
-		classify_basislist(basislist, symmetry.map_sym)
-
-	classified_basisdict = filter_basisdict(classified_basisdict)
-	if verbosity
-		print(" Done\n")
-	end
-
-	if verbosity
-		print("Constructing projection matrices...")
-	end
-	projection_list = projection_matrix(classified_basisdict, symmetry)
-	salc_list = Vector{SALC}()
-	for idx in eachindex(projection_list)
-		eigenvals, eigenvecs = eigen(projection_list[idx])
 		eigenvals = real.(round.(eigenvals, digits = 6))
 		eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
 		if !is_proper_eigenvals(eigenvals)
@@ -167,23 +280,18 @@ function BasisSet(
 			eigenvec = eigenvecs[:, idx_eigenval]
 			eigenvec = flip_vector_if_negative_sum(eigenvec)
 			eigenvec = round.(eigenvec .* (abs.(eigenvec) .≥ 1e-8), digits = 10)
-			push!(salc_list, SALC(classified_basisdict[idx], eigenvec / norm(eigenvec)))
+			push!(salc_linearcombo_list, SALC_LinearCombo(basislist, eigenvec / norm(eigenvec)))
 		end
 	end
-	salc_list = filter(salc -> !is_identically_zero(salc), salc_list)
-
+	
 	if verbosity
-		print(" Done\n")
-	end
-
-	if verbosity
-		print_basisset_stdout(salc_list)
+		print_basisset_stdout_linearcombo(salc_linearcombo_list)
 		elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
 		println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
 		println("-------------------------------------------------------------------")
 	end
 
-	return BasisSet(salc_list)
+	return BasisSet(salc_linearcombo_list)
 end
 
 function BasisSet(
