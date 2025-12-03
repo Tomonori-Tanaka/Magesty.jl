@@ -111,6 +111,44 @@ function Base.show(io::IO, lc::LinearCombo{T, N}) where {T, N}
 	print(io, ")")
 end
 
+function Base.isless(
+	lc1::LinearCombo{T1, N1},
+	lc2::LinearCombo{T2, N2},
+) where {T1, T2, N1, N2}
+	# First compare by number of sites
+	if N1 != N2
+		return N1 < N2
+	end
+
+	# Compare ls (NTuple)
+	if lc1.ls != lc2.ls
+		return lc1.ls < lc2.ls
+	end
+
+	# Compare Lf
+	if lc1.Lf != lc2.Lf
+		return lc1.Lf < lc2.Lf
+	end
+
+	# Compare Lseq
+	if lc1.Lseq != lc2.Lseq
+		return lc1.Lseq < lc2.Lseq
+	end
+
+	# Compare atoms
+	if lc1.atoms != lc2.atoms
+		return lc1.atoms < lc2.atoms
+	end
+
+	# Compare coeff_list
+	if lc1.coeff_list != lc2.coeff_list
+		return lc1.coeff_list < lc2.coeff_list
+	end
+
+	# If all fields are equal, compare coeff_tensor sizes (should be same, but for completeness)
+	return size(lc1.coeff_tensor) < size(lc2.coeff_tensor)
+end
+
 function Base.:*(mat::AbstractMatrix{<:Number}, lc::LinearCombo{T, N}) where {T <: Number, N}
 	@assert size(mat, 1) == size(mat, 2) "Matrix must be square"
 	@assert (length(lc.coeff_list) == size(mat, 1)) "Dimension mismatch: length(coeff_list) = $(length(lc.coeff_list)), size(mat, 1) = $(size(mat, 1))"

@@ -104,7 +104,7 @@ function BasisSet(
 	if verbosity
 		print("Constructing basis list...")
 	end
-	tesseral_basislist::Vector{Basis.LinearCombo} = construct_tesseral_basislist(
+	tesseral_basislist::SortedCountingUniqueVector{Basis.LinearCombo} = construct_tesseral_basislist(
 		structure,
 		symmetry,
 		cluster,
@@ -113,7 +113,7 @@ function BasisSet(
 		nbody,
 	)
 	for lc in tesseral_basislist
-		@show lc
+		@show lc, tesseral_basislist.counts[lc]
 	end
 
 	basislist::SortedCountingUniqueVector{SHProduct} =
@@ -368,8 +368,8 @@ function construct_tesseral_basislist(
 	nbody::Integer;
 	normalize::Symbol = :none,
 	isotropy::Bool = false,
-)::Vector{Basis.LinearCombo}
-	result_basislist = Vector{Basis.LinearCombo}()
+)::SortedCountingUniqueVector{Basis.LinearCombo}
+	result_basislist = SortedCountingUniqueVector{Basis.LinearCombo}()
 	cluster_dict::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}} =
 		cluster.cluster_dict
 
@@ -387,31 +387,35 @@ function construct_tesseral_basislist(
 				normalize = normalize,
 				isotropy = isotropy,
 			)
-			append!(result_basislist, lc_list)
+			for lc::Basis.LinearCombo in lc_list
+				push!(result_basislist, lc, 1)  # multiplicity = 1 for 1-body case
+			end
 		end
 	end
 
 	# Process multi-body cases
 	for body in 2:nbody
-		body_basislist = Vector{Basis.LinearCombo}()
+		body_basislist = SortedCountingUniqueVector{Basis.LinearCombo}()
 		for prim_atom_sc in symmetry.atoms_in_prim
 			cuv::CountingUniqueVector{Vector{Int}} = cluster_dict[body][prim_atom_sc]
 			for atom_list::Vector{Int} in cuv
+				count = cuv.counts[atom_list]  # Get multiplicity from cluster
 				lc_list::Vector{Basis.LinearCombo} =
 					listup_tesseral_basislist(atom_list, bodyn_lsum[body];
 						normalize = normalize,
 						isotropy = isotropy,
 					)
 				for lc::Basis.LinearCombo in lc_list
-					push_unique_tesseral_body!(body_basislist, lc, symmetry)
+					push_unique_tesseral_body!(body_basislist, lc, count, symmetry)
 				end
 			end
 		end
-		append!(result_basislist, body_basislist)
+		for lc in body_basislist
+			push!(result_basislist, lc, body_basislist.counts[lc])
+		end
 	end
 
-	# Remove physically equivalent LinearCombos (for cases where same (atom, l) pairs appear with different orders)
-	return Basis.remove_duplicate_linear_combos(result_basislist)
+	return result_basislist
 end
 
 """
@@ -496,10 +500,10 @@ function is_translationally_equivalent_linear_combo(
 end
 
 """
-	push_unique_tesseral_body!(target::Vector{Basis.LinearCombo}, lc::Basis.LinearCombo, symmetry::Symmetry)
+	push_unique_tesseral_body!(target::SortedCountingUniqueVector{Basis.LinearCombo}, lc::Basis.LinearCombo, count::Integer, symmetry::Symmetry)
 
 Add a `LinearCombo` to the target list only if it is not physically or translationally equivalent
-to any existing `LinearCombo` in the list.
+to any existing `LinearCombo` in the list. If equivalent, add the count to the existing entry.
 
 This function checks:
 1. If the sum of `l` values matches
@@ -511,8 +515,9 @@ Note: `coeff_list` must also match for two `LinearCombo` objects to be considere
 since different `coeff_list` values represent different basis functions.
 """
 function push_unique_tesseral_body!(
-	target::Vector{Basis.LinearCombo},
+	target::SortedCountingUniqueVector{Basis.LinearCombo},
 	lc::Basis.LinearCombo,
+	count::Integer,
 	symmetry::Symmetry,
 )
 	# Quick check: sum of l values
@@ -526,22 +531,26 @@ function push_unique_tesseral_body!(
 		# This checks for exact matches (same atoms, same ls order)
 		if Basis.is_physically_equivalent(lc, existing_lc)
 			# If physically equivalent and atoms are the same, they are duplicates
+			# Don't add count, just return (already counted)
 			if lc.atoms == existing_lc.atoms
 				return
 			end
 			# If physically equivalent but atoms differ, check if translationally equivalent
 			if is_translationally_equivalent_linear_combo(lc, existing_lc, symmetry)
+				# Translationally equivalent: don't add count, just return (already counted)
 				return
 			end
 		else
 			# If not physically equivalent, still check if translationally equivalent
 			# (e.g., [1, 10] vs [9, 2] with same ls and coeff_list)
 			if is_translationally_equivalent_linear_combo(lc, existing_lc, symmetry)
+				# Translationally equivalent: don't add count, just return (already counted)
 				return
 			end
 		end
 	end
-	push!(target, lc)
+	# No equivalent LinearCombo found: add with the given count
+	push!(target, lc, count)
 end
 
 
@@ -1167,4 +1176,5 @@ function filter_basisdict(
 end
 
 end # module BasisSets
+
 
