@@ -1,6 +1,8 @@
 @testset "Basis" begin
 	using .AngularMomentumCoupling
+	using Magesty.BasisSets: classify_tesseral_basislist_test
 	using .Basis: LinearCombo, tesseral_linear_combos_from_tesseral_bases
+	using .SortedContainer: SortedCountingUniqueVector
 	using Test
 
 	@testset "LinearCombo" begin
@@ -250,5 +252,46 @@
 				end
 			end
 		end
+	end
+
+	@testset "classify_tesseral_basislist_test" begin
+		atoms2 = [1, 2]
+		atoms3 = [1, 2, 3]
+		ls2 = [1, 1]
+		ls3 = [1, 1, 1]
+		two_body_list = tesseral_linear_combos_from_tesseral_bases(ls2, atoms2)
+		three_body_list = tesseral_linear_combos_from_tesseral_bases(ls3, atoms3)
+
+		lc_two_lf1 = filter(lc -> lc.Lf == 1, two_body_list)
+		@test length(lc_two_lf1) >= 2
+		lf0_idx_two = findfirst(lc -> lc.Lf == 0, two_body_list)
+		@test !isnothing(lf0_idx_two)
+		lf0_idx_three = findfirst(lc -> lc.Lf == 0, three_body_list)
+		@test !isnothing(lf0_idx_three)
+
+		lc_lf1_a = lc_two_lf1[1]
+		lc_lf1_b = lc_two_lf1[2]
+		lc_two_lf0 = two_body_list[lf0_idx_two]
+		lc_three_lf0 = three_body_list[lf0_idx_three]
+
+		sample_list = [lc_lf1_a, lc_lf1_b, lc_two_lf0, lc_three_lf0]
+		result = classify_tesseral_basislist_test(sample_list)
+
+		@test length(result) == 3
+		@test length(result[1]) == 2
+		@test all(lc -> length(lc.atoms) == 2 && lc.Lf == 1, result[1])
+		@test length(result[2]) == 1
+		@test only(result[2]).Lf == 0
+		@test length(result[3]) == 1
+		@test length(only(result[3]).atoms) == 3
+
+		scv = SortedCountingUniqueVector{Basis.LinearCombo}()
+		push!(scv, lc_lf1_a)
+		push!(scv, lc_lf1_a)
+		push!(scv, lc_three_lf0)
+		counted_result = classify_tesseral_basislist_test(scv)
+
+		@test counted_result[1].counts[lc_lf1_a] == 2
+		@test counted_result[2].counts[lc_three_lf0] == 1
 	end
 end
