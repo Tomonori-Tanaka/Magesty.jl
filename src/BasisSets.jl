@@ -117,12 +117,25 @@ function BasisSet(
 	classified_tesseral_basisdict::Dict{Int, SortedCountingUniqueVector{Basis.LinearCombo}} =
 		classify_tesseral_basislist(tesseral_basislist, symmetry.map_sym)
 
-	keys_list = sort(collect(keys(classified_tesseral_basisdict)))
-	for key in keys_list
-		println("key : $key")
-		lc_list = classified_tesseral_basisdict[key]
-		for lc in lc_list
-			println("  lc : $lc")
+	# keys_list = sort(collect(keys(classified_tesseral_basisdict)))
+	# for key in keys_list
+	# 	println("key : $key")
+	# 	lc_list = classified_tesseral_basisdict[key]
+	# 	for lc in lc_list
+	# 		println("  lc : $lc")
+	# 	end
+	# end
+
+	projection_list = projection_matrix_linearcombo(classified_tesseral_basisdict, symmetry)
+	for (idx, projection_mat) in enumerate(projection_list)
+		println("projection_mat: $idx")
+		eigenvals, eigenvecs = eigen(projection_mat)
+		eigenvals = real.(round.(eigenvals, digits = 6))
+		eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
+		println("eigenvals: $eigenvals")
+		if !is_proper_eigenvals(eigenvals)
+			println(eigenvals)
+			@warn "Critical error: Eigenvalues must be either 0 or 1. index: $idx"
 		end
 	end
 
@@ -573,7 +586,7 @@ function map_atom_l_list(
 end
 
 """
-	get_atom_l_list(lc::Basis.LinearCombo) -> Vector{Vector{Int}}
+	get_atom_l_list_linearcombo(lc::Basis.LinearCombo) -> Vector{Vector{Int}}
 
 Get the atom-l list from a `LinearCombo` object.
 
@@ -583,7 +596,7 @@ Get the atom-l list from a `LinearCombo` object.
 # Returns
 - `Vector{Vector{Int}}`: List of `[atom, l]` pairs
 """
-function get_atom_l_list(lc::Basis.LinearCombo)::Vector{Vector{Int}}
+function get_atom_l_list_linearcombo(lc::Basis.LinearCombo)::Vector{Vector{Int}}
 	atom_list = lc.atoms
 	ls_list = collect(lc.ls)
 	vec = Vector{Vector{Int}}()
@@ -604,12 +617,12 @@ function classify_basislist(
 		if label_list[idx] != 0
 			continue
 		end
-		atom_l_list_base = get_atom_l_list(basis)
+		atom_l_list_base = AtomicIndices.get_atom_l_list(basis)
 		for isym in 1:size(map_sym, 2)
 			mapped_list = map_atom_l_list(atom_l_list_base, map_sym, isym)
 			sorted_mapped = sort(mapped_list)
 			for (idx2, basis2) in enumerate(basislist)
-				if label_list[idx2] == 0 && sort(get_atom_l_list(basis2)) == sorted_mapped
+				if label_list[idx2] == 0 && sort(AtomicIndices.get_atom_l_list(basis2)) == sorted_mapped
 					label_list[idx2] = count
 				end
 			end
@@ -671,7 +684,7 @@ function classify_tesseral_basislist(
 		if label_list[idx] != 0
 			continue
 		end
-		atom_l_list_base = get_atom_l_list(lc)
+		atom_l_list_base = get_atom_l_list_linearcombo(lc)
 		Lf_base = lc.Lf
 		Lseq_base = lc.Lseq
 		for isym in 1:size(map_sym, 2)
@@ -679,7 +692,7 @@ function classify_tesseral_basislist(
 			sorted_mapped = sort(mapped_list)
 			for (idx2, lc2) in enumerate(tesseral_basislist)
 				if label_list[idx2] == 0 &&
-				   sort(get_atom_l_list(lc2)) == sorted_mapped &&
+				   sort(get_atom_l_list_linearcombo(lc2)) == sorted_mapped &&
 				   lc2.Lf == Lf_base &&
 				   lc2.Lseq == Lseq_base
 					label_list[idx2] = count
@@ -1282,6 +1295,229 @@ function filter_basisdict(
 		new_label += 1
 	end
 	return result_basisdict
+end
+
+"""
+	operate_symop_linearcombo(
+		basislist::AbstractVector{Basis.LinearCombo},
+		lc::Basis.LinearCombo,
+		symop::SymmetryOperation,
+		map_sym_per_symop::AbstractVector{<:Integer},
+		map_sym_inv::AbstractMatrix{<:Integer},
+		map_s2p::AbstractVector{<:Maps},
+		atoms_in_prim::AbstractVector{<:Integer},
+		symnum_translation::AbstractVector{<:Integer},
+		time_rev_sym::Bool,
+	) -> Basis.LinearCombo
+
+Apply a symmetry operation to a `LinearCombo` object.
+
+This is a more refined implementation that:
+1. Applies the symmetry operation to atom indices
+2. Tries translation operations directly (more efficient than trying each atom as reference)
+3. Finds matching LinearCombo by comparing (atom, l) pairs as multisets
+4. Applies rotation matrix to coeff_list (for Lf)
+5. Applies time-reversal symmetry if needed
+
+# Arguments
+- `basislist::AbstractVector{Basis.LinearCombo}`: List of `LinearCombo` objects
+- `lc::Basis.LinearCombo`: The `LinearCombo` to transform
+- `symop::SymmetryOperation`: The symmetry operation to apply
+- `map_sym_per_symop::AbstractVector{<:Integer}`: Atom mapping for this symmetry operation
+- `map_sym_inv::AbstractMatrix{<:Integer}`: Inverse atom mapping matrix
+- `map_s2p::AbstractVector{<:Maps}`: Mapping from supercell to primitive cell
+- `atoms_in_prim::AbstractVector{<:Integer}`: List of atoms in primitive cell
+- `symnum_translation::AbstractVector{<:Integer}`: Translation symmetry numbers
+- `time_rev_sym::Bool`: Whether to apply time-reversal symmetry
+
+# Returns
+- `Basis.LinearCombo`: The transformed `LinearCombo`
+"""
+function operate_symop_linearcombo(
+	basislist::AbstractVector{Basis.LinearCombo},
+	lc::Basis.LinearCombo,
+	symop::SymmetryOperation,
+	map_sym_per_symop::AbstractVector{<:Integer},
+	map_sym_inv::AbstractMatrix{<:Integer},
+	map_s2p::AbstractVector{<:Maps},
+	atoms_in_prim::AbstractVector{<:Integer},
+	symnum_translation::AbstractVector{<:Integer},
+	time_rev_sym::Bool,
+)::Basis.LinearCombo
+	# Apply symmetry operation to atoms
+	new_atom_list = [map_sym_per_symop[atom] for atom in lc.atoms]
+	
+	# Prepare (atom, l) pairs for matching (as multisets, order doesn't matter)
+	ls_vec = collect(lc.ls)
+	
+	# Try translation operations to find matching LinearCombo in primitive cell
+	new_lc_found = nothing
+	found = false
+	
+	for itran in symnum_translation
+		# Apply translation to shift atoms to primitive cell
+		atom_list_shifted = [map_sym_inv[atom, itran] for atom in new_atom_list]
+		atom_l_pairs_shifted = collect(zip(atom_list_shifted, ls_vec))
+		
+		# Find matching LinearCombo in basislist
+		for lc_candidate in basislist
+			# Quick checks: Lf and Lseq must match (they are rotation-invariant)
+			if lc_candidate.Lf != lc.Lf || lc_candidate.Lseq != lc.Lseq
+				continue
+			end
+			
+			# Check if (atom, l) pairs match as multisets
+			atom_l_pairs_candidate = collect(zip(lc_candidate.atoms, collect(lc_candidate.ls)))
+			if sort(atom_l_pairs_candidate) == sort(atom_l_pairs_shifted)
+				found = true
+				new_lc_found = lc_candidate
+				break
+			end
+		end
+		if found
+			break
+		end
+	end
+	
+	if !found
+		error("Failed to find corresponding LinearCombo in the primitive cell.")
+	end
+
+	# Calculate rotation matrix for Lf and apply to coeff_list
+	is_proper = symop.is_proper
+	rotmat = is_proper ? symop.rotation_cart : -1 * symop.rotation_cart
+	
+	multiplier = time_rev_sym ? (-1)^(sum(ls_vec)) : 1.0
+	
+	euler_angles = rotmat2euler(rotmat)
+	rotmat_Lf = multiplier * Δl(lc.Lf, euler_angles...)
+	new_coeff_list = rotmat_Lf * lc.coeff_list
+
+	# Return transformed LinearCombo
+	return Basis.LinearCombo(
+		new_lc_found.ls,
+		new_lc_found.Lf,
+		new_lc_found.Lseq,
+		new_lc_found.atoms,
+		new_coeff_list,
+		new_lc_found.coeff_tensor,
+	)
+end
+
+"""
+	proj_matrix_a_symop_linearcombo(
+		basislist::AbstractVector{Basis.LinearCombo},
+		symop::SymmetryOperation,
+		map_sym_per_symop::AbstractVector{<:Integer},
+		map_sym_inv::AbstractMatrix{<:Integer},
+		map_s2p::AbstractVector{<:Maps},
+		atoms_in_prim::AbstractVector{<:Integer},
+		symnum_translation::AbstractVector{<:Integer},
+		time_rev_sym::Bool,
+	) -> Matrix{Float64}
+
+Compute the projection matrix for a single symmetry operation applied to a list of `LinearCombo` objects.
+
+# Arguments
+- `basislist::AbstractVector{Basis.LinearCombo}`: List of `LinearCombo` objects
+- `symop::SymmetryOperation`: The symmetry operation
+- `map_sym_per_symop::AbstractVector{<:Integer}`: Atom mapping for this symmetry operation
+- `map_sym_inv::AbstractMatrix{<:Integer}`: Inverse atom mapping matrix
+- `map_s2p::AbstractVector{<:Maps}`: Mapping from supercell to primitive cell
+- `atoms_in_prim::AbstractVector{<:Integer}`: List of atoms in primitive cell
+- `symnum_translation::AbstractVector{<:Integer}`: Translation symmetry numbers
+- `time_rev_sym::Bool`: Whether to apply time-reversal symmetry
+
+# Returns
+- `Matrix{Float64}`: The projection matrix for this symmetry operation
+"""
+function proj_matrix_a_symop_linearcombo(
+	basislist::AbstractVector{Basis.LinearCombo},
+	symop::SymmetryOperation,
+	map_sym_per_symop::AbstractVector{<:Integer},
+	map_sym_inv::AbstractMatrix{<:Integer},
+	map_s2p::AbstractVector{<:Maps},
+	atoms_in_prim::AbstractVector{<:Integer},
+	symnum_translation::AbstractVector{<:Integer},
+	time_rev_sym::Bool,
+)::Matrix{Float64}
+	dim = length(basislist)
+	projection_mat = zeros(Float64, dim, dim)
+
+	for (j, lc_j) in enumerate(basislist)
+		lc_j_transformed = operate_symop_linearcombo(
+			basislist,
+			lc_j,
+			symop,
+			map_sym_per_symop,
+			map_sym_inv,
+			map_s2p,
+			atoms_in_prim,
+			symnum_translation,
+			time_rev_sym,
+		)
+		for (i, lc_i) in enumerate(basislist)
+			projection_mat[i, j] = dot(lc_i, lc_j_transformed)
+		end
+	end
+
+	return projection_mat
+end
+
+"""
+	projection_matrix_linearcombo(
+		basisdict::Dict{Int, SortedCountingUniqueVector{Basis.LinearCombo}},
+		symmetry::Symmetry,
+	) -> Vector{Matrix{Float64}}
+
+Construct projection matrices for each classification label in the `basisdict`.
+
+This function computes the average projection matrix over all symmetry operations
+(including time-reversal symmetry) for each group of `LinearCombo` objects.
+
+# Arguments
+- `basisdict::Dict{Int, SortedCountingUniqueVector{Basis.LinearCombo}}`: Dictionary mapping classification labels to groups of `LinearCombo` objects
+- `symmetry::Symmetry`: Symmetry information containing all symmetry operations
+
+# Returns
+- `Vector{Matrix{Float64}}`: List of projection matrices, one for each classification label
+"""
+function projection_matrix_linearcombo(
+	basisdict::Dict{Int, SortedCountingUniqueVector{Basis.LinearCombo}},
+	symmetry::Symmetry,
+)::Vector{Matrix{Float64}}
+	result_projections = Vector{Matrix{Float64}}(undef, length(basisdict))
+
+	idx_list = sort(collect(keys(basisdict)))
+	for idx in idx_list
+		basislist = basisdict[idx]
+		dim = length(basislist)
+		local_projection_mat = zeros(Float64, dim, dim)
+		
+		for (n, symop) in enumerate(symmetry.symdata), time_rev_sym in [false, true]
+			projection_mat_per_symop = proj_matrix_a_symop_linearcombo(
+				basislist,
+				symop,
+				@view(symmetry.map_sym[:, n]),
+				symmetry.map_sym_inv,
+				symmetry.map_s2p,
+				symmetry.atoms_in_prim,
+				symmetry.symnum_translation,
+				time_rev_sym,
+			)
+			local_projection_mat += projection_mat_per_symop
+		end
+		
+		local_projection_mat = local_projection_mat ./ (2 * symmetry.nsym)
+		local_projection_mat = hermitianpart(local_projection_mat)
+
+		if !is_symmetric(local_projection_mat, tol = 1e-10)
+			error("Projection matrix is not symmetric. index: $idx")
+		end
+
+		result_projections[idx] = local_projection_mat
+	end
+	return result_projections
 end
 
 end # module BasisSets
