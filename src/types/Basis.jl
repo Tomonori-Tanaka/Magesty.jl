@@ -5,38 +5,30 @@ using ..AngularMomentumCoupling
 using LinearAlgebra
 using DataStructures
 
-export LinearCombo,
-	permute_atoms!,
-	permute_atoms,
-	*,
-	linear_combos_from_complex_bases,
-	tesseral_linear_combos_from_tesseral_bases,
-	tesseral_linear_combos_from_complex_bases,
-	is_physically_equivalent,
-	remove_duplicate_linear_combos
+export CoupledBasis,
+	reorder_atoms,
+	tesseral_coupled_bases_from_tesseral_bases
 
 """
-	LinearCombo{T,N}
+	CoupledBasis{T,N}
 
-Container type for linear combinations of N-body (site) angular-momentum couplings.
+Container type for coupled angular momentum bases for N-body (site) angular-momentum couplings.
 
 - `ls`          : orbital angular momenta for each site (length N)
 - `Lf`          : total angular momentum of the final multiplet
 - `Lseq`        : intermediate L values along a left-coupling tree (length N-1)
 - `atoms`       : atom indices associated with each site (stored as a resizable vector)
-- `coeff_list`  : list of scalar coefficients
 - `coeff_tensor`: N-way tensor over m₁,…,m_N (one tensor per fixed final M_f)
 """
-struct LinearCombo{T <: Number, N}
-	ls::NTuple{N, Int}
+struct CoupledBasis
+	ls::Vector{Int}
 	Lf::Int
 	Lseq::Vector{Int}
 	atoms::Vector{Int}
-	coeff_list::Vector{T}
-	coeff_tensor::Array{T}
+	coeff_tensor::AbstractArray
 
 	"""
-			LinearCombo(ls, Lf, Lseq, atoms, coeff_list, coeff_tensor)
+			CoupledBasis(ls, Lf, Lseq, atoms, coeff_tensor)
 
 	User-facing constructor.
 
@@ -44,137 +36,128 @@ struct LinearCombo{T <: Number, N}
 	- `Lf`           : `Integer`
 	- `Lseq`         : `AbstractVector{<:Integer}` (length N-2 for N≥2, empty for N=1)
 	- `atoms`        : `AbstractVector{<:Integer}` (length N), stored internally as `Vector{Int}`
-	- `coeff_list`   : `AbstractVector{T}` with `T<:Number` (length 2*Lf+1)
 	- `coeff_tensor` : `AbstractArray{T}` with `ndims(coeff_tensor) == N`
 	"""
 	# Constructor accepting NTuple for ls
-	function LinearCombo(
-		ls::NTuple{N, <:Integer},
-		Lf::Integer,
-		Lseq::AbstractVector{<:Integer},
-		atoms::AbstractVector{<:Integer},
-		coeff_list::AbstractVector{T},
-		coeff_tensor::AbstractArray{T},
-	) where {T <: Number, N}
-		return LinearCombo(collect(Int.(ls)), Lf, Lseq, atoms, coeff_list, coeff_tensor)
-	end
-
-	# Constructor accepting AbstractVector for ls
-	function LinearCombo(
+	function CoupledBasis(
 		ls::AbstractVector{<:Integer},
 		Lf::Integer,
 		Lseq::AbstractVector{<:Integer},
 		atoms::AbstractVector{<:Integer},
-		coeff_list::AbstractVector{T},
-		coeff_tensor::AbstractArray{T},
-	) where {T <: Number}
+		coeff_tensor::AbstractArray{<:Number},
+	)
 		N = length(ls)
 		if N == 1
-			return new{T, 1}(
-				NTuple{1, Int}(Int.(ls)),
+			return new(
+				collect(Int.(ls)),
 				Int(Lf),
 				Int[],
 				Int[atoms[1]],
-				collect(coeff_list),
-				Array{T}(coeff_tensor),
+				coeff_tensor,
 			)
 		end
 
 		length(Lseq) == N - 2 ||
-			throw(ArgumentError("length(Lseq) must be N-2; got $(length(Lseq)), N=$N"))
+			throw(ArgumentError("length(Lseq) must be length(ls)-2; got $(length(Lseq)), N=$N"))
 
 		length(atoms) == N ||
-			throw(ArgumentError("length(atoms) must equal N; got $(length(atoms)), N=$N"))
+			throw(ArgumentError("length(atoms) must equal length(ls); got $(length(atoms)), N=$N"))
 
-		ndims(coeff_tensor) == N ||
-			throw(ArgumentError("ndims(coeff_tensor) must be N; got $(ndims(coeff_tensor)), N=$N"))
+		ndims(coeff_tensor) == N + 1 ||
+			throw(
+				ArgumentError(
+					"ndims(coeff_tensor) must be length(ls)+1; got $(ndims(coeff_tensor)), N=$N",
+				),
+			)
 
-		return new{T, N}(
-			NTuple{N, Int}(Int.(ls)),
-			Int(Lf),
-			collect(Int.(Lseq)),
-			collect(Int.(atoms)),
-			collect(coeff_list),
-			Array{T}(coeff_tensor),
-		)
+		return new(ls, Lf, Lseq, atoms, coeff_tensor)
 	end
 end
 
-function Base.show(io::IO, lc::LinearCombo{T, N}) where {T, N}
-	print(io, "LinearCombo{$T, $N}(")
+function Base.show(io::IO, lc::CoupledBasis)
+	print(io, "CoupledBasis(")
 	print(io, "ls=$(lc.ls), ")
 	print(io, "Lf=$(lc.Lf), ")
 	print(io, "Lseq=$(lc.Lseq), ")
 	print(io, "atoms=$(lc.atoms), ")
-	print(io, "coeff_list=$(lc.coeff_list), ")
 	print(io, "coeff_tensor=$(size(lc.coeff_tensor))")
 	print(io, ")")
 end
 
 function Base.isless(
-	lc1::LinearCombo{T1, N1},
-	lc2::LinearCombo{T2, N2},
-) where {T1, T2, N1, N2}
+	lc1::CoupledBasis,
+	lc2::CoupledBasis,
+)
 	# First compare by number of sites
-	if N1 != N2
-		return N1 < N2
-	end
+	length(lc1.ls) != length(lc2.ls) && return length(lc1.ls) < length(lc2.ls)
 
-	# Compare ls (NTuple)
-	if lc1.ls != lc2.ls
-		return lc1.ls < lc2.ls
-	end
+	# Compare ls
+	lc1.ls != lc2.ls && return lc1.ls < lc2.ls
 
 	# Compare Lf
-	if lc1.Lf != lc2.Lf
-		return lc1.Lf < lc2.Lf
-	end
+	lc1.Lf != lc2.Lf && return lc1.Lf < lc2.Lf
 
 	# Compare Lseq
-	if lc1.Lseq != lc2.Lseq
-		return lc1.Lseq < lc2.Lseq
-	end
+	lc1.Lseq != lc2.Lseq && return lc1.Lseq < lc2.Lseq
 
 	# Compare atoms
-	if lc1.atoms != lc2.atoms
-		return lc1.atoms < lc2.atoms
-	end
-
-	# Compare coeff_list
-	if lc1.coeff_list != lc2.coeff_list
-		return lc1.coeff_list < lc2.coeff_list
-	end
+	lc1.atoms != lc2.atoms && return lc1.atoms < lc2.atoms
 
 	# If all fields are equal, compare coeff_tensor sizes (should be same, but for completeness)
-	return size(lc1.coeff_tensor) < size(lc2.coeff_tensor)
+	size(lc1.coeff_tensor) != size(lc2.coeff_tensor) &&
+		return size(lc1.coeff_tensor) < size(lc2.coeff_tensor)
+	return false
 end
 
-function Base.:*(mat::AbstractMatrix{<:Number}, lc::LinearCombo{T, N}) where {T <: Number, N}
-	@assert size(mat, 1) == size(mat, 2) "Matrix must be square"
-	@assert (length(lc.coeff_list) == size(mat, 1)) "Dimension mismatch: length(coeff_list) = $(length(lc.coeff_list)), size(mat, 1) = $(size(mat, 1))"
-	return LinearCombo(lc.ls, lc.Lf, lc.Lseq, lc.atoms, mat * lc.coeff_list, lc.coeff_tensor)
-end
 
 """
-	permute_atoms!(lc::LinearCombo, perm::AbstractVector{<:Integer})
+	reorder_atoms(cb::CoupledBasis, new_atoms::AbstractVector{<:Integer})
 
-Permute the atoms in the linear combination.
-This is used at the step of symmetry operations.
+Reorder the atom indices in the coupled angular momentum basis and reorder the corresponding
+tensor dimensions accordingly.
+
+This function takes a new set of atom indices `new_atoms` and:
+1. Sorts `new_atoms` to maintain the sorted order requirement
+2. Permutes the orbital angular momenta `ls` to match the sorted atom order
+3. Permutes the first N dimensions of `coeff_tensor` to correspond to the reordered sites,
+   while keeping the last dimension (Mf) unchanged
+
+**Arguments:**
+- `cb`        : The `CoupledBasis` to modify
+- `new_atoms` : New atom indices (length must equal the number of sites N)
+
+**Returns:**
+A new `CoupledBasis` with updated atom indices and reordered tensor dimensions.
+
+**Example:**
+```julia
+# If new_atoms = [5, 1, 2], it will be sorted to [1, 2, 5]
+# The permutation p = [2, 3, 1] is applied to reorder ls and coeff_tensor dimensions
+```
 """
-function permute_atoms!(lc::LinearCombo, perm::AbstractVector{<:Integer})
-	lc.atoms .= perm[lc.atoms]
-	return lc
-end
+function reorder_atoms(cb::CoupledBasis, new_atoms::AbstractVector{<:Integer})
+	N = length(cb.ls)
+	length(new_atoms) == N ||
+		throw(ArgumentError("length(new_atoms) must be $N, got $(length(new_atoms))"))
 
-function permute_atoms(lc::LinearCombo, perm::AbstractVector{<:Integer})
-	return LinearCombo(
-		lc.ls,
-		lc.Lf,
-		lc.Lseq,
-		perm[lc.atoms],
-		lc.coeff_list,
-		lc.coeff_tensor,
-	)
+	nd = ndims(cb.coeff_tensor)
+	nd == N + 1 ||
+		throw(ArgumentError("coeff_tensor must have N+1 dims, got $nd (N=$N)"))
+
+	# Find permutation p that sorts new_atoms
+	# Example: new_atoms = [5,1,2] -> p = [2,3,1], new_atoms[p] = [1,2,5]
+	p = sortperm(new_atoms)
+	atoms_sorted = Int.(new_atoms[p])
+
+	# Permute ls to match the sorted atom order (ls is associated with sites)
+	ls_sorted = cb.ls[p]
+
+	# Permute the first N dimensions of coeff_tensor according to p,
+	# keeping the last dimension (Mf) unchanged
+	dims_perm = vcat(p, nd)  # [p..., N+1]
+	coeff_perm = permutedims(cb.coeff_tensor, dims_perm)
+
+	return CoupledBasis(ls_sorted, cb.Lf, cb.Lseq, atoms_sorted, coeff_perm)
 end
 
 # Helper function to find a permutation that matches (atom, l) pairs
@@ -215,150 +198,19 @@ function _find_matching_permutation(
 	return backtrack(1) ? perm : nothing
 end
 
-"""
-	dot(lc1::LinearCombo, lc2::LinearCombo)
-
-Compute the inner product of two `LinearCombo` objects.
-
-The inner product is zero if:
-- `Lf` values differ
-- `Lseq` values differ
-- `ls` values differ (even if permuted)
-- `(atom, l)` pairs cannot be matched by any permutation
-
-If the `(atom, l)` pairs can be matched by a permutation, returns the dot product
-of `coeff_list` vectors.
-"""
-function LinearAlgebra.dot(
-	lc1::LinearCombo{T1, N1},
-	lc2::LinearCombo{T2, N2},
-) where {T1, T2, N1, N2}
-	# Different number of sites
-	N1 != N2 && return zero(promote_type(T1, T2))
-
-	# Different Lf
-	lc1.Lf != lc2.Lf && return zero(promote_type(T1, T2))
-
-	# Different Lseq
-	lc1.Lseq != lc2.Lseq && return zero(promote_type(T1, T2))
-
-	# Check if (atom, l) pairs match (with possible permutation)
-	# This automatically ensures ls values match after permutation
-	pairs1 = collect(zip(lc1.atoms, collect(lc1.ls)))
-	pairs2 = collect(zip(lc2.atoms, collect(lc2.ls)))
-	perm = _find_matching_permutation(pairs1, pairs2)
-	perm === nothing && return zero(promote_type(T1, T2))
-
-	# All checks passed: compute dot product of coeff_list
-	return dot(lc1.coeff_list, lc2.coeff_list)
-end
 
 """
-	build_linear_combos_from_complex_bases(ls, atoms; normalize=:none, isotropy::Bool=false)
+	tesseral_coupled_bases_from_tesseral_bases(ls, atoms; normalize=:none, isotropy::Bool=false)
 
-Construct a flat list of `LinearCombo` objects from the output of
-`AngularMomentumCoupling.build_all_complex_bases`.
-
-Each coupled basis tensor (for a given coupling path and final `Lf`) is wrapped
-into a `LinearCombo` with a single scalar coefficient `1.0`.
-"""
-function linear_combos_from_complex_bases(
-	ls::AbstractVector{<:Integer},
-	atoms::AbstractVector{<:Integer};
-	normalize::Symbol = :none,
-	isotropy::Bool = false,
-)
-	bases_by_L, paths_by_L =
-		build_all_complex_bases(
-			collect(Int.(ls));
-			normalize = normalize,
-			isotropy = isotropy,
-		)
-
-	combo_list = LinearCombo[]
-
-	for Lf in sort(collect(keys(bases_by_L)))
-		tensors::Vector{Array{Float64}} = bases_by_L[Lf]
-		Lseqs::Vector{Vector{Int}} = paths_by_L[Lf]
-
-		for (tensor, Lseq) in zip(tensors, Lseqs)
-			nd = ndims(tensor)                  # should be N+1
-			@assert nd == length(ls) + 1 "tensor rank must be N+1"
-			site_axes = ntuple(_ -> Colon(), nd - 1)
-
-			for Mf_idx in 1:(2*Lf+1)
-				coeffs = zeros(Float64, 2*Lf+1)
-				coeffs[Mf_idx] = 1.0
-				coeff_tensor = Array(tensor[site_axes..., Mf_idx])
-				push!(combo_list, LinearCombo(ls, Lf, Lseq, atoms, coeffs, coeff_tensor))
-			end
-		end
-	end
-
-	return combo_list
-end
-
-
-"""
-	tesseral_linear_combos_from_complex_bases(ls, atoms; normalize=:none, isotropy::Bool=false)
-	Construct a flat list of `LinearCombo` objects from the output of
-	`AngularMomentumCoupling.build_all_complex_bases`.
-	After constructing the complex bases, the tensors are converted to real (tesseral) bases.
-
-"""
-function tesseral_linear_combos_from_complex_bases(
-	ls::AbstractVector{<:Integer},
-	atoms::AbstractVector{<:Integer};
-	normalize::Symbol = :none,
-	isotropy::Bool = false,
-)
-	bases_by_L, paths_by_L =
-		build_all_complex_bases(
-			collect(Int.(ls));
-			normalize = normalize,
-			isotropy = isotropy,
-		)
-
-	combo_list = LinearCombo[]
-
-	for Lf in sort(collect(keys(bases_by_L)))
-		tensors::Vector{Array{Float64}} = bases_by_L[Lf]
-		Lseqs::Vector{Vector{Int}} = paths_by_L[Lf]
-
-		Cl_matrix::Matrix{ComplexF64} = UniMatCl(Lf).umat_cl
-
-		for (tensor, Lseq) in zip(tensors, Lseqs)
-			nd = ndims(tensor)                  # should be N+1
-			@assert nd == length(ls) + 1 "tensor rank must be N+1"
-
-			# Apply transformation to Mf axis (last axis) once
-			tensor_Mf_tesseral = nmode_mul(tensor, Cl_matrix, nd)
-
-			site_axes = ntuple(_ -> Colon(), nd - 1)
-			for Mf_tesseral_idx in 1:(2*Lf+1)
-				coeffs = zeros(Float64, 2*Lf+1)
-				coeffs[Mf_tesseral_idx] = 1.0
-				coeff_tensor = Array(tensor_Mf_tesseral[site_axes..., Mf_tesseral_idx])
-				push!(combo_list, LinearCombo(ls, Lf, Lseq, atoms, coeffs, coeff_tensor))
-			end
-		end
-	end
-
-	return combo_list
-end
-
-"""
-	tesseral_linear_combos_from_tesseral_bases(ls, atoms; normalize=:none, isotropy::Bool=false)
-
-Construct a flat list of `LinearCombo` objects from the output of
+Construct a flat list of `CoupledBasis` objects from the output of
 `AngularMomentumCoupling.build_all_real_bases`.
 
 The input tensors are already in real (tesseral) basis for all sites and the final multiplet,
 so no additional transformation is needed. Each coupled basis tensor (for a given coupling path
-and final `Lf`) is wrapped into a `LinearCombo` with a single scalar coefficient `1.0` for
+and final `Lf`) is wrapped into a `CoupledBasis` with a single scalar coefficient `1.0` for
 each Mf tesseral index.
 """
-function tesseral_linear_combos_from_tesseral_bases(
+function tesseral_coupled_bases_from_tesseral_bases(
 	ls::AbstractVector{<:Integer},
 	atoms::AbstractVector{<:Integer};
 	normalize::Symbol = :none,
@@ -371,7 +223,7 @@ function tesseral_linear_combos_from_tesseral_bases(
 			isotropy = isotropy,
 		)
 
-	combo_list = LinearCombo[]
+	coupled_basis_list = CoupledBasis[]
 
 	for Lf in sort(collect(keys(bases_by_L)))
 		tensors::Vector{Array{Float64}} = bases_by_L[Lf]
@@ -381,94 +233,13 @@ function tesseral_linear_combos_from_tesseral_bases(
 			nd = ndims(tensor)                  # should be N+1
 			@assert nd == length(ls) + 1 "tensor rank must be N+1"
 
-			site_axes = ntuple(_ -> Colon(), nd - 1)
-			for Mf_tesseral_idx in 1:(2*Lf+1)
-				coeffs = zeros(Float64, 2*Lf+1)
-				coeffs[Mf_tesseral_idx] = 1.0
-				coeff_tensor = Array(tensor[site_axes..., Mf_tesseral_idx])
-				push!(combo_list, LinearCombo(ls, Lf, Lseq, atoms, coeffs, coeff_tensor))
-			end
+			push!(coupled_basis_list, CoupledBasis(ls, Lf, Lseq, atoms, tensor))
 		end
 	end
 
-	return combo_list
+	return coupled_basis_list
 end
 
-"""
-	is_physically_equivalent(lc1::LinearCombo, lc2::LinearCombo) -> Bool
 
-Check if two `LinearCombo` objects are physically equivalent.
-
-Two `LinearCombo` objects are physically equivalent if:
-- They have the same `Lf`
-- They have the same `Lseq`
-- Their `(atom, l)` pairs match as multisets (order doesn't matter)
-- Their `coeff_list` values are the same
-
-# Examples
-```julia
-lc1 = LinearCombo([1, 1], 0, Int[], [1, 5], [1.0], ...)
-lc2 = LinearCombo([1, 1], 0, Int[], [5, 1], [1.0], ...)
-is_physically_equivalent(lc1, lc2)  # true
-
-lc3 = LinearCombo([1, 1], 0, Int[], [1, 5], [0.0, 1.0], ...)
-is_physically_equivalent(lc1, lc3)  # false (different coeff_list)
-```
-"""
-function is_physically_equivalent(
-	lc1::LinearCombo{T1, N1},
-	lc2::LinearCombo{T2, N2},
-) where {T1, T2, N1, N2}
-	# Different number of sites
-	N1 != N2 && return false
-
-	# Different Lf
-	lc1.Lf != lc2.Lf && return false
-
-	# Different Lseq
-	lc1.Lseq != lc2.Lseq && return false
-
-	# Different coeff_list means different basis functions
-	if lc1.coeff_list != lc2.coeff_list
-		return false
-	end
-
-	# Check if (atom, l) pairs match as multisets
-	pairs1 = collect(zip(lc1.atoms, collect(lc1.ls)))
-	pairs2 = collect(zip(lc2.atoms, collect(lc2.ls)))
-	perm = _find_matching_permutation(pairs1, pairs2)
-	return perm !== nothing
-end
-
-"""
-	remove_duplicate_linear_combos(lc_list::Vector{<:LinearCombo}) -> Vector{LinearCombo}
-
-Remove physically equivalent `LinearCombo` objects from a list, keeping only the first occurrence
-of each physically distinct combination.
-
-# Examples
-```julia
-lc1 = LinearCombo([1, 1], 0, Int[], [1, 5], [1.0], ...)
-lc2 = LinearCombo([1, 1], 0, Int[], [5, 1], [1.0], ...)
-lc_list = [lc1, lc2, ...]
-unique_list = remove_duplicate_linear_combos(lc_list)  # lc2 is removed
-```
-"""
-function remove_duplicate_linear_combos(lc_list::Vector{<:LinearCombo})::Vector{LinearCombo}
-	result = LinearCombo[]
-	for lc in lc_list
-		is_duplicate = false
-		for existing_lc in result
-			if is_physically_equivalent(lc, existing_lc)
-				is_duplicate = true
-				break
-			end
-		end
-		if !is_duplicate
-			push!(result, lc)
-		end
-	end
-	return result
-end
 
 end # module Basis
