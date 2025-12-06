@@ -259,7 +259,9 @@ function BasisSet(
 		projection_mat =
 			projection_matrix_coupled_basis(classified_coupled_basisdict[key], symmetry)
 		println("key : $key")
-		eigenvals, eigenvecs = eigen(projection_mat)
+		# projection_mat is real symmetric → use Hermitian + eigen! to save memory
+		h_projection = Hermitian(projection_mat)
+		eigenvals, eigenvecs = eigen!(h_projection)
 		eigenvals = real.(round.(eigenvals, digits = 6))
 		eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
 		if !is_proper_eigenvals(eigenvals)
@@ -275,6 +277,11 @@ function BasisSet(
 		end
 	end
 	println(" Done.")
+	if verbosity
+		elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
+		println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
+		println("-------------------------------------------------------------------")
+	end
 
 
 
