@@ -27,6 +27,7 @@ Converts a 3x3 rotation matrix `m` to Euler angles `(α, β, γ)`.
 m = [1 0 0; 0 cos(pi/4) -sin(pi/4); 0 sin(pi/4) cos(pi/4)]
 angles = rotmat2euler(m)
 println(angles)  # (0.0, 0.7853981633974483, 0.0)
+```
 """
 function rotmat2euler(
 	m::AbstractMatrix{<:Real},
