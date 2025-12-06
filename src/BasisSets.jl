@@ -261,6 +261,8 @@ function BasisSet(
 		println("key : $key")
 		# projection_mat is real symmetric → use Hermitian + eigen! to save memory
 		h_projection = Hermitian(projection_mat)
+		# Free projection_mat memory before eigen decomposition
+		projection_mat = nothing
 		eigenvals, eigenvecs = eigen!(h_projection)
 		eigenvals = real.(round.(eigenvals, digits = 6))
 		eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
@@ -275,6 +277,9 @@ function BasisSet(
 			eigenvec = eigenvec / norm(eigenvec)
 			# @show round.(eigenvec, digits = 6)
 		end
+		# Free large matrices after processing each key
+		h_projection = nothing
+		eigenvecs = nothing
 	end
 	println(" Done.")
 	if verbosity
