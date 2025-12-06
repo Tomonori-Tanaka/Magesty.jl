@@ -32,11 +32,11 @@ struct CoupledBasis
 
 	User-facing constructor.
 
-	- `ls`           : `AbstractVector{<:Integer}` or `NTuple{N, <:Integer}` (length N)
-	- `Lf`           : `Integer`
-	- `Lseq`         : `AbstractVector{<:Integer}` (length N-2 for N≥2, empty for N=1)
-	- `atoms`        : `AbstractVector{<:Integer}` (length N), stored internally as `Vector{Int}`
-	- `coeff_tensor` : `AbstractArray{T}` with `ndims(coeff_tensor) == N`
+- `ls`           : `AbstractVector{<:Integer}` or `NTuple{N, <:Integer}` (length N)
+- `Lf`           : `Integer`
+- `Lseq`         : `AbstractVector{<:Integer}` (length N-2 for N≥2, empty for N=1)
+- `atoms`        : `AbstractVector{<:Integer}` (length N), stored internally as `Vector{Int}`
+- `coeff_tensor` : `AbstractArray{T}` with `ndims(coeff_tensor) == N+1` (N dimensions for sites, 1 dimension for final Mf)
 	"""
 	# Constructor accepting NTuple for ls
 	function CoupledBasis(
@@ -199,6 +199,14 @@ function _find_matching_permutation(
 end
 
 
+# Cache for angular momentum coupling results
+# Key: (ls::Vector{Int}, normalize::Symbol, isotropy::Bool)
+# Value: (bases_by_L, paths_by_L)
+const _angular_momentum_cache = Dict{
+	Tuple{Vector{Int}, Symbol, Bool},
+	Tuple{Dict{Int, Vector{Array{Float64}}}, Dict{Int, Vector{Vector{Int}}}}
+}()
+
 """
 	tesseral_coupled_bases_from_tesseral_bases(ls, atoms; normalize=:none, isotropy::Bool=false)
 
@@ -209,6 +217,10 @@ The input tensors are already in real (tesseral) basis for all sites and the fin
 so no additional transformation is needed. Each coupled basis tensor (for a given coupling path
 and final `Lf`) is wrapped into a `CoupledBasis` with a single scalar coefficient `1.0` for
 each Mf tesseral index.
+
+This function caches the angular momentum coupling results (`bases_by_L` and `paths_by_L`)
+based on `ls`, `normalize`, and `isotropy` parameters, so that repeated calls with the same
+`ls` values but different `atoms` can reuse the cached results for better performance.
 """
 function tesseral_coupled_bases_from_tesseral_bases(
 	ls::AbstractVector{<:Integer},
@@ -216,12 +228,24 @@ function tesseral_coupled_bases_from_tesseral_bases(
 	normalize::Symbol = :none,
 	isotropy::Bool = false,
 )
-	bases_by_L, paths_by_L =
-		build_all_real_bases(
-			collect(Int.(ls));
-			normalize = normalize,
-			isotropy = isotropy,
-		)
+	# Create cache key from ls (as Vector for hashing), normalize, and isotropy
+	# Note: ls order matters for angular momentum coupling, so we don't sort it
+	ls_vec = collect(Int.(ls))
+	cache_key = (ls_vec, normalize, isotropy)
+	
+	# Check cache or compute
+	if haskey(_angular_momentum_cache, cache_key)
+		bases_by_L, paths_by_L = _angular_momentum_cache[cache_key]
+	else
+		bases_by_L, paths_by_L =
+			build_all_real_bases(
+				collect(Int.(ls));
+				normalize = normalize,
+				isotropy = isotropy,
+			)
+		# Cache the results
+		_angular_momentum_cache[cache_key] = (bases_by_L, paths_by_L)
+	end
 
 	coupled_basis_list = CoupledBasis[]
 
@@ -231,7 +255,8 @@ function tesseral_coupled_bases_from_tesseral_bases(
 
 		for (tensor, Lseq) in zip(tensors, Lseqs)
 			nd = ndims(tensor)                  # should be N+1
-			@assert nd == length(ls) + 1 "tensor rank must be N+1"
+			nd == length(ls) + 1 ||
+				throw(ArgumentError("tensor rank must be N+1; got $nd, expected $(length(ls) + 1)"))
 
 			push!(coupled_basis_list, CoupledBasis(ls, Lf, Lseq, atoms, tensor))
 		end
