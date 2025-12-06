@@ -246,6 +246,13 @@ function BasisSet(
 	classified_coupled_basisdict::Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}} =
 		classify_coupled_basislist_test(basislist)
 	println(" Done.")
+
+	if verbosity
+		elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
+		println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
+		println("-------------------------------------------------------------------")
+	end
+
 	print("Constructing projection matrix...")
 	keys_list = sort(collect(keys(classified_coupled_basisdict)))
 	for key in keys_list
@@ -367,7 +374,7 @@ function construct_coupled_basislist(
 	# Handle 1-body case
 	for iat in symmetry.atoms_in_prim
 		lmax = body1_lmax[structure.supercell.kd_int_list[iat]]
-		for l in 2:lmax[1] # skip l = 1 because it is prohibited by the time-reversal symmetry
+		for l in 2:lmax # skip l = 1 because it is prohibited by the time-reversal symmetry
 			if l % 2 == 1 # skip odd l cases due to the time-reversal symmetry
 				continue
 			end
@@ -416,6 +423,8 @@ function listup_coupled_basislist(
 )::Vector{Basis.CoupledBasis}
 	result_basislist = Vector{Basis.CoupledBasis}()
 	for l in 2:lsum
+		# Skip if l is less than number of atoms (each atom needs at least l=1)
+		# or if l is odd (prohibited by time-reversal symmetry)
 		if l < length(atom_list) || isodd(l)
 			continue
 		end
@@ -691,7 +700,7 @@ function construct_basislist(
 	# Handle 1-body case
 	for iat in symmetry.atoms_in_prim
 		lmax = body1_lmax[structure.supercell.kd_int_list[iat]]
-		for l in 2:lmax[1] # skip l = 1 because it is prohibited by the time-reversal symmetry
+		for l in 2:lmax # skip l = 1 because it is prohibited by the time-reversal symmetry
 			if l % 2 == 1 # skip odd l cases due to the time-reversal symmetry
 				continue
 			end
