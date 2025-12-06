@@ -25,7 +25,7 @@ using LinearAlgebra
 using OffsetArrays
 using Printf
 
-using ..CountingContainer
+using ..CountingContainer: CountingUniqueVector, getcounts
 using ..SortedContainer
 using ..AtomCells
 using ..ConfigParser
@@ -113,6 +113,7 @@ struct Cluster
 	cutoff_radii::OffsetArray{Float64, 3}
 	min_distance_pairs::Matrix{Vector{DistInfo}}
 	cluster_dict::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}
+	irreducible_cluster_dict::Dict{Int, SortedCountingUniqueVector{Vector{Int}}}
 
 	function Cluster(
 		structure::Structure,
@@ -127,6 +128,10 @@ struct Cluster
 
 		cluster_dict::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}} =
 			generate_clusters(structure, symmetry, cutoff_radii, nbody)
+
+		irreducible_cluster_dict::Dict{Int, SortedCountingUniqueVector{Vector{Int}}} =
+			irreducible_clusters(cluster_dict, symmetry)
+		display(irreducible_cluster_dict)
 
 		min_distance_pairs = set_mindist_pairs(
 			structure.supercell.num_atoms,
@@ -154,6 +159,7 @@ struct Cluster
 			cutoff_radii,
 			min_distance_pairs,
 			cluster_dict,
+			irreducible_cluster_dict,
 		)
 	end
 end
@@ -559,6 +565,71 @@ function print_cluster_stdout(
 		end
 		println("\n")
 	end
+end
+
+function is_translationally_equiv_cluster(
+	cluster_target::AbstractVector{<:Integer},
+	cluster_ref::AbstractVector{<:Integer},
+	symmetry::Symmetry,
+)::Bool
+	for sym_tran in symmetry.symnum_translation
+		cluster_target_shifted = [symmetry.map_sym[atom, sym_tran] for atom in cluster_target]
+		cluster_target_shifted_inv =
+			[symmetry.map_sym_inv[atom, sym_tran] for atom in cluster_target]
+		# Sort both for comparison (order doesn't matter for clusters)
+		if sort(cluster_target_shifted) == sort(cluster_ref)
+			return true
+		end
+		if sort(cluster_target_shifted_inv) == sort(cluster_ref)
+			return true
+		end
+	end
+	return false
+end
+
+function irreducible_clusters(
+	cluster_dict::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}},
+	symmetry::Symmetry,
+)::Dict{Int, SortedCountingUniqueVector{Vector{Int}}}
+	result = Dict{Int, SortedCountingUniqueVector{Vector{Int}}}()
+
+	for body in sort(collect(keys(cluster_dict)))
+		result[body] = SortedCountingUniqueVector{Vector{Int}}()
+
+		for prim_atom_sc in symmetry.atoms_in_prim
+			for cluster::Vector{Int} in cluster_dict[body][prim_atom_sc]
+				cluster_list = sort(cluster)
+				# Get the count from the original cluster_dict
+				original_count = getcounts(cluster_dict[body][prim_atom_sc], cluster)
+
+				# Check if this cluster is translationally equivalent to any existing cluster in result[body]
+				found_equivalent = false
+				for cluster_ref::Vector{Int} in result[body]
+					if is_translationally_equiv_cluster(cluster_list, cluster_ref, symmetry)
+						# If equivalent, skip this cluster (continue)
+						found_equivalent = true
+						break
+					end
+				end
+
+				# If equivalent cluster found, skip this iteration
+				if found_equivalent
+					continue
+				end
+
+				# If no equivalent cluster found, add this cluster with its count
+				sorted_cluster_list = sort(cluster_list)
+				# Add to result[body] (global list)
+				if haskey(result[body].counts, sorted_cluster_list)
+					result[body].counts[sorted_cluster_list] += original_count
+				else
+					push!(result[body], sorted_cluster_list)
+					result[body].counts[sorted_cluster_list] = original_count
+				end
+			end
+		end
+	end
+	return result
 end
 
 
