@@ -212,7 +212,7 @@ The constructor performs the following steps:
 """
 struct BasisSet
 	# salc_linearcombo_list::Vector{SALC_LinearCombo}
-	a::Int
+	coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis}
 end
 
 function BasisSet(
@@ -238,10 +238,15 @@ function BasisSet(
 		)
 	end
 
+	print("Constructing coupled basis list...")
 	basislist::SortedCountingUniqueVector{Basis.CoupledBasis} =
 		construct_coupled_basislist(structure, symmetry, cluster, body1_lmax, bodyn_lsum, nbody)
+	println(" Done.")
+	print("Classifying coupled basis list...")
 	classified_coupled_basisdict::Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}} =
 		classify_coupled_basislist_test(basislist)
+	println(" Done.")
+	print("Constructing projection matrix...")
 	keys_list = sort(collect(keys(classified_coupled_basisdict)))
 	for key in keys_list
 		projection_mat =
@@ -250,13 +255,19 @@ function BasisSet(
 		eigenvals, eigenvecs = eigen(projection_mat)
 		eigenvals = real.(round.(eigenvals, digits = 6))
 		eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
-		@show eigenvals
-		# @show eigenvecs
-		cb_list = classified_coupled_basisdict[key]
-		# for cb in cb_list
-		# 	@show cb, cb_list.counts[cb]
-		# end
+		if !is_proper_eigenvals(eigenvals)
+			@show eigenvals
+			error("Critical error: Eigenvalues must be either 0 or 1. index: $key")
+		end
+		for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
+			eigenvec = eigenvecs[:, idx_eigenval]
+			eigenvec = real.(eigenvec)
+			eigenvec = round.(eigenvec .* (abs.(eigenvec) .≥ 1e-8), digits = 10)
+			eigenvec = eigenvec / norm(eigenvec)
+			# @show round.(eigenvec, digits = 6)
+		end
 	end
+	println(" Done.")
 
 
 
@@ -317,7 +328,7 @@ function BasisSet(
 	# end
 
 	# return BasisSet(salc_linearcombo_list)
-	return 0
+	return BasisSet(basislist)
 end
 
 function BasisSet(
@@ -463,7 +474,8 @@ function find_translation_atoms(
 	for sym_tran in symmetry.symnum_translation
 		atom_list_shifted = Vector{Int}([symmetry.map_sym[atom, sym_tran] for atom in atom_list])
 		for itran in symmetry.symnum_translation
-			atom_list_shifted_shifted = Vector{Int}([symmetry.map_sym[atom, itran] for atom in atom_list_shifted])
+			atom_list_shifted_shifted =
+				Vector{Int}([symmetry.map_sym[atom, itran] for atom in atom_list_shifted])
 			sorted_atom_list_shifted_shifted = sort(atom_list_shifted_shifted)
 			if sorted_atom_list_shifted_shifted in cluster_atoms
 				push!(matched_set, sorted_atom_list_shifted_shifted)
