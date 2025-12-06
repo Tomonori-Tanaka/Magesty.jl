@@ -244,12 +244,21 @@ function BasisSet(
 		classify_coupled_basislist_test(basislist)
 	keys_list = sort(collect(keys(classified_coupled_basisdict)))
 	for key in keys_list
+		projection_mat =
+			projection_matrix_coupled_basis(classified_coupled_basisdict[key], symmetry)
 		println("key : $key")
+		eigenvals, eigenvecs = eigen(projection_mat)
+		eigenvals = real.(round.(eigenvals, digits = 6))
+		eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
+		@show eigenvals
+		# @show eigenvecs
 		cb_list = classified_coupled_basisdict[key]
-		for cb in cb_list
-			@show cb, cb_list.counts[cb]
-		end
+		# for cb in cb_list
+		# 	@show cb, cb_list.counts[cb]
+		# end
 	end
+
+
 
 	# Validate input parameters
 	# Construct basis list
@@ -407,6 +416,130 @@ function listup_coupled_basislist(
 		end
 	end
 	return result_basislist
+end
+
+"""
+Check if the product of two `CoupledBasis` objects is obviously zero.
+This is a quick check for the step constructing projection matrix.
+"""
+function is_obviously_zero_coupled_basis_product(
+	cb1::Basis.CoupledBasis,
+	cb2::Basis.CoupledBasis,
+)::Bool
+	if cb1.Lf != cb2.Lf
+		return true
+	end
+	if cb1.Lseq != cb2.Lseq
+		return true
+	end
+	if cb1.ls != cb2.ls
+		return true
+	end
+	if cb1.atoms != cb2.atoms
+		return true
+	end
+	return false
+end
+
+
+
+
+function collect_cluster_atoms(
+	coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis},
+)::Set{Vector{Int}}
+	result_set = Set{Vector{Int}}()
+	for cb in coupled_basislist
+		push!(result_set, cb.atoms)
+	end
+	return result_set
+end
+
+function find_translation_atoms(
+	atom_list::Vector{<:Integer},
+	cluster_atoms::Set{Vector{Int}},
+	symmetry::Symmetry,
+)::Vector{Int}
+	matched_set = Set{Vector{Int}}()
+	for sym_tran in symmetry.symnum_translation
+		atom_list_shifted = Vector{Int}([symmetry.map_sym[atom, sym_tran] for atom in atom_list])
+		for itran in symmetry.symnum_translation
+			atom_list_shifted_shifted = Vector{Int}([symmetry.map_sym[atom, itran] for atom in atom_list_shifted])
+			sorted_atom_list_shifted_shifted = sort(atom_list_shifted_shifted)
+			if sorted_atom_list_shifted_shifted in cluster_atoms
+				push!(matched_set, sorted_atom_list_shifted_shifted)
+			end
+		end
+	end
+	if isempty(matched_set)
+		error("Failed to find translation atoms")
+	elseif length(matched_set) > 1
+		@show atom_list
+		@show cluster_atoms
+		@show matched_set
+		error("Multiple translation atoms found")
+	end
+	return first(matched_set)
+end
+
+
+function projection_matrix_coupled_basis(
+	coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis},
+	symmetry::Symmetry,
+)::Matrix{Float64}
+	Lf = coupled_basislist[1].Lf
+	submatrix_dim = 2 * Lf + 1
+	cluster_atoms::Set{Vector{Int}} = collect_cluster_atoms(coupled_basislist)
+	nbasis = length(coupled_basislist)
+	full_matrix_dim = nbasis * submatrix_dim
+
+	projection_mat = zeros(Float64, full_matrix_dim, full_matrix_dim)
+	for (n, symop) in enumerate(symmetry.symdata), time_rev_sym in [false, true]
+		# Calculate rotation matrix
+		is_proper = symop.is_proper
+		rotmat = is_proper ? symop.rotation_cart : -1 * symop.rotation_cart
+
+		submat_in_mat::Matrix{Union{Matrix{Float64}, Nothing}} =
+			Matrix{Union{Matrix{Float64}, Nothing}}(undef, nbasis, nbasis)
+		for (i, cb1) in enumerate(coupled_basislist)
+			atoms_shifted_list = [symmetry.map_sym[atom, n] for atom in cb1.atoms]
+			primitive_atoms = find_translation_atoms(atoms_shifted_list, cluster_atoms, symmetry)
+			reordered_cb = reorder_atoms(cb1, primitive_atoms)
+			for (j, cb2) in enumerate(coupled_basislist)
+				if is_obviously_zero_coupled_basis_product(reordered_cb, cb2)
+					submat_in_mat[j, i] = nothing
+					continue
+				else
+					# Calculate rotation matrix for this basis
+					rot_mat = Δl(reordered_cb.Lf, rotmat2euler(rotmat)...)
+					# Apply time reversal symmetry multiplier if needed
+					if time_rev_sym
+						total_l = sum(reordered_cb.ls)
+						multiplier = (-1)^total_l
+						rot_mat = multiplier * rot_mat
+					end
+					submat_in_mat[j, i] = rot_mat
+				end
+			end
+		end
+
+		# Expand submat_in_mat into a temporary Matrix{Float64}
+		temp_projection_mat = zeros(Float64, full_matrix_dim, full_matrix_dim)
+		for j in 1:nbasis, i in 1:nbasis
+			submat = submat_in_mat[j, i]
+			if submat !== nothing
+				row_range = ((j-1)*submatrix_dim+1):(j*submatrix_dim)
+				col_range = ((i-1)*submatrix_dim+1):(i*submatrix_dim)
+				temp_projection_mat[row_range, col_range] = submat
+			end
+			# If submat is nothing, the corresponding block remains zero
+		end
+
+		# Accumulate the projection matrix
+		projection_mat += temp_projection_mat
+	end
+
+	# Average over all symmetry operations (2 for time reversal)
+	return projection_mat ./ (2 * symmetry.nsym)
 end
 
 
