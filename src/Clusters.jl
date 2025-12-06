@@ -131,7 +131,6 @@ struct Cluster
 
 		irreducible_cluster_dict::Dict{Int, SortedCountingUniqueVector{Vector{Int}}} =
 			irreducible_clusters(cluster_dict, symmetry)
-		display(irreducible_cluster_dict)
 
 		min_distance_pairs = set_mindist_pairs(
 			structure.supercell.num_atoms,

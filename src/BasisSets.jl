@@ -350,8 +350,8 @@ function construct_coupled_basislist(
 )
 	result_coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis} =
 		SortedCountingUniqueVector{Basis.CoupledBasis}()
-	cluster_dict::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}} =
-		cluster.cluster_dict
+	irreducible_cluster_dict::Dict{Int, SortedCountingUniqueVector{Vector{Int}}} =
+		cluster.irreducible_cluster_dict
 
 	# Handle 1-body case
 	for iat in symmetry.atoms_in_prim
@@ -376,10 +376,10 @@ function construct_coupled_basislist(
 	# Process multi-body cases
 	for body in 2:nbody
 		body_coupled_basislist = SortedCountingUniqueVector{Basis.CoupledBasis}()
-		for prim_atom_sc in symmetry.atoms_in_prim
-			cuv::CountingUniqueVector{Vector{Int}} = cluster_dict[body][prim_atom_sc]
-			for atom_list::Vector{Int} in cuv
-				count = cuv.counts[atom_list]  # Get multiplicity from cluster
+		# Use irreducible_cluster_dict which already contains all irreducible clusters
+		if haskey(irreducible_cluster_dict, body)
+			for atom_list::Vector{Int} in irreducible_cluster_dict[body]
+				count = irreducible_cluster_dict[body].counts[atom_list]  # Get multiplicity from irreducible cluster
 				sorted_atom_list = sort(atom_list)
 				cb_list::Vector{Basis.CoupledBasis} = listup_coupled_basislist(
 					sorted_atom_list,
