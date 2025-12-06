@@ -34,7 +34,7 @@ using ..Symmetries
 
 import Base: isless, ==
 
-export Cluster
+export Cluster, cluster_orbits
 
 # Constants
 const NUM_VIRTUAL_CELLS = 27  # Number of virtual cells in 3x3x3 supercell
@@ -131,6 +131,14 @@ struct Cluster
 
 		irreducible_cluster_dict::Dict{Int, SortedCountingUniqueVector{Vector{Int}}} =
 			irreducible_clusters(cluster_dict, symmetry)
+
+		cluster_orbits_dict::Dict{Int, Dict{Int, Vector{Vector{Int}}}} =
+			cluster_orbits(irreducible_cluster_dict, symmetry)
+		for body in keys(cluster_orbits_dict)
+			for orbit in values(cluster_orbits_dict[body])
+				@show body, orbit
+			end
+		end
 
 		min_distance_pairs = set_mindist_pairs(
 			structure.supercell.num_atoms,
@@ -628,6 +636,119 @@ function irreducible_clusters(
 			end
 		end
 	end
+	return result
+end
+
+"""
+	cluster_orbits(
+		irreducible_cluster_dict::Dict{Int, SortedCountingUniqueVector{Vector{Int}}},
+		symmetry::Symmetry,
+	) -> Dict{Int, Dict{Int, Vector{Vector{Int}}}}
+
+Classify clusters in `irreducible_cluster_dict` into orbits under spatial symmetry operations.
+
+An orbit is a set of clusters that can be transformed into each other by spatial symmetry operations
+(rotations, reflections, etc.) combined with translations. Clusters in the same orbit will have
+the same projection matrix structure, making this classification useful for efficient projection
+operator construction.
+
+# Arguments
+- `irreducible_cluster_dict::Dict{Int, SortedCountingUniqueVector{Vector{Int}}}`: Dictionary of irreducible clusters organized by body
+- `symmetry::Symmetry`: Symmetry information containing spatial symmetry operations
+
+# Returns
+- `Dict{Int, Dict{Int, Vector{Vector{Int}}}}`: Dictionary organized as `[body][orbit_index] -> [clusters in orbit]`
+  where clusters are sorted atom lists
+
+# Example
+```julia
+orbits = cluster_orbits(cluster.irreducible_cluster_dict, symmetry)
+# orbits[2][1] contains all 2-body clusters in the first orbit
+```
+"""
+function cluster_orbits(
+	irreducible_cluster_dict::Dict{Int, SortedCountingUniqueVector{Vector{Int}}},
+	symmetry::Symmetry,
+)::Dict{Int, Dict{Int, Vector{Vector{Int}}}}
+	result = Dict{Int, Dict{Int, Vector{Vector{Int}}}}()
+
+	# Collect all clusters for each body as a set for fast lookup
+	cluster_sets = Dict{Int, Set{Vector{Int}}}()
+	for body in keys(irreducible_cluster_dict)
+		cluster_sets[body] = Set{Vector{Int}}()
+		for cluster in irreducible_cluster_dict[body]
+			push!(cluster_sets[body], sort(cluster))
+		end
+	end
+
+	for body in sort(collect(keys(irreducible_cluster_dict)))
+		result[body] = Dict{Int, Vector{Vector{Int}}}()
+		orbit_index = 0
+		processed_clusters = Set{Vector{Int}}()
+
+		for cluster in irreducible_cluster_dict[body]
+			sorted_cluster = sort(cluster)
+
+			# Skip if already processed (belongs to a previous orbit)
+			if sorted_cluster in processed_clusters
+				continue
+			end
+
+			# Start a new orbit
+			orbit_index += 1
+			orbit = Vector{Vector{Int}}()
+			push!(orbit, sorted_cluster)
+			push!(processed_clusters, sorted_cluster)
+
+			# Find all clusters in this orbit by applying symmetry operations
+			orbit_frontier = [sorted_cluster]
+			visited_in_orbit = Set{Vector{Int}}([sorted_cluster])
+
+			while !isempty(orbit_frontier)
+				current_cluster = popfirst!(orbit_frontier)
+
+				# Apply all spatial symmetry operations
+				for (n, symop) in enumerate(symmetry.symdata)
+					# Apply symmetry operation to atoms
+					atoms_shifted = [symmetry.map_sym[atom, n] for atom in current_cluster]
+
+					# Find translationally equivalent cluster in primitive cell
+					# Similar to find_translation_atoms logic
+					for sym_tran in symmetry.symnum_translation
+						atoms_shifted_translated =
+							[symmetry.map_sym[atom, sym_tran] for atom in atoms_shifted]
+						sorted_shifted = sort(atoms_shifted_translated)
+
+						# Check if this cluster exists in our set and hasn't been visited
+						if sorted_shifted in cluster_sets[body] &&
+						   !(sorted_shifted in visited_in_orbit)
+							push!(orbit, sorted_shifted)
+							push!(visited_in_orbit, sorted_shifted)
+							push!(processed_clusters, sorted_shifted)
+							push!(orbit_frontier, sorted_shifted)
+						end
+
+						# Also try inverse translation
+						atoms_shifted_translated_inv =
+							[symmetry.map_sym_inv[atom, sym_tran] for atom in atoms_shifted]
+						sorted_shifted_inv = sort(atoms_shifted_translated_inv)
+
+						if sorted_shifted_inv in cluster_sets[body] &&
+						   !(sorted_shifted_inv in visited_in_orbit)
+							push!(orbit, sorted_shifted_inv)
+							push!(visited_in_orbit, sorted_shifted_inv)
+							push!(processed_clusters, sorted_shifted_inv)
+							push!(orbit_frontier, sorted_shifted_inv)
+						end
+					end
+				end
+			end
+
+			# Store the orbit
+			result[body][orbit_index] = orbit
+		end
+	end
+
 	return result
 end
 
