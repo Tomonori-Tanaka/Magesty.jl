@@ -238,6 +238,19 @@ function BasisSet(
 		)
 	end
 
+	basislist::SortedCountingUniqueVector{Basis.CoupledBasis} =
+		construct_coupled_basislist(structure, symmetry, cluster, body1_lmax, bodyn_lsum, nbody)
+	classified_coupled_basisdict::Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}} =
+		classify_coupled_basislist_test(basislist)
+	keys_list = sort(collect(keys(classified_coupled_basisdict)))
+	for key in keys_list
+		println("key : $key")
+		cb_list = classified_coupled_basisdict[key]
+		for cb in cb_list
+			@show cb, cb_list.counts[cb]
+		end
+	end
+
 	# Validate input parameters
 	# Construct basis list
 	# basislist consists of all possible basis functions which is the product of spherical harmonics.
@@ -317,7 +330,204 @@ function BasisSet(
 	)
 end
 
+function construct_coupled_basislist(
+	structure::Structure,
+	symmetry::Symmetry,
+	cluster::Cluster,
+	body1_lmax::Vector{Int},
+	bodyn_lsum::OffsetArray{Int, 1},
+	nbody::Integer;
+	isotropy::Bool = false,
+)
+	result_coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis} =
+		SortedCountingUniqueVector{Basis.CoupledBasis}()
+	cluster_dict::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}} =
+		cluster.cluster_dict
 
+	# Handle 1-body case
+	for iat in symmetry.atoms_in_prim
+		lmax = body1_lmax[structure.supercell.kd_int_list[iat]]
+		for l in 2:lmax[1] # skip l = 1 because it is prohibited by the time-reversal symmetry
+			if l % 2 == 1 # skip odd l cases due to the time-reversal symmetry
+				continue
+			end
+			# For 1-body case, create LinearCombo with single atom
+			cb_list = tesseral_coupled_bases_from_tesseral_bases(
+				[l],
+				[iat];
+				isotropy = isotropy,
+			)
+			for cb::Basis.CoupledBasis in cb_list
+				push!(result_coupled_basislist, cb, 1)
+			end
+		end
+	end
+
+
+	# Process multi-body cases
+	for body in 2:nbody
+		body_coupled_basislist = SortedCountingUniqueVector{Basis.CoupledBasis}()
+		for prim_atom_sc in symmetry.atoms_in_prim
+			cuv::CountingUniqueVector{Vector{Int}} = cluster_dict[body][prim_atom_sc]
+			for atom_list::Vector{Int} in cuv
+				count = cuv.counts[atom_list]  # Get multiplicity from cluster
+				sorted_atom_list = sort(atom_list)
+				cb_list::Vector{Basis.CoupledBasis} = listup_coupled_basislist(
+					sorted_atom_list,
+					bodyn_lsum[body];
+					isotropy = isotropy,
+				)
+				for cb::Basis.CoupledBasis in cb_list
+					push_unique_coupled_basis!(body_coupled_basislist, cb, count, symmetry)
+				end
+			end
+		end
+		for cb in body_coupled_basislist
+			push!(result_coupled_basislist, cb, body_coupled_basislist.counts[cb])
+		end
+	end
+	return result_coupled_basislist
+end
+
+function listup_coupled_basislist(
+	atom_list::Vector{<:Integer},
+	lsum::Integer;
+	isotropy::Bool = false,
+)::Vector{Basis.CoupledBasis}
+	result_basislist = Vector{Basis.CoupledBasis}()
+	for l in 2:lsum
+		if l < length(atom_list) || isodd(l)
+			continue
+		end
+		l_list = Combinat.compositions(l, length(atom_list); min = 1)
+		for l_vec::Vector{Int} in l_list
+			cb_list =
+				tesseral_coupled_bases_from_tesseral_bases(l_vec, atom_list; isotropy = isotropy)
+			append!(result_basislist, cb_list)
+		end
+	end
+	return result_basislist
+end
+
+
+
+"""
+	is_translationally_equivalent_coupled_basis(
+		cb1::Basis.CoupledBasis,
+		cb2::Basis.CoupledBasis,
+		symmetry::Symmetry,
+	) -> Bool
+
+Check if two `CoupledBasis` objects are translationally equivalent.
+
+Two `CoupledBasis` objects are translationally equivalent if:
+- They are physically equivalent (same `Lf`, `Lseq`, and `(atom, l)` pairs)
+- Their atom lists are related by a translation operation in the supercell
+
+This function checks if the atom lists can be mapped to each other via translation operations
+defined in `symmetry.symnum_translation`.
+
+# Arguments
+- `cb1::Basis.CoupledBasis`: First `CoupledBasis` to compare
+- `cb2::Basis.CoupledBasis`: Second `CoupledBasis` to compare
+- `symmetry::Symmetry`: Symmetry information containing translation mappings
+
+# Returns
+- `Bool`: `true` if the `CoupledBasis` objects are translationally equivalent, `false` otherwise
+"""
+function is_translationally_equivalent_coupled_basis(
+	cb1::Basis.CoupledBasis,
+	cb2::Basis.CoupledBasis,
+	symmetry::Symmetry,
+)::Bool
+	# Different number of sites
+	length(cb1.ls) != length(cb2.ls) && return false
+
+	# Different Lf
+	cb1.Lf != cb2.Lf && return false
+
+	# Different Lseq
+	cb1.Lseq != cb2.Lseq && return false
+
+	# Different ls values (as multisets) means different basis functions
+	ls1_sorted = sort(cb1.ls)
+	ls2_sorted = sort(cb2.ls)
+	if ls1_sorted != ls2_sorted
+		return false
+	end
+
+	# Check if (atom, l) pairs match as multisets (required for physical equivalence)
+	atom_l_pairs1 = collect(zip(cb1.atoms, cb1.ls))
+	atom_l_pairs2 = collect(zip(cb2.atoms, cb2.ls))
+	if sort(atom_l_pairs1) != sort(atom_l_pairs2)
+		return false
+	end
+
+	# Check if coeff_tensor has the same size and values
+	if size(cb1.coeff_tensor) != size(cb2.coeff_tensor)
+		return false
+	end
+	if !isapprox(cb1.coeff_tensor, cb2.coeff_tensor, atol = 1e-10)
+		return false
+	end
+
+	# Check if atom lists are translationally equivalent
+	atom_list1 = cb1.atoms
+	atom_list2 = cb2.atoms
+
+	# Early return if atom lists are the same
+	if atom_list1 == atom_list2
+		return false
+	end
+
+	# Early return if first atom is the same
+	# because this function is intended to be used for different first atoms but translationally equivalent clusters
+	if atom_list1[1] == atom_list2[1]
+		return false
+	end
+
+	# Check translation operations
+	for itran in symmetry.symnum_translation
+		# Method 1: Apply forward translation (map_sym) to atom_list1
+		atom_list1_shifted = [symmetry.map_sym[atom, itran] for atom in atom_list1]
+		# Sort both lists to compare as multisets (order doesn't matter)
+		if sort(atom_list1_shifted) == sort(atom_list2)
+			return true
+		end
+
+		# Method 2: Apply inverse translation (map_sym_inv) to atom_list1
+		atom_list1_shifted = [symmetry.map_sym_inv[atom, itran] for atom in atom_list1]
+		# Sort both lists to compare as multisets (order doesn't matter)
+		if sort(atom_list1_shifted) == sort(atom_list2)
+			return true
+		end
+	end
+
+	return false
+end
+
+function push_unique_coupled_basis!(
+	target::SortedCountingUniqueVector{Basis.CoupledBasis},
+	cb::Basis.CoupledBasis,
+	count::Integer,
+	symmetry::Symmetry,
+)
+	# Quick check: sum of l values
+	lsum_cb = sum(collect(cb.ls))
+	for existing_cb in target
+		lsum_existing = sum(collect(existing_cb.ls))
+		if lsum_cb != lsum_existing
+			continue
+		end
+		# Check if physically equivalent (same Lf, Lseq, (atom, l) pairs, and coeff_list)
+		# This checks for exact matches (same atoms, same ls order)
+		if is_translationally_equivalent_coupled_basis(cb, existing_cb, symmetry)
+			return
+		end
+	end
+	# No equivalent LinearCombo found: add with the given count
+	push!(target, cb, count)
+end
 
 
 function construct_basislist(
@@ -896,6 +1106,65 @@ end
 
 # 	return dict
 # end
+
+"""
+	classify_coupled_basislist_test(
+		coupled_basislist::AbstractVector{Basis.CoupledBasis},
+	) -> Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}
+
+Simplified classifier for `CoupledBasis` objects used in tests.
+
+This version ignores spatial symmetry and groups basis functions solely by
+interaction order (number of sites), final angular momentum `Lf`, sum of `ls`, and sorted `ls`.
+It trades efficiency for robustness so that test fixtures can rely on deterministic
+grouping without depending on symmetry metadata.
+
+# Arguments
+- `coupled_basislist::AbstractVector{Basis.CoupledBasis}`: List of CoupledBasis objects
+
+# Returns
+- `Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}`: Dictionary keyed by
+  labels assigned per `(nbody, Lf, sum(ls), Tuple(sort(ls)...))` tuple
+"""
+function classify_coupled_basislist_test(
+	coupled_basislist::AbstractVector{<:Basis.CoupledBasis},
+)::Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}
+	if isempty(coupled_basislist)
+		return OrderedDict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}()
+	end
+
+	label_map = Dict{Any, Int}()
+	label_list = Vector{Int}(undef, length(coupled_basislist))
+	next_label = 0
+
+	for (idx, cb) in enumerate(coupled_basislist)
+		ls_sorted = Tuple(sort(cb.ls))
+		key = (length(cb.atoms), cb.Lf, sum(cb.ls), ls_sorted)
+		label = get(label_map, key, 0)
+		if label == 0
+			next_label += 1
+			label = next_label
+			label_map[key] = label
+		end
+		label_list[idx] = label
+	end
+
+	dict = OrderedDict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}()
+	for label in 1:next_label
+		dict[label] = SortedCountingUniqueVector{Basis.CoupledBasis}()
+	end
+
+	for (cb, label) in zip(coupled_basislist, label_list)
+		if coupled_basislist isa SortedCountingUniqueVector
+			count_val = get(coupled_basislist.counts, cb, 1)
+			push!(dict[label], cb, count_val)
+		else
+			push!(dict[label], cb, 1)
+		end
+	end
+
+	return dict
+end
 
 """
 Checks if two basis sets are translationally equivalent.
