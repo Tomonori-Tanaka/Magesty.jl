@@ -266,5 +266,85 @@ function tesseral_coupled_bases_from_tesseral_bases(
 end
 
 
+"""
+	CoupledBasis_with_coefficient
+
+Container type for coupled angular momentum bases with Mf-dependent coefficients.
+
+- `ls`          : orbital angular momenta for each site (length N)
+- `Lf`          : total angular momentum of the final multiplet
+- `Lseq`        : intermediate L values along a left-coupling tree (length N-1)
+- `atoms`       : atom indices associated with each site (stored as a resizable vector)
+- `coeff_tensor`: N-way tensor over m₁,…,m_N (one tensor per fixed final M_f)
+- `coefficient` : coefficients for each Mf value (length must match the last dimension of coeff_tensor)
+"""
+struct CoupledBasis_with_coefficient
+	ls::Vector{Int}
+	Lf::Int
+	Lseq::Vector{Int}
+	atoms::Vector{Int}
+	coeff_tensor::AbstractArray
+	coefficient::Vector{Float64}
+
+	function CoupledBasis_with_coefficient(
+		ls::AbstractVector{<:Integer},
+		Lf::Integer,
+		Lseq::AbstractVector{<:Integer},
+		atoms::AbstractVector{<:Integer},
+		coeff_tensor::AbstractArray{<:Number},
+		coefficient::AbstractVector{<:Number},
+	)
+		N = length(ls)
+		nd = ndims(coeff_tensor)
+		nd == N + 1 ||
+			throw(
+				ArgumentError(
+					"ndims(coeff_tensor) must be length(ls)+1; got $nd, expected $(N+1)",
+				),
+			)
+
+		Mf_size = size(coeff_tensor, nd)
+		length(coefficient) == Mf_size ||
+			throw(
+				ArgumentError(
+					"length(coefficient) must match the last dimension of coeff_tensor; got $(length(coefficient)), expected $Mf_size",
+				),
+			)
+
+		return new(
+			collect(Int.(ls)),
+			Int(Lf),
+			collect(Int.(Lseq)),
+			collect(Int.(atoms)),
+			coeff_tensor,
+			collect(Float64.(coefficient)),
+		)
+	end
+end
+
+function CoupledBasis_with_coefficient(
+	cb::CoupledBasis,
+	coefficient::AbstractVector{<:Number},
+)
+	return CoupledBasis_with_coefficient(
+		cb.ls,
+		cb.Lf,
+		cb.Lseq,
+		cb.atoms,
+		cb.coeff_tensor,
+		coefficient,
+	)
+end
+
+function Base.show(io::IO, cbc::CoupledBasis_with_coefficient)
+	print(io, "CoupledBasis_with_coefficient(")
+	print(io, "ls=$(cbc.ls), ")
+	print(io, "Lf=$(cbc.Lf), ")
+	print(io, "Lseq=$(cbc.Lseq), ")
+	print(io, "atoms=$(cbc.atoms), ")
+	print(io, "coeff_tensor=$(size(cbc.coeff_tensor)), ")
+	print(io, "coefficient=$(cbc.coefficient)")
+	print(io, ")")
+end
 
 end # module Basis
