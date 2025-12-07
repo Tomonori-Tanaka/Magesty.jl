@@ -17,7 +17,7 @@ lsum = 2
 
 [regression]
 datafile = "EMBSET.dat"
-weight = 1.0 
+weight = 0.0
 alpha = 0
 lambda = 0.0
 

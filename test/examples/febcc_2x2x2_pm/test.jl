@@ -100,7 +100,7 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 		end
 	end
 
-	# sclus = SpinCluster(system, input, verbosity = false)
+	sclus = SpinCluster(system, input, verbosity = false)
 	# Magesty.write_xml(sclus, joinpath(@__DIR__, "scecoeffs.xml"))
 	# structure = Structure(joinpath(@__DIR__, "scecoeffs.xml"), verbosity = false)
 

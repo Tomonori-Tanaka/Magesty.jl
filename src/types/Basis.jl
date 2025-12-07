@@ -349,7 +349,7 @@ function Base.show(io::IO, cbc::CoupledBasis_with_coefficient)
 	print(io, "Lseq=$(cbc.Lseq), ")
 	print(io, "atoms=$(cbc.atoms), ")
 	print(io, "coeff_tensor=$(size(cbc.coeff_tensor)), ")
-	print(io, "coefficient=$(cbc.coefficient)")
+	print(io, "coefficient=$(cbc.coefficient), ")
 	print(io, "multiplicity=$(cbc.multiplicity), ")
 	print(io, ")")
 end
