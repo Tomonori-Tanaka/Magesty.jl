@@ -114,6 +114,7 @@ struct Cluster
 	min_distance_pairs::Matrix{Vector{DistInfo}}
 	cluster_dict::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}
 	irreducible_cluster_dict::Dict{Int, SortedCountingUniqueVector{Vector{Int}}}
+	cluster_orbits_dict::Dict{Int, Dict{Int, Vector{Vector{Int}}}}
 
 	function Cluster(
 		structure::Structure,
@@ -134,11 +135,6 @@ struct Cluster
 
 		cluster_orbits_dict::Dict{Int, Dict{Int, Vector{Vector{Int}}}} =
 			cluster_orbits(irreducible_cluster_dict, symmetry)
-		for body in keys(cluster_orbits_dict)
-			for orbit in values(cluster_orbits_dict[body])
-				@show body, orbit
-			end
-		end
 
 		min_distance_pairs = set_mindist_pairs(
 			structure.supercell.num_atoms,
@@ -167,6 +163,7 @@ struct Cluster
 			min_distance_pairs,
 			cluster_dict,
 			irreducible_cluster_dict,
+			cluster_orbits_dict,
 		)
 	end
 end
