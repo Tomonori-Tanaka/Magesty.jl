@@ -305,8 +305,12 @@ function BasisSet(
 					continue
 				end
 
+				# Get multiplicity from counts
+				multiplicity = coupled_basislist.counts[cb]
+
 				# Create CoupledBasis_with_coefficient and add to salc_list
-				cbc = Basis.CoupledBasis_with_coefficient(cb, coefficient)
+				cbc = Basis.CoupledBasis_with_coefficient(cb, coefficient, multiplicity)
+				@show cbc
 				push!(salc_list, cbc)
 			end
 		end
