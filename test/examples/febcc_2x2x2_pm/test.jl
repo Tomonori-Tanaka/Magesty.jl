@@ -143,18 +143,21 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 		]
 
 		# Run regression and check recovery
-		j0_hat, jphi_hat = Optimize.elastic_net_regression(
-			design_E,
-			design_T,
-			observed_energy_list,
-			observed_torque_list,
-			0.0,
-			0.0,
-			0.5,
-		)
+		for weight in [0.0, 0.5, 1.0]
+			j0_hat, jphi_hat = Optimize.elastic_net_regression(
+				design_E,
+				design_T,
+				observed_energy_list,
+				observed_torque_list,
+				0.0,
+				0.0,
+				weight,
+			)
 
-		@test isapprox(j0_hat, j0_true; rtol = 1e-8, atol = 1e-8)
-		@test isapprox(jphi_hat, jphi_true; rtol = 1e-8, atol = 1e-8)
+
+			@test isapprox(j0_hat, j0_true; rtol = 1e-8, atol = 1e-8)
+			@test isapprox(jphi_hat, jphi_true; rtol = 1e-8, atol = 1e-8)
+		end
 	end
 
 	# @testset "calc_energy" begin
