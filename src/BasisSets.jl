@@ -213,6 +213,14 @@ The constructor performs the following steps:
 struct BasisSet
 	# salc_linearcombo_list::Vector{SALC_LinearCombo}
 	coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis}
+	salc_list::Vector{Basis.CoupledBasis_with_coefficient}
+
+	function BasisSet(
+		coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis},
+		salc_list::Vector{Basis.CoupledBasis_with_coefficient},
+	)
+		return new(coupled_basislist, salc_list)
+	end
 end
 
 function BasisSet(
@@ -249,13 +257,6 @@ function BasisSet(
 			nbody,
 		)
 	println(" Done.")
-	for key in sort(collect(keys(classified_coupled_basisdict)))
-		println("key : $key")
-		for cb in classified_coupled_basisdict[key]
-			@show cb, classified_coupled_basisdict[key].counts[cb]
-
-		end
-	end
 
 	if verbosity
 		elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
@@ -263,11 +264,14 @@ function BasisSet(
 		println("-------------------------------------------------------------------")
 	end
 
+	salc_list = Vector{Basis.CoupledBasis_with_coefficient}()
+
 	print("Constructing projection matrix...")
 	keys_list = sort(collect(keys(classified_coupled_basisdict)))
 	for key in keys_list
+		coupled_basislist = classified_coupled_basisdict[key]
 		projection_mat =
-			projection_matrix_coupled_basis(classified_coupled_basisdict[key], symmetry)
+			projection_matrix_coupled_basis(coupled_basislist, symmetry)
 		println("key : $key")
 		# projection_mat is real symmetric → use Hermitian + eigen! to save memory
 		h_projection = Hermitian(projection_mat)
@@ -280,12 +284,31 @@ function BasisSet(
 			@show eigenvals
 			error("Critical error: Eigenvalues must be either 0 or 1. index: $key")
 		end
+		Lf = coupled_basislist[1].Lf
+		submatrix_dim = 2 * Lf + 1
+		nbasis = length(coupled_basislist)
 		for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
 			eigenvec = eigenvecs[:, idx_eigenval]
 			eigenvec = real.(eigenvec)
 			eigenvec = round.(eigenvec .* (abs.(eigenvec) .≥ 1e-8), digits = 10)
 			eigenvec = eigenvec / norm(eigenvec)
-			# @show round.(eigenvec, digits = 6)
+
+			# Create CoupledBasis_with_coefficient for each basis in coupled_basislist
+			for (idx_basis, cb) in enumerate(coupled_basislist)
+				# Extract coefficients for this basis (Mf-dependent)
+				coeff_start = (idx_basis - 1) * submatrix_dim + 1
+				coeff_end = idx_basis * submatrix_dim
+				coefficient = eigenvec[coeff_start:coeff_end]
+
+				# Skip if coefficient is all zeros (or nearly zero)
+				if isapprox(norm(coefficient), 0.0, atol = 1e-10)
+					continue
+				end
+
+				# Create CoupledBasis_with_coefficient and add to salc_list
+				cbc = Basis.CoupledBasis_with_coefficient(cb, coefficient)
+				push!(salc_list, cbc)
+			end
 		end
 		# Free large matrices after processing each key
 		h_projection = nothing
@@ -365,7 +388,7 @@ function BasisSet(
 			push!(result_basislist, cb, count)
 		end
 	end
-	return BasisSet(result_basislist)
+	return BasisSet(result_basislist, salc_list)
 end
 
 function BasisSet(
