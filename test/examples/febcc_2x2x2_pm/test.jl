@@ -2,6 +2,8 @@ using TOML
 using Printf
 using Test
 using StaticArrays
+using Random
+using Magesty.Optimize
 using Magesty.Structures
 using Magesty.Symmetries
 
@@ -103,6 +105,57 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 	sclus = SpinCluster(system, input, verbosity = true)
 	Magesty.write_xml(sclus, joinpath(@__DIR__, "scecoeffs.xml"))
 	# structure = Structure(joinpath(@__DIR__, "scecoeffs.xml"), verbosity = false)
+
+	@testset "SCE Regression Roundtrip (energy + torque)" begin
+		spinconfigs = sclus.optimize.spinconfig_list
+		# Use at most 2×(number of SALC groups) configs to keep test lightweight
+		num_cfg_target = 2 * length(sclus.basisset.salc_list)
+		num_cfg = min(length(spinconfigs), num_cfg_target)
+		spinconfigs = spinconfigs[1:num_cfg]
+
+		num_atoms = sclus.structure.supercell.num_atoms
+		salc_list = sclus.basisset.salc_list
+
+		# Build design matrices (bias column included for energy, not for torque)
+		design_E = Optimize.build_design_matrix_energy(salc_list, spinconfigs, sclus.symmetry)
+		design_T = Optimize.build_design_matrix_torque(
+			salc_list,
+			spinconfigs,
+			num_atoms,
+			sclus.symmetry,
+		)
+
+		num_salcs = length(salc_list)
+		@test size(design_E, 2) == num_salcs + 1
+		@test size(design_T, 2) == num_salcs
+
+		# Create synthetic coefficients and data
+		rng = Xoshiro(0x12345678)
+		jphi_true = randn(rng, num_salcs)
+		j0_true = 0.1234
+
+		observed_energy_list = design_E[:, 2:end] * jphi_true .+ j0_true
+		torque_flat = design_T * jphi_true
+		block_size = 3 * num_atoms
+		observed_torque_list = [
+			reshape(torque_flat[((i-1)*block_size+1):(i*block_size)], 3, num_atoms) for
+			i in 1:num_cfg
+		]
+
+		# Run regression and check recovery
+		j0_hat, jphi_hat = Optimize.elastic_net_regression(
+			design_E,
+			design_T,
+			observed_energy_list,
+			observed_torque_list,
+			0.0,
+			0.0,
+			0.5,
+		)
+
+		@test isapprox(j0_hat, j0_true; rtol = 1e-8, atol = 1e-8)
+		@test isapprox(jphi_hat, jphi_true; rtol = 1e-8, atol = 1e-8)
+	end
 
 	# @testset "calc_energy" begin
 	# 	spin_config_list = sclus.optimize.spinconfig_list

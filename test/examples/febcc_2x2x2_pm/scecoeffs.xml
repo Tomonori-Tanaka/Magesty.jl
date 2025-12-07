@@ -51,39 +51,39 @@
     </Symmetry>
     <SCEBasisSet num_salc="7">
       <SALC index="1" num_basis="1" body="2" Lf="0">
-        <basis multiplicity="8" Lf="0" atoms="1 15" ls="1 1" Lseq="" index="1">1.0</basis>
+        <basis multiplicity="8" atoms="1 15" ls="1 1" Lseq="" index="1">1.0</basis>
       </SALC>
       <SALC index="2" num_basis="3" body="2" Lf="0">
-        <basis multiplicity="2" Lf="0" atoms="1 3" ls="1 1" Lseq="" index="1">0.5773502691896257</basis>
-        <basis multiplicity="2" Lf="0" atoms="1 4" ls="1 1" Lseq="" index="2">0.5773502691896257</basis>
-        <basis multiplicity="2" Lf="0" atoms="1 5" ls="1 1" Lseq="" index="3">0.5773502691896257</basis>
+        <basis multiplicity="2" atoms="1 3" ls="1 1" Lseq="" index="1">0.5773502691896257</basis>
+        <basis multiplicity="2" atoms="1 4" ls="1 1" Lseq="" index="2">0.5773502691896257</basis>
+        <basis multiplicity="2" atoms="1 5" ls="1 1" Lseq="" index="3">0.5773502691896257</basis>
       </SALC>
       <SALC index="3" num_basis="3" body="2" Lf="2">
-        <basis multiplicity="2" Lf="2" atoms="1 3" ls="1 1" Lseq="" index="1">0.0 0.0 0.5773502691948129 0.0 0.0</basis>
-        <basis multiplicity="2" Lf="2" atoms="1 4" ls="1 1" Lseq="" index="2">0.0 -0.0 -0.28867513459740646 -0.0 0.4999999999955078</basis>
-        <basis multiplicity="2" Lf="2" atoms="1 5" ls="1 1" Lseq="" index="3">0.0 0.0 -0.28867513459740646 0.0 -0.4999999999955078</basis>
+        <basis multiplicity="2" atoms="1 3" ls="1 1" Lseq="" index="1">0.0 0.0 0.5773502691948129 0.0 0.0</basis>
+        <basis multiplicity="2" atoms="1 4" ls="1 1" Lseq="" index="2">0.0 -0.0 -0.28867513459740646 -0.0 0.4999999999955078</basis>
+        <basis multiplicity="2" atoms="1 5" ls="1 1" Lseq="" index="3">0.0 0.0 -0.28867513459740646 0.0 -0.4999999999955078</basis>
       </SALC>
       <SALC index="4" num_basis="3" body="2" Lf="0">
-        <basis multiplicity="4" Lf="0" atoms="1 9" ls="1 1" Lseq="" index="1">0.5773502691896257</basis>
-        <basis multiplicity="4" Lf="0" atoms="1 10" ls="1 1" Lseq="" index="2">0.5773502691896257</basis>
-        <basis multiplicity="4" Lf="0" atoms="1 11" ls="1 1" Lseq="" index="3">0.5773502691896257</basis>
+        <basis multiplicity="4" atoms="1 9" ls="1 1" Lseq="" index="1">0.5773502691896257</basis>
+        <basis multiplicity="4" atoms="1 10" ls="1 1" Lseq="" index="2">0.5773502691896257</basis>
+        <basis multiplicity="4" atoms="1 11" ls="1 1" Lseq="" index="3">0.5773502691896257</basis>
       </SALC>
       <SALC index="5" num_basis="3" body="2" Lf="2">
-        <basis multiplicity="4" Lf="2" atoms="1 9" ls="1 1" Lseq="" index="1">-0.0 0.0 0.28867513459740646 0.0 -0.4999999999955078</basis>
-        <basis multiplicity="4" Lf="2" atoms="1 10" ls="1 1" Lseq="" index="2">0.0 -0.0 0.28867513459740646 0.0 0.4999999999955078</basis>
-        <basis multiplicity="4" Lf="2" atoms="1 11" ls="1 1" Lseq="" index="3">-0.0 0.0 -0.5773502691948129 -0.0 0.0</basis>
+        <basis multiplicity="4" atoms="1 9" ls="1 1" Lseq="" index="1">-0.0 0.0 0.28867513459740646 0.0 -0.4999999999955078</basis>
+        <basis multiplicity="4" atoms="1 10" ls="1 1" Lseq="" index="2">0.0 -0.0 0.28867513459740646 0.0 0.4999999999955078</basis>
+        <basis multiplicity="4" atoms="1 11" ls="1 1" Lseq="" index="3">-0.0 0.0 -0.5773502691948129 -0.0 0.0</basis>
       </SALC>
       <SALC index="6" num_basis="4" body="2" Lf="0">
-        <basis multiplicity="1" Lf="0" atoms="1 2" ls="1 1" Lseq="" index="1">0.5</basis>
-        <basis multiplicity="1" Lf="0" atoms="1 6" ls="1 1" Lseq="" index="2">0.5</basis>
-        <basis multiplicity="1" Lf="0" atoms="1 7" ls="1 1" Lseq="" index="3">0.5</basis>
-        <basis multiplicity="1" Lf="0" atoms="1 8" ls="1 1" Lseq="" index="4">0.5</basis>
+        <basis multiplicity="1" atoms="1 2" ls="1 1" Lseq="" index="1">0.5</basis>
+        <basis multiplicity="1" atoms="1 6" ls="1 1" Lseq="" index="2">0.5</basis>
+        <basis multiplicity="1" atoms="1 7" ls="1 1" Lseq="" index="3">0.5</basis>
+        <basis multiplicity="1" atoms="1 8" ls="1 1" Lseq="" index="4">0.5</basis>
       </SALC>
       <SALC index="7" num_basis="4" body="2" Lf="2">
-        <basis multiplicity="1" Lf="2" atoms="1 2" ls="1 1" Lseq="" index="1">0.2886751345948129 0.2886751345948129 -0.0 0.2886751345948129 0.0</basis>
-        <basis multiplicity="1" Lf="2" atoms="1 6" ls="1 1" Lseq="" index="2">0.2886751345948129 -0.2886751345948129 -0.0 -0.2886751345948129 0.0</basis>
-        <basis multiplicity="1" Lf="2" atoms="1 7" ls="1 1" Lseq="" index="3">-0.2886751345948129 0.2886751345948129 -0.0 -0.2886751345948129 -0.0</basis>
-        <basis multiplicity="1" Lf="2" atoms="1 8" ls="1 1" Lseq="" index="4">-0.2886751345948129 -0.2886751345948129 -0.0 0.2886751345948129 0.0</basis>
+        <basis multiplicity="1" atoms="1 2" ls="1 1" Lseq="" index="1">0.2886751345948129 0.2886751345948129 -0.0 0.2886751345948129 0.0</basis>
+        <basis multiplicity="1" atoms="1 6" ls="1 1" Lseq="" index="2">0.2886751345948129 -0.2886751345948129 -0.0 -0.2886751345948129 0.0</basis>
+        <basis multiplicity="1" atoms="1 7" ls="1 1" Lseq="" index="3">-0.2886751345948129 0.2886751345948129 -0.0 -0.2886751345948129 -0.0</basis>
+        <basis multiplicity="1" atoms="1 8" ls="1 1" Lseq="" index="4">-0.2886751345948129 -0.2886751345948129 -0.0 0.2886751345948129 0.0</basis>
       </SALC>
     </SCEBasisSet>
   </System>
