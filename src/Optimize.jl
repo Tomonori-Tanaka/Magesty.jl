@@ -96,9 +96,9 @@ struct Optimizer
 			lambda,
 			weight,
 		)
-		# for i in eachindex(jphi)
-		# 	@show i, basisset.salc_list[i], jphi[i]
-		# end
+		for i in eachindex(jphi)
+			@show i, basisset.salc_list[i], jphi[i]
+		end
 
 		predicted_energy_list = design_matrix_energy[:, 2:end] * jphi .+ j0
 		predicted_torque_flattened_list::Vector{Float64} = design_matrix_torque * jphi
@@ -208,11 +208,11 @@ function build_design_matrix_energy(
 	design_matrix[:, 1] .= 1.0
 
 	for i in 1:num_salcs
-		key_group = salc_list[i]
+		key_group::Vector{Basis.CoupledBasis_with_coefficient} = salc_list[i]
 		@inbounds for j in 1:num_spinconfigs
 			# Sum contributions from all CoupledBasis_with_coefficient in this key group
 			group_value = 0.0
-			for cbc in key_group
+			for cbc::Basis.CoupledBasis_with_coefficient in key_group
 				group_value += design_matrix_energy_element(
 					cbc,
 					spinconfig_list[j].spin_directions,

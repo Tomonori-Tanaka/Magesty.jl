@@ -333,9 +333,6 @@ function BasisSet(
 		println("-------------------------------------------------------------------")
 	end
 
-	for salc in salc_list
-		println("salc : $salc")
-	end
 
 
 
