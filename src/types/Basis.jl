@@ -6,6 +6,7 @@ using LinearAlgebra
 using DataStructures
 
 export CoupledBasis,
+	CoupledBasis_with_coefficient,
 	reorder_atoms,
 	tesseral_coupled_bases_from_tesseral_bases
 
@@ -285,6 +286,7 @@ struct CoupledBasis_with_coefficient
 	atoms::Vector{Int}
 	coeff_tensor::AbstractArray
 	coefficient::Vector{Float64}
+	multiplicity::Int
 
 	function CoupledBasis_with_coefficient(
 		ls::AbstractVector{<:Integer},
@@ -293,6 +295,7 @@ struct CoupledBasis_with_coefficient
 		atoms::AbstractVector{<:Integer},
 		coeff_tensor::AbstractArray{<:Number},
 		coefficient::AbstractVector{<:Number},
+		multiplicity::Int,
 	)
 		N = length(ls)
 		nd = ndims(coeff_tensor)
@@ -318,6 +321,7 @@ struct CoupledBasis_with_coefficient
 			collect(Int.(atoms)),
 			coeff_tensor,
 			collect(Float64.(coefficient)),
+			multiplicity,
 		)
 	end
 end
@@ -325,6 +329,7 @@ end
 function CoupledBasis_with_coefficient(
 	cb::CoupledBasis,
 	coefficient::AbstractVector{<:Number},
+	multiplicity::Int,
 )
 	return CoupledBasis_with_coefficient(
 		cb.ls,
@@ -333,6 +338,7 @@ function CoupledBasis_with_coefficient(
 		cb.atoms,
 		cb.coeff_tensor,
 		coefficient,
+		multiplicity,
 	)
 end
 
@@ -344,6 +350,7 @@ function Base.show(io::IO, cbc::CoupledBasis_with_coefficient)
 	print(io, "atoms=$(cbc.atoms), ")
 	print(io, "coeff_tensor=$(size(cbc.coeff_tensor)), ")
 	print(io, "coefficient=$(cbc.coefficient)")
+	print(io, "multiplicity=$(cbc.multiplicity), ")
 	print(io, ")")
 end
 
