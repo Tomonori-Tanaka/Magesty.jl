@@ -206,6 +206,8 @@ function build_design_matrix_energy(
 
 	for i in 1:num_salcs
 		key_group::Vector{Basis.CoupledBasis_with_coefficient} = salc_list[i]
+		n_C = length(key_group[1].atoms)  # Number of sites in the cluster
+		scaling_factor = (4*pi)^(n_C/2)  # (√(4π))^{n_C}
 		@inbounds for j in 1:num_spinconfigs
 			# Sum contributions from all CoupledBasis_with_coefficient in this key group
 			group_value = 0.0
@@ -216,7 +218,7 @@ function build_design_matrix_energy(
 					symmetry,
 				)
 			end
-			design_matrix[j, i+1] = group_value
+			design_matrix[j, i+1] = group_value * scaling_factor
 		end
 	end
 
@@ -414,7 +416,7 @@ function build_design_matrix_torque(
 
 	design_matrix_list = Vector{Matrix{Float64}}(undef, num_spinconfigs)
 
-	for (sc_idx, spinconfig) in enumerate(spinconfig_list)
+		for (sc_idx, spinconfig) in enumerate(spinconfig_list)
 		torque_design_block = zeros(Float64, 3*num_atoms, num_salcs)
 		@inbounds for iatom in 1:num_atoms
 			@views dir_iatom = spinconfig.spin_directions[:, iatom]
@@ -425,8 +427,10 @@ function build_design_matrix_torque(
 					grad_u = calc_∇ₑu(cbc, iatom, spinconfig.spin_directions, symmetry)
 					group_grad .+= grad_u
 				end
+				n_C = length(key_group[1].atoms)  # Number of sites in the cluster
+				scaling_factor = (4*pi)^(n_C/2)  # (√(4π))^{n_C}
 				@views torque_design_block[(3*(iatom-1)+1):(3*iatom), salc_idx] =
-					cross(dir_iatom, Vector{Float64}(group_grad))
+					cross(dir_iatom, Vector{Float64}(group_grad)) * scaling_factor
 			end
 		end
 		design_matrix_list[sc_idx] = torque_design_block
