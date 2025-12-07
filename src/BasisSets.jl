@@ -238,14 +238,24 @@ function BasisSet(
 		)
 	end
 
-	print("Constructing coupled basis list...")
-	basislist::SortedCountingUniqueVector{Basis.CoupledBasis} =
-		construct_coupled_basislist(structure, symmetry, cluster, body1_lmax, bodyn_lsum, nbody)
-	println(" Done.")
-	print("Classifying coupled basis list...")
+	print("Constructing and classifying coupled basis list...")
 	classified_coupled_basisdict::Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}} =
-		classify_coupled_basislist_test(basislist)
+		construct_and_classify_coupled_basislist(
+			structure,
+			symmetry,
+			cluster,
+			body1_lmax,
+			bodyn_lsum,
+			nbody,
+		)
 	println(" Done.")
+	for key in sort(collect(keys(classified_coupled_basisdict)))
+		println("key : $key")
+		for cb in classified_coupled_basisdict[key]
+			@show cb, classified_coupled_basisdict[key].counts[cb]
+
+		end
+	end
 
 	if verbosity
 		elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
@@ -347,7 +357,15 @@ function BasisSet(
 	# end
 
 	# return BasisSet(salc_linearcombo_list)
-	return BasisSet(basislist)
+	# Reconstruct basislist from classified dictionary for BasisSet storage
+	result_basislist = SortedCountingUniqueVector{Basis.CoupledBasis}()
+	for (key, classified_basislist) in classified_coupled_basisdict
+		for cb in classified_basislist
+			count = classified_basislist.counts[cb]
+			push!(result_basislist, cb, count)
+		end
+	end
+	return BasisSet(result_basislist)
 end
 
 function BasisSet(
@@ -369,6 +387,153 @@ function BasisSet(
 	)
 end
 
+"""
+	construct_and_classify_coupled_basislist(
+		structure::Structure,
+		symmetry::Symmetry,
+		cluster::Cluster,
+		body1_lmax::Vector{Int},
+		bodyn_lsum::OffsetArray{Int, 1},
+		nbody::Integer;
+		isotropy::Bool = false,
+	) -> Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}
+
+Construct coupled basis functions and classify them simultaneously using orbit information.
+
+This function combines the functionality of `construct_coupled_basislist` and `classify_coupled_basislist_test`
+by generating basis functions orbit-by-orbit and classifying them on-the-fly. This approach is more
+memory-efficient and allows for better organization of basis functions by symmetry.
+
+# Arguments
+- `structure::Structure`: Structure information containing atomic positions and species
+- `symmetry::Symmetry`: Symmetry information for the crystal structure
+- `cluster::Cluster`: Cluster information containing orbit classification
+- `body1_lmax::Vector{Int}`: Maximum angular momentum values for 1-body interactions
+- `bodyn_lsum::OffsetArray{Int, 1}`: Maximum sum of angular momentum values for multi-body interactions
+- `nbody::Integer`: Maximum number of bodies in interactions
+- `isotropy::Bool`: If `true`, only include isotropic terms (Lf=0), default: `false`
+
+# Returns
+- `Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}`: Dictionary keyed by classification labels
+  (based on `(nbody, Lf, sum(ls), Tuple(sort(ls)...))`), containing classified basis functions
+"""
+function construct_and_classify_coupled_basislist(
+	structure::Structure,
+	symmetry::Symmetry,
+	cluster::Cluster,
+	body1_lmax::Vector{Int},
+	bodyn_lsum::OffsetArray{Int, 1},
+	nbody::Integer;
+	isotropy::Bool = false,
+)::Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}
+	# Result dictionary for classified basis functions
+	classified_dict = OrderedDict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}()
+	label_map = Dict{Any, Int}()
+	next_label = 0
+	
+	irreducible_cluster_dict::Dict{Int, SortedCountingUniqueVector{Vector{Int}}} =
+		cluster.irreducible_cluster_dict
+	cluster_orbits_dict::Dict{Int, Dict{Int, Vector{Vector{Int}}}} =
+		cluster.cluster_orbits_dict
+
+	# Handle 1-body case
+	for iat in symmetry.atoms_in_prim
+		lmax = body1_lmax[structure.supercell.kd_int_list[iat]]
+		for l in 2:lmax # skip l = 1 because it is prohibited by the time-reversal symmetry
+			if l % 2 == 1 # skip odd l cases due to the time-reversal symmetry
+				continue
+			end
+			# For 1-body case, create CoupledBasis with single atom
+			cb_list = tesseral_coupled_bases_from_tesseral_bases(
+				[l],
+				[iat];
+				isotropy = isotropy,
+			)
+			for cb::Basis.CoupledBasis in cb_list
+				# Classify on-the-fly: key is (nbody, Lf, sum(ls), Tuple(sort(ls)...))
+				nbody_val = length(cb.ls)
+				ls_sorted = Tuple(sort(cb.ls))
+				key = (nbody_val, cb.Lf, sum(cb.ls), ls_sorted)
+				
+				label = get(label_map, key, 0)
+				if label == 0
+					next_label += 1
+					label = next_label
+					label_map[key] = label
+					classified_dict[label] = SortedCountingUniqueVector{Basis.CoupledBasis}()
+				end
+				push!(classified_dict[label], cb, 1)
+			end
+		end
+	end
+
+	# Process multi-body cases using cluster_orbits_dict for efficient processing
+	# Group by orbit first, then classify within each orbit
+	for body in 2:nbody
+		# Use cluster_orbits_dict to process clusters grouped by symmetry orbits
+		if haskey(cluster_orbits_dict, body)
+			for (orbit_index, orbit_clusters) in cluster_orbits_dict[body]
+				# Process all clusters in this orbit
+				# Clusters in the same orbit have the same projection matrix structure
+				# Collect all basis functions from this orbit first
+				orbit_basis_list = Vector{Basis.CoupledBasis}()
+				# Use IdDict instead of Dict since CoupledBasis doesn't implement hash
+				orbit_basis_counts = IdDict{Basis.CoupledBasis, Int}()
+				
+				for atom_list::Vector{Int} in orbit_clusters
+					# Get multiplicity from irreducible_cluster_dict
+					count = irreducible_cluster_dict[body].counts[atom_list]
+					sorted_atom_list = sort(atom_list)
+					cb_list::Vector{Basis.CoupledBasis} = listup_coupled_basislist(
+						sorted_atom_list,
+						bodyn_lsum[body];
+						isotropy = isotropy,
+					)
+					
+					# Collect basis functions from this cluster
+					for cb::Basis.CoupledBasis in cb_list
+						# Check for translationally equivalent within orbit
+						found_equivalent = false
+						for existing_cb in orbit_basis_list
+							if is_translationally_equivalent_coupled_basis(cb, existing_cb, symmetry)
+								found_equivalent = true
+								# Safe access: get existing count or 0, then add
+								orbit_basis_counts[existing_cb] = get(orbit_basis_counts, existing_cb, 0) + count
+								break
+							end
+						end
+						if !found_equivalent
+							push!(orbit_basis_list, cb)
+							orbit_basis_counts[cb] = count
+						end
+					end
+				end
+				
+				# Classify basis functions from this orbit
+				# Use orbit index in classification key to group by orbit
+				for cb::Basis.CoupledBasis in orbit_basis_list
+					ls_sorted = Tuple(sort(cb.ls))
+					# Include orbit_index in classification key to utilize orbit information
+					key = (body, orbit_index, cb.Lf, sum(cb.ls), ls_sorted)
+					
+					label = get(label_map, key, 0)
+					if label == 0
+						next_label += 1
+						label = next_label
+						label_map[key] = label
+						classified_dict[label] = SortedCountingUniqueVector{Basis.CoupledBasis}()
+					end
+					
+					count = orbit_basis_counts[cb]
+					push!(classified_dict[label], cb, count)
+				end
+			end
+		end
+	end
+	
+	return classified_dict
+end
+
 function construct_coupled_basislist(
 	structure::Structure,
 	symmetry::Symmetry,
@@ -382,6 +547,8 @@ function construct_coupled_basislist(
 		SortedCountingUniqueVector{Basis.CoupledBasis}()
 	irreducible_cluster_dict::Dict{Int, SortedCountingUniqueVector{Vector{Int}}} =
 		cluster.irreducible_cluster_dict
+	cluster_orbits_dict::Dict{Int, Dict{Int, Vector{Vector{Int}}}} =
+		cluster.cluster_orbits_dict
 
 	# Handle 1-body case
 	for iat in symmetry.atoms_in_prim
@@ -403,21 +570,26 @@ function construct_coupled_basislist(
 	end
 
 
-	# Process multi-body cases
+	# Process multi-body cases using cluster_orbits_dict for efficient processing
 	for body in 2:nbody
 		body_coupled_basislist = SortedCountingUniqueVector{Basis.CoupledBasis}()
-		# Use irreducible_cluster_dict which already contains all irreducible clusters
-		if haskey(irreducible_cluster_dict, body)
-			for atom_list::Vector{Int} in irreducible_cluster_dict[body]
-				count = irreducible_cluster_dict[body].counts[atom_list]  # Get multiplicity from irreducible cluster
-				sorted_atom_list = sort(atom_list)
-				cb_list::Vector{Basis.CoupledBasis} = listup_coupled_basislist(
-					sorted_atom_list,
-					bodyn_lsum[body];
-					isotropy = isotropy,
-				)
-				for cb::Basis.CoupledBasis in cb_list
-					push_unique_coupled_basis!(body_coupled_basislist, cb, count, symmetry)
+		# Use cluster_orbits_dict to process clusters grouped by symmetry orbits
+		if haskey(cluster_orbits_dict, body)
+			for (orbit_index, orbit_clusters) in cluster_orbits_dict[body]
+				# Process all clusters in this orbit
+				# Clusters in the same orbit have the same projection matrix structure
+				for atom_list::Vector{Int} in orbit_clusters
+					# Get multiplicity from irreducible_cluster_dict
+					count = irreducible_cluster_dict[body].counts[atom_list]
+					sorted_atom_list = sort(atom_list)
+					cb_list::Vector{Basis.CoupledBasis} = listup_coupled_basislist(
+						sorted_atom_list,
+						bodyn_lsum[body];
+						isotropy = isotropy,
+					)
+					for cb::Basis.CoupledBasis in cb_list
+						push_unique_coupled_basis!(body_coupled_basislist, cb, count, symmetry)
+					end
 				end
 			end
 		end
