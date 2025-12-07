@@ -18,6 +18,7 @@ using ..ConfigParser
 using ..Structures
 using ..Symmetries
 using ..Clusters
+using ..Basis
 using ..BasisSets
 using ..SpinConfigs
 
@@ -55,6 +56,8 @@ struct Optimizer
 		end
 
 		# construct design matrix for energy and torque
+		# salc_list is Vector{Vector{...}} where each inner vector represents one key group
+		# design_matrix should have width = length(salc_list) + 1 (one column per key group + bias)
 		if verbosity
 			println("Constructing design matrix for energy...")
 		end
@@ -93,6 +96,9 @@ struct Optimizer
 			lambda,
 			weight,
 		)
+		# for i in eachindex(jphi)
+		# 	@show i, basisset.salc_list[i], jphi[i]
+		# end
 
 		predicted_energy_list = design_matrix_energy[:, 2:end] * jphi .+ j0
 		predicted_torque_flattened_list::Vector{Float64} = design_matrix_torque * jphi
@@ -186,6 +192,41 @@ function Optimizer(
 	)
 end
 
+
+function build_design_matrix_energy(
+	salc_list::AbstractVector{Vector{Basis.CoupledBasis_with_coefficient}},
+	spinconfig_list::AbstractVector{SpinConfig},
+	symmetry::Symmetry,
+)::Matrix{Float64}
+	num_salcs = length(salc_list)  # Number of key groups
+	num_spinconfigs = length(spinconfig_list)
+
+	# construct design matrix A in Ax = b
+	design_matrix = zeros(Float64, num_spinconfigs, num_salcs + 1)
+
+	# set first column to 1 (reference_energy term)
+	design_matrix[:, 1] .= 1.0
+
+	for i in 1:num_salcs
+		key_group = salc_list[i]
+		@inbounds for j in 1:num_spinconfigs
+			# Sum contributions from all CoupledBasis_with_coefficient in this key group
+			group_value = 0.0
+			for cbc in key_group
+				group_value += design_matrix_energy_element(
+					cbc,
+					spinconfig_list[j].spin_directions,
+					symmetry,
+				)
+			end
+			design_matrix[j, i+1] = group_value
+		end
+	end
+
+	return design_matrix
+end
+
+
 """
 	build_design_matrix_energy(salc_list, spinconfig_list, symmetry) -> Matrix{Float64}
 
@@ -271,6 +312,82 @@ function design_matrix_energy_element(
 end
 
 """
+	design_matrix_energy_element(cbc, spin_directions, symmetry) -> Float64
+
+Compute one energy-design feature for a given CoupledBasis_with_coefficient and spin directions.
+
+# Description
+- Contracts coupled angular momentum basis tensor with spherical harmonics over atoms following symmetry translations.
+- Equivalent to one column entry (excluding bias) in the energy design matrix.
+
+# Arguments
+- `cbc::Basis.CoupledBasis_with_coefficient`: CoupledBasis_with_coefficient object
+- `spin_directions::AbstractMatrix{<:Real}`: Matrix of spin directions (3×N)
+- `symmetry::Symmetry`: Symmetry information of the structure
+
+# Returns
+- `Float64`: Feature value for the CoupledBasis_with_coefficient
+"""
+function design_matrix_energy_element(
+	cbc::Basis.CoupledBasis_with_coefficient,
+	spin_directions::AbstractMatrix{<:Real},
+	symmetry::Symmetry,
+)::Float64
+	result::Float64 = 0.0
+	N = length(cbc.atoms)
+
+	for itrans in symmetry.symnum_translation
+		# Translate atoms
+		translated_atoms = [symmetry.map_sym[atom, itrans] for atom in cbc.atoms]
+
+		# Compute spherical harmonics for each site
+		sh_values = Vector{Vector{Float64}}(undef, N)
+		for (site_idx, atom) in enumerate(translated_atoms)
+			l = cbc.ls[site_idx]
+			sh_values[site_idx] = Vector{Float64}(undef, 2*l+1)
+			for m_idx in 1:(2*l+1)
+				# Convert tesseral index to m value: m = m_idx - l - 1
+				m = m_idx - l - 1
+				sh_values[site_idx][m_idx] = @views Sₗₘ(l, m, spin_directions[:, atom])
+			end
+		end
+
+		# Contract coeff_tensor with spherical harmonics
+		# coeff_tensor has shape (d1, d2, ..., dN, Mf_size)
+		# where di = 2*li + 1
+		tensor_result = 0.0
+		Mf_size = size(cbc.coeff_tensor, N+1)
+		dims = [2*l + 1 for l in cbc.ls]
+
+		# Iterate over all Mf values
+		for mf_idx in 1:Mf_size
+			mf_contribution = 0.0
+
+			# Iterate over all combinations of m indices using CartesianIndices
+			# Create indices for first N dimensions
+			site_indices = CartesianIndices(Tuple(dims))
+			for site_idx_tuple in site_indices
+				# Compute product of spherical harmonics
+				product = 1.0
+				for (site_idx, m_idx) in enumerate(site_idx_tuple.I)
+					product *= sh_values[site_idx][m_idx]
+				end
+
+				# Access tensor element: coeff_tensor[site_idx_tuple..., mf_idx]
+				tensor_idx = (site_idx_tuple.I..., mf_idx)
+				mf_contribution += cbc.coeff_tensor[tensor_idx...] * product
+			end
+
+			tensor_result += cbc.coefficient[mf_idx] * mf_contribution
+		end
+
+		result += tensor_result * cbc.multiplicity
+	end
+
+	return result
+end
+
+"""
 	build_design_matrix_torque(salc_list, spinconfig_list, num_atoms, symmetry) -> Matrix{Float64}
 
 Build the torque design matrix used for regression.
@@ -281,7 +398,7 @@ Build the torque design matrix used for regression.
 - Blocks are vertically concatenated across configurations.
 
 # Arguments
-- `salc_list`: List of SALCs
+- `salc_list`: List of SALCs or CoupledBasis_with_coefficient
 - `spinconfig_list`: Vector of spin configurations
 - `num_atoms`: Number of atoms in the structure
 - `symmetry`: Symmetry information
@@ -289,7 +406,44 @@ Build the torque design matrix used for regression.
 # Returns
 - `Matrix{Float64}`: Torque design matrix
 """
-function build_design_matrix_torque(salc_list, spinconfig_list, num_atoms, symmetry)::Matrix{Float64}
+function build_design_matrix_torque(
+	salc_list::AbstractVector{Vector{Basis.CoupledBasis_with_coefficient}},
+	spinconfig_list::AbstractVector{SpinConfig},
+	num_atoms::Integer,
+	symmetry::Symmetry,
+)::Matrix{Float64}
+	num_salcs = length(salc_list)  # Number of key groups
+	num_spinconfigs = length(spinconfig_list)
+
+	design_matrix_list = Vector{Matrix{Float64}}(undef, num_spinconfigs)
+
+	for (sc_idx, spinconfig) in enumerate(spinconfig_list)
+		torque_design_block = zeros(Float64, 3*num_atoms, num_salcs)
+		@inbounds for iatom in 1:num_atoms
+			@views dir_iatom = spinconfig.spin_directions[:, iatom]
+			@inbounds for (salc_idx, key_group) in enumerate(salc_list)
+				# Sum contributions from all CoupledBasis_with_coefficient in this key group
+				group_grad = MVector{3, Float64}(0.0, 0.0, 0.0)
+				for cbc in key_group
+					grad_u = calc_∇ₑu(cbc, iatom, spinconfig.spin_directions, symmetry)
+					group_grad .+= grad_u
+				end
+				@views torque_design_block[(3*(iatom-1)+1):(3*iatom), salc_idx] =
+					cross(dir_iatom, Vector{Float64}(group_grad))
+			end
+		end
+		design_matrix_list[sc_idx] = torque_design_block
+	end
+
+	return vcat(design_matrix_list...)
+end
+
+function build_design_matrix_torque(
+	salc_list,
+	spinconfig_list,
+	num_atoms,
+	symmetry,
+)::Matrix{Float64}
 	num_salcs = length(salc_list)
 	num_spinconfigs = length(spinconfig_list)
 
@@ -301,7 +455,8 @@ function build_design_matrix_torque(salc_list, spinconfig_list, num_atoms, symme
 			@views dir_iatom = spinconfig.spin_directions[:, iatom]
 			@inbounds for (salc_idx, salc) in enumerate(salc_list)
 				grad_u = calc_∇ₑu(salc, iatom, spinconfig.spin_directions, symmetry)
-				@views torque_design_block[3*(iatom-1)+1:3*iatom, salc_idx] = cross(dir_iatom, grad_u)
+				@views torque_design_block[(3*(iatom-1)+1):(3*iatom), salc_idx] =
+					cross(dir_iatom, grad_u)
 			end
 		end
 		design_matrix_list[sc_idx] = torque_design_block
@@ -342,7 +497,11 @@ function calc_∇ₑu(
 	@inbounds for itrans in symmetry.symnum_translation
 		translated_salc = translate_atom_idx_of_salc(salc, symmetry.map_sym, itrans)
 		@inbounds for (basis, coeff, multiplicity) in
-			zip(translated_salc.basisset, translated_salc.coeffs, translated_salc.multiplicity)
+					  zip(
+			translated_salc.basisset,
+			translated_salc.coeffs,
+			translated_salc.multiplicity,
+		)
 			# Skip if atom is not in the basis
 			!any(idx -> idx.atom == atom, basis) && continue
 
@@ -358,6 +517,116 @@ function calc_∇ₑu(
 			result .+= product .* (coeff * multiplicity)
 		end
 	end
+	return Vector{Float64}(result)
+end
+
+"""
+	calc_∇ₑu(cbc, atom, spin_directions, symmetry) -> Vector{Float64}
+
+Compute the gradient of the coupled angular momentum basis for a CoupledBasis_with_coefficient
+with respect to the spin direction of a specific atom.
+
+# Description
+- Returns a 3-vector corresponding to (∂/∂x, ∂/∂y, ∂/∂z) components.
+- Applies symmetry translations before accumulation.
+
+# Arguments
+- `cbc::Basis.CoupledBasis_with_coefficient`: CoupledBasis_with_coefficient object
+- `atom::Integer`: Target atom index (1-based)
+- `spin_directions::AbstractMatrix{<:Real}`: 3×N spin directions
+- `symmetry::Symmetry`: Symmetry information
+
+# Returns
+- `Vector{Float64}`: Gradient vector (length 3)
+"""
+function calc_∇ₑu(
+	cbc::Basis.CoupledBasis_with_coefficient,
+	atom::Integer,
+	spin_directions::AbstractMatrix{<:Real},
+	symmetry::Symmetry,
+)::Vector{Float64}
+	result = MVector{3, Float64}(0.0, 0.0, 0.0)
+	N = length(cbc.atoms)
+
+	@inbounds for itrans in symmetry.symnum_translation
+		# Translate atoms
+		translated_atoms = [symmetry.map_sym[a, itrans] for a in cbc.atoms]
+
+		# Check if atom is in the translated atoms list
+		atom_site_idx = findfirst(==(atom), translated_atoms)
+		if atom_site_idx === nothing
+			continue
+		end
+
+		# Compute spherical harmonics and their derivatives for each site
+		sh_values = Vector{Vector{Float64}}(undef, N)
+		sh_grad_values = Vector{Vector{Vector{Float64}}}(undef, N)
+
+		for (site_idx, translated_atom) in enumerate(translated_atoms)
+			l = cbc.ls[site_idx]
+			sh_values[site_idx] = Vector{Float64}(undef, 2*l+1)
+			sh_grad_values[site_idx] = Vector{Vector{Float64}}(undef, 2*l+1)
+
+			for m_idx in 1:(2*l+1)
+				# Convert tesseral index to m value: m = m_idx - l - 1
+				m = m_idx - l - 1
+
+				if site_idx == atom_site_idx
+					# Use gradient for the target atom
+					sh_grad_values[site_idx][m_idx] =
+						@views ∂ᵢSlm(l, m, spin_directions[:, translated_atom])
+					sh_values[site_idx][m_idx] =
+						@views Sₗₘ(l, m, spin_directions[:, translated_atom])
+				else
+					# Use regular spherical harmonic for other atoms
+					sh_values[site_idx][m_idx] =
+						@views Sₗₘ(l, m, spin_directions[:, translated_atom])
+					sh_grad_values[site_idx][m_idx] = [0.0, 0.0, 0.0]  # Not used, but needed for indexing
+				end
+			end
+		end
+
+		# Contract coeff_tensor with spherical harmonics and gradients
+		# coeff_tensor has shape (d1, d2, ..., dN, Mf_size)
+		# where di = 2*li + 1
+		grad_result = MVector{3, Float64}(0.0, 0.0, 0.0)
+		Mf_size = size(cbc.coeff_tensor, N+1)
+		dims = [2*l + 1 for l in cbc.ls]
+
+		# Iterate over all Mf values
+		for mf_idx in 1:Mf_size
+			mf_grad_contribution = MVector{3, Float64}(0.0, 0.0, 0.0)
+
+			# Iterate over all combinations of m indices using CartesianIndices
+			site_indices = CartesianIndices(Tuple(dims))
+			for site_idx_tuple in site_indices
+				# Compute product of spherical harmonics
+				product = 1.0
+				for (site_idx, m_idx) in enumerate(site_idx_tuple.I)
+					if site_idx == atom_site_idx
+						# Skip this site in the product (will multiply gradient separately)
+						continue
+					end
+					product *= sh_values[site_idx][m_idx]
+				end
+
+				# Multiply by gradient for the target atom site
+				m_idx_atom = site_idx_tuple.I[atom_site_idx]
+				grad_atom = sh_grad_values[atom_site_idx][m_idx_atom]
+
+				# Access tensor element: coeff_tensor[site_idx_tuple..., mf_idx]
+				tensor_idx = (site_idx_tuple.I..., mf_idx)
+				coeff_val = cbc.coeff_tensor[tensor_idx...]
+
+				mf_grad_contribution .+= coeff_val * product .* grad_atom
+			end
+
+			grad_result .+= cbc.coefficient[mf_idx] .* mf_grad_contribution
+		end
+
+		result .+= grad_result .* cbc.multiplicity
+	end
+
 	return Vector{Float64}(result)
 end
 

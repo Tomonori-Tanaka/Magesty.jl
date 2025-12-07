@@ -213,11 +213,11 @@ The constructor performs the following steps:
 struct BasisSet
 	# salc_linearcombo_list::Vector{SALC_LinearCombo}
 	coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis}
-	salc_list::Vector{Basis.CoupledBasis_with_coefficient}
+	salc_list::Vector{Vector{Basis.CoupledBasis_with_coefficient}}
 
 	function BasisSet(
 		coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis},
-		salc_list::Vector{Basis.CoupledBasis_with_coefficient},
+		salc_list::Vector{Vector{Basis.CoupledBasis_with_coefficient}},
 	)
 		return new(coupled_basislist, salc_list)
 	end
@@ -264,7 +264,7 @@ function BasisSet(
 		println("-------------------------------------------------------------------")
 	end
 
-	salc_list = Vector{Basis.CoupledBasis_with_coefficient}()
+	salc_list = Vector{Vector{Basis.CoupledBasis_with_coefficient}}()
 
 	print("Constructing projection matrix...")
 	keys_list = sort(collect(keys(classified_coupled_basisdict)))
@@ -287,6 +287,10 @@ function BasisSet(
 		Lf = coupled_basislist[1].Lf
 		submatrix_dim = 2 * Lf + 1
 		nbasis = length(coupled_basislist)
+		
+		# Create a list for this key
+		key_salc_list = Vector{Basis.CoupledBasis_with_coefficient}()
+		
 		for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
 			eigenvec = eigenvecs[:, idx_eigenval]
 			eigenvec = real.(eigenvec)
@@ -308,11 +312,15 @@ function BasisSet(
 				# Get multiplicity from counts
 				multiplicity = coupled_basislist.counts[cb]
 
-				# Create CoupledBasis_with_coefficient and add to salc_list
+				# Create CoupledBasis_with_coefficient and add to key_salc_list
 				cbc = Basis.CoupledBasis_with_coefficient(cb, coefficient, multiplicity)
-				@show cbc
-				push!(salc_list, cbc)
+				push!(key_salc_list, cbc)
 			end
+		end
+		
+		# Add the list for this key to salc_list only if it's not empty
+		if !isempty(key_salc_list)
+			push!(salc_list, key_salc_list)
 		end
 		# Free large matrices after processing each key
 		h_projection = nothing
@@ -323,6 +331,10 @@ function BasisSet(
 		elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
 		println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
 		println("-------------------------------------------------------------------")
+	end
+
+	for salc in salc_list
+		println("salc : $salc")
 	end
 
 
