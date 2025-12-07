@@ -96,9 +96,6 @@ struct Optimizer
 			lambda,
 			weight,
 		)
-		for i in eachindex(jphi)
-			@show i, basisset.salc_list[i], jphi[i]
-		end
 
 		predicted_energy_list = design_matrix_energy[:, 2:end] * jphi .+ j0
 		predicted_torque_flattened_list::Vector{Float64} = design_matrix_torque * jphi
