@@ -272,7 +272,6 @@ function BasisSet(
 		coupled_basislist = classified_coupled_basisdict[key]
 		projection_mat =
 			projection_matrix_coupled_basis(coupled_basislist, symmetry)
-		println("key : $key")
 		# projection_mat is real symmetric → use Hermitian + eigen! to save memory
 		h_projection = Hermitian(projection_mat)
 		# Free projection_mat memory before eigen decomposition
@@ -296,6 +295,10 @@ function BasisSet(
 			eigenvec = real.(eigenvec)
 			eigenvec = round.(eigenvec .* (abs.(eigenvec) .≥ 1e-8), digits = 10)
 			eigenvec = eigenvec / norm(eigenvec)
+			# Flip sign to make sum(eigenvec) non-negative for determinism
+			if sum(eigenvec) < 0
+				eigenvec .= -eigenvec
+			end
 
 			# Create CoupledBasis_with_coefficient for each basis in coupled_basislist
 			for (idx_basis, cb) in enumerate(coupled_basislist)
