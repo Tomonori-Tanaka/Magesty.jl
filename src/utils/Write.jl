@@ -105,7 +105,6 @@ function write_xml(structure::Structure,
 			coeff_str = join(string.(cbc.coefficient), " ")
 			basis_node = addelement!(salc_node, "basis", coeff_str)
 			basis_node["multiplicity"] = string(cbc.multiplicity)
-			basis_node["Lf"] = string(cbc.Lf)
 			basis_node["atoms"] = join(string.(cbc.atoms), " ")
 			basis_node["ls"] = join(string.(cbc.ls), " ")
 			basis_node["Lseq"] = join(string.(cbc.Lseq), " ")
