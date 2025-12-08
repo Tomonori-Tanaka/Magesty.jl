@@ -416,7 +416,8 @@ function build_design_matrix_torque(
 
 	design_matrix_list = Vector{Matrix{Float64}}(undef, num_spinconfigs)
 
-		for (sc_idx, spinconfig) in enumerate(spinconfig_list)
+	@threads for sc_idx in 1:num_spinconfigs
+		spinconfig = spinconfig_list[sc_idx]
 		torque_design_block = zeros(Float64, 3*num_atoms, num_salcs)
 		@inbounds for iatom in 1:num_atoms
 			@views dir_iatom = spinconfig.spin_directions[:, iatom]
@@ -450,7 +451,8 @@ function build_design_matrix_torque(
 
 	design_matrix_list = Vector{Matrix{Float64}}(undef, num_spinconfigs)
 
-	for (sc_idx, spinconfig) in enumerate(spinconfig_list)
+	@threads for sc_idx in 1:num_spinconfigs
+		spinconfig = spinconfig_list[sc_idx]
 		torque_design_block = zeros(Float64, 3*num_atoms, num_salcs)
 		@inbounds for iatom in 1:num_atoms
 			@views dir_iatom = spinconfig.spin_directions[:, iatom]

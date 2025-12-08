@@ -5,6 +5,7 @@ adapted to the symmetry of the crystal structure.
 """
 module BasisSets
 
+using Base.Threads
 using Combinat
 using DataStructures
 using LinearAlgebra
@@ -264,11 +265,14 @@ function BasisSet(
 		println("-------------------------------------------------------------------")
 	end
 
-	salc_list = Vector{Vector{Basis.CoupledBasis_with_coefficient}}()
-
 	print("Constructing projection matrix...")
 	keys_list = sort(collect(keys(classified_coupled_basisdict)))
-	for key in keys_list
+	num_keys = length(keys_list)
+	# Pre-allocate array to store results for each key (preserving order)
+	salc_list_per_key = Vector{Union{Vector{Basis.CoupledBasis_with_coefficient}, Nothing}}(undef, num_keys)
+	
+	@threads for idx in 1:num_keys
+		key = keys_list[idx]
 		coupled_basislist = classified_coupled_basisdict[key]
 		projection_mat =
 			projection_matrix_coupled_basis(coupled_basislist, symmetry)
@@ -321,13 +325,23 @@ function BasisSet(
 			end
 		end
 		
-		# Add the list for this key to salc_list only if it's not empty
+		# Store the list for this key (preserving order by index)
 		if !isempty(key_salc_list)
-			push!(salc_list, key_salc_list)
+			salc_list_per_key[idx] = key_salc_list
+		else
+			salc_list_per_key[idx] = nothing
 		end
 		# Free large matrices after processing each key
 		h_projection = nothing
 		eigenvecs = nothing
+	end
+	
+	# Collect non-empty results in order
+	salc_list = Vector{Vector{Basis.CoupledBasis_with_coefficient}}()
+	for key_salc_list in salc_list_per_key
+		if key_salc_list !== nothing
+			push!(salc_list, key_salc_list)
+		end
 	end
 	println(" Done.")
 	if verbosity
