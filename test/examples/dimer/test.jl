@@ -68,6 +68,8 @@ input["regression"]["datafile"] = joinpath(@__DIR__, "EMBSET.dat")
 		system.basisset,
 		optimize,
 	)
+	path = joinpath(@__DIR__, "dimer.xml")
+	Magesty.write_xml(spincluster, path)
 
 
 	@test Magesty.MySphericalHarmonics.Sₗₘ(1, -1, [0.0, 0.0, 1.0]) ≈ 0.0 atol = 1e-6
