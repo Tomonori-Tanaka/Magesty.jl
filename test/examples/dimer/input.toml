@@ -1,0 +1,35 @@
+[general]
+name = "dimer"
+kd = ["X"]
+nat = 2
+periodicity = [false, false, false]
+
+[symmetry]
+tolerance = 1e-5
+isotropy = true
+
+[interaction]
+nbody = 2
+[interaction.body1]
+lmax.X = 0
+[interaction.body2] # unit is bohr
+cutoff."X-X" = -1
+lsum = 2
+
+[regression]
+datafile = "EMBSET.dat"
+weight = 1.0
+alpha = 0
+lambda = 0.0
+
+[structure]
+kd_list = [1, 1]
+lattice = [
+  [1.0, 0.0, 0.0],
+  [0.0, 1.0, 0.0],
+  [0.0, 0.0, 1.0],
+]
+position = [
+  [0.00, 0.00, 0.00],
+  [0.00, 0.00, 0.10],
+]

@@ -31,6 +31,8 @@ struct Optimizer
 	metrics::Dict{Symbol, Any}
 	predicted_energy_list::Vector{Float64}
 	predicted_torque_list::Vector{Matrix{Float64}}
+	design_matrix_energy::Matrix{Float64}
+	design_matrix_torque::Matrix{Float64}
 
 	function Optimizer(
 		structure::Structure,
@@ -139,6 +141,8 @@ struct Optimizer
 			metrics,
 			predicted_energy_list,
 			predicted_torque_list,
+			design_matrix_energy,
+			design_matrix_torque,
 		)
 	end
 end
