@@ -13,6 +13,7 @@ end
 const DEFAULT_VALUES_SYSTEM = Dict{Symbol, Any}(
 	:is_periodic => [true, true, true],
 	:tolerance_sym => 1e-3,
+	:isotropy => false,
 )
 
 # Validation rules for system configuration
@@ -68,6 +69,7 @@ A structure that holds system configuration parameters for molecular dynamics si
 # Optional Parameters
 - `is_periodic::Vector{Bool}`: Periodicity flags for each direction [default: [true, true, true]]
 - `tolerance_sym::Float64`: Tolerance for symmetry operations [default: 1e-3]
+- `isotropy::Bool`: If `true`, only include isotropic terms (Lf=0) [default: false]
 """
 struct Config4System
 	# required parameters
@@ -85,6 +87,7 @@ struct Config4System
 	# optional parameters
 	is_periodic::Vector{Bool}
 	tolerance_sym::Float64
+	isotropy::Bool
 
 	"""
 		Config4System(input_dict::AbstractDict{<:AbstractString, Any})
@@ -128,6 +131,7 @@ struct Config4System
 		symmetry_dict = input_dict["symmetry"]
 		tolerance_sym =
 			get(symmetry_dict, "tolerance", DEFAULT_VALUES_SYSTEM[:tolerance_sym])::Float64
+		isotropy = get(symmetry_dict, "isotropy", DEFAULT_VALUES_SYSTEM[:isotropy])::Bool
 
 		# Parse interaction parameters
 		interaction_dict = input_dict["interaction"]
@@ -167,6 +171,7 @@ struct Config4System
 			# optional parameters
 			is_periodic = is_periodic,
 			tolerance_sym = tolerance_sym,
+			isotropy = isotropy,
 		)
 
 
