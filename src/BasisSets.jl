@@ -231,6 +231,7 @@ function BasisSet(
 	body1_lmax::Vector{Int},
 	bodyn_lsum::OffsetArray{Int, 1},
 	nbody::Integer,
+	isotropy::Bool = false,
 	;
 	verbosity::Bool = true,
 )
@@ -246,8 +247,9 @@ function BasisSet(
 			""",
 		)
 	end
-
-	print("Constructing and classifying coupled basis list...")
+	if verbosity
+		print("Constructing and classifying coupled basis list...")
+	end
 	classified_coupled_basisdict::Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}} =
 		construct_and_classify_coupled_basislist(
 			structure,
@@ -256,8 +258,11 @@ function BasisSet(
 			body1_lmax,
 			bodyn_lsum,
 			nbody,
+			isotropy = isotropy,
 		)
-	println(" Done.")
+	if verbosity
+		println(" Done.")
+	end
 
 	if verbosity
 		elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
@@ -265,7 +270,9 @@ function BasisSet(
 		println("-------------------------------------------------------------------")
 	end
 
-	print("Constructing projection matrix...")
+	if verbosity
+		print("Constructing projection matrix...")
+	end
 	keys_list = sort(collect(keys(classified_coupled_basisdict)))
 	num_keys = length(keys_list)
 	# Pre-allocate array to store results for each key (preserving order)
@@ -343,7 +350,9 @@ function BasisSet(
 			push!(salc_list, key_salc_list)
 		end
 	end
-	println(" Done.")
+	if verbosity
+		println(" Done.")
+	end
 	if verbosity
 		elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
 		println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
@@ -436,6 +445,7 @@ function BasisSet(
 		config.body1_lmax,
 		config.bodyn_lsum,
 		config.nbody,
+		config.isotropy,
 		verbosity = verbosity,
 	)
 end
