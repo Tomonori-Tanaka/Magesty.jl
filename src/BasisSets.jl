@@ -21,7 +21,6 @@ using ..ConfigParser
 using ..Structures
 using ..Symmetries
 using ..Clusters
-using ..SALCs
 using ..RotationMatrix
 using ..Basis
 
@@ -75,7 +74,6 @@ The constructor performs the following steps:
 3. Generates symmetry-adapted linear combinations (SALCs) of `CoupledBasis_with_coefficient` objects
 """
 struct BasisSet
-	# salc_linearcombo_list::Vector{SALC_LinearCombo}
 	coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis}
 	salc_list::Vector{Vector{Basis.CoupledBasis_with_coefficient}}
 
@@ -1185,46 +1183,6 @@ function is_proper_eigenvals(eigenval::AbstractVector; tol = 1e-8)::Bool
 	return all(x -> isapprox(x, 0, atol = tol) || isapprox(x, 1, atol = tol), eigenval)
 end
 
-
-"""
-	group_same_basis(salc::SALC)::Vector{Vector{Int}}
-
-Group basis functions in a SALC that have the same atom, l, and m values (cell is not considered).
-
-# Arguments
-- `salc::SALC`: The SALC to group
-
-# Returns
-- `Vector{Vector{Int}}`: List of groups, where each group contains indices of basis functions with the same atom, l, and m values
-
-# Examples
-# For a SALC with basis functions:
-# [(1, 1, 1, 1), (2, 1, -1, 1)]
-# [(1, 1, 1, 1), (2, 1, -1, 6)]
-# [(1, 1, 1, 1), (2, 1,  0, 1)]
-# Returns: [[1, 2], [3]]
-"""
-function group_same_basis(salc::SALC)::Vector{Vector{Int}}
-	group_dict = OrderedDict{Tuple{Vararg{NTuple{3, Int}}}, Vector{Int}}()
-
-	for (i, basis::IndicesUniqueList) in enumerate(salc.basisset)
-		atom_l_m_lists::Vector{Vector{Int}} = AtomicIndices.get_atom_l_m_list(basis)
-		basisset_tuple::Tuple{Vararg{NTuple{3, Int}}} =
-			Tuple(Tuple(atom_l_m) for atom_l_m in atom_l_m_lists)
-
-		if haskey(group_dict, basisset_tuple)
-			push!(group_dict[basisset_tuple], i)
-		else
-			group_dict[basisset_tuple] = [i]
-		end
-	end
-
-	result_list = Vector{Vector{Int}}()
-	for (key, value) in group_dict
-		push!(result_list, value)
-	end
-	return result_list
-end
 
 
 

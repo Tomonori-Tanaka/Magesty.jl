@@ -12,7 +12,6 @@ using MultivariateStats
 using Statistics
 using StaticArrays
 using ..MySphericalHarmonics
-using ..SALCs
 using ..AtomicIndices
 using ..ConfigParser
 using ..Structures
@@ -317,7 +316,7 @@ Build the torque design matrix used for regression.
 - Blocks are vertically concatenated across configurations.
 
 # Arguments
-- `salc_list`: List of SALCs or CoupledBasis_with_coefficient
+- `salc_list`: List of CoupledBasis_with_coefficient
 - `spinconfig_list`: Vector of spin configurations
 - `num_atoms`: Number of atoms in the structure
 - `symmetry`: Symmetry information

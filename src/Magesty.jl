@@ -44,7 +44,6 @@ include("common/CountingContainer.jl")
 include("types/AtomCells.jl")
 include("types/AtomicIndices.jl")
 include("types/UnitaryMatrixCl.jl")
-include("types/SALCs.jl")
 include("SpinConfigs.jl")
 using .SpinConfigs
 

@@ -5,7 +5,6 @@ using ..AtomicIndices
 using ..Structures
 using ..Symmetries
 using ..BasisSets
-using ..SALCs
 using ..Optimize
 using EzXML
 using Printf
