@@ -2,7 +2,6 @@ module EnergyTorque
 using EzXML
 using LinearAlgebra
 using StaticArrays
-using ..SALCs
 using ..Symmetries
 using ..Basis
 using ..Optimize
