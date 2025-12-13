@@ -370,6 +370,27 @@ function calc_energy(spincluster::SpinCluster, spin_config::AbstractMatrix{<:Rea
 	)
 end
 
+"""
+	calc_torque(sc::SpinCluster, spin_config::AbstractMatrix{<:Real})
+
+Calculate the torque (local magnetic field) for each atom in a spin configuration using the spin cluster expansion.
+
+# Arguments
+- `sc::SpinCluster`: A `SpinCluster` instance containing structure, symmetry, basis set, and optimization information.
+- `spin_config::AbstractMatrix{<:Real}`: A 3xN matrix representing the spin configuration, where N is the number of atoms in the supercell.
+
+# Returns
+- `Matrix{Float64}`: A 3xN matrix representing the torque for each atom, where each column corresponds to the torque vector (in eV) for one atom.
+
+# Throws
+- `ArgumentError`: If the number of columns in `spin_config` does not match the number of atoms in the supercell.
+
+# Example
+```julia
+spin_config = rand(3, sc.structure.supercell.num_atoms) # Random spin configuration
+torque = calc_torque(sc, spin_config)
+```
+"""
 function calc_torque(spincluster::SpinCluster, spin_config::AbstractMatrix{<:Real})::Matrix{Float64}
 	if spincluster.structure.supercell.num_atoms != size(spin_config, 2)
 		num_atoms = spincluster.structure.supercell.num_atoms
@@ -388,24 +409,25 @@ function calc_torque(spincluster::SpinCluster, spin_config::AbstractMatrix{<:Rea
 end
 
 """
-	write_xml(structure::Structure, basis_set::BasisSet, optimize::Optimizer, filename::AbstractString="jphi.xml"; write_jphi::Bool=true)
+	write_xml(structure::Structure, symmetry::Symmetry, basis_set::BasisSet, optimize::Optimizer, filename::AbstractString="jphi.xml"; write_jphi::Bool=true)
 	write_xml(sc::SpinCluster, filename::AbstractString="jphi.xml"; write_jphi::Bool=true)
 
-Write the structure, basis set, and optimization results to an XML file in SCE format.
+Write the structure, symmetry, basis set, and optimization results to an XML file in SCE format.
 
 # Arguments
 - `structure::Structure`: Crystal structure information
+- `symmetry::Symmetry`: Symmetry operations information
 - `basis_set::BasisSet`: Basis set information
 - `optimize::Optimizer`: Optimization results
-- `sc::SpinCluster`: Spin cluster object containing structure, basis set, and optimization results
+- `sc::SpinCluster`: Spin cluster object containing structure, symmetry, basis set, and optimization results
 - `filename::AbstractString="jphi.xml"`: Output XML file name
 - `write_jphi::Bool=true`: Whether to write the J_ij parameters
 
 # Examples
 ```julia
 # Using individual components
-write_xml(structure, basis_set, optimizer)
-write_xml(structure, basis_set, optimizer, "output.xml", write_jphi=false)
+write_xml(structure, symmetry, basis_set, optimizer)
+write_xml(structure, symmetry, basis_set, optimizer, "output.xml", write_jphi=false)
 
 # Using SpinCluster object
 write_xml(spin_cluster)
@@ -444,6 +466,25 @@ function write_xml(
 	)
 end
 
+"""
+	write_energies(sc::SpinCluster, filename::AbstractString="energy_list.txt")
+
+Write the observed (DFT) and predicted (SCE) energies to a text file.
+
+# Arguments
+- `sc::SpinCluster`: A `SpinCluster` instance containing optimization results.
+- `filename::AbstractString="energy_list.txt"`: Output file name.
+
+# Output Format
+The file contains:
+- Header line: `# data index,    DFT_Energy,    SCE_Energy`
+- Data lines: index, observed energy (eV), predicted energy (eV)
+
+# Example
+```julia
+write_energies(sc, "my_energies.txt")
+```
+"""
 function write_energies(
 	sc::SpinCluster,
 	filename::AbstractString = "energy_list.txt",
@@ -476,6 +517,26 @@ function write_energies(
 	end
 end
 
+"""
+	write_torques(sc::SpinCluster, filename::AbstractString="torque_list.txt")
+
+Write the observed (DFT) and predicted (SCE) torques for each atom to a text file.
+
+# Arguments
+- `sc::SpinCluster`: A `SpinCluster` instance containing optimization results.
+- `filename::AbstractString="torque_list.txt"`: Output file name.
+
+# Output Format
+The file contains:
+- Header line: `# atom index,    element,   DFT_torque_x,    DFT_torque_y,    DFT_torque_z,    SCE_torque_x,    SCE_torque_y,    SCE_torque_z`
+- Data lines: atom index, element symbol, observed torque components (eV), predicted torque components (eV)
+- Data is grouped by configuration index
+
+# Example
+```julia
+write_torques(sc, "my_torques.txt")
+```
+"""
 function write_torques(
 	sc::SpinCluster,
 	filename::AbstractString = "torque_list.txt",

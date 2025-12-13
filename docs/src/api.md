@@ -48,6 +48,8 @@ get_j0_jphi
 ### Output Functions
 ```@docs
 write_xml
+write_energies
+write_torques
 ```
 
 ## Submodules
@@ -67,6 +69,7 @@ Symmetries.Maps
 ### Clusters
 ```@docs
 Clusters.Cluster
+Clusters.cluster_orbits
 ```
 
 ### BasisSets

@@ -94,6 +94,10 @@ write_xml(sc, "results.xml")
 
 # Write without J_ij parameters
 write_xml(sc, "structure_only.xml", write_jphi=false)
+
+# Write energy and torque lists
+write_energies(sc, "energy_list.txt")
+write_torques(sc, "torque_list.txt")
 ```
 
 ## Advanced Usage
