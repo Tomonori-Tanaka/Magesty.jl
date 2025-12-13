@@ -92,9 +92,6 @@ SpinConfigs.read_embset
 
 ### Atomic Indices
 ```@docs
-AtomicIndices.Indices
-AtomicIndices.IndicesUniqueList
-AtomicIndices.get_total_L
 AtomicIndices.get_atom_l_list
 ```
 
