@@ -36,6 +36,11 @@ energy = calc_energy(sc, spin_config)
 # Get optimization results
 j0 = get_j0(sc)  # Reference energy
 jphi = get_jphi(sc)  # Spin-cluster coefficients
+
+# Write results to files
+write_xml(sc, "results.xml")
+write_energies(sc, "energy_list.txt")
+write_torques(sc, "torque_list.txt")
 ```
 
 ### Creating a System
