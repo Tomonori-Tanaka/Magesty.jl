@@ -27,144 +27,6 @@ using ..Basis
 
 export BasisSet
 
-"""
-	SALC_LinearCombo
-
-A structure representing a symmetry-adapted linear combination of `LinearCombo` objects.
-
-# Fields
-- `basisset::Vector{Basis.LinearCombo}`: The basis set of `LinearCombo` objects
-- `coeffs::Vector{Float64}`: The coefficients of the linear combination
-- `multiplicity::Vector{Int}`: The multiplicity of each basis element
-
-# Constructors
-- `SALC_LinearCombo(basisset::Vector{Basis.LinearCombo}, coeffs::Vector{Float64}, multiplicity::Vector{Int})`:
-  Create a SALC_LinearCombo from a basis set, coefficients, and multiplicity
-- `SALC_LinearCombo(basislist::SortedCountingUniqueVector{Basis.LinearCombo}, coeffs::Vector{<:Real})`:
-  Create a SALC_LinearCombo from a basis list and coefficients
-"""
-# struct SALC_LinearCombo
-# 	basisset::Vector{Basis.LinearCombo}
-# 	coeffs::Vector{Float64}
-# 	multiplicity::Vector{Int}
-
-# 	function SALC_LinearCombo(
-# 		basisset::Vector{Basis.LinearCombo},
-# 		coeffs::Vector{Float64},
-# 		multiplicity::Vector{Int},
-# 	)
-# 		length(basisset) == length(coeffs) == length(multiplicity) ||
-# 			throw(ArgumentError("All vectors must have the same length"))
-# 		all(x -> x > 0, multiplicity) ||
-# 			throw(ArgumentError("Multiplicity must be positive"))
-# 		new(basisset, coeffs, multiplicity)
-# 	end
-# end
-
-"""
-	SALC_LinearCombo(
-		basislist::SortedCountingUniqueVector{Basis.LinearCombo},
-		coeffs::Vector{<:Real},
-	) -> SALC_LinearCombo
-
-Create a SALC_LinearCombo from a basis list and coefficients.
-
-# Arguments
-- `basislist::SortedCountingUniqueVector{Basis.LinearCombo}`: The basis list with counts
-- `coeffs::Vector{<:Real}`: The coefficients for each basis element
-
-# Returns
-- `SALC_LinearCombo`: A new symmetry-adapted linear combination
-
-# Throws
-- `ArgumentError` if the lengths of `basislist` and `coeffs` differ
-- `ArgumentError` if the resulting coefficient vector has zero norm
-"""
-# function SALC_LinearCombo(
-# 	basislist::SortedCountingUniqueVector{Basis.LinearCombo},
-# 	coeffs::Vector{<:Real},
-# )
-# 	length(basislist) == length(coeffs) ||
-# 		throw(ArgumentError("The length of basislist and coeffs must be the same"))
-
-# 	result_basisset = Vector{Basis.LinearCombo}()
-# 	result_coeffs = Vector{Float64}()
-# 	result_multiplicity = Vector{Int}()
-
-# 	for (idx, basis) in enumerate(basislist)
-# 		count = basislist.counts[basis]
-# 		if !isapprox(coeffs[idx], 0.0, atol = 1e-8)
-# 			push!(result_basisset, basis)
-# 			push!(result_coeffs, coeffs[idx])
-# 			push!(result_multiplicity, count)
-# 		end
-# 	end
-
-# 	# normalize coefficient vector
-# 	norm_coeffs = norm(result_coeffs)
-# 	if isapprox(norm_coeffs, 0.0, atol = 1e-8)
-# 		throw(ArgumentError("The norm of the coefficient vector is zero."))
-# 	end
-# 	result_coeffs ./= norm_coeffs
-
-# 	return SALC_LinearCombo(result_basisset, result_coeffs, result_multiplicity)
-# end
-
-"""
-	show(io::IO, salc::SALC_LinearCombo)
-
-Display a SALC_LinearCombo in a human-readable format.
-
-# Arguments
-- `io::IO`: The output stream
-- `salc::SALC_LinearCombo`: The SALC_LinearCombo to display
-
-# Output Format
-```
-number of terms: N
-M  COEFFICIENT  LinearCombo(...)
-```
-where:
-- N is the number of terms
-- M is the multiplicity
-- COEFFICIENT is the normalized coefficient
-- LinearCombo(...) is the basis element
-"""
-# function Base.show(io::IO, salc::SALC_LinearCombo)
-# 	println(io, "number of terms: ", length(salc.basisset))
-# 	for (basis, coeff, multiplicity) in zip(salc.basisset, salc.coeffs, salc.multiplicity)
-# 		println(io, @sprintf("%2d  % 15.10f  %s", multiplicity, coeff, basis))
-# 	end
-# end
-
-"""
-	print_basisset_stdout_linearcombo(salc_list::AbstractVector{<:SALC_LinearCombo})
-
-Print symmetry-adapted basis functions constructed from `LinearCombo` objects.
-
-# Arguments
-- `salc_list::AbstractVector{<:SALC_LinearCombo}`: List of SALC_LinearCombo objects
-
-# Output Format
-```
- Number of symmetry-adapted basis functions: N
-
- List of symmetry-adapted basis functions:
- # multiplicity  coefficient  LinearCombo
- 1-th salc
- ...
-```
-"""
-# function print_basisset_stdout_linearcombo(salc_list::AbstractVector{<:SALC_LinearCombo})
-# 	println(" Number of symmetry-adapted basis functions: $(length(salc_list))\n")
-# 	println(" List of symmetry-adapted basis functions:")
-# 	println(" # multiplicity  coefficient  LinearCombo")
-# 	for (i, salc) in enumerate(salc_list)
-# 		println(" $i-th salc")
-# 		display(salc)
-# 	end
-# 	println("")
-# end
 
 """
 	struct BasisSet
@@ -173,10 +35,11 @@ Represents a set of basis functions for atomic interactions in a crystal structu
 This structure is used to store and manage basis functions that are adapted to the symmetry of the crystal.
 
 # Fields
-- `salc_linearcombo_list::Vector{SALC_LinearCombo}`: List of symmetry-adapted linear combinations of `LinearCombo` objects
+- `coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis}`: List of coupled angular momentum basis functions with their multiplicities
+- `salc_list::Vector{Vector{Basis.CoupledBasis_with_coefficient}}`: List of symmetry-adapted linear combinations (SALCs), where each element is a vector of coupled basis functions belonging to the same key group
 
 # Constructors
-	BasisSet(structure, symmetry, cluster, body1_lmax, bodyn_lsum, nbody; verbosity=true)
+	BasisSet(structure, symmetry, cluster, body1_lmax, bodyn_lsum, nbody; isotropy=false, verbosity=true)
 	BasisSet(structure, symmetry, cluster, config; verbosity=true)
 
 Constructs a new `BasisSet` instance for atomic interactions in a crystal structure.
@@ -188,10 +51,11 @@ Constructs a new `BasisSet` instance for atomic interactions in a crystal struct
 - `body1_lmax::Vector{Int}`: Maximum angular momentum values for 1-body interactions for each atomic species
 - `bodyn_lsum::OffsetArray{Int, 1}`: Maximum sum of angular momentum values for multi-body interactions
 - `nbody::Integer`: Maximum number of bodies in interactions
+- `isotropy::Bool`: If `true`, only include isotropic terms (Lf=0), default: `false`
 - `verbosity::Bool`: Whether to print progress information (default: `true`)
 
 # Returns
-- `BasisSet`: A new basis set instance containing symmetry-adapted linear combinations (SALCs) of `LinearCombo` objects
+- `BasisSet`: A new basis set instance containing coupled basis functions and symmetry-adapted linear combinations
 
 # Examples
 ```julia
@@ -206,10 +70,9 @@ basis = BasisSet(structure, symmetry, cluster, config)
 
 # Note
 The constructor performs the following steps:
-1. Constructs the tesseral basis list using `LinearCombo` objects
-2. Classifies basis functions by symmetry operations
-3. Constructs projection matrices for each symmetry label
-4. Generates symmetry-adapted linear combinations (SALCs) of `LinearCombo` objects
+1. Constructs and classifies coupled basis functions using orbit information
+2. Constructs projection matrices for each symmetry label
+3. Generates symmetry-adapted linear combinations (SALCs) of `CoupledBasis_with_coefficient` objects
 """
 struct BasisSet
 	# salc_linearcombo_list::Vector{SALC_LinearCombo}
@@ -262,12 +125,6 @@ function BasisSet(
 		)
 	if verbosity
 		println(" Done.")
-	end
-
-	if verbosity
-		elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
-		println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
-		println("-------------------------------------------------------------------")
 	end
 
 	if verbosity
@@ -362,63 +219,6 @@ function BasisSet(
 
 
 
-	# Validate input parameters
-	# Construct basis list
-	# basislist consists of all possible basis functions which is the product of spherical harmonics.
-	# if verbosity
-	# 	print("Constructing basis list...")
-	# end
-	# tesseral_basislist::SortedCountingUniqueVector{Basis.LinearCombo} =
-	# 	construct_tesseral_basislist(
-	# 		structure,
-	# 		symmetry,
-	# 		cluster,
-	# 		body1_lmax,
-	# 		bodyn_lsum,
-	# 		nbody,
-	# 	)
-
-	# Classify tesseral_basislist by symmetry operations
-	# classified_tesseral_basisdict::Dict{Int, SortedCountingUniqueVector{Basis.LinearCombo}} =
-	# 	classify_tesseral_basislist(tesseral_basislist, symmetry.map_sym)
-
-	# classified_tesseral_basisdict = classify_tesseral_basislist_test(tesseral_basislist)
-	# keys_list = sort(collect(keys(classified_tesseral_basisdict)))
-	# for key in keys_list
-	# 	println("key : $key")
-	# 	lc_list = classified_tesseral_basisdict[key]
-	# 	for lc in lc_list
-	# 		println("  lc : $lc")
-	# 	end
-	# end
-
-	# projection_list = projection_matrix_linearcombo(classified_tesseral_basisdict, symmetry)
-	# salc_linearcombo_list = Vector{SALC_LinearCombo}()
-	# for (idx, projection_mat) in enumerate(projection_list)
-	# 	basislist = classified_tesseral_basisdict[idx]
-	# 	eigenvals, eigenvecs = eigen(projection_mat)
-	# 	eigenvals = real.(round.(eigenvals, digits = 6))
-	# 	eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
-	# 	if !is_proper_eigenvals(eigenvals)
-	# 		println(eigenvals)
-	# 		@warn "Critical error: Eigenvalues must be either 0 or 1. index: $idx"
-	# 	end
-	# 	for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
-	# 		eigenvec = eigenvecs[:, idx_eigenval]
-	# 		eigenvec = flip_vector_if_negative_sum(eigenvec)
-	# 		eigenvec = round.(eigenvec .* (abs.(eigenvec) .≥ 1e-8), digits = 10)
-	# 		push!(salc_linearcombo_list, SALC_LinearCombo(basislist, eigenvec / norm(eigenvec)))
-	# 	end
-	# end
-
-	# if verbosity
-	# 	print_basisset_stdout_linearcombo(salc_linearcombo_list)
-	# 	elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds
-	# 	println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
-	# 	println("-------------------------------------------------------------------")
-	# end
-
-	# return BasisSet(salc_linearcombo_list)
 	# Reconstruct basislist from classified dictionary for BasisSet storage
 	result_basislist = SortedCountingUniqueVector{Basis.CoupledBasis}()
 	for (key, classified_basislist) in classified_coupled_basisdict
@@ -597,6 +397,40 @@ function construct_and_classify_coupled_basislist(
 	return classified_dict
 end
 
+"""
+	construct_coupled_basislist(
+		structure::Structure,
+		symmetry::Symmetry,
+		cluster::Cluster,
+		body1_lmax::Vector{Int},
+		bodyn_lsum::OffsetArray{Int, 1},
+		nbody::Integer;
+		isotropy::Bool = false,
+	) -> SortedCountingUniqueVector{Basis.CoupledBasis}
+
+Construct a list of coupled angular momentum basis functions.
+
+This function generates all coupled basis functions for atomic interactions, handling both 1-body
+and multi-body cases. It uses cluster orbit information for efficient processing.
+
+# Arguments
+- `structure::Structure`: Structure information containing atomic positions and species
+- `symmetry::Symmetry`: Symmetry information for the crystal structure
+- `cluster::Cluster`: Cluster information containing orbit classification
+- `body1_lmax::Vector{Int}`: Maximum angular momentum values for 1-body interactions
+- `bodyn_lsum::OffsetArray{Int, 1}`: Maximum sum of angular momentum values for multi-body interactions
+- `nbody::Integer`: Maximum number of bodies in interactions
+- `isotropy::Bool`: If `true`, only include isotropic terms (Lf=0), default: `false`
+
+# Returns
+- `SortedCountingUniqueVector{Basis.CoupledBasis}`: List of coupled basis functions with multiplicities
+
+# Note
+- Skips l=1 and odd l values due to time-reversal symmetry constraints
+- Uses cluster orbits for efficient processing of multi-body cases
+- **Unused**: This function is currently not used. Its functionality has been integrated into `construct_and_classify_coupled_basislist`.
+  Kept for reference purposes.
+"""
 function construct_coupled_basislist(
 	structure::Structure,
 	symmetry::Symmetry,
@@ -663,6 +497,23 @@ function construct_coupled_basislist(
 	return result_coupled_basislist
 end
 
+"""
+	listup_coupled_basislist(atom_list, lsum; isotropy=false) -> Vector{Basis.CoupledBasis}
+
+List up all coupled angular momentum basis functions for a given atom list and maximum angular momentum sum.
+
+# Arguments
+- `atom_list::Vector{<:Integer}`: List of atom indices
+- `lsum::Integer`: Maximum sum of angular momentum values
+- `isotropy::Bool`: If `true`, only include isotropic terms (Lf=0), default: `false`
+
+# Returns
+- `Vector{Basis.CoupledBasis}`: List of coupled basis functions
+
+# Note
+- Skips l values less than the number of atoms or odd l values
+- Generates all possible combinations of angular momenta that sum to `lsum` or less
+"""
 function listup_coupled_basislist(
 	atom_list::Vector{<:Integer},
 	lsum::Integer;
@@ -711,6 +562,17 @@ end
 
 
 
+"""
+	collect_cluster_atoms(coupled_basislist) -> Set{Vector{Int}}
+
+Collect all unique atom lists from a list of coupled basis functions.
+
+# Arguments
+- `coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis}`: List of coupled basis functions
+
+# Returns
+- `Set{Vector{Int}}`: Set of unique atom lists (as vectors)
+"""
 function collect_cluster_atoms(
 	coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis},
 )::Set{Vector{Int}}
@@ -721,6 +583,22 @@ function collect_cluster_atoms(
 	return result_set
 end
 
+"""
+	find_translation_atoms(atom_list, cluster_atoms, symmetry) -> Vector{Int}
+
+Find the translationally equivalent atom list in the primitive cell for a given atom list.
+
+# Arguments
+- `atom_list::Vector{<:Integer}`: Input atom list
+- `cluster_atoms::Set{Vector{Int}}`: Set of atom lists from cluster basis functions
+- `symmetry::Symmetry`: Symmetry information containing translation mappings
+
+# Returns
+- `Vector{Int}`: Translationally equivalent atom list in the primitive cell
+
+# Throws
+- `ErrorException`: If no matching atom list is found or multiple matches are found
+"""
 function find_translation_atoms(
 	atom_list::Vector{<:Integer},
 	cluster_atoms::Set{Vector{Int}},
@@ -750,6 +628,26 @@ function find_translation_atoms(
 end
 
 
+"""
+	projection_matrix_coupled_basis(coupled_basislist, symmetry) -> Matrix{Float64}
+
+Construct the projection matrix for coupled basis functions under symmetry operations.
+
+The projection matrix is computed by averaging over all symmetry operations (including time-reversal)
+and projects onto the subspace of basis functions that are invariant under the symmetry group.
+
+# Arguments
+- `coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis}`: List of coupled basis functions
+- `symmetry::Symmetry`: Symmetry information containing all symmetry operations
+
+# Returns
+- `Matrix{Float64}`: Projection matrix of size (nbasis * submatrix_dim) × (nbasis * submatrix_dim),
+  where submatrix_dim = 2*Lf + 1 for the total angular momentum Lf
+
+# Note
+- The matrix is averaged over all symmetry operations and time-reversal symmetry
+- Each basis function contributes a submatrix of size (2*Lf + 1) × (2*Lf + 1)
+"""
 function projection_matrix_coupled_basis(
 	coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis},
 	symmetry::Symmetry,
@@ -809,8 +707,6 @@ function projection_matrix_coupled_basis(
 	# Average over all symmetry operations (2 for time reversal)
 	return projection_mat ./ (2 * symmetry.nsym)
 end
-
-
 
 """
 	is_translationally_equivalent_coupled_basis(
@@ -907,6 +803,22 @@ function is_translationally_equivalent_coupled_basis(
 	return false
 end
 
+"""
+	push_unique_coupled_basis!(target, cb, count, symmetry)
+
+Add a `CoupledBasis` to the target list only if it is not translationally equivalent
+to any existing `CoupledBasis` in the list.
+
+# Arguments
+- `target::SortedCountingUniqueVector{Basis.CoupledBasis}`: Target list to add to
+- `cb::Basis.CoupledBasis`: Coupled basis function to add
+- `count::Integer`: Multiplicity count for the basis function
+- `symmetry::Symmetry`: Symmetry information for checking translational equivalence
+
+# Note
+- If an equivalent basis function is found, the function returns without adding
+- Otherwise, adds the basis function with the given count
+"""
 function push_unique_coupled_basis!(
 	target::SortedCountingUniqueVector{Basis.CoupledBasis},
 	cb::Basis.CoupledBasis,
@@ -931,6 +843,29 @@ function push_unique_coupled_basis!(
 end
 
 
+"""
+	construct_basislist(structure, symmetry, cluster, body1_lmax, bodyn_lsum, nbody) -> SortedCountingUniqueVector{SHProduct}
+
+Construct a list of basis functions using `SHProduct` objects.
+
+This function generates basis functions for atomic interactions, handling both 1-body and multi-body cases.
+It is a legacy function that uses `SHProduct` instead of `CoupledBasis`.
+
+# Arguments
+- `structure::Structure`: Structure information containing atomic positions and species
+- `symmetry::Symmetry`: Symmetry information for the crystal structure
+- `cluster::Cluster`: Cluster information for atomic interactions
+- `body1_lmax::Vector{Int}`: Maximum angular momentum values for 1-body interactions
+- `bodyn_lsum::OffsetArray{Int, 1}`: Maximum sum of angular momentum values for multi-body interactions
+- `nbody::Integer`: Maximum number of bodies in interactions
+
+# Returns
+- `SortedCountingUniqueVector{SHProduct}`: List of basis functions with multiplicities
+
+# Note
+- This function is kept for backward compatibility
+- New code should use `construct_coupled_basislist` instead
+"""
 function construct_basislist(
 	structure::Structure,
 	symmetry::Symmetry,
@@ -980,6 +915,22 @@ function construct_basislist(
 	return result_basislist
 end
 
+"""
+	push_unique_body!(target, shp, count, symmetry)
+
+Add a `SHProduct` to the target list only if it is not translationally equivalent
+to any existing `SHProduct` in the list.
+
+# Arguments
+- `target::SortedCountingUniqueVector{SHProduct}`: Target list to add to
+- `shp::SHProduct`: Basis function to add
+- `count::Integer`: Multiplicity count for the basis function
+- `symmetry::Symmetry`: Symmetry information for checking translational equivalence
+
+# Note
+- If an equivalent basis function is found, the function returns without adding
+- Otherwise, adds the basis function with the given count
+"""
 function push_unique_body!(
 	target::SortedCountingUniqueVector{SHProduct},
 	shp::SHProduct,
@@ -1000,6 +951,22 @@ function push_unique_body!(
 end
 
 
+"""
+	listup_basislist(atom_list, lsum) -> Vector{SHProduct}
+
+List up all basis functions as `SHProduct` objects for a given atom list and maximum angular momentum sum.
+
+# Arguments
+- `atom_list::Vector{<:Integer}`: List of atom indices
+- `lsum::Integer`: Maximum sum of angular momentum values
+
+# Returns
+- `Vector{SHProduct}`: List of basis functions
+
+# Note
+- Skips l values less than the number of atoms or odd l values
+- Generates all possible combinations of angular momenta that sum to `lsum` or less
+"""
 function listup_basislist(
 	atom_list::Vector{<:Integer},
 	lsum::Integer,
@@ -1018,289 +985,7 @@ function listup_basislist(
 	return result_basislist
 end
 
-# """
-# 	listup_tesseral_basislist(atom_list, lsum; normalize=:none, isotropy::Bool=false)
 
-# List up all tesseral (real) basis functions as `LinearCombo` objects for a given atom list and maximum angular momentum sum.
-
-# This function generates all possible combinations of angular momenta that sum to `lsum` or less,
-# and constructs tesseral basis functions using `tesseral_linear_combos_from_tesseral_bases`.
-
-# # Arguments
-# - `atom_list::Vector{<:Integer}`: List of atom indices
-# - `lsum::Integer`: Maximum sum of angular momentum values
-# - `normalize::Symbol`: Normalization option (`:none` or `:fro`, default: `:none`)
-# - `isotropy::Bool`: If `true`, only include isotropic terms (Lf=0), default: `false`
-
-# # Returns
-# - `Vector{LinearCombo}`: List of `LinearCombo` objects representing tesseral basis functions
-
-# # Examples
-# ```julia
-# atom_list = [1, 2]
-# lsum = 4
-# basis_list = listup_tesseral_basislist(atom_list, lsum)
-# ```
-# """
-# function listup_tesseral_basislist(
-# 	atom_list::Vector{<:Integer},
-# 	lsum::Integer;
-# 	normalize::Symbol = :none,
-# 	isotropy::Bool = false,
-# )::Vector{Basis.LinearCombo}
-# 	result_basislist = Vector{Basis.LinearCombo}()
-# 	for l in 2:lsum
-# 		if l < length(atom_list) || isodd(l)
-# 			continue
-# 		end
-# 		l_list = Combinat.compositions(l, length(atom_list); min = 1)
-# 		for l_vec::Vector{Int} in l_list
-# 			lc_list = tesseral_linear_combos_from_tesseral_bases(
-# 				l_vec,
-# 				atom_list;
-# 				normalize = normalize,
-# 				isotropy = isotropy,
-# 			)
-# 			append!(result_basislist, lc_list)
-# 		end
-# 	end
-# 	# Remove physically equivalent LinearCombos
-# 	return Basis.remove_duplicate_linear_combos(result_basislist)
-# end
-
-# """
-# 	construct_tesseral_basislist(
-# 		structure::Structure,
-# 		symmetry::Symmetry,
-# 		cluster::Cluster,
-# 		body1_lmax::Vector{Int},
-# 		bodyn_lsum::OffsetArray{Int, 1},
-# 		nbody::Integer;
-# 		normalize::Symbol = :none,
-# 		isotropy::Bool = false,
-# 	)
-
-# Construct a list of tesseral (real) basis functions as `LinearCombo` objects, similar to `construct_basislist`
-# but using `tesseral_linear_combos_from_tesseral_bases` instead of `SHProduct`.
-
-# This function follows the same structure as `construct_basislist`:
-# 1. Handles 1-body case (skipping l=1 and odd l due to time-reversal symmetry)
-# 2. Processes multi-body cases (body=2 to nbody)
-# 3. Uses `listup_tesseral_basislist` to generate basis functions for each atom list
-
-# # Arguments
-# - `structure::Structure`: Structure information containing atomic positions and species
-# - `symmetry::Symmetry`: Symmetry information for the crystal structure
-# - `cluster::Cluster`: Cluster information for atomic interactions
-# - `body1_lmax::Vector{Int}`: Maximum angular momentum values for 1-body interactions for each atomic species
-# - `bodyn_lsum::OffsetArray{Int, 1}`: Maximum sum of angular momentum values for multi-body interactions
-# - `nbody::Integer`: Maximum number of bodies in interactions
-# - `normalize::Symbol`: Normalization option (`:none` or `:fro`, default: `:none`)
-# - `isotropy::Bool`: If `true`, only include isotropic terms (Lf=0), default: `false`
-
-# # Returns
-# - `Vector{LinearCombo}`: List of `LinearCombo` objects representing tesseral basis functions
-
-# # Examples
-# ```julia
-# body1_lmax = [2, 3]
-# bodyn_lsum = OffsetArray([0, 0, 4, 6], 0:3)
-# basis_list = construct_tesseral_basislist(structure, symmetry, cluster, body1_lmax, bodyn_lsum, 3)
-# ```
-# """
-# function construct_tesseral_basislist(
-# 	structure::Structure,
-# 	symmetry::Symmetry,
-# 	cluster::Cluster,
-# 	body1_lmax::Vector{Int},
-# 	bodyn_lsum::OffsetArray{Int, 1},
-# 	nbody::Integer;
-# 	normalize::Symbol = :none,
-# 	isotropy::Bool = false,
-# )::SortedCountingUniqueVector{Basis.LinearCombo}
-# 	result_basislist = SortedCountingUniqueVector{Basis.LinearCombo}()
-# 	cluster_dict::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}} =
-# 		cluster.cluster_dict
-
-# 	# Handle 1-body case
-# 	for iat in symmetry.atoms_in_prim
-# 		lmax = body1_lmax[structure.supercell.kd_int_list[iat]]
-# 		for l in 2:lmax[1] # skip l = 1 because it is prohibited by the time-reversal symmetry
-# 			if l % 2 == 1 # skip odd l cases due to the time-reversal symmetry
-# 				continue
-# 			end
-# 			# For 1-body case, create LinearCombo with single atom
-# 			lc_list = tesseral_linear_combos_from_tesseral_bases(
-# 				[l],
-# 				[iat];
-# 				normalize = normalize,
-# 				isotropy = isotropy,
-# 			)
-# 			for lc::Basis.LinearCombo in lc_list
-# 				push!(result_basislist, lc, 1)  # multiplicity = 1 for 1-body case
-# 			end
-# 		end
-# 	end
-
-# 	# Process multi-body cases
-# 	for body in 2:nbody
-# 		body_basislist = SortedCountingUniqueVector{Basis.LinearCombo}()
-# 		for prim_atom_sc in symmetry.atoms_in_prim
-# 			cuv::CountingUniqueVector{Vector{Int}} = cluster_dict[body][prim_atom_sc]
-# 			for atom_list::Vector{Int} in cuv
-# 				count = cuv.counts[atom_list]  # Get multiplicity from cluster
-# 				lc_list::Vector{Basis.LinearCombo} =
-# 					listup_tesseral_basislist(atom_list, bodyn_lsum[body];
-# 						normalize = normalize,
-# 						isotropy = isotropy,
-# 					)
-# 				for lc::Basis.LinearCombo in lc_list
-# 					push_unique_tesseral_body!(body_basislist, lc, count, symmetry)
-# 				end
-# 			end
-# 		end
-# 		for lc in body_basislist
-# 			push!(result_basislist, lc, body_basislist.counts[lc])
-# 		end
-# 	end
-
-# 	return result_basislist
-# end
-
-# """
-# 	is_translationally_equivalent_linear_combo(lc1::Basis.LinearCombo, lc2::Basis.LinearCombo, symmetry::Symmetry) -> Bool
-
-# Check if two `LinearCombo` objects are translationally equivalent.
-
-# Two `LinearCombo` objects are translationally equivalent if:
-# - They are physically equivalent (same `Lf`, `Lseq`, and `(atom, l)` pairs)
-# - Their atom lists are related by a translation operation in the supercell
-
-# This function checks if the atom lists can be mapped to each other via translation operations
-# defined in `symmetry.symnum_translation`.
-
-# # Arguments
-# - `lc1::Basis.LinearCombo`: First `LinearCombo` to compare
-# - `lc2::Basis.LinearCombo`: Second `LinearCombo` to compare
-# - `symmetry::Symmetry`: Symmetry information containing translation mappings
-
-# # Returns
-# - `Bool`: `true` if the `LinearCombo` objects are translationally equivalent, `false` otherwise
-# """
-# function is_translationally_equivalent_linear_combo(
-# 	lc1::Basis.LinearCombo{T1, N1},
-# 	lc2::Basis.LinearCombo{T2, N2},
-# 	symmetry::Symmetry,
-# ) where {T1, T2, N1, N2}
-# 	# Different number of sites
-# 	N1 != N2 && return false
-
-# 	# Different Lf
-# 	lc1.Lf != lc2.Lf && return false
-
-# 	# Different Lseq
-# 	lc1.Lseq != lc2.Lseq && return false
-
-# 	# Different coeff_list means different basis functions
-# 	if lc1.coeff_list != lc2.coeff_list
-# 		return false
-# 	end
-
-# 	# Different ls values (as multisets) means different basis functions
-# 	ls1_sorted = sort(collect(lc1.ls))
-# 	ls2_sorted = sort(collect(lc2.ls))
-# 	if ls1_sorted != ls2_sorted
-# 		return false
-# 	end
-
-# 	# Check if atom lists are translationally equivalent
-# 	atom_list1 = lc1.atoms
-# 	atom_list2 = lc2.atoms
-
-# 	# Early return if atom lists are the same
-# 	if atom_list1 == atom_list2
-# 		return false
-# 	end
-
-# 	# Early return if first atom is the same
-# 	# because this function is intended to be used for different first atoms but translationally equivalent clusters
-# 	if atom_list1[1] == atom_list2[1]
-# 		return false
-# 	end
-
-# 	# Check translation operations
-# 	for itran in symmetry.symnum_translation
-# 		# Method 1: Apply forward translation (map_sym) to atom_list1
-# 		atom_list1_shifted = [symmetry.map_sym[atom, itran] for atom in atom_list1]
-# 		# Sort both lists to compare as multisets (order doesn't matter)
-# 		if sort(atom_list1_shifted) == sort(atom_list2)
-# 			return true
-# 		end
-
-# 		# Method 2: Apply inverse translation (map_sym_inv) to atom_list1
-# 		atom_list1_shifted = [symmetry.map_sym_inv[atom, itran] for atom in atom_list1]
-# 		# Sort both lists to compare as multisets (order doesn't matter)
-# 		if sort(atom_list1_shifted) == sort(atom_list2)
-# 			return true
-# 		end
-# 	end
-
-# 	return false
-# end
-
-# """
-# 	push_unique_tesseral_body!(target::SortedCountingUniqueVector{Basis.LinearCombo}, lc::Basis.LinearCombo, count::Integer, symmetry::Symmetry)
-
-# Add a `LinearCombo` to the target list only if it is not physically or translationally equivalent
-# to any existing `LinearCombo` in the list. If equivalent, add the count to the existing entry.
-
-# This function checks:
-# 1. If the sum of `l` values matches
-# 2. If the `LinearCombo` is physically equivalent (same `Lf`, `Lseq`, `(atom, l)` pairs, and `coeff_list`)
-# 3. If the `LinearCombo` is translationally equivalent (same cluster shifted by translation)
-
-# Similar to `push_unique_body!` but for `LinearCombo` objects.
-# Note: `coeff_list` must also match for two `LinearCombo` objects to be considered equivalent,
-# since different `coeff_list` values represent different basis functions.
-# """
-# function push_unique_tesseral_body!(
-# 	target::SortedCountingUniqueVector{Basis.LinearCombo},
-# 	lc::Basis.LinearCombo,
-# 	count::Integer,
-# 	symmetry::Symmetry,
-# )
-# 	# Quick check: sum of l values
-# 	lsum_lc = sum(collect(lc.ls))
-# 	for existing_lc in target
-# 		lsum_existing = sum(collect(existing_lc.ls))
-# 		if lsum_lc != lsum_existing
-# 			continue
-# 		end
-# 		# Check if physically equivalent (same Lf, Lseq, (atom, l) pairs, and coeff_list)
-# 		# This checks for exact matches (same atoms, same ls order)
-# 		if Basis.is_physically_equivalent(lc, existing_lc)
-# 			# If physically equivalent and atoms are the same, they are duplicates
-# 			# Don't add count, just return (already counted)
-# 			if lc.atoms == existing_lc.atoms
-# 				return
-# 			end
-# 			# If physically equivalent but atoms differ, check if translationally equivalent
-# 			if is_translationally_equivalent_linear_combo(lc, existing_lc, symmetry)
-# 				# Translationally equivalent: don't add count, just return (already counted)
-# 				return
-# 			end
-# 		else
-# 			# If not physically equivalent, still check if translationally equivalent
-# 			# (e.g., [1, 10] vs [9, 2] with same ls and coeff_list)
-# 			if is_translationally_equivalent_linear_combo(lc, existing_lc, symmetry)
-# 				# Translationally equivalent: don't add count, just return (already counted)
-# 				return
-# 			end
-# 		end
-# 	end
-# 	# No equivalent LinearCombo found: add with the given count
-# 	push!(target, lc, count)
-# end
 
 
 function map_atom_l_list(
@@ -1311,26 +996,6 @@ function map_atom_l_list(
 	return [[map_sym[atom_l_vec[1], isym], atom_l_vec[2]] for atom_l_vec in atom_l_list]
 end
 
-# """
-# 	get_atom_l_list_linearcombo(lc::Basis.LinearCombo) -> Vector{Vector{Int}}
-
-# Get the atom-l list from a `LinearCombo` object.
-
-# # Arguments
-# - `lc::Basis.LinearCombo`: The `LinearCombo` object
-
-# # Returns
-# - `Vector{Vector{Int}}`: List of `[atom, l]` pairs
-# """
-# function get_atom_l_list_linearcombo(lc::Basis.LinearCombo)::Vector{Vector{Int}}
-# 	atom_list = lc.atoms
-# 	ls_list = collect(lc.ls)
-# 	vec = Vector{Vector{Int}}()
-# 	for (atom, l) in zip(atom_list, ls_list)
-# 		push!(vec, Int[atom, l])
-# 	end
-# 	return vec
-# end
 
 function classify_basislist(
 	basislist::AbstractVector{SHProduct},
@@ -1371,142 +1036,6 @@ function classify_basislist(
 
 	return dict
 end
-
-# """
-# 	classify_tesseral_basislist(
-# 		tesseral_basislist::AbstractVector{Basis.LinearCombo},
-# 		map_sym::AbstractMatrix{<:Integer},
-# 	) -> Dict{Int, SortedCountingUniqueVector{Basis.LinearCombo}}
-
-# Classify `tesseral_basislist` (a list of `LinearCombo` objects) by symmetry operations.
-# Only combinations that can have finite matrix elements under symmetry operations are grouped together.
-
-# This function groups `LinearCombo` objects that are related by symmetry operations,
-# meaning they can have non-zero matrix elements between them.
-
-# Classification criteria:
-# - `atom_l_list` (atom and l pairs) must be related by symmetry operations
-# - `Lf` (total angular momentum) must be the same (invariant under rotations)
-# - `Lseq` (intermediate L values) must be the same (invariant under rotations)
-
-# # Arguments
-# - `tesseral_basislist::AbstractVector{Basis.LinearCombo}`: List of `LinearCombo` objects to classify
-# - `map_sym::AbstractMatrix{<:Integer}`: Symmetry mapping matrix
-
-# # Returns
-# - `Dict{Int, SortedCountingUniqueVector{Basis.LinearCombo}}`: Dictionary mapping classification labels to groups of `LinearCombo` objects
-
-# # Examples
-# ```julia
-# classified_dict = classify_tesseral_basislist(tesseral_basislist, symmetry.map_sym)
-# ```
-# """
-# function classify_tesseral_basislist(
-# 	tesseral_basislist::AbstractVector{<:Basis.LinearCombo},
-# 	map_sym::AbstractMatrix{<:Integer},
-# )::Dict{Int, SortedCountingUniqueVector{Basis.LinearCombo}}
-# 	count = 1
-# 	label_list = zeros(Int, length(tesseral_basislist))
-# 	for (idx, lc) in enumerate(tesseral_basislist)
-# 		if label_list[idx] != 0
-# 			continue
-# 		end
-# 		atom_l_list_base = get_atom_l_list_linearcombo(lc)
-# 		Lf_base = lc.Lf
-# 		Lseq_base = lc.Lseq
-# 		for isym in 1:size(map_sym, 2)
-# 			mapped_list = map_atom_l_list(atom_l_list_base, map_sym, isym)
-# 			sorted_mapped = sort(mapped_list)
-# 			for (idx2, lc2) in enumerate(tesseral_basislist)
-# 				if label_list[idx2] == 0 &&
-# 				   sort(get_atom_l_list_linearcombo(lc2)) == sorted_mapped &&
-# 				   lc2.Lf == Lf_base &&
-# 				   lc2.Lseq == Lseq_base
-# 					label_list[idx2] = count
-# 				end
-# 			end
-# 		end
-# 		count += 1
-# 	end
-
-# 	dict = OrderedDict{Int, SortedCountingUniqueVector{Basis.LinearCombo}}()
-# 	max_label = maximum(label_list)
-# 	if max_label > 0
-# 		for idx in 1:max_label
-# 			dict[idx] = SortedCountingUniqueVector{Basis.LinearCombo}()
-# 		end
-# 	end
-
-# 	for (lc, label) in zip(tesseral_basislist, label_list)
-# 		# Get count from the original tesseral_basislist if it's a SortedCountingUniqueVector
-# 		if tesseral_basislist isa SortedCountingUniqueVector
-# 			count_val = tesseral_basislist.counts[lc]
-# 			push!(dict[label], lc, count_val)
-# 		else
-# 			push!(dict[label], lc, 1)
-# 		end
-# 	end
-
-# 	return dict
-# end
-
-# """
-# 	classify_tesseral_basislist_test(
-# 		tesseral_basislist::AbstractVector{Basis.LinearCombo},
-# 	) -> Dict{Int, SortedCountingUniqueVector{Basis.LinearCombo}}
-
-# Simplified classifier for `LinearCombo` objects used in tests.
-
-# This version ignores spatial symmetry and groups basis functions solely by
-# interaction order (number of sites) and final angular momentum `Lf`. It trades
-# efficiency for robustness so that test fixtures can rely on deterministic
-# grouping without depending on symmetry metadata.
-
-# # Arguments
-# - `tesseral_basislist::AbstractVector{Basis.LinearCombo}`: List of LinearCombo objects
-
-# # Returns
-# - `Dict{Int, SortedCountingUniqueVector{Basis.LinearCombo}}`: Dictionary keyed by
-#   labels assigned per `(nbody, Lf)` pair
-# """
-# function classify_tesseral_basislist_test(
-# 	tesseral_basislist::AbstractVector{<:Basis.LinearCombo},
-# )::Dict{Int, SortedCountingUniqueVector{Basis.LinearCombo}}
-# 	if isempty(tesseral_basislist)
-# 		return OrderedDict{Int, SortedCountingUniqueVector{Basis.LinearCombo}}()
-# 	end
-
-# 	label_map = Dict{Tuple{Int, Int}, Int}()
-# 	label_list = Vector{Int}(undef, length(tesseral_basislist))
-# 	next_label = 0
-
-# 	for (idx, lc) in enumerate(tesseral_basislist)
-# 		key = (length(lc.atoms), lc.Lf)
-# 		label = get(label_map, key, 0)
-# 		if label == 0
-# 			next_label += 1
-# 			label = next_label
-# 			label_map[key] = label
-# 		end
-# 		label_list[idx] = label
-# 	end
-
-# 	dict = OrderedDict{Int, SortedCountingUniqueVector{Basis.LinearCombo}}()
-# 	for label in 1:next_label
-# 		dict[label] = SortedCountingUniqueVector{Basis.LinearCombo}()
-# 	end
-
-# 	for (lc, label) in zip(tesseral_basislist, label_list)
-# 		if tesseral_basislist isa SortedCountingUniqueVector
-# 			count_val = get(tesseral_basislist.counts, lc, 1)
-# 			push!(dict[label], lc, count_val)
-# 		else
-# 			push!(dict[label], lc, 1)
-# 		end
-# 	end
-
-# 	return dict
-# end
 
 """
 	classify_coupled_basislist_test(
@@ -1567,75 +1096,6 @@ function classify_coupled_basislist_test(
 	return dict
 end
 
-"""
-Checks if two basis sets are translationally equivalent.
-
-# Arguments
-- `basis_target::IndicesUniqueList`: The target basis set to check
-- `basis_ref::IndicesUniqueList`: The reference basis set
-- `atoms_in_prim::AbstractVector{<:Integer}`: List of atoms in the primitive cell
-- `map_s2p::AbstractVector`: Mapping from supercell to primitive cell
-- `x_image_cart::AbstractArray{<:Real, 3}`: Cartesian coordinates of atoms in the supercell
-- `tol::Real = 1e-5`: Tolerance for floating-point comparisons
-
-
-"""
-function is_translationally_equiv_basis(
-	basis_target::IndicesUniqueList,
-	basis_ref::IndicesUniqueList,
-	atoms_in_prim::AbstractVector{<:Integer},
-	map_s2p::AbstractVector,
-	x_image_cart::AbstractArray{<:Real, 3},
-	;
-	tol::Real = 1e-5,
-)::Bool
-
-	# Early return if the atomlist is the same including the order
-	atom_list_target = [indices.atom for indices in basis_target]
-	atom_list_ref = [indices.atom for indices in basis_ref]
-	if atom_list_target == atom_list_ref
-		return false
-	end
-	# Early return if the first atom is the same
-	# because this function is intended to be used for different first atoms but translationally equivalent clusters
-	if basis_target[1].atom == basis_ref[1].atom
-		return false
-	end
-
-	for i in eachindex(basis_target)
-		iatom = basis_target[i].atom
-		icell = basis_target[i].cell
-		iatom_in_prim = atoms_in_prim[map_s2p[iatom].atom]
-
-		# cartesian relative vector b/w iatom and iatom_in_prim
-		relvec::SVector{3, Float64} =
-			calc_relvec_in_cart((iatom_in_prim, 1), (iatom, icell), x_image_cart)
-
-		moved_atomlist = Int[]
-		moved_celllist = Int[]
-		for indices::Indices in basis_target
-			# corresponding atom and cell obtained by adding relvec
-			crrsp_atom, crrsp_cell = find_corresponding_atom(
-				(indices.atom, indices.cell),
-				relvec,
-				x_image_cart,
-				tol = tol,
-			)
-			push!(moved_atomlist, crrsp_atom)
-			push!(moved_celllist, crrsp_cell)
-		end
-
-		iul = IndicesUniqueList()
-		for (idx, (atom, cell)) in enumerate(zip(moved_atomlist, moved_celllist))
-			push!(iul, Indices(atom, basis_target[idx].l, basis_target[idx].m, cell))
-		end
-
-		if equivalent(iul, basis_ref)
-			return true
-		end
-	end
-	return false
-end
 
 """
 Checks if two basis sets (SHProduct) are translationally equivalent.
@@ -1695,53 +1155,6 @@ function is_translationally_equiv_basis(
 end
 
 """
-Finds the cartesian relative vector between 2 atoms specified by (atom, cell) tuples, where cell means virtual cell index (1 <= cell <= 27).
-The equation is
-r(atom2) - r(atom1)
-"""
-function calc_relvec_in_cart(
-	atom1::NTuple{2, Integer},# (atom, cell)
-	atom2::NTuple{2, Integer},
-	x_image_cart::AbstractArray{<:Real, 3},
-)::SVector{3, Float64}
-	return SVector{3, Float64}(
-		x_image_cart[:, atom1[1], atom1[2]] - x_image_cart[:, atom2[1], atom2[2]],
-	)
-end
-
-"""
-Move an atom by a cartesian relative vector (calculated by `calc_relvec_in_cart` function) and find corresponding atom and cell indices as a tuple.
-"""
-function find_corresponding_atom(
-	atom::NTuple{2, Int},# (atom, cell)
-	relvec::AbstractVector{<:Real},
-	x_image_cart::AbstractArray{<:Real, 3},
-	;
-	tol::Real = 1e-5,
-)::NTuple{2, Int}
-	# Use SVector for better performance with vector operations
-	moved_coords =
-		SVector{3, Float64}(x_image_cart[:, atom[1], atom[2]]) + SVector{3, Float64}(relvec)
-
-	num_atoms = size(x_image_cart, 2)
-	num_cells = size(x_image_cart, 3)
-	for iatom in 1:num_atoms
-		for icell in 1:num_cells
-			if isapprox(
-				SVector{3, Float64}(x_image_cart[:, iatom, icell]),
-				moved_coords,
-				atol = tol,
-			)
-				return (iatom, icell)
-			end
-		end
-	end
-	error("atom: $(atom[1]), cell: $(atom[2]) \n
-	relvec: $relvec \n
-	No matching (atom, cell) indices found.")
-end
-
-"""
 	is_proper_eigenvals(eigenval::AbstractVector; tol = 1e-8)::Bool
 
 Checks whether all eigenvalues in the given vector are approximately 0 or 1.
@@ -1772,32 +1185,6 @@ function is_proper_eigenvals(eigenval::AbstractVector; tol = 1e-8)::Bool
 	return all(x -> isapprox(x, 0, atol = tol) || isapprox(x, 1, atol = tol), eigenval)
 end
 
-"""
-	is_identically_zero(salc::SALC, atol::Real = 1e-8)::Bool
-
-Check if a SALC (Symmetry-Adapted Linear Combination) always returns zero for arbitrary spin configuration.
-
-# Arguments
-- `salc::SALC`: The SALC to check
-- `atol::Real = 1e-8`: Absolute tolerance for floating-point comparisons
-
-# Returns
-- `Bool`: `true` if the SALC is identically zero, `false` otherwise
-
-"""
-function is_identically_zero(salc::SALC, atol::Real = 1e-6)::Bool
-	group_lists::Vector{Vector{Int}} = group_same_basis(salc)
-	for index_list in group_lists
-		partial_sum::Float64 = 0.0
-		for index in index_list
-			partial_sum += salc.multiplicity[index] * salc.coeffs[index]
-		end
-		if !isapprox(partial_sum, 0.0, atol = atol)
-			return false
-		end
-	end
-	return true
-end
 
 """
 	group_same_basis(salc::SALC)::Vector{Vector{Int}}
@@ -1839,41 +1226,23 @@ function group_same_basis(salc::SALC)::Vector{Vector{Int}}
 	return result_list
 end
 
-"""
-	flip_vector_if_negative_sum(v::AbstractVector{<:Real}; tol::Real=1e-10)::AbstractVector{<:Real}
 
-Flip the sign of the vector if the sum of the elements is negative.
-If the sum is approximately zero (within tolerance), return the original vector.
+
+"""
+	projection_matrix(basisdict, symmetry) -> Vector{Matrix{Float64}}
+
+Construct projection matrices for each classification label in the `basisdict`.
+
+This function computes the average projection matrix over all symmetry operations
+(including time-reversal symmetry) for each group of basis functions.
 
 # Arguments
-- `v::AbstractVector{<:Real}`: Input vector
-- `tol::Real=1e-10`: Tolerance for considering sum as zero
+- `basisdict::AbstractDict`: Dictionary mapping classification labels to groups of basis functions
+- `symmetry::Symmetry`: Symmetry information containing all symmetry operations
 
 # Returns
-- `AbstractVector{<:Real}`: Vector with sign flipped if sum is negative
+- `Vector{Matrix{Float64}}`: List of projection matrices, one for each classification label
 """
-function flip_vector_if_negative_sum(
-	v::AbstractVector{<:Real};
-	tol::Real = 1e-10,
-)::AbstractVector{<:Real}
-	sum_v = sum(v)
-	if abs(sum_v) < tol
-		return v
-	end
-	return sum_v < 0 ? -v : v
-end
-
-function print_basisset_stdout(salc_list::AbstractVector{<:SALC})
-	println(" Number of symmetry-adapted basis functions: $(length(salc_list))\n")
-	println(" List of symmetry-adapted basis functions:")
-	println(" # multiplicity  coefficient  basis")
-	for (i, salc) in enumerate(salc_list)
-		println(" $i-th salc")
-		display(salc)
-	end
-	println("")
-end
-
 function projection_matrix(
 	basisdict::AbstractDict,
 	symmetry::Symmetry,
@@ -1910,6 +1279,24 @@ function projection_matrix(
 	return result_projections
 end
 
+"""
+	proj_matrix_a_symop(basislist, symop, map_sym_per_symop, map_sym_inv, map_s2p, atoms_in_prim, symnum_translation, time_rev_sym) -> Matrix{Float64}
+
+Compute the projection matrix for a single symmetry operation applied to a list of basis functions.
+
+# Arguments
+- `basislist::SortedCountingUniqueVector{SHProduct}`: List of basis functions
+- `symop::SymmetryOperation`: The symmetry operation to apply
+- `map_sym_per_symop::AbstractVector{<:Integer}`: Atom mapping for this symmetry operation
+- `map_sym_inv::AbstractMatrix{<:Integer}`: Inverse atom mapping matrix
+- `map_s2p::AbstractVector{<:Maps}`: Mapping from supercell to primitive cell
+- `atoms_in_prim::AbstractVector{<:Integer}`: List of atoms in primitive cell
+- `symnum_translation::AbstractVector{<:Integer}`: Translation symmetry numbers
+- `time_rev_sym::Bool`: Whether to apply time-reversal symmetry
+
+# Returns
+- `Matrix{Float64}`: The projection matrix for this symmetry operation
+"""
 function proj_matrix_a_symop(
 	basislist::SortedCountingUniqueVector{SHProduct},
 	symop::SymmetryOperation,
@@ -1953,6 +1340,28 @@ function proj_matrix_a_symop(
 	return projection_mat
 end
 
+"""
+	operate_symop(basislist, basis, symop, map_sym_per_symop, map_sym_inv, map_s2p, atoms_in_prim, symnum_translation, time_rev_sym) -> AtomicIndices.LinearCombo
+
+Apply a symmetry operation to a basis function and return it as a linear combination.
+
+# Arguments
+- `basislist::SortedCountingUniqueVector{SHProduct}`: List of basis functions
+- `basis::SHProduct`: The basis function to transform
+- `symop::SymmetryOperation`: The symmetry operation to apply
+- `map_sym_per_symop::AbstractVector{<:Integer}`: Atom mapping for this symmetry operation
+- `map_sym_inv::AbstractMatrix{<:Integer}`: Inverse atom mapping matrix
+- `map_s2p::AbstractVector{<:Maps}`: Mapping from supercell to primitive cell
+- `atoms_in_prim::AbstractVector{<:Integer}`: List of atoms in primitive cell
+- `symnum_translation::AbstractVector{<:Integer}`: Translation symmetry numbers
+- `time_rev_sym::Bool`: Whether to apply time-reversal symmetry
+
+# Returns
+- `AtomicIndices.LinearCombo`: The transformed basis function as a linear combination
+
+# Throws
+- `ErrorException`: If no corresponding basis function is found in the primitive cell
+"""
 function operate_symop(
 	basislist::SortedCountingUniqueVector{SHProduct},
 	basis::SHProduct,
@@ -2142,228 +1551,54 @@ function filter_basisdict(
 end
 
 """
-	operate_symop_linearcombo(
-		basislist::AbstractVector{Basis.LinearCombo},
-		lc::Basis.LinearCombo,
-		symop::SymmetryOperation,
-		map_sym_per_symop::AbstractVector{<:Integer},
-		map_sym_inv::AbstractMatrix{<:Integer},
-		map_s2p::AbstractVector{<:Maps},
-		atoms_in_prim::AbstractVector{<:Integer},
-		symnum_translation::AbstractVector{<:Integer},
-		time_rev_sym::Bool,
-	) -> Basis.LinearCombo
+	flip_vector_if_negative_sum(v::AbstractVector{<:Real}; tol::Real=1e-10)::AbstractVector{<:Real}
 
-Apply a symmetry operation to a `LinearCombo` object.
-
-This is a more refined implementation that:
-1. Applies the symmetry operation to atom indices
-2. Tries translation operations directly (more efficient than trying each atom as reference)
-3. Finds matching LinearCombo by comparing (atom, l) pairs as multisets
-4. Applies rotation matrix to coeff_list (for Lf)
-5. Applies time-reversal symmetry if needed
+Flip the sign of the vector if the sum of the elements is negative.
+If the sum is approximately zero (within tolerance), return the original vector.
 
 # Arguments
-- `basislist::AbstractVector{Basis.LinearCombo}`: List of `LinearCombo` objects
-- `lc::Basis.LinearCombo`: The `LinearCombo` to transform
-- `symop::SymmetryOperation`: The symmetry operation to apply
-- `map_sym_per_symop::AbstractVector{<:Integer}`: Atom mapping for this symmetry operation
-- `map_sym_inv::AbstractMatrix{<:Integer}`: Inverse atom mapping matrix
-- `map_s2p::AbstractVector{<:Maps}`: Mapping from supercell to primitive cell
-- `atoms_in_prim::AbstractVector{<:Integer}`: List of atoms in primitive cell
-- `symnum_translation::AbstractVector{<:Integer}`: Translation symmetry numbers
-- `time_rev_sym::Bool`: Whether to apply time-reversal symmetry
+- `v::AbstractVector{<:Real}`: Input vector
+- `tol::Real=1e-10`: Tolerance for considering sum as zero
 
 # Returns
-- `Basis.LinearCombo`: The transformed `LinearCombo`
+- `AbstractVector{<:Real}`: Vector with sign flipped if sum is negative
 """
-# function operate_symop_linearcombo(
-# 	basislist::AbstractVector{Basis.LinearCombo},
-# 	lc::Basis.LinearCombo,
-# 	symop::SymmetryOperation,
-# 	map_sym_per_symop::AbstractVector{<:Integer},
-# 	map_sym_inv::AbstractMatrix{<:Integer},
-# 	map_s2p::AbstractVector{<:Maps},
-# 	atoms_in_prim::AbstractVector{<:Integer},
-# 	symnum_translation::AbstractVector{<:Integer},
-# 	time_rev_sym::Bool,
-# )::Basis.LinearCombo
-# 	# Apply symmetry operation to atoms
-# 	new_atom_list = [map_sym_per_symop[atom] for atom in lc.atoms]
+function flip_vector_if_negative_sum(
+	v::AbstractVector{<:Real};
+	tol::Real = 1e-10,
+)::AbstractVector{<:Real}
+	sum_v = sum(v)
+	if abs(sum_v) < tol
+		return v
+	end
+	return sum_v < 0 ? -v : v
+end
 
-# 	# Prepare (atom, l) pairs for matching (as multisets, order doesn't matter)
-# 	ls_vec = collect(lc.ls)
+"""
+	print_basisset_stdout(salc_list)
 
-# 	# Try translation operations to find matching LinearCombo in primitive cell
-# 	new_lc_found = nothing
-# 	found = false
+Print symmetry-adapted basis functions to stdout.
 
-# 	for itran in symnum_translation
-# 		# Apply translation to shift atoms to primitive cell
-# 		atom_list_shifted = [map_sym_inv[atom, itran] for atom in new_atom_list]
-# 		atom_l_pairs_shifted = collect(zip(atom_list_shifted, ls_vec))
+# Arguments
+- `salc_list::AbstractVector{Vector{Basis.CoupledBasis_with_coefficient}}`: List of SALC groups, where each group is a vector of `CoupledBasis_with_coefficient` objects
+"""
+function print_basisset_stdout(
+	salc_list::AbstractVector{Vector{Basis.CoupledBasis_with_coefficient}},
+)
+	println(" Number of symmetry-adapted basis functions: $(length(salc_list))\n")
+	println(" List of symmetry-adapted basis functions:")
+	for (i, key_group) in enumerate(salc_list)
+		println(" $i-th salc")
+		println(" number of terms: $(length(key_group))")
+		for cbc in key_group
+			# Format coefficient vector as space-separated string
+			coeff_str = join([@sprintf("% 15.10f", x) for x in cbc.coefficient], " ")
+			line_str = @sprintf("%2d  [%s]  %s", cbc.multiplicity, coeff_str, cbc)
+			println(line_str)
+		end
+		println("")
+	end
+end
 
-# 		# Find matching LinearCombo in basislist
-# 		for lc_candidate in basislist
-# 			# Quick checks: Lf and Lseq must match (they are rotation-invariant)
-# 			if lc_candidate.Lf != lc.Lf || lc_candidate.Lseq != lc.Lseq
-# 				continue
-# 			end
-
-# 			# Check if (atom, l) pairs match as multisets
-# 			atom_l_pairs_candidate = collect(zip(lc_candidate.atoms, collect(lc_candidate.ls)))
-# 			if sort(atom_l_pairs_candidate) == sort(atom_l_pairs_shifted)
-# 				found = true
-# 				new_lc_found = lc_candidate
-# 				break
-# 			end
-# 		end
-# 		if found
-# 			break
-# 		end
-# 	end
-
-# 	if !found
-# 		error("Failed to find corresponding LinearCombo in the primitive cell.")
-# 	end
-
-# 	# Calculate rotation matrix for Lf and apply to coeff_list
-# 	is_proper = symop.is_proper
-# 	rotmat = is_proper ? symop.rotation_cart : -1 * symop.rotation_cart
-
-# 	multiplier = time_rev_sym ? (-1)^(sum(ls_vec)) : 1.0
-
-# 	euler_angles = rotmat2euler(rotmat)
-# 	rotmat_Lf = multiplier * Δl(lc.Lf, euler_angles...)
-# 	new_coeff_list = rotmat_Lf * lc.coeff_list
-
-# 	# Return transformed LinearCombo
-# 	return Basis.LinearCombo(
-# 		new_lc_found.ls,
-# 		new_lc_found.Lf,
-# 		new_lc_found.Lseq,
-# 		new_lc_found.atoms,
-# 		new_coeff_list,
-# 		new_lc_found.coeff_tensor,
-# 	)
-# end
-
-# """
-# 	proj_matrix_a_symop_linearcombo(
-# 		basislist::AbstractVector{Basis.LinearCombo},
-# 		symop::SymmetryOperation,
-# 		map_sym_per_symop::AbstractVector{<:Integer},
-# 		map_sym_inv::AbstractMatrix{<:Integer},
-# 		map_s2p::AbstractVector{<:Maps},
-# 		atoms_in_prim::AbstractVector{<:Integer},
-# 		symnum_translation::AbstractVector{<:Integer},
-# 		time_rev_sym::Bool,
-# 	) -> Matrix{Float64}
-
-# Compute the projection matrix for a single symmetry operation applied to a list of `LinearCombo` objects.
-
-# # Arguments
-# - `basislist::AbstractVector{Basis.LinearCombo}`: List of `LinearCombo` objects
-# - `symop::SymmetryOperation`: The symmetry operation
-# - `map_sym_per_symop::AbstractVector{<:Integer}`: Atom mapping for this symmetry operation
-# - `map_sym_inv::AbstractMatrix{<:Integer}`: Inverse atom mapping matrix
-# - `map_s2p::AbstractVector{<:Maps}`: Mapping from supercell to primitive cell
-# - `atoms_in_prim::AbstractVector{<:Integer}`: List of atoms in primitive cell
-# - `symnum_translation::AbstractVector{<:Integer}`: Translation symmetry numbers
-# - `time_rev_sym::Bool`: Whether to apply time-reversal symmetry
-
-# # Returns
-# - `Matrix{Float64}`: The projection matrix for this symmetry operation
-# """
-# function proj_matrix_a_symop_linearcombo(
-# 	basislist::AbstractVector{Basis.LinearCombo},
-# 	symop::SymmetryOperation,
-# 	map_sym_per_symop::AbstractVector{<:Integer},
-# 	map_sym_inv::AbstractMatrix{<:Integer},
-# 	map_s2p::AbstractVector{<:Maps},
-# 	atoms_in_prim::AbstractVector{<:Integer},
-# 	symnum_translation::AbstractVector{<:Integer},
-# 	time_rev_sym::Bool,
-# )::Matrix{Float64}
-# 	dim = length(basislist)
-# 	projection_mat = zeros(Float64, dim, dim)
-
-# 	for (j, lc_j) in enumerate(basislist)
-# 		lc_j_transformed = operate_symop_linearcombo(
-# 			basislist,
-# 			lc_j,
-# 			symop,
-# 			map_sym_per_symop,
-# 			map_sym_inv,
-# 			map_s2p,
-# 			atoms_in_prim,
-# 			symnum_translation,
-# 			time_rev_sym,
-# 		)
-# 		for (i, lc_i) in enumerate(basislist)
-# 			projection_mat[i, j] = dot(lc_i, lc_j_transformed)
-# 		end
-# 	end
-
-# 	return projection_mat
-# end
-
-# """
-# 	projection_matrix_linearcombo(
-# 		basisdict::Dict{Int, SortedCountingUniqueVector{Basis.LinearCombo}},
-# 		symmetry::Symmetry,
-# 	) -> Vector{Matrix{Float64}}
-
-# Construct projection matrices for each classification label in the `basisdict`.
-
-# This function computes the average projection matrix over all symmetry operations
-# (including time-reversal symmetry) for each group of `LinearCombo` objects.
-
-# # Arguments
-# - `basisdict::Dict{Int, SortedCountingUniqueVector{Basis.LinearCombo}}`: Dictionary mapping classification labels to groups of `LinearCombo` objects
-# - `symmetry::Symmetry`: Symmetry information containing all symmetry operations
-
-# # Returns
-# - `Vector{Matrix{Float64}}`: List of projection matrices, one for each classification label
-# """
-# function projection_matrix_linearcombo(
-# 	basisdict::Dict{Int, SortedCountingUniqueVector{Basis.LinearCombo}},
-# 	symmetry::Symmetry,
-# )::Vector{Matrix{Float64}}
-# 	result_projections = Vector{Matrix{Float64}}(undef, length(basisdict))
-
-# 	idx_list = sort(collect(keys(basisdict)))
-# 	for idx in idx_list
-# 		basislist = basisdict[idx]
-# 		dim = length(basislist)
-# 		local_projection_mat = zeros(Float64, dim, dim)
-
-# 		for (n, symop) in enumerate(symmetry.symdata), time_rev_sym in [false, true]
-# 			projection_mat_per_symop = proj_matrix_a_symop_linearcombo(
-# 				basislist,
-# 				symop,
-# 				@view(symmetry.map_sym[:, n]),
-# 				symmetry.map_sym_inv,
-# 				symmetry.map_s2p,
-# 				symmetry.atoms_in_prim,
-# 				symmetry.symnum_translation,
-# 				time_rev_sym,
-# 			)
-# 			local_projection_mat += projection_mat_per_symop
-# 		end
-
-# 		local_projection_mat = local_projection_mat ./ (2 * symmetry.nsym)
-# 		local_projection_mat = hermitianpart(local_projection_mat)
-
-# 		if !is_symmetric(local_projection_mat, tol = 1e-10)
-# 			error("Projection matrix is not symmetric. index: $idx")
-# 		end
-
-# 		result_projections[idx] = local_projection_mat
-# 	end
-# 	return result_projections
-# end
 
 end # module BasisSets
-
-
