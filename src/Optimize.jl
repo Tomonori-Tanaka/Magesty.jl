@@ -231,90 +231,6 @@ end
 
 
 """
-	build_design_matrix_energy(salc_list, spinconfig_list, symmetry) -> Matrix{Float64}
-
-Build the energy design matrix used for regression.
-
-# Description
-- Returns a matrix of size (num_configs × (num_salcs + 1)).
-- The first column is the bias term (all ones). Columns 2..end are features per SALC.
-
-# Arguments
-- `salc_list::AbstractVector{SALC}`: List of SALC objects
-- `spinconfig_list::AbstractVector{SpinConfig}`: Vector of SpinConfig objects
-- `symmetry::Symmetry`: Symmetry information
-
-# Returns
-- `Matrix{Float64}`: Energy design matrix
-"""
-function build_design_matrix_energy(
-	salc_list::AbstractVector{SALC},
-	spinconfig_list::AbstractVector{SpinConfig},
-	symmetry::Symmetry,
-)::Matrix{Float64}
-	num_salcs = length(salc_list)
-	num_spinconfigs = length(spinconfig_list)
-
-	# construct design matrix A in Ax = b
-	design_matrix = zeros(Float64, num_spinconfigs, num_salcs + 1)
-
-	# set first column to 1 (reference_energy term)
-	design_matrix[:, 1] .= 1.0
-
-	for i in 1:num_salcs
-		@inbounds for j in 1:num_spinconfigs
-			design_matrix[j, i+1] = design_matrix_energy_element(
-				salc_list[i],
-				spinconfig_list[j].spin_directions,
-				symmetry,
-			)
-		end
-	end
-
-	return design_matrix
-end
-
-"""
-	design_matrix_energy_element(salc, spin_directions, symmetry) -> Float64
-
-Compute one energy-design feature for a given SALC and spin directions.
-
-# Description
-- Contracts spherical harmonics over atoms following symmetry translations.
-- Equivalent to one column entry (excluding bias) in the energy design matrix.
-
-# Arguments
-- `salc::SALC`: Symmetry-Adapted Linear Combination object
-- `spin_directions::AbstractMatrix{<:Real}`: Matrix of spin directions (3×N)
-- `symmetry::Symmetry`: Symmetry information of the structure
-
-# Returns
-- `Float64`: Feature value for the SALC
-"""
-function design_matrix_energy_element(
-	salc::SALC,
-	spin_directions::AbstractMatrix{<:Real},
-	symmetry::Symmetry,
-)::Float64
-
-	result::Float64 = 0.0
-	for itrans in symmetry.symnum_translation
-		@inbounds for (basis_idx, basis::IndicesUniqueList) in enumerate(salc.basisset)
-			product_tmp::Float64 = 1.0
-			@inbounds for ibasis::Indices in basis
-				atom::Int = symmetry.map_sym[ibasis.atom, itrans]
-				l::Int = ibasis.l
-				m::Int = ibasis.m
-				product_tmp *= @views Sₗₘ(l, m, spin_directions[:, atom])
-			end
-			result += salc.coeffs[basis_idx] * salc.multiplicity[basis_idx] * product_tmp
-		end
-	end
-
-	return result
-end
-
-"""
 	design_matrix_energy_element(cbc, spin_directions, symmetry) -> Float64
 
 Compute one energy-design feature for a given CoupledBasis_with_coefficient and spin directions.
@@ -444,88 +360,6 @@ function build_design_matrix_torque(
 	return vcat(design_matrix_list...)
 end
 
-function build_design_matrix_torque(
-	salc_list,
-	spinconfig_list,
-	num_atoms,
-	symmetry,
-)::Matrix{Float64}
-	num_salcs = length(salc_list)
-	num_spinconfigs = length(spinconfig_list)
-
-	design_matrix_list = Vector{Matrix{Float64}}(undef, num_spinconfigs)
-
-	@threads for sc_idx in 1:num_spinconfigs
-		spinconfig = spinconfig_list[sc_idx]
-		torque_design_block = zeros(Float64, 3*num_atoms, num_salcs)
-		@inbounds for iatom in 1:num_atoms
-			@views dir_iatom = spinconfig.spin_directions[:, iatom]
-			@inbounds for (salc_idx, salc) in enumerate(salc_list)
-				grad_u = calc_∇ₑu(salc, iatom, spinconfig.spin_directions, symmetry)
-				@views torque_design_block[(3*(iatom-1)+1):(3*iatom), salc_idx] =
-					cross(dir_iatom, grad_u)
-			end
-		end
-		design_matrix_list[sc_idx] = torque_design_block
-	end
-
-	return vcat(design_matrix_list...)
-end
-
-"""
-	calc_∇ₑu(salc, atom, spin_directions, symmetry) -> Vector{Float64}
-
-Compute the gradient of the real spherical harmonic product for a SALC with respect to
-the spin direction of a specific atom.
-
-# Description
-- Returns a 3-vector corresponding to (∂/∂x, ∂/∂y, ∂/∂z) components.
-- Applies symmetry translations before accumulation.
-
-# Arguments
-- `salc::SALC`: Symmetry-Adapted Linear Combination
-- `atom::Integer`: Target atom index (1-based)
-- `spin_directions::AbstractMatrix{<:Real}`: 3×N spin directions
-- `symmetry::Symmetry`: Symmetry information
-
-# Returns
-- `Vector{Float64}`: Gradient vector (length 3)
-"""
-function calc_∇ₑu(
-	salc::SALC,
-	atom::Integer,
-	spin_directions::AbstractMatrix{<:Real},
-	symmetry::Symmetry,
-)::Vector{Float64}
-	spin_dirs = [SVector{3, Float64}(spin_directions[:, i]) for i in axes(spin_directions, 2)]
-
-	result = MVector{3, Float64}(0.0, 0.0, 0.0)
-
-	@inbounds for itrans in symmetry.symnum_translation
-		translated_salc = translate_atom_idx_of_salc(salc, symmetry.map_sym, itrans)
-		@inbounds for (basis, coeff, multiplicity) in
-					  zip(
-			translated_salc.basisset,
-			translated_salc.coeffs,
-			translated_salc.multiplicity,
-		)
-			# Skip if atom is not in the basis
-			!any(idx -> idx.atom == atom, basis) && continue
-
-			# Calculate product of spherical harmonics and their derivatives
-			product = MVector{3, Float64}(1.0, 1.0, 1.0)
-			@inbounds for indices in basis
-				if indices.atom == atom
-					product .*= ∂ᵢSlm(indices.l, indices.m, @inbounds spin_dirs[indices.atom])
-				else
-					product .*= Sₗₘ(indices.l, indices.m, @inbounds spin_dirs[indices.atom])
-				end
-			end
-			result .+= product .* (coeff * multiplicity)
-		end
-	end
-	return Vector{Float64}(result)
-end
 
 """
 	calc_∇ₑu(cbc, atom, spin_directions, symmetry) -> Vector{Float64}
@@ -734,27 +568,6 @@ function elastic_net_regression(
 	return j0, jphi
 end
 
-
-function translate_atom_idx_of_salc(
-	salc::SALC,
-	map_sym::AbstractMatrix{<:Integer},
-	itrans::Integer,
-)::SALC
-	translated_basisset = Vector{IndicesUniqueList}()
-	for basis::IndicesUniqueList in salc.basisset
-		translated_basis = IndicesUniqueList()
-		for indices::Indices in basis
-			translated_atom_idx = map_sym[indices.atom, itrans]
-			push!(
-				translated_basis,
-				Indices(translated_atom_idx, indices.l, indices.m, indices.cell),
-			)
-		end
-		push!(translated_basisset, translated_basis)
-	end
-
-	return SALC(translated_basisset, salc.coeffs, salc.multiplicity)
-end
 
 function calc_rmse(list1::AbstractVector{<:Real}, list2::AbstractVector{<:Real})::Float64
 	# Calculate the Root Mean Square Error (RMSE) between two lists
