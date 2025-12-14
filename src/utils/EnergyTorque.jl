@@ -1,5 +1,4 @@
 module EnergyTorque
-using EzXML
 using LinearAlgebra
 using StaticArrays
 using ..Symmetries
