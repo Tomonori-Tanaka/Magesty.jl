@@ -5,7 +5,7 @@ export r2c_sph_harm_matrix, c2r_sph_harm_matrix
 """
     r2c_sph_harm_matrix(l::Integer) -> Matrix{ComplexF64}
 
-Compute the transformation matrix from real spherical harmonics to complex spherical harmonics.
+Compute the transformation matrix from tesseral harmonics to complex spherical harmonics.
 """
 function r2c_sph_harm_matrix(l::Integer)::Matrix{ComplexF64}
     l ≥ 0 || throw(ArgumentError("Angular momentum l must be non-negative"))
@@ -33,7 +33,7 @@ end
 """
     c2r_sph_harm_matrix(l::Integer) -> Matrix{ComplexF64}
 
-Compute the transformation matrix from complex spherical harmonics to real spherical harmonics.
+Compute the transformation matrix from complex spherical harmonics to tesseral harmonics.
 """
 function c2r_sph_harm_matrix(l::Integer)::Matrix{ComplexF64}
     l ≥ 0 || throw(ArgumentError("Angular momentum l must be non-negative"))
