@@ -3,8 +3,7 @@ module RotationMatrix
 using LinearAlgebra
 using WignerD
 
-include("SphericalHarmonicsTransforms.jl")
-using .SphericalHarmonicsTransforms
+using ..SphericalHarmonicsTransforms
 
 export rotmat2euler, Δl
 

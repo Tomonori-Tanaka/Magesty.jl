@@ -46,6 +46,7 @@ include("types/AtomicIndices.jl")
 include("SpinConfigs.jl")
 using .SpinConfigs
 
+include("utils/SphericalHarmonicsTransforms.jl")
 include("utils/AngularMomentumCoupling.jl")
 include("types/Basis.jl")
 using .AngularMomentumCoupling
