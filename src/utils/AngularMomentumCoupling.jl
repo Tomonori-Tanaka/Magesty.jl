@@ -11,7 +11,6 @@ module AngularMomentumCoupling
 #
 # Public API (exported):
 #   mrange
-#   S_real_to_complex
 #   enumerate_paths_left_all
 #   coeff_tensor_complex
 #   complex_to_real_tensor
@@ -28,8 +27,7 @@ using LinearAlgebra
 using WignerSymbols  # provides clebschgordan
 using OffsetArrays   # enables direct indexing by magnetic quantum numbers m
 
-include("SphericalHarmonicsTransforms.jl")
-using .SphericalHarmonicsTransforms
+using ..SphericalHarmonicsTransforms
 
 # ---------------- Utilities ----------------
 
@@ -40,34 +38,6 @@ Return the integer m range for a given l: -l, ..., 0, ..., +l.
 """
 mrange(l::Int) = collect((-l):l)
 
-"""
-	S_real_to_complex(l::Int) -> Matrix{ComplexF64}
-
-Unitary conversion between real (tesseral) and complex spherical-harmonic bases
-using the "Real form" convention (Wikipedia).
-This returns S such that: complex = S * real
-
-Rows index complex m in [-l..+l], columns index real m_R in [-l..+l].
-"""
-function S_real_to_complex(l::Int)
-	S = zeros(ComplexF64, 2l+1, 2l+1)
-	idx(m) = m + l + 1
-
-	# m = 0
-	S[idx(0), idx(0)] = 1
-
-	# m > 0 blocks (pair of real columns for ±m)
-	for m in 1:l
-		jp, jm = idx(+m), idx(-m)
-		# Row for complex +m
-		S[idx(+m), jp] = (-1)^m / sqrt(2)
-		S[idx(+m), jm] = im * (-1)^m / sqrt(2)
-		# Row for complex -m
-		S[idx(-m), jp] = 1 / sqrt(2)
-		S[idx(-m), jm] = -im / sqrt(2)
-	end
-	return S
-end
 
 """
 	nmode_mul(A, M, n) -> Array
@@ -468,7 +438,6 @@ end
 # ---------------- Exports ----------------
 
 export mrange,
-	S_real_to_complex,
 	enumerate_paths_left_all,
 	nmode_mul,
 	coeff_tensor_complex,
