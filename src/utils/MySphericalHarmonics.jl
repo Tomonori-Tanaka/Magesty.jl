@@ -4,13 +4,13 @@
 This module provides functions to compute spherical harmonics ( Y_{l,m} ) and related derivatives, following the formalism described in Drautz (Phys. Rev. B 102, 024104, 2020). It includes:
 
 - Normalized associated Legendre polynomials ( bar{P}_{l,m} ).
-- Spherical harmonics ( Y_{l,m} ) and real-valued ( Z_{l,m} ).
+- Spherical harmonics ( Y_{l,m} ) and tesseral harmonics ( Z_{l,m} ).
 - Partial derivatives with respect to Cartesian coordinates.
 
 # Functions
 - `P̄ₗₘ(l, m, r̂z)`: Compute the normalized associated Legendre polynomial.
 - `Yₗₘ(l, m, uvec)`: Compute the spherical harmonic.
-- `Zₗₘ(l, m, uvec)`: Compute the real-valued spherical harmonic.
+- `Zₗₘ(l, m, uvec)`: Compute the tesseral harmonic.
 - `∂Zₗₘ_∂r̂x(l, m, uvec)`, `∂Zₗₘ_∂r̂y(l, m, uvec)`, `∂Zₗₘ_∂r̂z(l, m, uvec)`: Partial derivatives of ( Z_{l,m} ).
 - `∂ᵢZlm(l, m, uvec)`: Compute the gradient of ( Z_{l,m} ) as a vector.
 """
@@ -305,7 +305,7 @@ end
 """
 	Zₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
-Compute the real spherical harmonic Zₗₘ.
+Compute the tesseral harmonic Zₗₘ.
 
 # Arguments
 - `l`: Angular momentum quantum number (≥ 0)
@@ -351,7 +351,7 @@ end
 """
 	∂Zₗₘ_∂r̂x(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
-Compute the partial derivative of real spherical harmonic Zₗₘ with respect to r̂x.
+Compute the partial derivative of tesseral harmonic Zₗₘ with respect to r̂x.
 
 # Mathematical Details
 For m = 0:  ∂Zₗₘ/∂r̂x = 0
@@ -404,7 +404,7 @@ end
 """
 	∂Zₗₘ_∂r̂y(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
-Compute the partial derivative of real spherical harmonic Zₗₘ with respect to r̂y.
+Compute the partial derivative of tesseral harmonic Zₗₘ with respect to r̂y.
 
 # Mathematical Details
 For m = 0:  ∂Zₗₘ/∂r̂y = 0
@@ -441,7 +441,7 @@ end
 """
 	∂Zₗₘ_∂r̂z(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
-Compute the partial derivative of real spherical harmonic Zₗₘ with respect to r̂z.
+Compute the partial derivative of tesseral harmonic Zₗₘ with respect to r̂z.
 
 # Mathematical Details
 For m = 0:  ∂Zₗₘ/∂r̂z = dP̄ₗₘ/dr̂z

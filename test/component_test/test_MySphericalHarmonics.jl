@@ -478,7 +478,7 @@ end
 	end
 end
 
-@testset "real spherical harmonics" begin
+@testset "tesseral harmonics" begin
 
 	@testset "Zₗₘ" begin
 		vec111 = 1 / √(3) * [1, 1, 1]
