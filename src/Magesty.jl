@@ -158,6 +158,21 @@ end
 
 
 """
+	build_sce_basis(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)::System
+
+User interface to build the basis set for the spin cluster expansion.
+"""
+function build_sce_basis(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = false)::System
+	config::Config4System = Config4System(input_dict)
+	structure::Structure = Structure(config, verbosity = verbosity)
+	symmetry::Symmetry = Symmetry(structure, config, verbosity = verbosity)
+	cluster::Cluster = Cluster(structure, symmetry, config, verbosity = verbosity)
+	basisset::BasisSet = BasisSet(structure, symmetry, cluster, config, verbosity = verbosity)
+	return System(structure, symmetry, cluster, basisset, verbosity = verbosity)
+end
+
+
+"""
 	SpinCluster
 
 An extension of System with optimization capabilities.
