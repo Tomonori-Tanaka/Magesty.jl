@@ -1,6 +1,5 @@
 module Basis
 
-using ..UnitaryMatrixCl
 using ..AngularMomentumCoupling
 using LinearAlgebra
 using DataStructures

@@ -3,7 +3,8 @@ module RotationMatrix
 using LinearAlgebra
 using WignerD
 
-using ..UnitaryMatrixCl
+include("SphericalHarmonicsTransforms.jl")
+using .SphericalHarmonicsTransforms
 
 export rotmat2euler, Δl
 
@@ -91,8 +92,8 @@ function Δl(l::Integer, α::Real, β::Real, γ::Real; tol::Real = 1e-12)::Matri
 		throw(ArgumentError("Only positive l is allowed. Given: $l"))
 	end
 
-	cl_mat = UniMatCl(l)# Assuming UniMatCl returns a Matrix{Complex}
-	wigD::Matrix{Complex} = wignerD(l, α, β, γ)# Assuming wignerD returns a Matrix{Complex}
+	cl_mat = c2r_sph_harm_matrix(l)  # Complex to real transformation matrix
+	wigD::Matrix{Complex} = wignerD(l, α, β, γ)  # Wigner D-matrix
 
 	# Compute Δ matrix (eq. (35) in the reference)
 	Δ = conj(cl_mat) * wigD * transpose(cl_mat)

@@ -1,5 +1,5 @@
 using .AngularMomentumCoupling
-using .UnitaryMatrixCl
+using ..SphericalHarmonicsTransforms
 using LinearAlgebra
 using WignerSymbols
 using OffsetArrays
@@ -224,9 +224,9 @@ using OffsetArrays
 	end
 
 	@testset "S_real_to_complex" begin
-		@test S_real_to_complex(0) ≈ adjoint(UniMatCl(0).umat_cl)
-		@test S_real_to_complex(1) ≈ adjoint(UniMatCl(1).umat_cl)
-		@test S_real_to_complex(2) ≈ adjoint(UniMatCl(2).umat_cl)
+		@test S_real_to_complex(0) ≈ SphericalHarmonicsTransforms.r2c_sph_harm_matrix(0)
+		@test S_real_to_complex(1) ≈ SphericalHarmonicsTransforms.r2c_sph_harm_matrix(1)
+		@test S_real_to_complex(2) ≈ SphericalHarmonicsTransforms.r2c_sph_harm_matrix(2)
 	end
 
 	@testset "build_all_real_bases" begin
