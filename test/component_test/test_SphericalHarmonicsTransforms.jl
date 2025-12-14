@@ -24,38 +24,45 @@ using Test
 			@test_throws ArgumentError SphericalHarmonicsTransforms.c2r_sph_harm_matrix(-1)  # Negative l
 		end
 
+		@testset "Matrix Elements (l = 0)" begin
+			U = SphericalHarmonicsTransforms.c2r_sph_harm_matrix(0)
+			# Expected matrix: [1]
+			U_expected = [1.0 + 0.0im]
+			@test isapprox(U, U_expected, atol = 1e-10)
+		end
+
 		@testset "Matrix Elements (l = 1)" begin
-			U1 = SphericalHarmonicsTransforms.c2r_sph_harm_matrix(1)
-			idx(m) = m + 1 + 1  # m + l + 1 for l=1
-
-			# Test m = 0 element
-			@test U1[idx(0), idx(0)] ≈ 1
-
-			# Test m = ±1 elements
-			@test U1[idx(1), idx(1)] ≈ (-1)^1 / sqrt(2)
-			@test U1[idx(1), idx(-1)] ≈ im * (-1)^1 / sqrt(2)
-			@test U1[idx(-1), idx(1)] ≈ 1 / sqrt(2)
-			@test U1[idx(-1), idx(-1)] ≈ -im / sqrt(2)
+			U = SphericalHarmonicsTransforms.c2r_sph_harm_matrix(1)
+			# Expected matrix (rows/cols: m = -1, 0, +1)
+			# Row m = -1: [im/√2, 0, im/√2]
+			# Row m =  0: [0, 1, 0]
+			# Row m = +1: [1/√2, 0, -1/√2]
+			sqrt2_inv = 1 / sqrt(2)
+			U_expected = [
+				0.0 + im * sqrt2_inv  0.0 + 0.0im  0.0 + im * sqrt2_inv;
+				0.0 + 0.0im           1.0 + 0.0im  0.0 + 0.0im;
+				sqrt2_inv              0.0 + 0.0im -sqrt2_inv
+			]
+			@test isapprox(U, U_expected, atol = 1e-10)
 		end
 
 		@testset "Matrix Elements (l = 2)" begin
-			U2 = SphericalHarmonicsTransforms.c2r_sph_harm_matrix(2)
-			idx(m) = m + 2 + 1  # m + l + 1 for l=2
-
-			# Test m = 0 element
-			@test U2[idx(0), idx(0)] ≈ 1
-
-			# Test m = ±1 elements
-			@test U2[idx(1), idx(1)] ≈ (-1)^1 / sqrt(2)
-			@test U2[idx(1), idx(-1)] ≈ im * (-1)^1 / sqrt(2)
-			@test U2[idx(-1), idx(1)] ≈ 1 / sqrt(2)
-			@test U2[idx(-1), idx(-1)] ≈ -im / sqrt(2)
-
-			# Test m = ±2 elements
-			@test U2[idx(2), idx(2)] ≈ (-1)^2 / sqrt(2)
-			@test U2[idx(2), idx(-2)] ≈ im * (-1)^2 / sqrt(2)
-			@test U2[idx(-2), idx(2)] ≈ 1 / sqrt(2)
-			@test U2[idx(-2), idx(-2)] ≈ -im / sqrt(2)
+			U = SphericalHarmonicsTransforms.c2r_sph_harm_matrix(2)
+			# Expected matrix (rows/cols: m = -2, -1, 0, +1, +2)
+			# Row m = -2: [im/√2, 0, 0, 0, -im/√2]
+			# Row m = -1: [0, im/√2, 0, im/√2, 0]
+			# Row m =  0: [0, 0, 1, 0, 0]
+			# Row m = +1: [0, 1/√2, 0, -1/√2, 0]
+			# Row m = +2: [1/√2, 0, 0, 0, 1/√2]
+			sqrt2_inv = 1 / sqrt(2)
+			U_expected = [
+				0.0 + im * sqrt2_inv  0.0 + 0.0im  0.0 + 0.0im  0.0 + 0.0im  0.0 - im * sqrt2_inv;
+				0.0 + 0.0im           0.0 + im * sqrt2_inv  0.0 + 0.0im  0.0 + im * sqrt2_inv  0.0 + 0.0im;
+				0.0 + 0.0im           0.0 + 0.0im  1.0 + 0.0im  0.0 + 0.0im  0.0 + 0.0im;
+				0.0 + 0.0im           sqrt2_inv        0.0 + 0.0im -sqrt2_inv       0.0 + 0.0im;
+				sqrt2_inv             0.0 + 0.0im  0.0 + 0.0im  0.0 + 0.0im  sqrt2_inv
+			]
+			@test isapprox(U, U_expected, atol = 1e-10)
 		end
 	end
 
@@ -80,38 +87,45 @@ using Test
 			@test_throws ArgumentError SphericalHarmonicsTransforms.r2c_sph_harm_matrix(-1)  # Negative l
 		end
 
+		@testset "Matrix Elements (l = 0)" begin
+			U = SphericalHarmonicsTransforms.r2c_sph_harm_matrix(0)
+			# Expected matrix: [1]
+			U_expected = [1.0 + 0.0im]
+			@test isapprox(U, U_expected, atol = 1e-10)
+		end
+
 		@testset "Matrix Elements (l = 1)" begin
-			U1 = SphericalHarmonicsTransforms.r2c_sph_harm_matrix(1)
-			idx(m) = m + 1 + 1  # m + l + 1 for l=1
-
-			# Test m = 0 element
-			@test U1[idx(0), idx(0)] ≈ 1
-
-			# Test m = ±1 elements
-			@test U1[idx(1), idx(1)] ≈ (-1)^1 / sqrt(2)
-			@test U1[idx(1), idx(-1)] ≈ 1 / sqrt(2)
-			@test U1[idx(-1), idx(1)] ≈ -im * (-1)^1 / sqrt(2)
-			@test U1[idx(-1), idx(-1)] ≈ im / sqrt(2)
+			U = SphericalHarmonicsTransforms.r2c_sph_harm_matrix(1)
+			# Expected matrix (rows/cols: m = -1, 0, +1)
+			# Row m = -1: [-im/√2, 0, 1/√2]
+			# Row m =  0: [0, 1, 0]
+			# Row m = +1: [-im/√2, 0, -1/√2]
+			sqrt2_inv = 1 / sqrt(2)
+			U_expected = [
+				-im * sqrt2_inv   0.0 + 0.0im  sqrt2_inv;
+				0.0 + 0.0im       1.0 + 0.0im  0.0 + 0.0im;
+				-im * sqrt2_inv   0.0 + 0.0im -sqrt2_inv
+			]
+			@test isapprox(U, U_expected, atol = 1e-10)
 		end
 
 		@testset "Matrix Elements (l = 2)" begin
-			U2 = SphericalHarmonicsTransforms.r2c_sph_harm_matrix(2)
-			idx(m) = m + 2 + 1  # m + l + 1 for l=2
-
-			# Test m = 0 element
-			@test U2[idx(0), idx(0)] ≈ 1
-
-			# Test m = ±1 elements
-			@test U2[idx(1), idx(1)] ≈ (-1)^1 / sqrt(2)
-			@test U2[idx(1), idx(-1)] ≈ 1 / sqrt(2)
-			@test U2[idx(-1), idx(1)] ≈ -im * (-1)^1 / sqrt(2)
-			@test U2[idx(-1), idx(-1)] ≈ im / sqrt(2)
-
-			# Test m = ±2 elements
-			@test U2[idx(2), idx(2)] ≈ (-1)^2 / sqrt(2)
-			@test U2[idx(2), idx(-2)] ≈ 1 / sqrt(2)
-			@test U2[idx(-2), idx(2)] ≈ -im * (-1)^2 / sqrt(2)
-			@test U2[idx(-2), idx(-2)] ≈ im / sqrt(2)
+			U = SphericalHarmonicsTransforms.r2c_sph_harm_matrix(2)
+			# Expected matrix (rows/cols: m = -2, -1, 0, +1, +2)
+			# Row m = -2: [-im/√2, 0, 0, 0, 1/√2]
+			# Row m = -1: [0, -im/√2, 0, 1/√2, 0]
+			# Row m =  0: [0, 0, 1, 0, 0]
+			# Row m = +1: [0, -im/√2, 0, -1/√2, 0]
+			# Row m = +2: [im/√2, 0, 0, 0, 1/√2]
+			sqrt2_inv = 1 / sqrt(2)
+			U_expected = [
+				-im * sqrt2_inv   0.0 + 0.0im  0.0 + 0.0im  0.0 + 0.0im  sqrt2_inv;
+				0.0 + 0.0im      -im * sqrt2_inv  0.0 + 0.0im  sqrt2_inv        0.0 + 0.0im;
+				0.0 + 0.0im      0.0 + 0.0im  1.0 + 0.0im  0.0 + 0.0im  0.0 + 0.0im;
+				0.0 + 0.0im      -im * sqrt2_inv  0.0 + 0.0im -sqrt2_inv       0.0 + 0.0im;
+				im * sqrt2_inv   0.0 + 0.0im  0.0 + 0.0im  0.0 + 0.0im  sqrt2_inv
+			]
+			@test isapprox(U, U_expected, atol = 1e-10)
 		end
 	end
 
