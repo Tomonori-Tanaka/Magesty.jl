@@ -67,11 +67,6 @@ git-tree-sha1 = "08ba2f48029fa9bee16ac872cb30b2294377cac4"
 uuid = "a6b051d1-fc4b-4ede-b53e-347fa9fb9a74"
 version = "0.1.5"
 
-[[deps.Combinatorics]]
-git-tree-sha1 = "8010b6bb3388abe68d95743dcbea77650bb2eddf"
-uuid = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
-version = "1.0.3"
-
 [[deps.Compat]]
 deps = ["TOML", "UUIDs"]
 git-tree-sha1 = "9d8a54ce4b17aa5bdce0ea5c34bc5e7c340d16ad"
@@ -415,7 +410,7 @@ uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 version = "0.5.16"
 
 [[deps.Magesty]]
-deps = ["ArgParse", "Combinat", "Combinatorics", "DataStructures", "Dates", "EzXML", "JLD2", "LegendrePolynomials", "LinearAlgebra", "MultivariateStats", "OffsetArrays", "Printf", "Random", "Rotations", "SparseArrays", "Spglib", "StaticArrays", "Statistics", "TOML", "WignerD", "WignerSymbols"]
+deps = ["ArgParse", "Combinat", "DataStructures", "Dates", "EzXML", "JLD2", "LegendrePolynomials", "LinearAlgebra", "MultivariateStats", "OffsetArrays", "Printf", "Random", "Rotations", "Spglib", "StaticArrays", "Statistics", "TOML", "WignerD", "WignerSymbols"]
 path = "/Users/tomorin/Packages/Magesty.jl/docs/.."
 uuid = "329bda51-4b33-4ad1-95c9-f0535f133d43"
 version = "0.1.0-DEV"

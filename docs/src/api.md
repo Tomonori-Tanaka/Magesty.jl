@@ -95,15 +95,10 @@ SpinConfigs.read_embset
 AtomicIndices.get_atom_l_list
 ```
 
-### SALCs (Symmetry-Adapted Linear Combinations)
+### Spherical Harmonics Transforms
 ```@docs
-SALCs.SALC
-```
-
-### Unitary Matrix
-```@docs
-UnitaryMatrixCl.UniMatCl
-UnitaryMatrixCl.getindex_m
+SphericalHarmonicsTransforms.c2r_sph_harm_matrix
+SphericalHarmonicsTransforms.r2c_sph_harm_matrix
 ```
 
 ### Atom Cells
