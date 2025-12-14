@@ -1,11 +1,13 @@
 module SphericalHarmonicsTransforms
 
-"""
-    c2r_sph_harm_matrix(l::Integer) -> Matrix{ComplexF64}
+export r2c_sph_harm_matrix, c2r_sph_harm_matrix
 
-Compute the transformation matrix from complex spherical harmonics to real spherical harmonics.
 """
-function c2r_sph_harm_matrix(l::Integer)::Matrix{ComplexF64}
+    r2c_sph_harm_matrix(l::Integer) -> Matrix{ComplexF64}
+
+Compute the transformation matrix from real spherical harmonics to complex spherical harmonics.
+"""
+function r2c_sph_harm_matrix(l::Integer)::Matrix{ComplexF64}
     l ≥ 0 || throw(ArgumentError("Angular momentum l must be non-negative"))
     
     U = zeros(ComplexF64, 2l+1, 2l+1)
@@ -29,11 +31,11 @@ end
 
 
 """
-    r2c_sph_harm_matrix(l::Integer) -> Matrix{ComplexF64}
+    c2r_sph_harm_matrix(l::Integer) -> Matrix{ComplexF64}
 
-Compute the transformation matrix from real spherical harmonics to complex spherical harmonics.
+Compute the transformation matrix from complex spherical harmonics to real spherical harmonics.
 """
-function r2c_sph_harm_matrix(l::Integer)::Matrix{ComplexF64}
+function c2r_sph_harm_matrix(l::Integer)::Matrix{ComplexF64}
     l ≥ 0 || throw(ArgumentError("Angular momentum l must be non-negative"))
     
     U = zeros(ComplexF64, 2l + 1, 2l + 1)
