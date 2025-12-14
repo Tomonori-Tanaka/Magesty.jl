@@ -28,8 +28,8 @@ using LinearAlgebra
 using WignerSymbols  # provides clebschgordan
 using OffsetArrays   # enables direct indexing by magnetic quantum numbers m
 
-include("../types/UnitaryMatrixCl.jl")
-using .UnitaryMatrixCl
+include("SphericalHarmonicsTransforms.jl")
+using .SphericalHarmonicsTransforms
 
 # ---------------- Utilities ----------------
 
@@ -256,12 +256,12 @@ function complex_to_real_tensor(Ccx::AbstractArray{<:Number}, ls::Vector{Int}, L
 
 	# 1) Site-side (bra): apply transformation from complex to real
 	for i in 1:N
-		S = UniMatCl(ls[i]).umat_cl     # real = C * complex
+		S = c2r_sph_harm_matrix(ls[i])  # real = C * complex
 		C = nmode_mul(C, S, i)   # For coefficient tensors, apply C* transformation
 	end
 
 	# 2) Final multiplet (ket): apply transformation from complex to real (same as bra side for coefficients)
-	Sfinal = UniMatCl(Lf).umat_cl
+	Sfinal = c2r_sph_harm_matrix(Lf)
 	C = nmode_mul(C, Sfinal, N+1)
 
 	# 3) Phase alignment (rephase). For integer l, global phase alignment is often sufficient
