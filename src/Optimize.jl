@@ -266,7 +266,7 @@ function design_matrix_energy_element(
 			for m_idx in 1:(2*l+1)
 				# Convert tesseral index to m value: m = m_idx - l - 1
 				m = m_idx - l - 1
-				sh_values[site_idx][m_idx] = @views Sₗₘ(l, m, spin_directions[:, atom])
+				sh_values[site_idx][m_idx] = @views Zₗₘ(l, m, spin_directions[:, atom])
 			end
 		end
 
@@ -414,13 +414,13 @@ function calc_∇ₑu(
 				if site_idx == atom_site_idx
 					# Use gradient for the target atom
 					sh_grad_values[site_idx][m_idx] =
-						@views ∂ᵢSlm(l, m, spin_directions[:, translated_atom])
+						@views ∂ᵢZlm(l, m, spin_directions[:, translated_atom])
 					sh_values[site_idx][m_idx] =
-						@views Sₗₘ(l, m, spin_directions[:, translated_atom])
+						@views Zₗₘ(l, m, spin_directions[:, translated_atom])
 				else
 					# Use regular spherical harmonic for other atoms
 					sh_values[site_idx][m_idx] =
-						@views Sₗₘ(l, m, spin_directions[:, translated_atom])
+						@views Zₗₘ(l, m, spin_directions[:, translated_atom])
 					sh_grad_values[site_idx][m_idx] = [0.0, 0.0, 0.0]  # Not used, but needed for indexing
 				end
 			end

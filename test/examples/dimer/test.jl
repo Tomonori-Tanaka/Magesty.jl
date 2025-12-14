@@ -72,9 +72,9 @@ input["regression"]["datafile"] = joinpath(@__DIR__, "EMBSET.dat")
 	Magesty.write_xml(spincluster, path)
 
 
-	@test Magesty.MySphericalHarmonics.Sₗₘ(1, -1, [0.0, 0.0, 1.0]) ≈ 0.0 atol = 1e-6
-	@test Magesty.MySphericalHarmonics.Sₗₘ(1, 0, [0.0, 0.0, 1.0]) ≈ √(3 / 4π) atol = 1e-6
-	@test Magesty.MySphericalHarmonics.Sₗₘ(1, 1, [0.0, 0.0, 1.0]) ≈ 0.0 atol = 1e-6
+	@test Magesty.MySphericalHarmonics.Zₗₘ(1, -1, [0.0, 0.0, 1.0]) ≈ 0.0 atol = 1e-6
+	@test Magesty.MySphericalHarmonics.Zₗₘ(1, 0, [0.0, 0.0, 1.0]) ≈ √(3 / 4π) atol = 1e-6
+	@test Magesty.MySphericalHarmonics.Zₗₘ(1, 1, [0.0, 0.0, 1.0]) ≈ 0.0 atol = 1e-6
 
 	@test spincluster.optimize.reference_energy ≈ 0.0 atol = 1e-6
 	@test length(spincluster.optimize.SCE) == 1
