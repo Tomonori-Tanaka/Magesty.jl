@@ -4,15 +4,15 @@
 This module provides functions to compute spherical harmonics ( Y_{l,m} ) and related derivatives, following the formalism described in Drautz (Phys. Rev. B 102, 024104, 2020). It includes:
 
 - Normalized associated Legendre polynomials ( bar{P}_{l,m} ).
-- Spherical harmonics ( Y_{l,m} ) and real-valued ( S_{l,m} ).
+- Spherical harmonics ( Y_{l,m} ) and real-valued ( Z_{l,m} ).
 - Partial derivatives with respect to Cartesian coordinates.
 
 # Functions
 - `P̄ₗₘ(l, m, r̂z)`: Compute the normalized associated Legendre polynomial.
 - `Yₗₘ(l, m, uvec)`: Compute the spherical harmonic.
-- `Sₗₘ(l, m, uvec)`: Compute the real-valued spherical harmonic.
-- `∂Sₗₘ_∂r̂x(l, m, uvec)`, `∂Sₗₘ_∂r̂y(l, m, uvec)`, `∂Sₗₘ_∂r̂z(l, m, uvec)`: Partial derivatives of ( S_{l,m} ).
-- `∂ᵢSlm(l, m, uvec)`: Compute the gradient of ( S_{l,m} ) as a vector.
+- `Zₗₘ(l, m, uvec)`: Compute the real-valued spherical harmonic.
+- `∂Zₗₘ_∂r̂x(l, m, uvec)`, `∂Zₗₘ_∂r̂y(l, m, uvec)`, `∂Zₗₘ_∂r̂z(l, m, uvec)`: Partial derivatives of ( Z_{l,m} ).
+- `∂ᵢZlm(l, m, uvec)`: Compute the gradient of ( Z_{l,m} ) as a vector.
 """
 module MySphericalHarmonics
 
@@ -20,7 +20,7 @@ using LegendrePolynomials
 using LinearAlgebra
 
 # abstract type SphericalHarmonicsProduct end
-export Sₗₘ, d_Slm, ∂ᵢSlm
+export Zₗₘ, d_Zlm, ∂ᵢZlm
 
 """
 	P̄ₗₘ(l::Integer, m::Integer, r̂z::Real) -> Float64
@@ -303,9 +303,9 @@ function yₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Complex
 end
 
 """
-	Sₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+	Zₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
-Compute the real spherical harmonic Sₗₘ.
+Compute the real spherical harmonic Zₗₘ.
 
 # Arguments
 - `l`: Angular momentum quantum number (≥ 0)
@@ -313,15 +313,15 @@ Compute the real spherical harmonic Sₗₘ.
 - `uvec`: Normalized 3D direction vector [r̂x, r̂y, r̂z]
 
 # Mathematical Details
-For m = 0:  Sₗₘ = P̄ₗₘ(r̂z)
-For m > 0:  Sₗₘ = (-1)ᵐ√2 P̄ₗₘ(r̂z) ∑ₖ (-1)ᵏ (m,2k) r̂x^(m-2k) r̂y^(2k)
-For m < 0:  Sₗₘ = (-1)ⁿ√2 P̄ₗₘ(r̂z) ∑ₖ (-1)ᵏ (n,2k+1) r̂x^(n-2k-1) r̂y^(2k+1)
+For m = 0:  Zₗₘ = P̄ₗₘ(r̂z)
+For m > 0:  Zₗₘ = (-1)ᵐ√2 P̄ₗₘ(r̂z) ∑ₖ (-1)ᵏ (m,2k) r̂x^(m-2k) r̂y^(2k)
+For m < 0:  Zₗₘ = (-1)ⁿ√2 P̄ₗₘ(r̂z) ∑ₖ (-1)ᵏ (n,2k+1) r̂x^(n-2k-1) r̂y^(2k+1)
 
 where n = |m| and (n,k) denotes binomial coefficient.
 
 Reference: Equation (***) in T. Tanaka and Y. Gohda, ***
 """
-function Sₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
+function Zₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 	validate_lm(l, m)
 	validate_uvec(uvec)
 
@@ -349,17 +349,17 @@ function Sₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 end
 
 """
-	∂Sₗₘ_∂r̂x(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+	∂Zₗₘ_∂r̂x(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
-Compute the partial derivative of real spherical harmonic Sₗₘ with respect to r̂x.
+Compute the partial derivative of real spherical harmonic Zₗₘ with respect to r̂x.
 
 # Mathematical Details
-For m = 0:  ∂Sₗₘ/∂r̂x = 0
-For m > 0:  ∂Sₗₘ/∂r̂x = (-1)ᵐ√2 m P̄ₗₘ ∑ₖ (-1)ᵏ (m-1,2k) r̂x^(m-1-2k) r̂y^(2k)
-For m < 0:  ∂Sₗₘ/∂r̂x = (-1)ⁿ√2 n P̄ₗₘ ∑ₖ (-1)ᵏ (n-1,2k+1) r̂x^(n-2-2k) r̂y^(2k+1)
+For m = 0:  ∂Zₗₘ/∂r̂x = 0
+For m > 0:  ∂Zₗₘ/∂r̂x = (-1)ᵐ√2 m P̄ₗₘ ∑ₖ (-1)ᵏ (m-1,2k) r̂x^(m-1-2k) r̂y^(2k)
+For m < 0:  ∂Zₗₘ/∂r̂x = (-1)ⁿ√2 n P̄ₗₘ ∑ₖ (-1)ᵏ (n-1,2k+1) r̂x^(n-2-2k) r̂y^(2k+1)
 
 where n = |m| and (n,k) denotes binomial coefficient.
-Special case: For m = -1, ∂Sₗₘ/∂r̂x = 0
+Special case: For m = -1, ∂Zₗₘ/∂r̂x = 0
 
 # Arguments
 - `l`: Angular momentum quantum number (≥ 0)
@@ -367,11 +367,11 @@ Special case: For m = -1, ∂Sₗₘ/∂r̂x = 0
 - `uvec`: Normalized 3D direction vector [r̂x, r̂y, r̂z]
 
 # Returns
-- Value of ∂Sₗₘ/∂r̂x
+- Value of ∂Zₗₘ/∂r̂x
 
 Reference: Equation (***) in T. Tanaka and Y. Gohda, ***
 """
-function ∂Sₗₘ_∂r̂x(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
+function ∂Zₗₘ_∂r̂x(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 	validate_lm(l, m)
 	validate_uvec(uvec)
 
@@ -402,14 +402,14 @@ function ∂Sₗₘ_∂r̂x(l::Integer, m::Integer, uvec::AbstractVector{<:Real}
 end
 
 """
-	∂Sₗₘ_∂r̂y(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+	∂Zₗₘ_∂r̂y(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
-Compute the partial derivative of real spherical harmonic Sₗₘ with respect to r̂y.
+Compute the partial derivative of real spherical harmonic Zₗₘ with respect to r̂y.
 
 # Mathematical Details
-For m = 0:  ∂Sₗₘ/∂r̂y = 0
-For m > 0:  ∂Sₗₘ/∂r̂y = -∂Sₗₘ/∂r̂x(l, -m)
-For m < 0:  ∂Sₗₘ/∂r̂y = +∂Sₗₘ/∂r̂x(l, |m|)
+For m = 0:  ∂Zₗₘ/∂r̂y = 0
+For m > 0:  ∂Zₗₘ/∂r̂y = -∂Zₗₘ/∂r̂x(l, -m)
+For m < 0:  ∂Zₗₘ/∂r̂y = +∂Zₗₘ/∂r̂x(l, |m|)
 
 # Arguments
 - `l`: Angular momentum quantum number (≥ 0)
@@ -417,13 +417,13 @@ For m < 0:  ∂Sₗₘ/∂r̂y = +∂Sₗₘ/∂r̂x(l, |m|)
 - `uvec`: Normalized 3D direction vector [r̂x, r̂y, r̂z]
 
 # Returns
-- Value of ∂Sₗₘ/∂r̂y
+- Value of ∂Zₗₘ/∂r̂y
 
 # Notes
 The y-derivative is related to the x-derivative through sign changes and 
 magnetic quantum number inversion, reducing computational complexity.
 """
-function ∂Sₗₘ_∂r̂y(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
+function ∂Zₗₘ_∂r̂y(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 	validate_lm(l, m)
 	validate_uvec(uvec)
 
@@ -432,21 +432,21 @@ function ∂Sₗₘ_∂r̂y(l::Integer, m::Integer, uvec::AbstractVector{<:Real}
 
 	# Use the relationship between x and y derivatives
 	if m > 0
-		return -∂Sₗₘ_∂r̂x(l, -m, uvec)
+		return -∂Zₗₘ_∂r̂x(l, -m, uvec)
 	else
-		return ∂Sₗₘ_∂r̂x(l, abs(m), uvec)
+		return ∂Zₗₘ_∂r̂x(l, abs(m), uvec)
 	end
 end
 
 """
-	∂Sₗₘ_∂r̂z(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+	∂Zₗₘ_∂r̂z(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
-Compute the partial derivative of real spherical harmonic Sₗₘ with respect to r̂z.
+Compute the partial derivative of real spherical harmonic Zₗₘ with respect to r̂z.
 
 # Mathematical Details
-For m = 0:  ∂Sₗₘ/∂r̂z = dP̄ₗₘ/dr̂z
-For m > 0:  ∂Sₗₘ/∂r̂z = (-1)ᵐ√2 (dP̄ₗₘ/dr̂z) ∑ₖ (-1)ᵏ (m,2k) r̂x^(m-2k) r̂y^(2k)
-For m < 0:  ∂Sₗₘ/∂r̂z = (-1)ⁿ√2 (dP̄ₗₘ/dr̂z) ∑ₖ (-1)ᵏ (n,2k+1) r̂x^(n-2k-1) r̂y^(2k+1)
+For m = 0:  ∂Zₗₘ/∂r̂z = dP̄ₗₘ/dr̂z
+For m > 0:  ∂Zₗₘ/∂r̂z = (-1)ᵐ√2 (dP̄ₗₘ/dr̂z) ∑ₖ (-1)ᵏ (m,2k) r̂x^(m-2k) r̂y^(2k)
+For m < 0:  ∂Zₗₘ/∂r̂z = (-1)ⁿ√2 (dP̄ₗₘ/dr̂z) ∑ₖ (-1)ᵏ (n,2k+1) r̂x^(n-2k-1) r̂y^(2k+1)
 
 where n = |m| and (n,k) denotes binomial coefficient.
 
@@ -456,9 +456,9 @@ where n = |m| and (n,k) denotes binomial coefficient.
 - `uvec`: Normalized 3D direction vector [r̂x, r̂y, r̂z]
 
 # Returns
-- Value of ∂Sₗₘ/∂r̂z
+- Value of ∂Zₗₘ/∂r̂z
 """
-function ∂Sₗₘ_∂r̂z(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
+function ∂Zₗₘ_∂r̂z(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 	validate_lm(l, m)
 	validate_uvec(uvec)
 
@@ -484,44 +484,44 @@ function ∂Sₗₘ_∂r̂z(l::Integer, m::Integer, uvec::AbstractVector{<:Real}
 	end
 end
 
-# ss imply "small s"
-function ssₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
+# zz imply "small z"
+function zzₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 	validate_lm(l, m)
 	validate_uvec(uvec)
 
-	return uvec[1] * ∂Sₗₘ_∂r̂x(l, m, uvec) +
-		   uvec[2] * ∂Sₗₘ_∂r̂y(l, m, uvec) +
-		   uvec[3] * ∂Sₗₘ_∂r̂z(l, m, uvec)
+	return uvec[1] * ∂Zₗₘ_∂r̂x(l, m, uvec) +
+		   uvec[2] * ∂Zₗₘ_∂r̂y(l, m, uvec) +
+		   uvec[3] * ∂Zₗₘ_∂r̂z(l, m, uvec)
 end
 
-function ∂Sₗₘ_∂x(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
+function ∂Zₗₘ_∂x(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 	validate_lm(l, m)
 	validate_uvec(uvec)
 
-	return ∂Sₗₘ_∂r̂x(l, m, uvec) - uvec[1] * ssₗₘ(l, m, uvec)
+	return ∂Zₗₘ_∂r̂x(l, m, uvec) - uvec[1] * zzₗₘ(l, m, uvec)
 end
 
-function ∂Sₗₘ_∂y(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
+function ∂Zₗₘ_∂y(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 	validate_lm(l, m)
 	validate_uvec(uvec)
 
-	return ∂Sₗₘ_∂r̂y(l, m, uvec) - uvec[2] * ssₗₘ(l, m, uvec)
+	return ∂Zₗₘ_∂r̂y(l, m, uvec) - uvec[2] * zzₗₘ(l, m, uvec)
 end
 
-function ∂Sₗₘ_∂z(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
+function ∂Zₗₘ_∂z(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 	validate_lm(l, m)
 	validate_uvec(uvec)
 
-	return ∂Sₗₘ_∂r̂z(l, m, uvec) - uvec[3] * ssₗₘ(l, m, uvec)
+	return ∂Zₗₘ_∂r̂z(l, m, uvec) - uvec[3] * zzₗₘ(l, m, uvec)
 end
 
-d_Slm = [∂Sₗₘ_∂x, ∂Sₗₘ_∂y, ∂Sₗₘ_∂z]
+d_Zlm = [∂Zₗₘ_∂x, ∂Zₗₘ_∂y, ∂Zₗₘ_∂z]
 
-function ∂ᵢSlm(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Vector{Float64}
+function ∂ᵢZlm(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Vector{Float64}
 	validate_lm(l, m)
 	validate_uvec(uvec)
 
-	return [∂Sₗₘ_∂x(l, m, uvec), ∂Sₗₘ_∂y(l, m, uvec), ∂Sₗₘ_∂z(l, m, uvec)]
+	return [∂Zₗₘ_∂x(l, m, uvec), ∂Zₗₘ_∂y(l, m, uvec), ∂Zₗₘ_∂z(l, m, uvec)]
 end
 
 """

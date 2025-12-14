@@ -116,9 +116,9 @@ ConfigParser.Config4Optimize
 
 ### Spherical Harmonics
 ```@docs
-MySphericalHarmonics.Sₗₘ
-MySphericalHarmonics.d_Slm
-MySphericalHarmonics.∂ᵢSlm
+MySphericalHarmonics.Zₗₘ
+MySphericalHarmonics.d_Zlm
+MySphericalHarmonics.∂ᵢZlm
 ```
 
 ### Rotation Matrices
