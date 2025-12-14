@@ -11,11 +11,9 @@ using DataStructures
 using LinearAlgebra
 using OffsetArrays
 using Printf
-using StaticArrays
 
 using ..CountingContainer
 using ..SortedContainer
-using ..AtomCells
 using ..AtomicIndices
 using ..ConfigParser
 using ..Structures
