@@ -74,12 +74,14 @@ The constructor performs the following steps:
 struct BasisSet
 	coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis}
 	salc_list::Vector{Vector{Basis.CoupledBasis_with_coefficient}}
+	angular_momentum_couplings::Vector{Basis.AngularMomentumCouplingResult}
 
 	function BasisSet(
 		coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis},
 		salc_list::Vector{Vector{Basis.CoupledBasis_with_coefficient}},
+		angular_momentum_couplings::Vector{Basis.AngularMomentumCouplingResult} = Basis.AngularMomentumCouplingResult[],
 	)
-		return new(coupled_basislist, salc_list)
+		return new(coupled_basislist, salc_list, angular_momentum_couplings)
 	end
 end
 
@@ -223,7 +225,41 @@ function BasisSet(
 			push!(result_basislist, cb, count)
 		end
 	end
-	return BasisSet(result_basislist, salc_list)
+
+	# Collect angular momentum coupling results from cache
+	angular_momentum_couplings = Vector{Basis.AngularMomentumCouplingResult}()
+	# Collect unique ls combinations from coupled_basislist (preserve original order)
+	ls_combinations_set = Set{Vector{Int}}()
+	for cb in result_basislist
+		push!(ls_combinations_set, cb.ls)
+	end
+
+	# Extract angular momentum coupling results from cache
+	for ls_vec in ls_combinations_set
+		# Check cache for this ls combination (try both isotropy options)
+		# Cache key uses original ls order (not sorted)
+		for isotropy_flag in [false, true]
+			cache_key = (ls_vec, :none, isotropy_flag)
+			if haskey(Basis._angular_momentum_cache, cache_key)
+				bases_by_L, paths_by_L = Basis._angular_momentum_cache[cache_key]
+				for Lf in sort(collect(keys(bases_by_L)))
+					tensors = bases_by_L[Lf]
+					Lseqs = paths_by_L[Lf]
+					for (tensor, Lseq) in zip(tensors, Lseqs)
+						push!(angular_momentum_couplings, Basis.AngularMomentumCouplingResult(
+							ls_vec,  # Use original ls order
+							Lseq,
+							Lf,
+							copy(tensor),  # Make a copy to avoid reference issues
+						))
+					end
+				end
+				break  # Found in cache, no need to check other isotropy flag
+			end
+		end
+	end
+
+	return BasisSet(result_basislist, salc_list, angular_momentum_couplings)
 end
 
 function BasisSet(

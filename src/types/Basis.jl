@@ -6,6 +6,7 @@ using DataStructures
 
 export CoupledBasis,
 	CoupledBasis_with_coefficient,
+	AngularMomentumCouplingResult,
 	reorder_atoms,
 	tesseral_coupled_bases_from_tesseral_bases
 
@@ -198,6 +199,24 @@ function _find_matching_permutation(
 	return backtrack(1) ? perm : nothing
 end
 
+
+"""
+	AngularMomentumCouplingResult
+
+Stores angular momentum coupling results without atom index information.
+
+# Fields
+- `ls::Vector{Int}`: Angular momenta for each site (e.g., [1, 2])
+- `Lseq::Vector{Int}`: Intermediate L values sequence (e.g., [3])
+- `Lf::Int`: Final total angular momentum
+- `coeff_tensor::Array{Float64}`: Coefficient tensor
+"""
+struct AngularMomentumCouplingResult
+	ls::Vector{Int}
+	Lseq::Vector{Int}
+	Lf::Int
+	coeff_tensor::Array{Float64}
+end
 
 # Cache for angular momentum coupling results
 # Key: (ls::Vector{Int}, normalize::Symbol, isotropy::Bool)
