@@ -77,6 +77,9 @@ using .EnergyTorque
 export System, SpinCluster, VERSION
 export fit_sce_model, AbstractEstimator, OLS, ElasticNet
 export build_sce_basis
+
+# Re-export read_embset from SpinConfigs for user convenience
+const read_embset = SpinConfigs.read_embset
 export read_embset
 
 """

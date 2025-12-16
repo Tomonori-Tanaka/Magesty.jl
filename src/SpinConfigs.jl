@@ -15,7 +15,7 @@ using Printf
 using LinearAlgebra
 import Base: show
 
-export SpinConfig, read_embset
+export SpinConfig, detect_num_atoms
 
 """
 	calc_local_magfield_vertical(spin_directions, local_magfield) -> Matrix{Float64}
@@ -199,13 +199,12 @@ function show(io::IO, config::SpinConfig)
 end
 
 """
-	read_embset(filepath::AbstractString, num_atoms::Integer) -> Vector{SpinConfig}
+	read_embset(filepath::AbstractString) -> Vector{SpinConfig}
 
 Read spin configurations from an EMBSET file.
 
 # Arguments
 - `filepath::AbstractString`: Path to the EMBSET file
-- `num_atoms::Integer`: Number of atoms in the structure
 
 # Returns
 - `Vector{SpinConfig}`: Array of spin configurations
@@ -214,10 +213,13 @@ Read spin configurations from an EMBSET file.
 - `ErrorException` if the file format is invalid
 - `ArgumentError` if the file does not exist
 """
-function read_embset(filepath::AbstractString, num_atoms::Integer)::Vector{SpinConfig}
+function read_embset(filepath::AbstractString)::Vector{SpinConfig}
 	if !isfile(filepath)
 		throw(ArgumentError("File does not exist: $filepath"))
 	end
+
+	# Detect number of atoms from file
+	num_atoms = detect_num_atoms(filepath)
 
 	# Read and filter lines
 	filtered_lines = String[]
@@ -249,6 +251,67 @@ function read_embset(filepath::AbstractString, num_atoms::Integer)::Vector{SpinC
 	end
 
 	return configs
+end
+
+"""
+	detect_num_atoms(filepath::AbstractString) -> Integer
+
+Detect the number of atoms from an EMBSET file by counting the number of atom data lines in the first spin configuration.
+
+# Arguments
+- `filepath::AbstractString`: Path to the EMBSET file
+
+# Returns
+- `Integer`: Number of atoms detected from the file
+
+# Throws
+- `ErrorException` if the file format is invalid
+"""
+function detect_num_atoms(filepath::AbstractString)::Integer
+	open(filepath, "r") do file
+		# Find first comment line (start of first config)
+		found_first_comment = false
+		skipped_energy_line = false
+		atom_count = 0
+		
+		for line in eachline(file)
+			stripped_line = strip(line)
+			
+			# Skip empty lines
+			if isempty(stripped_line)
+				continue
+			end
+			
+			# Find first comment line
+			if startswith(stripped_line, "#")
+				if found_first_comment && atom_count > 0
+					# Reached next config, stop counting
+					break
+				end
+				found_first_comment = true
+				skipped_energy_line = false
+				atom_count = 0
+				continue
+			end
+			
+			# After finding first comment, skip the energy line (first non-comment line)
+			if found_first_comment && !skipped_energy_line
+				skipped_energy_line = true
+				continue
+			end
+			
+			# Count atom data lines until next comment line
+			if found_first_comment && skipped_energy_line
+				atom_count += 1
+			end
+		end
+		
+		if atom_count == 0
+			throw(ErrorException("Could not detect number of atoms from EMBSET file: no atom data found"))
+		end
+		
+		return atom_count
+	end
 end
 
 """
