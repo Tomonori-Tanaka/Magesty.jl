@@ -76,7 +76,7 @@ using .EnergyTorque
 
 export System, SpinCluster, VERSION
 export fit_sce_model, AbstractEstimator, OLS, ElasticNet
-export build_sce_basis
+export build_sce_basis, build_sce_basis_from_xml
 
 # Re-export read_embset from SpinConfigs for user convenience
 const read_embset = SpinConfigs.read_embset
@@ -174,6 +174,57 @@ function build_sce_basis(input_dict::Dict{<:AbstractString, <:Any}; verbosity::B
 	symmetry::Symmetry = Symmetry(structure, config, verbosity = verbosity)
 	cluster::Cluster = Cluster(structure, symmetry, config, verbosity = verbosity)
 	basisset::BasisSet = BasisSet(structure, symmetry, cluster, config, verbosity = verbosity)
+	return System(structure, symmetry, cluster, basisset)
+end
+
+"""
+	build_sce_basis_from_xml(input_dict::Dict{<:AbstractString, <:Any}, xml_file::AbstractString; verbosity::Bool = true)::System
+
+Build System from input.toml dictionary and XML file. This function constructs structure, symmetry, and cluster
+from the input dictionary, but loads the basis set from the XML file to avoid expensive SALC computation.
+
+# Arguments
+- `input_dict::Dict{<:AbstractString, <:Any}`: Dictionary containing input parameters (parsed from input.toml)
+- `xml_file::AbstractString`: Path to XML file containing basis set information
+- `verbosity::Bool=true`: Whether to print detailed information during initialization
+
+# Returns
+- `System`: A new `System` instance with basis set loaded from XML file
+
+# Throws
+- `ErrorException` if required parameters are missing or XML file format is invalid
+
+# Examples
+```julia
+using TOML
+input_dict = TOML.parsefile("input.toml")
+system = build_sce_basis_from_xml(input_dict, "scecoeffs.xml")
+```
+"""
+function build_sce_basis_from_xml(
+	input_dict::Dict{<:AbstractString, <:Any},
+	xml_file::AbstractString;
+	verbosity::Bool = true,
+)::System
+	if verbosity
+		print_header()
+	end
+	
+	config::Config4System = Config4System(input_dict)
+	structure::Structure = Structure(config, verbosity = verbosity)
+	symmetry::Symmetry = Symmetry(structure, config, verbosity = verbosity)
+	cluster::Cluster = Cluster(structure, symmetry, config, verbosity = verbosity)
+	
+	# Load basis set from XML file instead of computing it
+	if verbosity
+		println("Loading basis set from XML file: $xml_file")
+	end
+	basisset::BasisSet = XMLIO.read_basisset_from_xml(xml_file)
+	
+	if verbosity
+		println("Successfully loaded basis set from XML file")
+	end
+	
 	return System(structure, symmetry, cluster, basisset)
 end
 

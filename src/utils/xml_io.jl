@@ -1,13 +1,15 @@
 module XMLIO
 
 using ..Version
-using ..AtomicIndices
 using ..Structures
 using ..Symmetries
 using ..BasisSets
 using ..Optimize
 using EzXML
 using Printf
+using LinearAlgebra
+using ..Basis
+using ..SortedContainer
 
 """
 	write_xml(structure::Structure, basis_set::BasisSet, filename::String)
@@ -165,6 +167,162 @@ function write_xml(structure::Structure,
 	open(filename, "w") do f
 		EzXML.prettyprint(f, doc)
 	end
+end
+
+"""
+	read_basisset_from_xml(xml_file::AbstractString) -> BasisSet
+
+Read BasisSet from XML file. This reconstructs the basis set from saved SALC information,
+avoiding the expensive SALC computation.
+
+# Arguments
+- `xml_file::AbstractString`: Path to XML file containing basis set information
+
+# Returns
+- `BasisSet`: Reconstructed basis set from XML file
+
+# Throws
+- `ErrorException` if the XML file format is invalid or missing required information
+"""
+function read_basisset_from_xml(
+	xml_file::AbstractString,
+)::BasisSet
+	doc = readxml(xml_file)
+	system_node = findfirst("//System", doc)
+	if isnothing(system_node)
+		throw(ArgumentError("<System> node not found in XML file: $xml_file"))
+	end
+	
+	# Read angular momentum couplings (for coeff_tensor reconstruction)
+	amc_dict = Dict{Tuple{Vector{Int}, Vector{Int}, Int}, Basis.AngularMomentumCouplingResult}()
+	amc_node = findfirst("AngularMomentumCouplings", system_node)
+	if !isnothing(amc_node)
+		for coupling_node in findall("Coupling", amc_node)
+			ls_str = coupling_node["ls"]
+			Lseq_str = coupling_node["Lseq"]
+			Lf = parse(Int, coupling_node["Lf"])
+			
+			ls = parse.(Int, split(ls_str))
+			Lseq = isempty(Lseq_str) ? Int[] : parse.(Int, split(Lseq_str))
+			
+			# Read tensor shape
+			tensor_shape_str = coupling_node["tensor_shape"]
+			Mf_size = parse(Int, coupling_node["Mf_size"])
+			site_dims = parse.(Int, split(tensor_shape_str))
+			
+			# Reconstruct coeff_tensor
+			full_shape = vcat(site_dims, [Mf_size])
+			coeff_tensor = zeros(Float64, full_shape...)
+			
+			for mf_node in findall("Mf", coupling_node)
+				mf_idx = parse(Int, mf_node["index"])
+				tensor_str_node = findfirst("coeff_tensor", mf_node)
+				if isnothing(tensor_str_node)
+					error("coeff_tensor node not found for Mf index $mf_idx")
+				end
+				tensor_str = nodecontent(tensor_str_node)
+				tensor_values = parse.(Float64, split(tensor_str))
+				
+				# Reshape to match site dimensions
+				tensor_slice = reshape(tensor_values, site_dims...)
+				
+				# Set the slice in coeff_tensor using proper indexing
+				# Create indices: [:, :, ..., :, mf_idx] for N site dims + 1 Mf dim
+				indices = Vector{Any}([Colon() for _ in 1:length(site_dims)])
+				push!(indices, mf_idx)
+				coeff_tensor[indices...] = tensor_slice
+			end
+			
+			amc = Basis.AngularMomentumCouplingResult(ls, Lseq, Lf, coeff_tensor)
+			amc_dict[(ls, Lseq, Lf)] = amc
+		end
+	end
+	
+	# Read SCE basis set
+	basis_set_node = findfirst("SCEBasisSet", system_node)
+	if isnothing(basis_set_node)
+		throw(ArgumentError("<SCEBasisSet> node not found in XML file: $xml_file"))
+	end
+	
+	salc_list = Vector{Vector{Basis.CoupledBasis_with_coefficient}}()
+	
+	for salc_node in findall("SALC", basis_set_node)
+		key_group = Vector{Basis.CoupledBasis_with_coefficient}()
+		
+		for basis_node in findall("basis", salc_node)
+			# Parse attributes
+			atoms = parse.(Int, split(basis_node["atoms"]))
+			ls = parse.(Int, split(basis_node["ls"]))
+			Lseq_str = basis_node["Lseq"]
+			Lseq = isempty(Lseq_str) ? Int[] : parse.(Int, split(Lseq_str))
+			multiplicity = parse(Int, basis_node["multiplicity"])
+			
+			# Get Lf from SALC node
+			Lf = parse(Int, salc_node["Lf"])
+			
+			# Parse coefficient vector
+			coeff_str = nodecontent(basis_node)
+			coefficient = parse.(Float64, split(coeff_str))
+			
+			# Find corresponding coeff_tensor from angular momentum couplings
+			key = (ls, Lseq, Lf)
+			if haskey(amc_dict, key)
+				# Make a copy of coeff_tensor to avoid sharing references
+				coeff_tensor = copy(amc_dict[key].coeff_tensor)
+			else
+				# If coeff_tensor not found, try to reconstruct from tesseral_coupled_bases_from_tesseral_bases
+				# This is a fallback - ideally all coeff_tensors should be in XML
+				coupled_basis_list = Basis.tesseral_coupled_bases_from_tesseral_bases(ls, atoms)
+				# Find matching CoupledBasis
+				coeff_tensor = nothing
+				for cb in coupled_basis_list
+					if cb.Lf == Lf && cb.Lseq == Lseq
+						coeff_tensor = copy(cb.coeff_tensor)
+						break
+					end
+				end
+				if isnothing(coeff_tensor)
+					error("Could not find coeff_tensor for ls=$ls, Lseq=$Lseq, Lf=$Lf")
+				end
+			end
+			
+			# Create CoupledBasis_with_coefficient
+			cbc = Basis.CoupledBasis_with_coefficient(
+				ls,
+				Lf,
+				Lseq,
+				atoms,
+				coeff_tensor,
+				coefficient,
+				multiplicity,
+			)
+			push!(key_group, cbc)
+		end
+		
+		if !isempty(key_group)
+			push!(salc_list, key_group)
+		end
+	end
+	
+	# Reconstruct coupled_basislist from salc_list
+	coupled_basislist = SortedCountingUniqueVector{Basis.CoupledBasis}()
+	for key_group in salc_list
+		for cbc in key_group
+			cb = Basis.CoupledBasis(
+				cbc.ls,
+				cbc.Lf,
+				cbc.Lseq,
+				cbc.atoms,
+				cbc.coeff_tensor,
+			)
+			push!(coupled_basislist, cb)
+		end
+	end
+	
+	# Reconstruct angular_momentum_couplings
+	angular_momentum_couplings = collect(values(amc_dict))
+	
+	return BasisSet(coupled_basislist, salc_list, angular_momentum_couplings)
 end
 
 
