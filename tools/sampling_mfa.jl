@@ -289,8 +289,6 @@ function sampling_mfa(
 			""")
 	end
 
-	println("input magmom: ", magmom)
-
 	num_atoms = length(magmom) ÷ 3
 	# Read the spin configuration
 	spin_matrix = zeros(3, num_atoms)
@@ -412,10 +410,11 @@ function main()
 		)
 	end
 
-	print_info(args)
+	total_files = length(collect(sampling_list)) * args["num_samples"]
+	print_info(args, total_files)
 end
 
-function print_info(args)
+function print_info(args, total_files::Int)
 	@printf("Input file: %s\n", args["input"])
 	@printf("Variable: %s\n", args["variable"])
 	@printf(
@@ -426,6 +425,7 @@ function print_info(args)
 	)
 	@printf("Number of samples per step: %d\n", args["num_samples"])
 	@printf("Randomize quantization axis: %s\n", args["randomize"] ? "Yes" : "No")
+	@printf("Total number of INCAR files created: %d\n", total_files)
 end
 
 # Execute the main function
