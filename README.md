@@ -59,8 +59,40 @@ See `test/examples` directory for complete examples.
 
 ## License
 
-Mozilla Public License Version 2.0
+This project is licensed under the MIT License.
 
-## Reference
+## Author
 
-R. Drautz and M. Fähnle, "Spin-cluster expansion: Parametrization of the general adiabatic magnetic energy surface with ab initio accuracy", Phys. Rev. B 69, 104404 (2004). DOI: [10.1103/PhysRevB.69.104404](https://doi.org/10.1103/PhysRevB.69.104404)
+- Tomonori Tanaka ([@TomonoriTanaka](https://github.com/Tomonori-Tanaka)) ([@ORCID](https://orcid.org/0000-0001-7306-6770))
+
+## Citation
+
+If you use this software in your research, please cite:
+
+[Citation information to be added]
+
+## Contributing
+
+We welcome contributions! Please feel free to:
+- Report bugs and request features through [Issues](https://github.com/Tomonori-Tanaka/Magesty.jl/issues)
+- Submit pull requests
+- Improve documentation
+- Share usage examples
+
+## Documentation
+
+Detailed documentation is available at `docs/build/index.html`.
+
+## Support
+
+For questions and support:
+1. Check the documentation
+2. Search existing issues
+3. Open a new issue if needed
+
+## References
+
+1. R. Drautz and M. Fähnle, "Spin-cluster expansion: Parametrization of the general adiabatic magnetic energy surface with ab initio accuracy", Phys. Rev. B 69, 104404 (2004). DOI: [10.1103/PhysRevB.69.104404](https://doi.org/10.1103/PhysRevB.69.104404)
+
+
+
