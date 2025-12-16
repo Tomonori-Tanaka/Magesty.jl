@@ -69,8 +69,8 @@ using .Clusters
 using .BasisSets
 using .Optimize
 
-include("utils/Write.jl")
-using .Write
+include("utils/xml_io.jl")
+using .XMLIO
 include("utils/EnergyTorque.jl")
 using .EnergyTorque
 
@@ -473,7 +473,7 @@ function write_xml(
 	filename::AbstractString = "jphi.xml";
 	write_jphi::Bool = true,
 )
-	Write.write_xml(
+	XMLIO.write_xml(
 		structure,
 		symmetry,
 		basis_set,
