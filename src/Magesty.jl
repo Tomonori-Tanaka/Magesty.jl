@@ -77,6 +77,7 @@ using .EnergyTorque
 export System, SpinCluster, VERSION
 export fit_sce_model, AbstractEstimator, OLS, ElasticNet
 export build_sce_basis, build_sce_basis_from_xml
+export write_xml
 
 # Re-export read_embset from SpinConfigs for user convenience
 const read_embset = SpinConfigs.read_embset
@@ -518,6 +519,29 @@ function write_xml(
 		filename;
 		write_jphi = write_jphi,
 	)
+end
+
+"""
+	write_xml(system::System, filename::AbstractString="jphi.xml")
+
+Write System information to an XML file. This saves the structure, symmetry, and basis set
+information without optimization results (JPhi).
+
+# Arguments
+- `system::System`: The System to write
+- `filename::AbstractString`: Output XML file name (default: "jphi.xml")
+
+# Examples
+```julia
+system = build_sce_basis(input_dict)
+write_xml(system, "system.xml")
+```
+"""
+function write_xml(
+	system::System,
+	filename::AbstractString = "jphi.xml",
+)
+	XMLIO.write_xml(system.structure, system.symmetry, system.basisset, filename)
 end
 function write_xml(
 	structure::Structure,
