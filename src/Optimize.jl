@@ -119,7 +119,7 @@ struct Optimizer
 		if verbosity
 			println("Fitting SCE coefficients...\n")
 		end
-		j0, jphi = fit_sce_model(
+		j0, jphi = _fit_sce_model_internal(
 			design_matrix_energy,
 			design_matrix_torque,
 			observed_energy_list,
@@ -163,6 +163,29 @@ struct Optimizer
 			))
 		end
 
+		return new(
+			spinconfig_list,
+			j0,
+			jphi,
+			metrics,
+			predicted_energy_list,
+			predicted_torque_list,
+			design_matrix_energy,
+			design_matrix_torque,
+		)
+	end
+
+	# Internal constructor for creating Optimizer from fitted coefficients
+	function Optimizer(
+		spinconfig_list::AbstractVector{SpinConfig},
+		j0::Float64,
+		jphi::Vector{Float64},
+		metrics::Dict{Symbol, Any},
+		predicted_energy_list::Vector{Float64},
+		predicted_torque_list::Vector{Matrix{Float64}},
+		design_matrix_energy::Matrix{Float64},
+		design_matrix_torque::Matrix{Float64},
+	)
 		return new(
 			spinconfig_list,
 			j0,
@@ -501,46 +524,160 @@ function calc_∇ₑu(
 end
 
 """
-	fit_sce_model(design_matrix_energy, design_matrix_torque, observed_energy_list, observed_torque_list, estimator, weight)
+	fit_sce_model(system, spinconfig_list, estimator, weight)
 
 Fit SCE coefficients using the specified estimator.
 
 # Description
+- Builds design matrices internally from the System and spin configurations.
 - Dispatches to the appropriate fitting method based on the estimator type.
 - Supports OLS and ElasticNet estimators.
 - User-facing function for fitting SCE coefficients.
+- Returns an `Optimizer` instance.
 
 # Arguments
-- `design_matrix_energy`: Energy design matrix (bias column included)
-- `design_matrix_torque`: Torque design matrix (no bias column)
-- `observed_energy_list`: Observed energies
-- `observed_torque_list`: Observed torques as 3×num_atoms matrices per configuration
+- `system`: System instance containing structure, symmetry, cluster, and basis set
+- `spinconfig_list`: Vector of spin configurations
 - `estimator::AbstractEstimator`: Estimator to use (default: OLS())
 - `weight::Real`: Trade-off between energy (1-weight) and torque (weight). Default: 0.5
+- `verbosity::Bool`: Whether to print detailed information (default: false)
 
 # Returns
-- `(j0::Float64, jphi::Vector{Float64})`: Bias and coefficients
+- `Optimizer`: Optimizer instance containing fitted coefficients and metrics
 
 # Examples
 ```julia
 # Using OLS with default weight (0.5)
-j0, jphi = fit_sce_model(design_matrix_energy, design_matrix_torque, 
-                          observed_energy_list, observed_torque_list)
+optimizer = fit_sce_model(system, spinconfig_list)
 
 # Using ElasticNet with custom regularization and weight
 estimator = ElasticNet(lambda=0.1)
-j0, jphi = fit_sce_model(design_matrix_energy, design_matrix_torque,
-                          observed_energy_list, observed_torque_list,
-                          estimator, weight=0.7)
+optimizer = fit_sce_model(system, spinconfig_list, estimator, weight=0.7)
 ```
 """
 function fit_sce_model(
+	system,
+	spinconfig_list::AbstractVector{SpinConfig},
+	estimator::AbstractEstimator = OLS(),
+	weight::Real = 0.5,
+	;
+	verbosity::Bool = false,
+)
+	# Extract components from System
+	structure = system.structure
+	symmetry = system.symmetry
+	basisset = system.basisset
+
+	# Start timing
+	start_time = time_ns()
+
+	if verbosity
+		println("""
+
+		FITTING SCE COEFFICIENTS
+		========================
+
+		""")
+		println("Constructing design matrix for energy...")
+	end
+
+	# Construct design matrices
+	design_matrix_energy = build_design_matrix_energy(
+		basisset.salc_list,
+		spinconfig_list,
+		symmetry,
+	)
+
+	if verbosity
+		println("Constructing design matrix for torque...")
+	end
+
+	design_matrix_torque = build_design_matrix_torque(
+		basisset.salc_list,
+		spinconfig_list,
+		structure.supercell.num_atoms,
+		symmetry,
+	)
+
+	# Construct observed data
+	if verbosity
+		println("Constructing observed data for energy and torque...")
+	end
+	observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_list]
+	observed_torque_list = [spinconfig.torques for spinconfig in spinconfig_list]
+
+	# Fit coefficients
+	if verbosity
+		println("Fitting SCE coefficients...\n")
+	end
+	j0, jphi = _fit_sce_model_internal(
+		design_matrix_energy,
+		design_matrix_torque,
+		observed_energy_list,
+		observed_torque_list,
+		estimator,
+		weight,
+	)
+
+	# Calculate predicted values
+	predicted_energy_list = design_matrix_energy[:, 2:end] * jphi .+ j0
+	predicted_torque_flattened_list::Vector{Float64} = design_matrix_torque * jphi
+
+	# Reshape predicted_torque_flattened_list to a vector of matrices
+	block_size = 3 * structure.supercell.num_atoms
+	num_configs = length(spinconfig_list)
+	predicted_torque_list::Vector{Matrix{Float64}} = [
+		reshape(
+			predicted_torque_flattened_list[((i-1)*block_size+1):(i*block_size)],
+			3,
+			structure.supercell.num_atoms,
+		)
+		for i in 1:num_configs
+	]
+
+	# Calculate metrics
+	metrics = calc_metrics(
+		observed_energy_list,
+		predicted_energy_list,
+		observed_torque_list,
+		predicted_torque_list,
+	)
+
+	if verbosity
+		print_sce_coeffs(j0, jphi)
+		print_metrics(metrics)
+
+		println(@sprintf(
+			"""
+
+			Time Elapsed: %.6f sec.
+			""",
+			(time_ns() - start_time) / 1e9,
+		))
+	end
+
+	# Return Optimizer
+	return Optimizer(
+		spinconfig_list,
+		j0,
+		jphi,
+		metrics,
+		predicted_energy_list,
+		predicted_torque_list,
+		design_matrix_energy,
+		design_matrix_torque,
+	)
+end
+
+
+# Internal function that returns tuple (used by Optimizer constructor and fit_sce_model)
+function _fit_sce_model_internal(
 	design_matrix_energy::AbstractMatrix{<:Real},
 	design_matrix_torque::AbstractMatrix{<:Real},
 	observed_energy_list::AbstractVector{<:Real},
 	observed_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
-	estimator::AbstractEstimator = OLS(),
-	weight::Real = 0.5,
+	estimator::AbstractEstimator,
+	weight::Real,
 )
 	if estimator isa OLS
 		return fit_sce_model_ols(

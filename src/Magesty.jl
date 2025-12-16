@@ -76,6 +76,8 @@ using .EnergyTorque
 
 export System, SpinCluster, VERSION
 export fit_sce_model, AbstractEstimator, OLS, ElasticNet
+export build_sce_basis
+export read_embset
 
 """
 	System
@@ -169,7 +171,7 @@ function build_sce_basis(input_dict::Dict{<:AbstractString, <:Any}; verbosity::B
 	symmetry::Symmetry = Symmetry(structure, config, verbosity = verbosity)
 	cluster::Cluster = Cluster(structure, symmetry, config, verbosity = verbosity)
 	basisset::BasisSet = BasisSet(structure, symmetry, cluster, config, verbosity = verbosity)
-	return System(structure, symmetry, cluster, basisset, verbosity = verbosity)
+	return System(structure, symmetry, cluster, basisset)
 end
 
 
