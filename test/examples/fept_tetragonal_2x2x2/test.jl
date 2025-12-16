@@ -20,7 +20,7 @@ optimizer = fit_sce_model(
 	spinconfig_list,
 	estimator,
 	regression_config["weight"],
-	verbosity = true,
+	verbosity = false,
 )
 
 # Create SpinCluster from System and Optimizer

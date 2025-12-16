@@ -111,6 +111,45 @@ function write_xml(structure::Structure,
 		end
 	end
 
+	# Add angular momentum coupling results
+	if !isempty(basis_set.angular_momentum_couplings)
+		amc_node = addelement!(system_node, "AngularMomentumCouplings")
+		amc_node["num_couplings"] = string(length(basis_set.angular_momentum_couplings))
+		for (i, amc) in enumerate(basis_set.angular_momentum_couplings)
+			coupling_node = addelement!(amc_node, "Coupling")
+			coupling_node["index"] = string(i)
+			coupling_node["ls"] = join(string.(amc.ls), " ")
+			coupling_node["Lseq"] = join(string.(amc.Lseq), " ")
+			coupling_node["Lf"] = string(amc.Lf)
+			# Store tensor dimensions (excluding Mf dimension)
+			tensor_shape = size(amc.coeff_tensor)
+			site_dims = tensor_shape[1:(end-1)]  # All dimensions except the last (Mf)
+			Mf_size = tensor_shape[end]  # Last dimension is Mf
+			coupling_node["tensor_shape"] = join(string.(site_dims), " ")
+			coupling_node["Mf_size"] = string(Mf_size)
+			
+			# Output tensor for each Mf value separately
+			# Mf values range from -Lf to +Lf in tesseral basis
+			# Tesseral basis indexing: m_idx = 1 corresponds to Mf = -Lf, m_idx = 2 corresponds to Mf = -Lf+1, etc.
+			# So Mf = m_idx - Lf - 1 for tesseral basis
+			for mf_idx in 1:Mf_size
+				# Convert tesseral index to Mf value: Mf = m_idx - Lf - 1
+				Mf_value = mf_idx - amc.Lf - 1
+				mf_node = addelement!(coupling_node, "Mf")
+				mf_node["value"] = string(Mf_value)
+				mf_node["index"] = string(mf_idx)
+				
+				# Extract tensor slice for this Mf value
+				# Use selectdim to get the last dimension at index mf_idx
+				tensor_slice = selectdim(amc.coeff_tensor, ndims(amc.coeff_tensor), mf_idx)
+				# Flatten the slice and store as space-separated string
+				tensor_flat = vec(tensor_slice)
+				tensor_str = join([@sprintf("%.15e", x) for x in tensor_flat], " ")
+				addelement!(mf_node, "coeff_tensor", tensor_str)
+			end
+		end
+	end
+
 	if write_jphi
 		jphi_node = addelement!(root, "JPhi")
 		jphi_node["unit"] = "eV"
