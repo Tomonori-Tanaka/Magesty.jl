@@ -75,7 +75,6 @@ end
 # function to plot the histogram of magmom for multiple files
 function plot_histogram(
 	inputs::AbstractVector{<:AbstractString},
-	n_atoms::Integer,
 	target_atom_indices::AbstractVector{<:Integer},
 	min_bound::Union{<:Real, Nothing},
 	max_bound::Union{<:Real, Nothing},
@@ -89,7 +88,8 @@ function plot_histogram(
 		end
 	end
 
-	# check the total atoms
+	# Detect number of atoms from the first file
+	n_atoms = detect_num_atoms(inputs[1])
 	if n_atoms <= 0
 		error("The total number of atoms must be positive: $n_atoms")
 	end
@@ -113,7 +113,7 @@ function plot_histogram(
 	
 	for (file_idx, input) in enumerate(inputs)
 		# read the input file
-		embset::Vector{SpinConfig} = read_embset(input, n_atoms)
+		embset::Vector{SpinConfig} = SpinConfigs.read_embset(input)
 		
 		# collect the magmom size for this file
 		magmom_size_list = Float64[
@@ -240,11 +240,6 @@ s = ArgParseSettings(
 	nargs = '+'
 	required = true
 
-	"--n_atoms", "-n"
-	help = "The total number of atoms"
-	required = true
-	arg_type = Int
-
 	"--atoms", "-a"
 	help = "The atoms to plot. Accepts integers, ranges like 1-5, and comma-separated lists. If -1 is given (default), all atoms are plotted."
 	nargs = '+'
@@ -273,7 +268,6 @@ parsed_args = parse_args(ARGS, s)
 
 plot_histogram(
 	String.(parsed_args["inputs"]),
-	parsed_args["n_atoms"],
 	begin
 		atoms_arg = parsed_args["atoms"]
 		# atoms_arg is Vector{String}; convert to Vector{Int} expanding ranges

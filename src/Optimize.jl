@@ -211,7 +211,7 @@ function Optimizer(
 	verbosity::Bool = true,
 )
 	# read datafile
-	spinconfig_list = read_embset(datafile, structure.supercell.num_atoms)
+	spinconfig_list = SpinConfigs.read_embset(datafile)
 
 	return Optimizer(
 		structure,

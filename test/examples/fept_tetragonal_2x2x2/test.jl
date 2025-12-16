@@ -10,7 +10,7 @@ system = build_sce_basis(input, verbosity = false)
 
 # Read spin configurations
 datafile = joinpath(@__DIR__, "EMBSET.dat")
-spinconfig_list = read_embset(datafile, system.structure.supercell.num_atoms)
+spinconfig_list = read_embset(datafile)
 
 # Fit SCE coefficients using fit_sce_model
 regression_config = input["regression"]
