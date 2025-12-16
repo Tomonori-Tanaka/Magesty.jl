@@ -1,4 +1,4 @@
-module Write
+module XMLIO
 
 using ..Version
 using ..AtomicIndices
@@ -168,48 +168,6 @@ function write_xml(structure::Structure,
 end
 
 
-"""
-	write_list_to_file(data_list::AbstractVector, predicted_list::AbstractVector, filename::AbstractString, header::AbstractString)
 
-Write observed and predicted data to a file with a common format.
+end # module XMLIO
 
-# Arguments
-- `data_list`: Vector of observed data
-- `predicted_list`: Vector of predicted data
-- `filename`: Output file name
-- `header`: Header string for the output file
-"""
-function write_list_to_file(
-	data_list::AbstractVector,
-	predicted_list::AbstractVector,
-	filename::AbstractString,
-	header::AbstractString,
-)
-	# Check array lengths
-	if length(data_list) != length(predicted_list)
-		error("Length mismatch between observed and predicted lists")
-	end
-
-	# Write to file
-	try
-		open(filename, "w") do f
-			# Write header
-			println(f, header)
-
-			# Write data
-			for (i, (obs, pred)) in enumerate(zip(data_list, predicted_list))
-				str = @sprintf(
-					" %15.10f    %15.10f\n",
-					obs,
-					pred
-				)
-				write(f, str)
-			end
-		end
-	catch e
-		@error "Failed to write lists to file" exception = (e, catch_backtrace())
-		rethrow(e)
-	end
-end
-
-end # module Write
