@@ -21,7 +21,37 @@ using ..Basis
 using ..BasisSets
 using ..SpinConfigs
 
-export Optimizer
+export Optimizer, fit_sce_model, AbstractEstimator, OLS, ElasticNet
+
+"""
+	AbstractEstimator
+
+Abstract type for SCE coefficient estimation methods.
+"""
+abstract type AbstractEstimator end
+
+"""
+	OLS <: AbstractEstimator
+
+Ordinary Least Squares estimator (no regularization).
+"""
+struct OLS <: AbstractEstimator end
+
+"""
+	ElasticNet <: AbstractEstimator
+
+Elastic Net estimator with ridge regularization (alpha=0).
+
+# Fields
+- `alpha::Float64`: Elastic net mixing parameter (currently unused, kept for API compatibility)
+- `lambda::Float64`: Regularization strength
+"""
+struct ElasticNet <: AbstractEstimator
+	alpha::Float64
+	lambda::Float64
+end
+
+ElasticNet(; alpha::Real=0.0, lambda::Real=0.0) = ElasticNet(Float64(alpha), Float64(lambda))
 
 struct Optimizer
 	spinconfig_list::Vector{SpinConfig}
@@ -43,6 +73,7 @@ struct Optimizer
 		spinconfig_list::AbstractVector{SpinConfig},
 		;
 		verbosity::Bool = true,
+		estimator::AbstractEstimator = ElasticNet(alpha=alpha, lambda=lambda),
 	)
 		# Start timing
 		start_time = time_ns()
@@ -88,13 +119,12 @@ struct Optimizer
 		if verbosity
 			println("Fitting SCE coefficients...\n")
 		end
-		j0, jphi = elastic_net_regression(
+		j0, jphi = fit_sce_model(
 			design_matrix_energy,
 			design_matrix_torque,
 			observed_energy_list,
 			observed_torque_list,
-			alpha,
-			lambda,
+			estimator,
 			weight,
 		)
 
@@ -471,6 +501,128 @@ function calc_∇ₑu(
 end
 
 """
+	fit_sce_model(design_matrix_energy, design_matrix_torque, observed_energy_list, observed_torque_list, estimator, weight)
+
+Fit SCE coefficients using the specified estimator.
+
+# Description
+- Dispatches to the appropriate fitting method based on the estimator type.
+- Supports OLS and ElasticNet estimators.
+- User-facing function for fitting SCE coefficients.
+
+# Arguments
+- `design_matrix_energy`: Energy design matrix (bias column included)
+- `design_matrix_torque`: Torque design matrix (no bias column)
+- `observed_energy_list`: Observed energies
+- `observed_torque_list`: Observed torques as 3×num_atoms matrices per configuration
+- `estimator::AbstractEstimator`: Estimator to use (default: OLS())
+- `weight::Real`: Trade-off between energy (1-weight) and torque (weight). Default: 0.5
+
+# Returns
+- `(j0::Float64, jphi::Vector{Float64})`: Bias and coefficients
+
+# Examples
+```julia
+# Using OLS with default weight (0.5)
+j0, jphi = fit_sce_model(design_matrix_energy, design_matrix_torque, 
+                          observed_energy_list, observed_torque_list)
+
+# Using ElasticNet with custom regularization and weight
+estimator = ElasticNet(lambda=0.1)
+j0, jphi = fit_sce_model(design_matrix_energy, design_matrix_torque,
+                          observed_energy_list, observed_torque_list,
+                          estimator, weight=0.7)
+```
+"""
+function fit_sce_model(
+	design_matrix_energy::AbstractMatrix{<:Real},
+	design_matrix_torque::AbstractMatrix{<:Real},
+	observed_energy_list::AbstractVector{<:Real},
+	observed_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
+	estimator::AbstractEstimator = OLS(),
+	weight::Real = 0.5,
+)
+	if estimator isa OLS
+		return fit_sce_model_ols(
+			design_matrix_energy,
+			design_matrix_torque,
+			observed_energy_list,
+			observed_torque_list,
+			weight,
+		)
+	elseif estimator isa ElasticNet
+		return fit_sce_model_elastic_net(
+			design_matrix_energy,
+			design_matrix_torque,
+			observed_energy_list,
+			observed_torque_list,
+			estimator.alpha,
+			estimator.lambda,
+			weight,
+		)
+	else
+		throw(ArgumentError("Unsupported estimator type: $(typeof(estimator))"))
+	end
+end
+
+"""
+	fit_sce_model_ols(design_matrix_energy, design_matrix_torque, observed_energy_list, observed_torque_list, weight)
+
+Fit SCE coefficients using Ordinary Least Squares (no regularization).
+
+# Arguments
+- `weight::Real`: Trade-off between energy (1-weight) and torque (weight)
+
+# Returns
+- `(j0::Float64, jphi::Vector{Float64})`: Bias and coefficients
+"""
+function fit_sce_model_ols(
+	design_matrix_energy::AbstractMatrix{<:Real},
+	design_matrix_torque::AbstractMatrix{<:Real},
+	observed_energy_list::AbstractVector{<:Real},
+	observed_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
+	weight::Real,
+)
+	return fit_sce_model_elastic_net(
+		design_matrix_energy,
+		design_matrix_torque,
+		observed_energy_list,
+		observed_torque_list,
+		0.0,  # alpha
+		0.0,  # lambda (no regularization)
+		weight,
+	)
+end
+
+"""
+	fit_sce_model_elastic_net(design_matrix_energy, design_matrix_torque, observed_energy_list, observed_torque_list, alpha, lambda, weight)
+
+Fit SCE coefficients using Elastic Net regression (ridge regularization when alpha=0).
+
+# Returns
+- `(j0::Float64, jphi::Vector{Float64})`: Bias and coefficients
+"""
+function fit_sce_model_elastic_net(
+	design_matrix_energy::AbstractMatrix{<:Real},
+	design_matrix_torque::AbstractMatrix{<:Real},
+	observed_energy_list::AbstractVector{<:Real},
+	observed_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
+	alpha::Real,
+	lambda::Real,
+	weight::Real,
+)
+	return elastic_net_regression(
+		design_matrix_energy,
+		design_matrix_torque,
+		observed_energy_list,
+		observed_torque_list,
+		alpha,
+		lambda,
+		weight,
+	)
+end
+
+"""
 	elastic_net_regression(design_matrix_energy, design_matrix_torque, observed_energy_list, observed_torque_list, alpha, lambda, weight)
 
 Solve a combined regression for energy and torque using ridge (elastic net with alpha=0) regularization.
@@ -536,11 +688,6 @@ function elastic_net_regression(
 		normalized_observed_torque_flattened,
 	)
 
-	# betas = X \ y
-	# jphi = betas[2:end]
-	# j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
-	# println("j0: $j0")
-	# println("jphi: $jphi")
 
 	# Elastic net regression solution
 	lambda_vec = fill(lambda, size(X, 2))
@@ -554,15 +701,6 @@ function elastic_net_regression(
 	end
 	jphi = j_values[2:end]
 	j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
-
-
-	# fit = glmnet(X, y; alpha = alpha, lambda = [lambda], standardize = true)
-	# fit = glmnet(normalized_design_matrix_energy, normalized_observed_energy_list; alpha = alpha, lambda = [lambda], standardize = true)
-	# Extract coefficients
-	# jphi = fit.betas[2:end, 1]
-	# j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
-	# j0 = fit.a0[1] * sqrt(2 * num_data) * num_atoms / sqrt(w_e)
-
 
 	return j0, jphi
 end
