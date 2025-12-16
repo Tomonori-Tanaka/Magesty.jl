@@ -59,7 +59,7 @@ See `test/examples` directory for complete examples.
 
 ## License
 
-This project is licensed under the MIT License.
+Mozilla Public License Version 2.0
 
 ## Author
 
