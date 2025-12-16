@@ -35,7 +35,7 @@ end
 if TEST_MODE in ("integration", "all")
 	@testset "examples" begin
 		# include("./examples/dimer/test.jl")
-		# include("./examples/febcc_2x2x2_pm/test.jl")
+		include("./examples/febcc_2x2x2_pm/test.jl")
 		include("./examples/fept_tetragonal_2x2x2/test.jl")
 	end
 end
