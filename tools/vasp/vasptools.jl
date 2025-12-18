@@ -98,9 +98,9 @@ function parse_incar(filename::String)::OrderedDict{Symbol, Any}
 				continue
 			end
 			
-			# Handle line continuation
-			if endswith(rstrip(line), '\\')
-				current_line *= rstrip(line[1:end-1]) * " "
+			# Handle line continuation (backslash backslash means continue to next line)
+			if endswith(rstrip(line), "\\\\")
+				current_line *= rstrip(line[1:end-2]) * " "
 				continue
 			else
 				current_line *= line * " "
@@ -118,6 +118,9 @@ function parse_incar(filename::String)::OrderedDict{Symbol, Any}
 					# Split value and comment
 					value_part = strip(split(parts[2], '#', limit=2)[1])
 					value_part = strip(split(value_part, '!', limit=2)[1])
+					# Remove any newline characters that might have been introduced
+					value_part = replace(value_part, r"[\r\n]+" => " ")
+					value_part = strip(value_part)
 					
 					# Remove units from numeric values
 					value = if occursin(r"\d+\s*[a-zA-Z]+$", value_part)

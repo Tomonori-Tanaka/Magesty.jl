@@ -282,6 +282,20 @@ function sampling_mfa(
 		error("MAGMOM or M_CONSTR not found in INCAR file")
 	end
 
+	# Ensure magmom is a Vector{Float64}
+	if magmom isa AbstractString
+		# Parse string to array of floats
+		magmom = [parse(Float64, n) for n in filter(!isempty, split(magmom, r"\s+"))]
+	elseif magmom isa AbstractVector
+		# Convert to Vector{Float64} if needed
+		magmom = [Float64(x) for x in magmom]
+	else
+		error("""
+			Invalid MAGMOM/M_CONSTR type: $(typeof(magmom))
+			Expected Vector{Float64} or String
+			""")
+	end
+
 	if length(magmom) % 3 != 0
 		error("""
 			Invalid MAGMOM/M_CONSTR length: $(length(magmom))
