@@ -6,7 +6,7 @@ using LinearAlgebra
 using Printf
 using Random
 using Roots
-include("vasptools.jl")
+include("vasp/vasptools.jl")
 using .VaspTools
 
 const TOLERANCE = 1e-10
