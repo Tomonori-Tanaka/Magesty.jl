@@ -155,7 +155,7 @@ def parse_oszicar(filepath, magmom_type='MW_int', atom_filter=None):
     return data
 
 
-def plot_magmom_history(data, output_file=None, show_plot=True):
+def plot_magmom_history(data, output_file=None, show_plot=True, show_legend=True):
     """
     Plot magnetic moment history.
 
@@ -167,6 +167,8 @@ def plot_magmom_history(data, output_file=None, show_plot=True):
         Output filename (if not specified, only display)
     show_plot : bool
         Whether to display the plot
+    show_legend : bool
+        Whether to show the legend
     """
     if not data:
         print("No data found.")
@@ -206,7 +208,8 @@ def plot_magmom_history(data, output_file=None, show_plot=True):
     plt.ylabel('Magnetic Moment Magnitude (μB)', fontsize=12)
     plt.title('Magnetic Moment History', fontsize=14)
     plt.grid(True, alpha=0.3)
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8, ncol=2)
+    if show_legend:
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8, ncol=2)
     plt.tight_layout()
 
     if output_file:
@@ -255,6 +258,10 @@ Examples:
         '--no-show', action='store_true',
         help='Do not display plot (useful when --output is specified)'
     )
+    parser.add_argument(
+        '--no-legend', action='store_true',
+        help='Do not show legend'
+    )
 
     args = parser.parse_args()
 
@@ -293,7 +300,8 @@ Examples:
 
     # Plot
     show_plot = not args.no_show
-    plot_magmom_history(data, args.output, show_plot)
+    show_legend = not args.no_legend
+    plot_magmom_history(data, args.output, show_plot, show_legend)
 
     return 0
 
