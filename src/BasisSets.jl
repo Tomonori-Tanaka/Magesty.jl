@@ -131,7 +131,8 @@ function BasisSet(
 	keys_list = sort(collect(keys(classified_coupled_basisdict)))
 	num_keys = length(keys_list)
 	# Pre-allocate array to store results for each key (preserving order)
-	salc_list_per_key = Vector{Union{Vector{Basis.CoupledBasis_with_coefficient}, Nothing}}(undef, num_keys)
+	# Each key can have multiple SALC groups (one per eigenvector)
+	salc_list_per_key = Vector{Vector{Vector{Basis.CoupledBasis_with_coefficient}}}(undef, num_keys)
 	
 	@threads for idx in 1:num_keys
 		key = keys_list[idx]
@@ -153,8 +154,8 @@ function BasisSet(
 		submatrix_dim = 2 * Lf + 1
 		nbasis = length(coupled_basislist)
 		
-		# Create a list for this key
-		key_salc_list = Vector{Basis.CoupledBasis_with_coefficient}()
+		# Create a list of SALC groups for this key (one per eigenvector)
+		key_salc_groups = Vector{Vector{Basis.CoupledBasis_with_coefficient}}()
 		
 		for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
 			eigenvec = eigenvecs[:, idx_eigenval]
@@ -165,6 +166,9 @@ function BasisSet(
 			if sum(eigenvec) < 0
 				eigenvec .= -eigenvec
 			end
+
+			# Create a new SALC group for this eigenvector
+			salc_group = Vector{Basis.CoupledBasis_with_coefficient}()
 
 			# Create CoupledBasis_with_coefficient for each basis in coupled_basislist
 			for (idx_basis, cb) in enumerate(coupled_basislist)
@@ -181,28 +185,29 @@ function BasisSet(
 				# Get multiplicity from counts
 				multiplicity = coupled_basislist.counts[cb]
 
-				# Create CoupledBasis_with_coefficient and add to key_salc_list
+				# Create CoupledBasis_with_coefficient and add to salc_group
 				cbc = Basis.CoupledBasis_with_coefficient(cb, coefficient, multiplicity)
-				push!(key_salc_list, cbc)
+				push!(salc_group, cbc)
+			end
+			
+			# Add this SALC group if it's not empty
+			if !isempty(salc_group)
+				push!(key_salc_groups, salc_group)
 			end
 		end
 		
-		# Store the list for this key (preserving order by index)
-		if !isempty(key_salc_list)
-			salc_list_per_key[idx] = key_salc_list
-		else
-			salc_list_per_key[idx] = nothing
-		end
+		# Store the list of SALC groups for this key (preserving order by index)
+		salc_list_per_key[idx] = key_salc_groups
 		# Free large matrices after processing each key
 		h_projection = nothing
 		eigenvecs = nothing
 	end
 	
-	# Collect non-empty results in order
+	# Collect all SALC groups in order
 	salc_list = Vector{Vector{Basis.CoupledBasis_with_coefficient}}()
-	for key_salc_list in salc_list_per_key
-		if key_salc_list !== nothing
-			push!(salc_list, key_salc_list)
+	for key_salc_groups in salc_list_per_key
+		for salc_group in key_salc_groups
+			push!(salc_list, salc_group)
 		end
 	end
 	if verbosity
