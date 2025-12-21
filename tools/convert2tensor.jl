@@ -5,19 +5,10 @@ using Printf
 using StaticArrays
 
 if !@isdefined(Magesty)
-include("../src/Magesty.jl")
+	include("../src/Magesty.jl")
 end
 using .Magesty
 
-# Cache for XML documents to avoid repeated file reads
-const XML_CACHE = Dict{String, EzXML.Document}()
-
-function get_cached_xml(input::AbstractString)::EzXML.Document
-	if !haskey(XML_CACHE, input)
-		XML_CACHE[input] = readxml(input)
-	end
-	return XML_CACHE[input]
-end
 
 function convert2tensor(input::AbstractString, atoms::Vector{Int})::Matrix{Float64}
 	atom1 = atoms[1]
@@ -29,33 +20,39 @@ function convert2tensor(input::AbstractString, atoms::Vector{Int})::Matrix{Float
 	# tensor matrix composing jxx, jxy, jxz, jyx, jyy, jyz, jzx, jzy, jzz
 	result = zeros(3, 3)
 
-	# Use cached XML document
-	doc = get_cached_xml(input)
+	# Read XML document
+	doc = readxml(input)
+
+	# Check if the atom order is sorted
+	is_permuted = false
+	if atom1 > atom2
+		is_permuted = true
+		atom1, atom2 = atom2, atom1
+	end
 
 	# Calculate tensor for atom1 -> atom2
 	atom1_in_prim = symmetry.map_s2p[atom1].atom
 	translation_global = symmetry.symnum_translation[symmetry.map_s2p[atom1].translation]
 	atom2_translated = symmetry.map_sym_inv[atom2, translation_global]
-	result_forward = calculate_tensor_for_pair(doc, atom1_in_prim, atom2_translated)
+	result = calculate_tensor_for_pair(doc, atom1_in_prim, atom2_translated)
+	if is_permuted
+		# When atom order is swapped, the exchange tensor should be transposed
+		# J(i,j) -> J(j,i)
+		result = result'
+	end
 
-	# Calculate tensor for atom2 -> atom1 (swapped)
-	atom2_in_prim = symmetry.map_s2p[atom2].atom
-	translation_global = symmetry.symnum_translation[symmetry.map_s2p[atom2].translation]
-	atom1_translated = symmetry.map_sym_inv[atom1, translation_global]
-	result_backward = calculate_tensor_for_pair(doc, atom2_in_prim, atom1_translated)
-
-	# Combine tensors so that swapping atom order yields the transpose
-	result = result_forward + result_backward'
 
 	return result
 end
 
 function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::Matrix{Float64}
-	# tensor matrix composing j-1-1, j-10, j-11, j0-1, j00, j01, j1-1, j10, j11
-	result_tmp = zeros(3, 3)
-	is_found = false# Flag to check the target interaction is found
+	# Exchange interaction tensor J_ij (3x3 matrix)
+	# Separate contributions by Lf:
+	# - Lf=0: Isotropic exchange Jij (scalar)
+	# - Lf=1: Dzyaloshinskii-Moriya interaction (DMI, antisymmetric)
+	# - Lf=2: Anisotropic symmetric exchange (symmetric traceless)
 
-	# Pre-fetch XML nodes to avoid repeated searches
+	# Pre-fetch XML nodes
 	sce_basis_set = findfirst("//SCEBasisSet", doc)
 	if isnothing(sce_basis_set)
 		throw(ArgumentError("<SCEBasisSet> node not found in the XML file."))
@@ -66,155 +63,280 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::Matrix{Float64}
 		throw(ArgumentError("<JPhi> node not found in the XML file."))
 	end
 
-	# Pre-parse JPhi values for faster lookup
+	# Pre-parse JPhi values
 	jphi_dict = Dict{String, Float64}()
 	for jphi in EzXML.findall("jphi", JPhi_node)
 		jphi_dict[jphi["salc_index"]] = parse(Float64, nodecontent(jphi))
 	end
 
-	for alpha in -1:1, beta in -1:1
-		for salc in EzXML.findall("SALC", sce_basis_set)
-			index = parse(Int, salc["index"])
-			index_str = string(index)
+	# Reconstruct coeff_tensor for each Lf (atom-pair independent quantities)
+	# These are computed once and reused for all atom pairs
+	coeff_tensor_Lf0, coeff_tensor_Lf1, coeff_tensor_Lf2 = reconstruct_coeff_tensors(doc)
 
-			# Use pre-parsed JPhi values
-			j_phi = get(jphi_dict, index_str, -1000.0)
 
-			num_basis = parse(Int, salc["num_basis"])
-			# println("SALC index: $index, num_basis: $num_basis")
-			for basis in EzXML.findall("basis", salc)
-				# Check if the basis consists of the two atoms
-				num_index_attrs = count(attr ->
-						startswith(EzXML.nodename(attr), "index-"),
-					EzXML.eachattribute(basis),
-				)
-				if num_index_attrs != 2
-					break
-				end
+	# Scaling factor: (4π)^(n_C/2) where n_C=2 for pair
+	# This matches the scaling in design matrix (see Optimize.jl:266)
+	# Paper Eq. (3): Φ = (√(4π))^{n_C} ∏ Y_{lm}
+	scaling_factor = (4π)^(2/2)  # (4π)^1 = 4π for 2-body interactions
 
-				m_vec = MVector{2, Int}(-10, -10)# Initialize with invalid m values
-				for i in 1:2
-					name = "index-$i"
-					# "1 1 -1 1" → ["1","1","-1","1"] → [1,1,-1,1]
-					idx = parse.(Int, split(basis[name]))
-					if idx[2] != 1  # Check if the angular momentum is 1
-						break
-					elseif i == 1 && idx[1] == atom1
-						m_vec[1] = idx[3]  # Collect the m value
-					elseif i == 2 && idx[1] == atom2
-						is_found = true
-						m_vec[2] = idx[3]  # Collect the m value
-					end
-				end
-				if any(x -> abs(x) > 1, m_vec)# Skip if the m value is invalid
-					continue
-				end
-				if m_vec[1] == alpha && m_vec[2] == beta
-					result_tmp[alpha+2, beta+2] +=
-						j_phi * (parse(Float64, nodecontent(basis))) * (3/(4π))
-				end
+	# Store SALC information (salc_index, j_phi, coefficient) for each Lf
+	# Structure: salc_info_Lf[Lf] = Vector of (salc_index, j_phi, coefficient)
+	salc_info_Lf0 = Vector{Tuple{Int, Float64, Vector{Float64}}}()  # Lf=0: Isotropic exchange
+	salc_info_Lf1 = Vector{Tuple{Int, Float64, Vector{Float64}}}()  # Lf=1: DMI
+	salc_info_Lf2 = Vector{Tuple{Int, Float64, Vector{Float64}}}()  # Lf=2: Anisotropic symmetric
+
+	# First pass: Collect SALC information for matching atom pairs
+	for salc_node in EzXML.findall("SALC", sce_basis_set)
+		salc_index = parse(Int, salc_node["index"])
+		index_str = string(salc_index)
+		j_phi = get(jphi_dict, index_str, 0.0)
+
+		# Skip if j_phi is zero or not found
+		if j_phi == 0.0 || !haskey(jphi_dict, index_str)
+			continue
+		end
+
+		Lf = parse(Int, salc_node["Lf"])
+		body = parse(Int, salc_node["body"])
+
+		# Only process 2-body interactions with ls=[1,1]
+		if body != 2
+			continue
+		end
+
+		# Only process Lf=0, 1, 2 for pair interactions
+		if !(Lf in [0, 1, 2])
+			continue
+		end
+
+		# Find the basis in this SALC group that matches the target atom pair
+		# Note: One SALC group never contains the same atom pair twice
+		for basis_node in EzXML.findall("basis", salc_node)
+			atoms = parse.(Int, split(basis_node["atoms"]))
+			ls = parse.(Int, split(basis_node["ls"]))
+
+			# Check if this basis matches the target atom pair
+			if length(atoms) != 2 || length(ls) != 2 || ls != [1, 1]
+				continue
 			end
+
+			# Check atom order (atoms should be sorted)
+			if atoms[1] != atom1 || atoms[2] != atom2
+				continue
+			end
+
+			# Found matching basis - store SALC information
+			coeff_str = nodecontent(basis_node)
+			coefficient = parse.(Float64, split(coeff_str))
+
+			# Store in the appropriate Lf list
+			if Lf == 0
+				push!(salc_info_Lf0, (salc_index, j_phi, coefficient))
+			elseif Lf == 1
+				push!(salc_info_Lf1, (salc_index, j_phi, coefficient))
+			elseif Lf == 2
+				push!(salc_info_Lf2, (salc_index, j_phi, coefficient))
+			end
+
+			# Found matching basis, no need to continue
+			break
 		end
 	end
 
-	# if !is_found
-	# 	throw(ArgumentError("The target interaction between atoms $atom1 and $atom2 in cell $cell is not found."))
-	# end
+	# Second pass: Compute linear combinations for each Lf using stored SALC information
+	contribution_Lf0 = zeros(3, 3)  # Isotropic exchange (Lf=0)
+	contribution_Lf1 = zeros(3, 3)  # DMI (Lf=1)
+	contribution_Lf2 = zeros(3, 3)  # Anisotropic symmetric (Lf=2)
 
-	# Convert the result_tmp to the tensor matrix
-	result = zeros(3, 3)
-	result[1, 1] = result_tmp[3, 3]  # jxx
-	result[1, 2] = result_tmp[3, 1]  # jxy
-	result[1, 3] = result_tmp[3, 2]  # jxz
-	result[2, 1] = result_tmp[1, 3]  # jyx
-	result[2, 2] = result_tmp[1, 1]  # jyy
-	result[2, 3] = result_tmp[1, 2]  # jyz
-	result[3, 1] = result_tmp[2, 3]  # jzx
-	result[3, 2] = result_tmp[2, 1]  # jzy
-	result[3, 3] = result_tmp[2, 2]  # jzz
+	# Process Lf=0 contributions
+	for (salc_index, j_phi, coefficient) in salc_info_Lf0
+		if isnothing(coeff_tensor_Lf0)
+			continue
+		end
 
+		# Build tensor contribution: sum over Mf of (coefficient[mf] * coeff_tensor_Lf0[:, :, mf])
+		basis_contribution = zeros(3, 3)
+		Mf_size = length(coefficient)
+
+		for mf_idx in 1:Mf_size
+			tensor_slice = selectdim(coeff_tensor_Lf0, 3, mf_idx)  # Shape: (3, 3)
+
+			# Convert from tesseral to Cartesian
+			cartesian_tensor = zeros(3, 3)
+			for m1_idx in 1:3, m2_idx in 1:3
+				m1 = m1_idx - 2
+				m2 = m2_idx - 2
+				cart_map = Dict(-1 => 2, 0 => 3, 1 => 1)  # y, z, x
+				i = cart_map[m1]
+				j = cart_map[m2]
+				cartesian_tensor[i, j] = tensor_slice[m1_idx, m2_idx]
+			end
+
+			basis_contribution .+= coefficient[mf_idx] * cartesian_tensor
+		end
+
+		contribution_Lf0 .+= j_phi * basis_contribution * scaling_factor
+	end
+
+	# Process Lf=1 contributions
+	for (salc_index, j_phi, coefficient) in salc_info_Lf1
+		if isnothing(coeff_tensor_Lf1)
+			continue
+		end
+
+		# Build tensor contribution: sum over Mf of (coefficient[mf] * coeff_tensor_Lf1[:, :, mf])
+		basis_contribution = zeros(3, 3)
+		Mf_size = length(coefficient)
+
+		for mf_idx in 1:Mf_size
+			tensor_slice = selectdim(coeff_tensor_Lf1, 3, mf_idx)  # Shape: (3, 3)
+
+			# Convert from tesseral to Cartesian
+			cartesian_tensor = zeros(3, 3)
+			for m1_idx in 1:3, m2_idx in 1:3
+				m1 = m1_idx - 2
+				m2 = m2_idx - 2
+				cart_map = Dict(-1 => 2, 0 => 3, 1 => 1)  # y, z, x
+				i = cart_map[m1]
+				j = cart_map[m2]
+				cartesian_tensor[i, j] = tensor_slice[m1_idx, m2_idx]
+			end
+
+			basis_contribution .+= coefficient[mf_idx] * cartesian_tensor
+		end
+
+		contribution_Lf1 .+= j_phi * basis_contribution * scaling_factor
+	end
+
+	# Process Lf=2 contributions
+	for (salc_index, j_phi, coefficient) in salc_info_Lf2
+		if isnothing(coeff_tensor_Lf2)
+			continue
+		end
+
+		# Build tensor contribution: sum over Mf of (coefficient[mf] * coeff_tensor_Lf2[:, :, mf])
+		basis_contribution = zeros(3, 3)
+		Mf_size = length(coefficient)
+
+		for mf_idx in 1:Mf_size
+			tensor_slice = selectdim(coeff_tensor_Lf2, 3, mf_idx)  # Shape: (3, 3)
+
+			# Convert from tesseral to Cartesian
+			cartesian_tensor = zeros(3, 3)
+			for m1_idx in 1:3, m2_idx in 1:3
+				m1 = m1_idx - 2
+				m2 = m2_idx - 2
+				cart_map = Dict(-1 => 2, 0 => 3, 1 => 1)  # y, z, x
+				i = cart_map[m1]
+				j = cart_map[m2]
+				cartesian_tensor[i, j] = tensor_slice[m1_idx, m2_idx]
+			end
+
+			basis_contribution .+= coefficient[mf_idx] * cartesian_tensor
+		end
+
+		contribution_Lf2 .+= j_phi * basis_contribution * scaling_factor
+	end
+
+	# Sum all contributions
+	result = contribution_Lf0 + contribution_Lf1 + contribution_Lf2
+
+	# Convert from eV to meV
 	result = result .* 1000
 
 	return result
 end
 
-function calculate_biquadratic_term(
-	input::AbstractString,
-	atoms::Vector{Int},
-)::Float64
-	atom1 = atoms[1]
-	atom2 = atoms[2]
+"""
+	reconstruct_coeff_tensors(doc) -> Tuple{Union{Array{Float64,3},Nothing}, ...}
 
-	doc = get_cached_xml(input)
+Reconstruct coeff_tensor for Lf=0, 1, 2 from XML document.
+These are atom-pair independent quantities.
+Returns (coeff_tensor_Lf0, coeff_tensor_Lf1, coeff_tensor_Lf2).
+"""
+function reconstruct_coeff_tensors(doc)::Tuple{Union{Array{Float64,3},Nothing}, Union{Array{Float64,3},Nothing}, Union{Array{Float64,3},Nothing}}
+	coeff_tensor_Lf0 = nothing
+	coeff_tensor_Lf1 = nothing
+	coeff_tensor_Lf2 = nothing
 
-	JPhi_node = findfirst("//JPhi", doc)
-	if isnothing(JPhi_node)
-		throw(ArgumentError("<JPhi> node not found in the XML file."))
-	end
+	system_node = findfirst("//System", doc)
+	if !isnothing(system_node)
+		amc_node = findfirst("AngularMomentumCouplings", system_node)
+		if !isnothing(amc_node)
+			for coupling_node in findall("Coupling", amc_node)
+				ls_str = coupling_node["ls"]
+				Lseq_str = coupling_node["Lseq"]
+				Lf = parse(Int, coupling_node["Lf"])
 
-	result_forward = calculate_biquadratic_term_for_pair(doc, atom1, atom2)
-	result_backward = calculate_biquadratic_term_for_pair(doc, atom2, atom1)
+				ls = parse.(Int, split(ls_str))
+				Lseq = isempty(Lseq_str) ? Int[] : parse.(Int, split(Lseq_str))
 
-	return result_forward + result_backward
-end
-
-function calculate_biquadratic_term_for_pair(doc, atom1::Int, atom2::Int)::Float64
-	sce_basis_set = findfirst("//SCEBasisSet", doc)
-	if isnothing(sce_basis_set)
-		throw(ArgumentError("<SCEBasisSet> node not found in the XML file."))
-	end
-
-	JPhi_node = findfirst("//JPhi", doc)
-	if isnothing(JPhi_node)
-		throw(ArgumentError("<JPhi> node not found in the XML file."))
-	end
-
-	jphi_dict = Dict{String, Float64}()
-	for jphi in EzXML.findall("jphi", JPhi_node)
-		jphi_dict[jphi["salc_index"]] = parse(Float64, nodecontent(jphi))
-	end
-
-	result = 0.0
-
-	for salc in EzXML.findall("SALC", sce_basis_set)
-		index = parse(Int, salc["index"])
-		index_str = string(index)
-
-		j_phi = get(jphi_dict, index_str, Inf)
-
-		num_basis = parse(Int, salc["num_basis"])
-		for basis in EzXML.findall("basis", salc)
-			num_index_attrs = count(attr ->
-					startswith(EzXML.nodename(attr), "index-"),
-				EzXML.eachattribute(basis),
-			)
-			if num_index_attrs != 2
-				break
-			end
-
-			m_vec = MVector{2, Int}(-10, -10)
-			for i in 1:2
-				name = "index-$i"
-				idx = parse.(Int, split(basis[name]))
-				if idx[2] != 2 # Check if the angular momentum is 2
-					break
-				elseif i == 1 && idx[1] == atom1
-					m_vec[1] = idx[3]  # Collect the angular momentum m value
-				elseif i == 2 && idx[1] == atom2
-					m_vec[2] = idx[3]  # Collect the angular momentum m value
+				# Only process ls=[1,1] for pair interactions
+				if length(ls) != 2 || ls != [1, 1]
+					continue
 				end
-			end
-			if any(x -> abs(x) > 2, m_vec)
-				continue
-			end
-			if m_vec[1] == m_vec[2]
-				result += j_phi * (parse(Float64, nodecontent(basis))) * (15/(8π))
+
+				# Only process Lf=0, 1, 2
+				if !(Lf in [0, 1, 2])
+					continue
+				end
+
+				# Reconstruct coeff_tensor from XML
+				coeff_tensor = reconstruct_coeff_tensor_from_node(coupling_node)
+
+				# Store in the appropriate Lf variable
+				if Lf == 0
+					coeff_tensor_Lf0 = coeff_tensor
+				elseif Lf == 1
+					coeff_tensor_Lf1 = coeff_tensor
+				elseif Lf == 2
+					coeff_tensor_Lf2 = coeff_tensor
+				end
 			end
 		end
 	end
 
-	return result
+	return (coeff_tensor_Lf0, coeff_tensor_Lf1, coeff_tensor_Lf2)
 end
+
+"""
+	reconstruct_coeff_tensor_from_node(coupling_node) -> Array{Float64, 3}
+
+Reconstruct coeff_tensor from XML coupling node.
+Returns a tensor of shape (site_dims..., Mf_size).
+"""
+function reconstruct_coeff_tensor_from_node(coupling_node)::Array{Float64, 3}
+	# Read tensor shape
+	tensor_shape_str = coupling_node["tensor_shape"]
+	Mf_size = parse(Int, coupling_node["Mf_size"])
+	site_dims = parse.(Int, split(tensor_shape_str))
+
+	# Reconstruct coeff_tensor
+	full_shape = vcat(site_dims, [Mf_size])
+	coeff_tensor = zeros(Float64, full_shape...)
+
+	for mf_node in findall("Mf", coupling_node)
+		mf_idx = parse(Int, mf_node["index"])
+		tensor_str_node = findfirst("coeff_tensor", mf_node)
+		if isnothing(tensor_str_node)
+			error("coeff_tensor node not found for Mf index $mf_idx")
+		end
+		tensor_str = nodecontent(tensor_str_node)
+		tensor_values = parse.(Float64, split(tensor_str))
+
+		# Reshape to match site dimensions
+		tensor_slice = reshape(tensor_values, site_dims...)
+
+		# Set the slice in coeff_tensor using proper indexing
+		# Create indices: [:, :, ..., :, mf_idx] for N site dims + 1 Mf dim
+		indices = Vector{Any}([Colon() for _ in 1:length(site_dims)])
+		push!(indices, mf_idx)
+		coeff_tensor[indices...] = tensor_slice
+	end
+
+	return coeff_tensor
+end
+
 
 function main()
 	s = ArgParseSettings()
@@ -230,31 +352,13 @@ function main()
 		nargs = 2
 		arg_type = Int
 
-
-		"--biquadratic", "-b"
-		help = "Calculate biquadratic term"
-		action = :store_true
 	end
 
 	args = parse_args(s)
-	if args["biquadratic"]
-		biquadratic_term = calculate_biquadratic_term(args["input"], args["atoms"])
-		println("Biquadratic term (meV):")
-		println(biquadratic_term)
-	else
-		tensor_matrix::Matrix{Float64} = convert2tensor(args["input"], args["atoms"])
-		println("Tensor matrix (meV):")
-		display(tensor_matrix)
-		println("")
-		println("--------------------------------")
-		println(@sprintf("Isotropic Jij (meV): %.6f", 1/3 * tr(tensor_matrix)))
-		println("--------------------------------")
-		println("Anisotropic symmetric part (meV): ")
-		display(1/2 * (tensor_matrix + tensor_matrix') - 1/3 * tr(tensor_matrix) * I)
-		println("--------------------------------")
-		println("Anisotropic antisymmetric part (meV): ")
-		display(1/2 * (tensor_matrix - tensor_matrix'))
-	end
+	tensor_matrix::Matrix{Float64} = convert2tensor(args["input"], args["atoms"])
+	println("Tensor matrix (meV):")
+	display(tensor_matrix)
+	println("")
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
