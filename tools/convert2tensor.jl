@@ -72,6 +72,9 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::Matrix{Float64}
 	# Reconstruct coeff_tensor for each Lf (atom-pair independent quantities)
 	# These are computed once and reused for all atom pairs
 	coeff_tensor_Lf0, coeff_tensor_Lf1, coeff_tensor_Lf2 = reconstruct_coeff_tensors(doc)
+	display(coeff_tensor_Lf0)
+	display(coeff_tensor_Lf1)
+	display(coeff_tensor_Lf2)
 
 
 	# Scaling factor: (4π)^(n_C/2) where n_C=2 for pair
@@ -116,12 +119,10 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::Matrix{Float64}
 			ls = parse.(Int, split(basis_node["ls"]))
 
 			# Check if this basis matches the target atom pair
-			if length(atoms) != 2 || length(ls) != 2 || ls != [1, 1]
+			if ls != [1, 1]
 				continue
 			end
-
-			# Check atom order (atoms should be sorted)
-			if atoms[1] != atom1 || atoms[2] != atom2
+			if atoms != [atom1, atom2]
 				continue
 			end
 
@@ -144,99 +145,9 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::Matrix{Float64}
 	end
 
 	# Second pass: Compute linear combinations for each Lf using stored SALC information
-	contribution_Lf0 = zeros(3, 3)  # Isotropic exchange (Lf=0)
-	contribution_Lf1 = zeros(3, 3)  # DMI (Lf=1)
-	contribution_Lf2 = zeros(3, 3)  # Anisotropic symmetric (Lf=2)
-
-	# Process Lf=0 contributions
-	for (salc_index, j_phi, coefficient) in salc_info_Lf0
-		if isnothing(coeff_tensor_Lf0)
-			continue
-		end
-
-		# Build tensor contribution: sum over Mf of (coefficient[mf] * coeff_tensor_Lf0[:, :, mf])
-		basis_contribution = zeros(3, 3)
-		Mf_size = length(coefficient)
-
-		for mf_idx in 1:Mf_size
-			tensor_slice = selectdim(coeff_tensor_Lf0, 3, mf_idx)  # Shape: (3, 3)
-
-			# Convert from tesseral to Cartesian
-			cartesian_tensor = zeros(3, 3)
-			for m1_idx in 1:3, m2_idx in 1:3
-				m1 = m1_idx - 2
-				m2 = m2_idx - 2
-				cart_map = Dict(-1 => 2, 0 => 3, 1 => 1)  # y, z, x
-				i = cart_map[m1]
-				j = cart_map[m2]
-				cartesian_tensor[i, j] = tensor_slice[m1_idx, m2_idx]
-			end
-
-			basis_contribution .+= coefficient[mf_idx] * cartesian_tensor
-		end
-
-		contribution_Lf0 .+= j_phi * basis_contribution * scaling_factor
-	end
-
-	# Process Lf=1 contributions
-	for (salc_index, j_phi, coefficient) in salc_info_Lf1
-		if isnothing(coeff_tensor_Lf1)
-			continue
-		end
-
-		# Build tensor contribution: sum over Mf of (coefficient[mf] * coeff_tensor_Lf1[:, :, mf])
-		basis_contribution = zeros(3, 3)
-		Mf_size = length(coefficient)
-
-		for mf_idx in 1:Mf_size
-			tensor_slice = selectdim(coeff_tensor_Lf1, 3, mf_idx)  # Shape: (3, 3)
-
-			# Convert from tesseral to Cartesian
-			cartesian_tensor = zeros(3, 3)
-			for m1_idx in 1:3, m2_idx in 1:3
-				m1 = m1_idx - 2
-				m2 = m2_idx - 2
-				cart_map = Dict(-1 => 2, 0 => 3, 1 => 1)  # y, z, x
-				i = cart_map[m1]
-				j = cart_map[m2]
-				cartesian_tensor[i, j] = tensor_slice[m1_idx, m2_idx]
-			end
-
-			basis_contribution .+= coefficient[mf_idx] * cartesian_tensor
-		end
-
-		contribution_Lf1 .+= j_phi * basis_contribution * scaling_factor
-	end
-
-	# Process Lf=2 contributions
-	for (salc_index, j_phi, coefficient) in salc_info_Lf2
-		if isnothing(coeff_tensor_Lf2)
-			continue
-		end
-
-		# Build tensor contribution: sum over Mf of (coefficient[mf] * coeff_tensor_Lf2[:, :, mf])
-		basis_contribution = zeros(3, 3)
-		Mf_size = length(coefficient)
-
-		for mf_idx in 1:Mf_size
-			tensor_slice = selectdim(coeff_tensor_Lf2, 3, mf_idx)  # Shape: (3, 3)
-
-			# Convert from tesseral to Cartesian
-			cartesian_tensor = zeros(3, 3)
-			for m1_idx in 1:3, m2_idx in 1:3
-				m1 = m1_idx - 2
-				m2 = m2_idx - 2
-				cart_map = Dict(-1 => 2, 0 => 3, 1 => 1)  # y, z, x
-				i = cart_map[m1]
-				j = cart_map[m2]
-				cartesian_tensor[i, j] = tensor_slice[m1_idx, m2_idx]
-			end
-
-			basis_contribution .+= coefficient[mf_idx] * cartesian_tensor
-		end
-
-		contribution_Lf2 .+= j_phi * basis_contribution * scaling_factor
-	end
+	contribution_Lf0 = compute_contribution(salc_info_Lf0, coeff_tensor_Lf0, scaling_factor)
+	contribution_Lf1 = compute_contribution(salc_info_Lf1, coeff_tensor_Lf1, scaling_factor)
+	contribution_Lf2 = compute_contribution(salc_info_Lf2, coeff_tensor_Lf2, scaling_factor)
 
 	# Sum all contributions
 	result = contribution_Lf0 + contribution_Lf1 + contribution_Lf2
@@ -245,6 +156,51 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::Matrix{Float64}
 	result = result .* 1000
 
 	return result
+end
+
+"""
+	compute_contribution(salc_info, coeff_tensor, scaling_factor) -> Matrix{Float64}
+
+Compute the linear combination of coeff_tensor with SALC coefficients.
+Returns a 3x3 matrix representing the contribution from all SALCs in salc_info.
+"""
+function compute_contribution(
+	salc_info::Vector{Tuple{Int, Float64, Vector{Float64}}},
+	coeff_tensor::Union{Array{Float64, 3}, Nothing},
+	scaling_factor::Float64,
+)::Matrix{Float64}
+	contribution = zeros(3, 3)
+
+	if isnothing(coeff_tensor)
+		return contribution
+	end
+
+	for (salc_index, j_phi, coefficient) in salc_info
+		# Build tensor contribution: sum over Mf of (coefficient[mf] * coeff_tensor[:, :, mf])
+		basis_contribution = zeros(3, 3)
+		Mf_size = length(coefficient)
+
+		for mf_idx in 1:Mf_size
+			tensor_slice = selectdim(coeff_tensor, 3, mf_idx)  # Shape: (3, 3)
+
+			# Convert from tesseral to Cartesian
+			cartesian_tensor = zeros(3, 3)
+			for m1_idx in 1:3, m2_idx in 1:3
+				m1 = m1_idx - 2
+				m2 = m2_idx - 2
+				cart_map = Dict(-1 => 2, 0 => 3, 1 => 1)  # y, z, x
+				i = cart_map[m1]
+				j = cart_map[m2]
+				cartesian_tensor[i, j] = tensor_slice[m1_idx, m2_idx]
+			end
+
+			basis_contribution .+= coefficient[mf_idx] * cartesian_tensor
+		end
+
+		contribution .+= j_phi * basis_contribution
+	end
+
+	return contribution
 end
 
 """
