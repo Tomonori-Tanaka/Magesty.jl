@@ -281,6 +281,30 @@ using OffsetArrays
 
 
 
+	@testset "complex_to_real_tensor real-valuedness" begin
+		# Check that complex_to_real_tensor produces (numerically) real tensors
+		# for a variety of coupling patterns and final Lf.
+		ls_list = [
+			[Int64(0)],
+			[Int64(1)],
+			[Int64(1), Int64(1)],
+			[Int64(1), Int64(1), Int64(1)],
+			[Int64(1), Int64(1), Int64(1), Int64(1)],
+			[Int64(2)],
+			[Int64(2), Int64(1)],
+			[Int64(2), Int64(2)],
+			[Int64(2), Int64(2), Int64(2)],
+			[Int64(2), Int64(2), Int64(2), Int64(2)],
+		]
+
+		for ls in ls_list
+			for (Lseq, Lf) in enumerate_paths_left_all(ls)
+				Ccx = coeff_tensor_complex(ls, Lseq, Lf)
+				Creal = complex_to_real_tensor(Ccx, ls, Lf; tol = 1e-10)
+				@test eltype(Creal) == Float64
+			end
+		end
+	end
 
 		ls = [2, 1]
 		bases, paths = build_all_complex_bases(ls)

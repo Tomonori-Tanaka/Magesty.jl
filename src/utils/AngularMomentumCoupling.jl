@@ -234,20 +234,23 @@ function complex_to_real_tensor(Ccx::AbstractArray{<:Number}, ls::Vector{Int}, L
 	Sfinal = c2r_sph_harm_matrix(Lf)
 	C = nmode_mul(C, Sfinal, N+1)
 
-	# 3) Phase alignment (rephase). For integer l, global phase alignment is often sufficient
+	# 3) Phase alignment (rephase). For integer l, a simple analytic global phase
+	#    based on the total number of Y_{lm} factors is often sufficient.
 	if rephase == :global
-		# Global phase alignment: rotate entire tensor by phase of maximum absolute value element
-		_, lin = findmax(abs.(C))
-		φ = angle(C[lin])
-		C .*= exp(-1im*φ)
+		# Use a deterministic global phase instead of data-dependent one:
+		# For integer ls, the transformed tensors are guaranteed to be
+		# purely real or purely imaginary up to a known factor of i.
+		# We compensate that factor here so that the final tensor becomes real.
+		# NOTE: This keeps the overall phase convention stable across runs.
+		C .*= exp(-1im * (π / 2) * (sum(ls) - Lf))
 	elseif rephase == :perM
-		# Per-Mf phase alignment: align phase independently for each Mf slice (tensor basis rephasing)
-		allcols = ntuple(_->Colon(), N)  # N colons
+		# Per-Mf phase alignment: align phase independently for each Mf slice
+		allcols = ntuple(_ -> Colon(), N)  # N colons
 		for q in axes(C, N+1)
 			s = @view C[allcols..., q]
 			_, lin = findmax(abs.(s))
 			φ = angle(s[lin])
-			s .*= exp(-1im*φ)
+			s .*= exp(-1im * φ)
 		end
 	end
 

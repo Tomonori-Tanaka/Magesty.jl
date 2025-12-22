@@ -8,24 +8,8 @@ export r2c_sph_harm_matrix, c2r_sph_harm_matrix
 Compute the transformation matrix from tesseral harmonics to complex spherical harmonics.
 """
 function r2c_sph_harm_matrix(l::Integer)::Matrix{ComplexF64}
-    l ≥ 0 || throw(ArgumentError("Angular momentum l must be non-negative"))
-    
-    U = zeros(ComplexF64, 2l+1, 2l+1)
-    idx(m) = m + l + 1
-
-    # m = 0
-    U[idx(0), idx(0)] = 1
-
-    # m > 0 blocks (pair of real columns for ±m)
-    for m in 1:l
-        jp, jm = idx(+m), idx(-m)
-        # Row for complex +m
-        U[idx(+m), jp] = (-1)^m / sqrt(2)
-        U[idx(+m), jm] = im * (-1)^m / sqrt(2)
-        # Row for complex -m
-        U[idx(-m), jp] = 1 / sqrt(2)
-        U[idx(-m), jm] = -im / sqrt(2)
-    end
+    U = c2r_sph_harm_matrix(l)
+    U = U'
     return U
 end
 
