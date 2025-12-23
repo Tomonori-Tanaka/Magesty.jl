@@ -4,8 +4,10 @@ using LinearAlgebra
 using WignerSymbols
 using OffsetArrays
 
-
-@testset "AngularMomentumCoupling" begin
+mkpath("./result")
+io = open("./result/AngularMomentumCoupling.md", "w")
+try
+	@testset "AngularMomentumCoupling" begin
 	@testset "mrange" begin
 		@test mrange(0) == [0]
 		@test mrange(1) == [-1, 0, 1]
@@ -278,8 +280,7 @@ using OffsetArrays
 
 		# bases, paths = build_all_complex_bases(ls)
 		# display(bases[1][1][:, :, 1])
-
-
+	end
 
 	@testset "complex_to_real_tensor real-valuedness" begin
 		# Check that complex_to_real_tensor produces (numerically) real tensors
@@ -333,4 +334,6 @@ using OffsetArrays
 
 
 	end
+finally
+	close(io)
 end
