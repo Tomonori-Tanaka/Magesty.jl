@@ -80,9 +80,9 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::Matrix{Float64}
 
 	# Store SALC information (salc_index, j_phi, coefficient) for each Lf
 	# Structure: salc_info_Lf[Lf] = Vector of (salc_index, j_phi, coefficient)
-	salc_info_Lf0 = Vector{Tuple{Int, Float64, Vector{Float64}}}()  # Lf=0: Isotropic exchange
-	salc_info_Lf1 = Vector{Tuple{Int, Float64, Vector{Float64}}}()  # Lf=1: DMI
-	salc_info_Lf2 = Vector{Tuple{Int, Float64, Vector{Float64}}}()  # Lf=2: Anisotropic symmetric
+	salc_info_Lf0 = Vector{Tuple{Int, Float64, Vector{Float64}, Int}}()  # Lf=0: Isotropic exchange
+	salc_info_Lf1 = Vector{Tuple{Int, Float64, Vector{Float64}, Int}}()  # Lf=1: DMI
+	salc_info_Lf2 = Vector{Tuple{Int, Float64, Vector{Float64}, Int}}()  # Lf=2: Anisotropic symmetric
 
 	# First pass: Collect SALC information for matching atom pairs
 	for salc_node in EzXML.findall("SALC", sce_basis_set)
@@ -113,6 +113,7 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::Matrix{Float64}
 		for basis_node in EzXML.findall("basis", salc_node)
 			atoms = parse.(Int, split(basis_node["atoms"]))
 			ls = parse.(Int, split(basis_node["ls"]))
+			multiplicity = parse(Int, basis_node["multiplicity"])
 
 			# Check if this basis matches the target atom pair
 			if ls != [1, 1]
@@ -128,11 +129,11 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::Matrix{Float64}
 
 			# Store in the appropriate Lf list
 			if Lf == 0
-				push!(salc_info_Lf0, (salc_index, j_phi, coefficient))
+				push!(salc_info_Lf0, (salc_index, j_phi, coefficient, multiplicity))
 			elseif Lf == 1
-				push!(salc_info_Lf1, (salc_index, j_phi, coefficient))
+				push!(salc_info_Lf1, (salc_index, j_phi, coefficient, multiplicity))
 			elseif Lf == 2
-				push!(salc_info_Lf2, (salc_index, j_phi, coefficient))
+				push!(salc_info_Lf2, (salc_index, j_phi, coefficient, multiplicity))
 			end
 
 		end
@@ -142,21 +143,23 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::Matrix{Float64}
 	coeff_total_l1 = zeros(3, 3)
 	coeff_total_l2 = zeros(3, 3)
 
-	for (salc_index, j_phi, coefficient) in salc_info_Lf0
-		coeff_total_l0 += j_phi * coefficient[1] * I(3) * sqrt(3)
-		println(coeff_total_l0)
+	for (salc_index, j_phi, coefficient, multiplicity) in salc_info_Lf0
+		for mf_idx in 1:1
+			coeff_total_l0 += j_phi * coeff_tensor_Lf0[:, :, mf_idx] .* coefficient[mf_idx] * 3 * multiplicity
+		end
+		# coeff_total_l0 += j_phi * coefficient[1] * I(3) * sqrt(3)
 	end
 	if !isnothing(coeff_tensor_Lf1)
-		for (salc_index, j_phi, coefficient::Vector{Float64}) in salc_info_Lf1
+		for (salc_index, j_phi, coefficient, multiplicity) in salc_info_Lf1
 			for mf_idx in 1:3
-				coeff_total_l1 += j_phi * coeff_tensor_Lf1[:, :, mf_idx] .* coefficient[mf_idx] * sqrt(3)
+				coeff_total_l1 += j_phi * coeff_tensor_Lf1[:, :, mf_idx] .* coefficient[mf_idx] * multiplicity
 			end
 		end
 	end
 	if !isnothing(coeff_tensor_Lf2)
-		for (salc_index, j_phi, coefficient) in salc_info_Lf2
+		for (salc_index, j_phi, coefficient, multiplicity) in salc_info_Lf2
 			for mf_idx in 1:5
-				coeff_total_l2 += j_phi * coeff_tensor_Lf2[:, :, mf_idx] .* coefficient[mf_idx] * sqrt(3)
+				coeff_total_l2 += j_phi * coeff_tensor_Lf2[:, :, mf_idx] .* coefficient[mf_idx] * multiplicity
 			end
 		end
 	end
@@ -167,17 +170,7 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::Matrix{Float64}
 
 
 	# Second pass: Compute linear combinations for each Lf using stored SALC information
-	contribution_Lf0 = compute_contribution(salc_info_Lf0, coeff_tensor_Lf0)
-	contribution_Lf1 = compute_contribution(salc_info_Lf1, coeff_tensor_Lf1)
-	contribution_Lf2 = compute_contribution(salc_info_Lf2, coeff_tensor_Lf2)
-
-	# Sum all contributions
-	result = contribution_Lf0 + contribution_Lf1 + contribution_Lf2
-
-	# Convert from eV to meV
-	result = result .* 1000
-
-	return result
+	return coeff_total_l0 + coeff_total_l1 + coeff_total_l2
 end
 
 """
