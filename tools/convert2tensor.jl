@@ -146,21 +146,25 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::Matrix{Float64}
 		coeff_total_l0 += j_phi * coefficient[1] * I(3) * sqrt(3)
 		println(coeff_total_l0)
 	end
-	for (salc_index, j_phi, coefficient::Vector{Float64}) in salc_info_Lf1
-		for mf_idx in 1:3
-			coeff_total_l1 += j_phi * coeff_tensor_Lf1[:, :, mf_idx] .* coefficient[mf_idx] * sqrt(3)
+	if !isnothing(coeff_tensor_Lf1)
+		for (salc_index, j_phi, coefficient::Vector{Float64}) in salc_info_Lf1
+			for mf_idx in 1:3
+				coeff_total_l1 += j_phi * coeff_tensor_Lf1[:, :, mf_idx] .* coefficient[mf_idx] * sqrt(3)
+			end
 		end
 	end
-	for (salc_index, j_phi, coefficient) in salc_info_Lf2
-		for mf_idx in 1:5
-			coeff_total_l2 += j_phi * coeff_tensor_Lf2[:, :, mf_idx] .* coefficient[mf_idx] * sqrt(3)
+	if !isnothing(coeff_tensor_Lf2)
+		for (salc_index, j_phi, coefficient) in salc_info_Lf2
+			for mf_idx in 1:5
+				coeff_total_l2 += j_phi * coeff_tensor_Lf2[:, :, mf_idx] .* coefficient[mf_idx] * sqrt(3)
+			end
 		end
 	end
 
 	display(coeff_total_l0 * 1000 / 2)
 	display(coeff_total_l1 * 1000 / 2)
 	display(coeff_total_l2 * 1000 / 2)
-	
+
 
 	# Second pass: Compute linear combinations for each Lf using stored SALC information
 	contribution_Lf0 = compute_contribution(salc_info_Lf0, coeff_tensor_Lf0)
@@ -227,7 +231,13 @@ Reconstruct coeff_tensor for Lf=0, 1, 2 from XML document.
 These are atom-pair independent quantities.
 Returns (coeff_tensor_Lf0, coeff_tensor_Lf1, coeff_tensor_Lf2).
 """
-function reconstruct_coeff_tensors(doc)::Tuple{Union{Array{Float64,3},Nothing}, Union{Array{Float64,3},Nothing}, Union{Array{Float64,3},Nothing}}
+function reconstruct_coeff_tensors(
+	doc,
+)::Tuple{
+	Union{Array{Float64, 3}, Nothing},
+	Union{Array{Float64, 3}, Nothing},
+	Union{Array{Float64, 3}, Nothing},
+}
 	coeff_tensor_Lf0 = nothing
 	coeff_tensor_Lf1 = nothing
 	coeff_tensor_Lf2 = nothing
