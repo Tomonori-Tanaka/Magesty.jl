@@ -72,15 +72,11 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::Matrix{Float64}
 	# Reconstruct coeff_tensor for each Lf (atom-pair independent quantities)
 	# These are computed once and reused for all atom pairs
 	coeff_tensor_Lf0, coeff_tensor_Lf1, coeff_tensor_Lf2 = reconstruct_coeff_tensors(doc)
-	display(coeff_tensor_Lf0)
-	display(coeff_tensor_Lf1)
-	display(coeff_tensor_Lf2)
 
 
 	# Scaling factor: (4π)^(n_C/2) where n_C=2 for pair
 	# This matches the scaling in design matrix (see Optimize.jl:266)
 	# Paper Eq. (3): Φ = (√(4π))^{n_C} ∏ Y_{lm}
-	scaling_factor = (4π)^(2/2)  # (4π)^1 = 4π for 2-body interactions
 
 	# Store SALC information (salc_index, j_phi, coefficient) for each Lf
 	# Structure: salc_info_Lf[Lf] = Vector of (salc_index, j_phi, coefficient)
@@ -139,15 +135,37 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::Matrix{Float64}
 				push!(salc_info_Lf2, (salc_index, j_phi, coefficient))
 			end
 
-			# Found matching basis, no need to continue
-			break
 		end
 	end
 
+	coeff_total_l0 = zeros(3, 3)
+	coeff_total_l1 = zeros(3, 3)
+	coeff_total_l2 = zeros(3, 3)
+
+	for (salc_index, j_phi, coefficient) in salc_info_Lf0
+		coeff_total_l0 += j_phi * coefficient[1] * I(3) * sqrt(3)
+		println(coeff_total_l0)
+	end
+	for (salc_index, j_phi, coefficient::Vector{Float64}) in salc_info_Lf1
+		for mf_idx in 1:3
+			coeff_total_l1 += j_phi * coeff_tensor_Lf1[:, :, mf_idx] .* coefficient[mf_idx] * sqrt(3)
+		end
+	end
+	for (salc_index, j_phi, coefficient) in salc_info_Lf2
+		for mf_idx in 1:5
+			coeff_total_l2 += j_phi * coeff_tensor_Lf2[:, :, mf_idx] .* coefficient[mf_idx] * sqrt(3)
+		end
+	end
+
+	display(coeff_total_l0 * 1000 / 2)
+	display(coeff_total_l1 * 1000 / 2)
+	display(coeff_total_l2 * 1000 / 2)
+	
+
 	# Second pass: Compute linear combinations for each Lf using stored SALC information
-	contribution_Lf0 = compute_contribution(salc_info_Lf0, coeff_tensor_Lf0, scaling_factor)
-	contribution_Lf1 = compute_contribution(salc_info_Lf1, coeff_tensor_Lf1, scaling_factor)
-	contribution_Lf2 = compute_contribution(salc_info_Lf2, coeff_tensor_Lf2, scaling_factor)
+	contribution_Lf0 = compute_contribution(salc_info_Lf0, coeff_tensor_Lf0)
+	contribution_Lf1 = compute_contribution(salc_info_Lf1, coeff_tensor_Lf1)
+	contribution_Lf2 = compute_contribution(salc_info_Lf2, coeff_tensor_Lf2)
 
 	# Sum all contributions
 	result = contribution_Lf0 + contribution_Lf1 + contribution_Lf2
@@ -159,7 +177,7 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::Matrix{Float64}
 end
 
 """
-	compute_contribution(salc_info, coeff_tensor, scaling_factor) -> Matrix{Float64}
+	compute_contribution(salc_info, coeff_tensor) -> Matrix{Float64}
 
 Compute the linear combination of coeff_tensor with SALC coefficients.
 Returns a 3x3 matrix representing the contribution from all SALCs in salc_info.
@@ -167,7 +185,6 @@ Returns a 3x3 matrix representing the contribution from all SALCs in salc_info.
 function compute_contribution(
 	salc_info::Vector{Tuple{Int, Float64, Vector{Float64}}},
 	coeff_tensor::Union{Array{Float64, 3}, Nothing},
-	scaling_factor::Float64,
 )::Matrix{Float64}
 	contribution = zeros(3, 3)
 
