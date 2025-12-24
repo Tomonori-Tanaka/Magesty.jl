@@ -155,10 +155,10 @@ function write_xml(structure::Structure,
 	if write_jphi
 		jphi_node = addelement!(root, "JPhi")
 		jphi_node["unit"] = "eV"
-		addelement!(jphi_node, "ReferenceEnergy", string(optimize.reference_energy))
+		addelement!(jphi_node, "ReferenceEnergy", @sprintf("%.15e", optimize.reference_energy))
 
 		for (i, jphi) in enumerate(optimize.SCE)
-			each_jphi_node = addelement!(jphi_node, "jphi", string(jphi))
+			each_jphi_node = addelement!(jphi_node, "jphi", @sprintf("%.15e", jphi))
 			each_jphi_node["salc_index"] = string(i)
 		end
 	end
