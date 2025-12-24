@@ -1,6 +1,7 @@
 module ExchangeTensor
 using EzXML
 using LinearAlgebra
+using Printf
 
 if !@isdefined(Magesty)
 	include("../src/Magesty.jl")
@@ -66,6 +67,41 @@ end
 
 function Base.show(io::IO, tensor::ExchangeTensorData)
 	show(io, tensor.jij_tensor)
+end
+
+"""
+	print_full(io::IO, tensor::ExchangeTensorData)
+	print_full(tensor::ExchangeTensorData)
+
+Print all information of ExchangeTensorData in a formatted way.
+"""
+function print_full(io::IO, tensor::ExchangeTensorData)
+	println(io, "Exchange Tensor (meV):")
+	println(io, "=" ^ 50)
+	println(io, "\nJ_ij tensor (3×3):")
+	for i in 1:3
+		println(io, @sprintf("  % 12.6f  % 12.6f  % 12.6f", 
+			tensor.jij_tensor[i, 1], 
+			tensor.jij_tensor[i, 2], 
+			tensor.jij_tensor[i, 3]))
+	end
+	println(io, "\nIsotropic exchange J_ij: ", @sprintf("% 12.6f meV", tensor.isotropic_jij))
+	println(io, "\nDzyaloshinskii-Moriya vector (meV):")
+	println(io, @sprintf("  D_x: % 12.6f", tensor.dm_vector[1]))
+	println(io, @sprintf("  D_y: % 12.6f", tensor.dm_vector[2]))
+	println(io, @sprintf("  D_z: % 12.6f", tensor.dm_vector[3]))
+	println(io, "\nAnisotropic symmetric exchange Γ (3×3):")
+	for i in 1:3
+		println(io, @sprintf("  % 12.6f  % 12.6f  % 12.6f", 
+			tensor.gamma[i, 1], 
+			tensor.gamma[i, 2], 
+			tensor.gamma[i, 3]))
+	end
+	println(io, "=" ^ 50)
+end
+
+function print_full(tensor::ExchangeTensorData)
+	print_full(stdout, tensor)
 end
 
 function convert2tensor(input::AbstractString, atoms::Vector{Int})::ExchangeTensorData
@@ -395,7 +431,7 @@ function main()
 	args = parse_args(s)
 	tensor_matrix = ExchangeTensor.convert2tensor(args["input"], args["atoms"])
 	println("Tensor matrix (meV):")
-	display(tensor_matrix)
+	ExchangeTensor.print_full(tensor_matrix)
 	println("")
 end
 
