@@ -61,6 +61,7 @@ function calc_micromagnetics(
 			end
 
 			# calculate the exchange interaction tensor
+			println("Calculating exchange tensor for pair: $i_atom - $i_pair")
 			exchange_tensor = convert2tensor(input_xml, [i_atom, i_pair])
 			# Convert from <i, j> (per bond) to (i, j) (allow for double counting)
 			exchange_tensor = (1/2) * exchange_tensor
