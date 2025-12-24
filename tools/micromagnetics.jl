@@ -1,5 +1,5 @@
 """
-Caculation tool for the derivation of the micromagnetics model parameters
+Calculation tool for the derivation of the micromagnetics model parameters
 """
 
 using ArgParse
@@ -15,13 +15,9 @@ using .Magesty
 
 @isdefined(convert2tensor) || begin
 	include("./convert2tensor.jl")
+	using .ExchangeTensor
 end
 
-
-function calc_dm_vector(j_ex::Array{Float64, 2})::Vector{Float64}
-	W_ij = 1/2*(j_ex - j_ex')
-	return [W_ij[2, 3], W_ij[3, 1], W_ij[1, 2]]
-end
 
 function calc_micromagnetics(
 	input_xml::String,
@@ -54,8 +50,10 @@ function calc_micromagnetics(
 				continue;
 			end
 
+			# Get distance information (used for both cutoff check and calculation)
+			dist_info_list = min_distance_pairs[i_atom, i_pair]
+
 			if cutoff !== nothing
-				dist_info_list = min_distance_pairs[i_atom, i_pair]
 				distance = dist_info_list[1].distance
 				if distance > cutoff
 					continue
@@ -64,11 +62,10 @@ function calc_micromagnetics(
 
 			# calculate the exchange interaction tensor
 			exchange_tensor = convert2tensor(input_xml, [i_atom, i_pair])
-			exchange_tensor = (1/2) * exchange_tensor# convert from <i, j> (per bond) to (i, j) (allow for double counting)
-			jij = (1/3) * tr(exchange_tensor)
-			dm_vector = calc_dm_vector(exchange_tensor)
-
-			dist_info_list = min_distance_pairs[i_atom, i_pair]
+			# Convert from <i, j> (per bond) to (i, j) (allow for double counting)
+			exchange_tensor = (1/2) * exchange_tensor
+			jij = exchange_tensor.isotropic_jij
+			dm_vector = exchange_tensor.dm_vector
 			for dist_info in dist_info_list
 				# Check cutoff distance if specified
 
