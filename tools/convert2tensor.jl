@@ -120,26 +120,79 @@ function convert2tensor(input::AbstractString, atoms::Vector{Int})::ExchangeTens
 	# Read XML document
 	doc = readxml(input)
 
-	# Check if the atom order is sorted
-	is_permuted = false
-	if atom1 > atom2
-		is_permuted = true
-		atom1, atom2 = atom2, atom1
-	end
-
-	# Calculate tensor for atom1 -> atom2
+	# Strategy: First try mapping atom1 to primitive cell, then atom2 if not found
+	# This ensures 1-2 and 16-1 give the same result
+	
+	# Try 1: Map atom1 to primitive cell, apply translation to atom2
 	atom1_in_prim = symmetry.map_s2p[atom1].atom
 	translation_global = symmetry.symnum_translation[symmetry.map_s2p[atom1].translation]
 	atom2_translated = symmetry.map_sym_inv[atom2, translation_global]
-	result = calculate_tensor_for_pair(doc, atom1_in_prim, atom2_translated)
-	if is_permuted
-		# When atom order is swapped, the exchange tensor should be transposed
-		# J(i,j) -> J(j,i)
-		result = result'
+	
+	# Normalize pair order: always use smaller index as first atom
+	atom1_prim = atom1_in_prim
+	atom2_prim = atom2_translated
+	is_permuted = false
+	
+	if atom1_prim > atom2_prim
+		is_permuted = true
+		atom1_prim, atom2_prim = atom2_prim, atom1_prim
 	end
-
-	# Convert from Hartree to meV (multiply by 1000)
-	return result * 1000
+	
+	# Check if this pair exists
+	pair_found = false
+	try
+		pair_found = check_pair_exists(doc, atom1_prim, atom2_prim)
+	catch
+		pair_found = false
+	end
+	
+	if pair_found
+		result = calculate_tensor_for_pair(doc, atom1_prim, atom2_prim)
+		if is_permuted
+			# When order is swapped, need to transpose the result
+			# J(j,i) = J(i,j)^T
+			result = result'
+		end
+		# Convert from Hartree to meV (multiply by 1000)
+		return result * 1000
+	end
+	
+	# Try 2: Map atom2 to primitive cell, apply translation to atom1
+	atom2_in_prim = symmetry.map_s2p[atom2].atom
+	translation_global = symmetry.symnum_translation[symmetry.map_s2p[atom2].translation]
+	atom1_translated = symmetry.map_sym_inv[atom1, translation_global]
+	
+	# Normalize pair order again
+	atom1_prim = atom1_translated
+	atom2_prim = atom2_in_prim
+	is_permuted = false
+	
+	if atom1_prim > atom2_prim
+		is_permuted = true
+		atom1_prim, atom2_prim = atom2_prim, atom1_prim
+	end
+	
+	# Check if this pair exists
+	pair_found = false
+	try
+		pair_found = check_pair_exists(doc, atom1_prim, atom2_prim)
+	catch
+		pair_found = false
+	end
+	
+	if pair_found
+		result = calculate_tensor_for_pair(doc, atom1_prim, atom2_prim)
+		if is_permuted
+			# When order is swapped, need to transpose the result
+			# J(j,i) = J(i,j)^T
+			result = result'
+		end
+		# Convert from Hartree to meV (multiply by 1000)
+		return result * 1000
+	end
+	
+	# If no pair found, return zero tensor
+	return ExchangeTensorData(zeros(3, 3)) * 1000
 end
 
 function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::ExchangeTensorData
@@ -281,6 +334,37 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::ExchangeTensorD
 
 	# Second pass: Compute linear combinations for each Lf using stored SALC information
 	return ExchangeTensorData(tensor_cartesian)
+end
+
+"""
+	check_pair_exists(doc, atom1::Int, atom2::Int) -> Bool
+
+Check if the atom pair exists in the XML SALC basis set.
+"""
+function check_pair_exists(doc, atom1::Int, atom2::Int)::Bool
+	sce_basis_set = findfirst("//SCEBasisSet", doc)
+	if isnothing(sce_basis_set)
+		return false
+	end
+	
+	# Check if pair exists in any SALC
+	for salc_node in EzXML.findall("SALC", sce_basis_set)
+		body = parse(Int, salc_node["body"])
+		if body != 2
+			continue
+		end
+		
+		for basis_node in EzXML.findall("basis", salc_node)
+			atoms = parse.(Int, split(basis_node["atoms"]))
+			ls = parse.(Int, split(basis_node["ls"]))
+			
+			if ls == [1, 1] && atoms == [atom1, atom2]
+				return true
+			end
+		end
+	end
+	
+	return false
 end
 
 """
