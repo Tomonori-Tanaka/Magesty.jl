@@ -152,21 +152,21 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::Matrix{Float64}
 	if !isnothing(coeff_tensor_Lf1)
 		for (salc_index, j_phi, coefficient, multiplicity) in salc_info_Lf1
 			for mf_idx in 1:3
-				coeff_total_l1 += j_phi * coeff_tensor_Lf1[:, :, mf_idx] .* coefficient[mf_idx] * multiplicity
+				coeff_total_l1 += j_phi * coeff_tensor_Lf1[:, :, mf_idx] .* coefficient[mf_idx] * 3 * multiplicity
 			end
 		end
 	end
 	if !isnothing(coeff_tensor_Lf2)
 		for (salc_index, j_phi, coefficient, multiplicity) in salc_info_Lf2
 			for mf_idx in 1:5
-				coeff_total_l2 += j_phi * coeff_tensor_Lf2[:, :, mf_idx] .* coefficient[mf_idx] * multiplicity
+				coeff_total_l2 += j_phi * coeff_tensor_Lf2[:, :, mf_idx] .* coefficient[mf_idx] * 3 * multiplicity
 			end
 		end
 	end
 
-	display(coeff_total_l0 * 1000 / 2)
-	display(coeff_total_l1 * 1000 / 2)
-	display(coeff_total_l2 * 1000 / 2)
+	display(coeff_total_l0 * 1000)
+	display(coeff_total_l1 * 1000)
+	display(coeff_total_l2 * 1000)
 
 
 	# Second pass: Compute linear combinations for each Lf using stored SALC information
