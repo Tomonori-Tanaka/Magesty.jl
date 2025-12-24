@@ -1,8 +1,6 @@
-using ArgParse
+module ExchangeTensor
 using EzXML
 using LinearAlgebra
-using Printf
-using StaticArrays
 
 if !@isdefined(Magesty)
 	include("../src/Magesty.jl")
@@ -10,15 +8,72 @@ end
 using .Magesty
 
 
-function convert2tensor(input::AbstractString, atoms::Vector{Int})::Matrix{Float64}
+"""
+	ExchangeTensorData
+
+Exchange interaction tensor for a pair of atoms. Unit is meV.
+
+# Fields
+- `jij_tensor::Matrix{Float64}`: 3×3 exchange interaction tensor in Cartesian coordinates (meV)
+- `isotropic_jij::Float64`: Isotropic exchange parameter (trace/3 of jij_tensor) (meV)
+- `dm_vector::Vector{Float64}`: Dzyaloshinskii-Moriya interaction vector (3 elements) (meV)
+- `gamma::Matrix{Float64}`: Anisotropic symmetric exchange tensor (3×3) (meV)
+"""
+struct ExchangeTensorData<:AbstractMatrix{Float64}
+	jij_tensor::Matrix{Float64}
+	isotropic_jij::Float64
+	dm_vector::Vector{Float64}
+	gamma::Matrix{Float64}
+
+	function ExchangeTensorData(jij_tensor::Matrix{Float64})
+		iso_jij = tr(jij_tensor) / 3
+		dm_vec =
+			[jij_tensor[2, 3] - jij_tensor[3, 2],
+				jij_tensor[3, 1] - jij_tensor[1, 3],
+				jij_tensor[1, 2] - jij_tensor[2, 1]] / 2
+		gamma_mat = jij_tensor - iso_jij * I(3)
+		return new(jij_tensor, iso_jij, dm_vec, gamma_mat)
+	end
+end
+
+function Base.size(tensor::ExchangeTensorData)
+	return size(tensor.jij_tensor)
+end
+
+function Base.getindex(tensor::ExchangeTensorData, i::Int, j::Int)
+	return tensor.jij_tensor[i, j]
+end
+
+function Base.setindex!(tensor::ExchangeTensorData, value::Float64, i::Int, j::Int)
+	tensor.jij_tensor[i, j] = value
+end
+
+function Base.adjoint(tensor::ExchangeTensorData)
+	return ExchangeTensorData(tensor.jij_tensor')
+end
+
+function Base.transpose(tensor::ExchangeTensorData)
+	return ExchangeTensorData(transpose(tensor.jij_tensor))
+end
+
+function Base.:*(tensor::ExchangeTensorData, scalar::Number)
+	return ExchangeTensorData(tensor.jij_tensor .* scalar)
+end
+
+function Base.:*(scalar::Number, tensor::ExchangeTensorData)
+	return tensor * scalar
+end
+
+function Base.show(io::IO, tensor::ExchangeTensorData)
+	show(io, tensor.jij_tensor)
+end
+
+function convert2tensor(input::AbstractString, atoms::Vector{Int})::ExchangeTensorData
 	atom1 = atoms[1]
 	atom2 = atoms[2]
 
 	structure = Magesty.Structure(input, verbosity = false)
 	symmetry = Magesty.Symmetry(structure, 1e-5, verbosity = false)
-
-	# tensor matrix composing jxx, jxy, jxz, jyx, jyy, jyz, jzx, jzy, jzz
-	result = zeros(3, 3)
 
 	# Read XML document
 	doc = readxml(input)
@@ -41,11 +96,11 @@ function convert2tensor(input::AbstractString, atoms::Vector{Int})::Matrix{Float
 		result = result'
 	end
 
-
-	return result
+	# Convert from Hartree to meV (multiply by 1000)
+	return result * 1000
 end
 
-function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::Matrix{Float64}
+function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::ExchangeTensorData
 	# Exchange interaction tensor J_ij (3x3 matrix)
 	# Separate contributions by Lf:
 	# - Lf=0: Isotropic exchange Jij (scalar)
@@ -145,32 +200,35 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::Matrix{Float64}
 
 	for (salc_index, j_phi, coefficient, multiplicity) in salc_info_Lf0
 		for mf_idx in 1:1
-			coeff_total_l0 += j_phi * coeff_tensor_Lf0[:, :, mf_idx] .* coefficient[mf_idx] * 3 * multiplicity
+			coeff_total_l0 +=
+				j_phi * coeff_tensor_Lf0[:, :, mf_idx] .* coefficient[mf_idx] * 3 * multiplicity
 		end
 		# coeff_total_l0 += j_phi * coefficient[1] * I(3) * sqrt(3)
 	end
 	if !isnothing(coeff_tensor_Lf1)
 		for (salc_index, j_phi, coefficient, multiplicity) in salc_info_Lf1
 			for mf_idx in 1:3
-				coeff_total_l1 += j_phi * coeff_tensor_Lf1[:, :, mf_idx] .* coefficient[mf_idx] * 3 * multiplicity
+				coeff_total_l1 +=
+					j_phi * coeff_tensor_Lf1[:, :, mf_idx] .* coefficient[mf_idx] * 3 * multiplicity
 			end
 		end
 	end
 	if !isnothing(coeff_tensor_Lf2)
 		for (salc_index, j_phi, coefficient, multiplicity) in salc_info_Lf2
 			for mf_idx in 1:5
-				coeff_total_l2 += j_phi * coeff_tensor_Lf2[:, :, mf_idx] .* coefficient[mf_idx] * 3 * multiplicity
+				coeff_total_l2 +=
+					j_phi * coeff_tensor_Lf2[:, :, mf_idx] .* coefficient[mf_idx] * 3 * multiplicity
 			end
 		end
 	end
 
-	display(coeff_total_l0 * 1000)
-	display(coeff_total_l1 * 1000)
-	display(coeff_total_l2 * 1000)
-
+	tensor = coeff_total_l0 + coeff_total_l1 + coeff_total_l2
+	#convert to Cartesian
+	convert_matrix = [0 0 1; 1 0 0; 0 1 0]
+	tensor_cartesian = convert_matrix * tensor * convert_matrix'
 
 	# Second pass: Compute linear combinations for each Lf using stored SALC information
-	return coeff_total_l0 + coeff_total_l1 + coeff_total_l2
+	return ExchangeTensorData(tensor_cartesian)
 end
 
 """
@@ -313,6 +371,10 @@ function reconstruct_coeff_tensor_from_node(coupling_node)::Array{Float64, 3}
 	return coeff_tensor
 end
 
+end # module ExchangeTensor
+
+# Script execution part (outside module)
+using ArgParse
 
 function main()
 	s = ArgParseSettings()
@@ -331,7 +393,7 @@ function main()
 	end
 
 	args = parse_args(s)
-	tensor_matrix::Matrix{Float64} = convert2tensor(args["input"], args["atoms"])
+	tensor_matrix = ExchangeTensor.convert2tensor(args["input"], args["atoms"])
 	println("Tensor matrix (meV):")
 	display(tensor_matrix)
 	println("")
