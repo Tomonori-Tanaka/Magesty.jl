@@ -402,7 +402,6 @@ function main()
 
 	args = parse_args(s)
 	tensor_matrix = ExchangeTensor.convert2tensor(args["input"], args["atoms"])
-	println("Tensor matrix (meV):")
 	ExchangeTensor.print_full(tensor_matrix)
 	println("")
 end
