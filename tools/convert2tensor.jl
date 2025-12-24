@@ -8,6 +8,8 @@ if !@isdefined(Magesty)
 end
 using .Magesty
 
+export ExchangeTensorData, print_full, convert2tensor
+
 
 """
 	ExchangeTensorData
@@ -28,11 +30,15 @@ struct ExchangeTensorData<:AbstractMatrix{Float64}
 
 	function ExchangeTensorData(jij_tensor::Matrix{Float64})
 		iso_jij = tr(jij_tensor) / 3
-		dm_vec =
-			[jij_tensor[2, 3] - jij_tensor[3, 2],
-				jij_tensor[3, 1] - jij_tensor[1, 3],
-				jij_tensor[1, 2] - jij_tensor[2, 1]] / 2
-		gamma_mat = jij_tensor - iso_jij * I(3)
+		# DMI vector from antisymmetric part: W = (1/2)(J - J^T)
+		# D_x = W[2,3] = (1/2)(J[2,3] - J[3,2])
+		# D_y = W[3,1] = (1/2)(J[3,1] - J[1,3])
+		# D_z = W[1,2] = (1/2)(J[1,2] - J[2,1])
+		# This matches calc_dm_vector in micromagnetics.jl
+		dm_vec = [jij_tensor[2, 3] - jij_tensor[3, 2],
+		          jij_tensor[3, 1] - jij_tensor[1, 3],
+		          jij_tensor[1, 2] - jij_tensor[2, 1]] / 2
+		gamma_mat = (jij_tensor + jij_tensor') / 2 - iso_jij * I(3)
 		return new(jij_tensor, iso_jij, dm_vec, gamma_mat)
 	end
 end
@@ -50,11 +56,11 @@ function Base.setindex!(tensor::ExchangeTensorData, value::Float64, i::Int, j::I
 end
 
 function Base.adjoint(tensor::ExchangeTensorData)
-	return ExchangeTensorData(tensor.jij_tensor')
+	return ExchangeTensorData(Matrix(tensor.jij_tensor'))
 end
 
 function Base.transpose(tensor::ExchangeTensorData)
-	return ExchangeTensorData(transpose(tensor.jij_tensor))
+	return ExchangeTensorData(Matrix(transpose(tensor.jij_tensor)))
 end
 
 function Base.:*(tensor::ExchangeTensorData, scalar::Number)
@@ -234,16 +240,24 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::ExchangeTensorD
 	coeff_total_l1 = zeros(3, 3)
 	coeff_total_l2 = zeros(3, 3)
 
-	for (salc_index, j_phi, coefficient, multiplicity) in salc_info_Lf0
-		for mf_idx in 1:1
-			coeff_total_l0 +=
-				j_phi * coeff_tensor_Lf0[:, :, mf_idx] .* coefficient[mf_idx] * 3 * multiplicity
+	if !isnothing(coeff_tensor_Lf0)
+		for (salc_index, j_phi, coefficient, multiplicity) in salc_info_Lf0
+			for mf_idx in 1:1
+				coeff_total_l0 +=
+					j_phi * coeff_tensor_Lf0[:, :, mf_idx] .* coefficient[mf_idx] * 3 * multiplicity
+			end
+			# coeff_total_l0 += j_phi * coefficient[1] * I(3) * sqrt(3)
 		end
-		# coeff_total_l0 += j_phi * coefficient[1] * I(3) * sqrt(3)
 	end
+	# Lf=1: Dzyaloshinskii-Moriya interaction (DMI, antisymmetric)
+	# DMI is antisymmetric part of exchange tensor: D = (1/2) * (J - J^T)
+	# In tesseral coordinates: m = -1 (y), 0 (z), 1 (x)
+	# Mf ranges from -1 to 1, so mf_idx = 1, 2, 3 corresponds to Mf = -1, 0, 1
 	if !isnothing(coeff_tensor_Lf1)
 		for (salc_index, j_phi, coefficient, multiplicity) in salc_info_Lf1
 			for mf_idx in 1:3
+				# coefficient[mf_idx] is the SALC coefficient for Mf = mf_idx - 2 (i.e., -1, 0, 1)
+				# Scaling factor: 3 * multiplicity (from design matrix scaling)
 				coeff_total_l1 +=
 					j_phi * coeff_tensor_Lf1[:, :, mf_idx] .* coefficient[mf_idx] * 3 * multiplicity
 			end
@@ -259,56 +273,14 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::ExchangeTensorD
 	end
 
 	tensor = coeff_total_l0 + coeff_total_l1 + coeff_total_l2
-	#convert to Cartesian
-	convert_matrix = [0 0 1; 1 0 0; 0 1 0]
+	# Convert from tesseral to Cartesian coordinates
+	# Tesseral order: m = -1 (y), 0 (z), 1 (x) → Cartesian order: x, y, z
+	# Conversion matrix: [y, z, x] → [x, y, z]
+	convert_matrix = [0 0 1; 1 0 0; 0 1 0]  # Maps: [tesseral_y, tesseral_z, tesseral_x] → [cart_x, cart_y, cart_z]
 	tensor_cartesian = convert_matrix * tensor * convert_matrix'
 
 	# Second pass: Compute linear combinations for each Lf using stored SALC information
 	return ExchangeTensorData(tensor_cartesian)
-end
-
-"""
-	compute_contribution(salc_info, coeff_tensor) -> Matrix{Float64}
-
-Compute the linear combination of coeff_tensor with SALC coefficients.
-Returns a 3x3 matrix representing the contribution from all SALCs in salc_info.
-"""
-function compute_contribution(
-	salc_info::Vector{Tuple{Int, Float64, Vector{Float64}}},
-	coeff_tensor::Union{Array{Float64, 3}, Nothing},
-)::Matrix{Float64}
-	contribution = zeros(3, 3)
-
-	if isnothing(coeff_tensor)
-		return contribution
-	end
-
-	for (salc_index, j_phi, coefficient) in salc_info
-		# Build tensor contribution: sum over Mf of (coefficient[mf] * coeff_tensor[:, :, mf])
-		basis_contribution = zeros(3, 3)
-		Mf_size = length(coefficient)
-
-		for mf_idx in 1:Mf_size
-			tensor_slice = selectdim(coeff_tensor, 3, mf_idx)  # Shape: (3, 3)
-
-			# Convert from tesseral to Cartesian
-			cartesian_tensor = zeros(3, 3)
-			for m1_idx in 1:3, m2_idx in 1:3
-				m1 = m1_idx - 2
-				m2 = m2_idx - 2
-				cart_map = Dict(-1 => 2, 0 => 3, 1 => 1)  # y, z, x
-				i = cart_map[m1]
-				j = cart_map[m2]
-				cartesian_tensor[i, j] = tensor_slice[m1_idx, m2_idx]
-			end
-
-			basis_contribution .+= coefficient[mf_idx] * cartesian_tensor
-		end
-
-		contribution .+= j_phi * basis_contribution
-	end
-
-	return contribution
 end
 
 """
