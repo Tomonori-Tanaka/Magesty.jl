@@ -75,14 +75,6 @@ struct BasisSet
 	coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis}
 	salc_list::Vector{Vector{Basis.CoupledBasis_with_coefficient}}
 	angular_momentum_couplings::Vector{Basis.AngularMomentumCouplingResult}
-
-	function BasisSet(
-		coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis},
-		salc_list::Vector{Vector{Basis.CoupledBasis_with_coefficient}},
-		angular_momentum_couplings::Vector{Basis.AngularMomentumCouplingResult} = Basis.AngularMomentumCouplingResult[],
-	)
-		return new(coupled_basislist, salc_list, angular_momentum_couplings)
-	end
 end
 
 function BasisSet(
