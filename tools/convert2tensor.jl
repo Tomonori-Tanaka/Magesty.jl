@@ -124,7 +124,7 @@ function convert2tensor(input::AbstractString, atoms::Vector{Int})::ExchangeTens
 	# This ensures 1-2 and 16-1 give the same result
 	
 	# Try 1: Map atom1 to primitive cell, apply translation to atom2
-	atom1_in_prim = symmetry.map_s2p[atom1].atom
+	atom1_in_prim = symmetry.atoms_in_prim[symmetry.map_s2p[atom1].atom]
 	translation_global = symmetry.symnum_translation[symmetry.map_s2p[atom1].translation]
 	atom2_translated = symmetry.map_sym_inv[atom2, translation_global]
 	
@@ -158,7 +158,7 @@ function convert2tensor(input::AbstractString, atoms::Vector{Int})::ExchangeTens
 	end
 	
 	# Try 2: Map atom2 to primitive cell, apply translation to atom1
-	atom2_in_prim = symmetry.map_s2p[atom2].atom
+	atom2_in_prim = symmetry.atoms_in_prim[symmetry.map_s2p[atom2].atom]
 	translation_global = symmetry.symnum_translation[symmetry.map_s2p[atom2].translation]
 	atom1_translated = symmetry.map_sym_inv[atom1, translation_global]
 	
