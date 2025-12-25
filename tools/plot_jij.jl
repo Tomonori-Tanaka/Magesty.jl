@@ -79,6 +79,22 @@ function plot_jij(distance_jij_pairs::Vector{Tuple{Float64, Float64}}; invert_si
 		jij_values = -jij_values
 	end
 	
+	# Calculate y-axis limits rounded to multiples of 10
+	jij_min = minimum(jij_values)
+	jij_max = maximum(jij_values)
+	
+	# Round down to nearest multiple of 10 for minimum
+	ymin = floor(jij_min / 10) * 10
+	# Round up to nearest multiple of 10 for maximum
+	ymax = ceil(jij_max / 10) * 10
+	
+	# Ensure range is at least 20 if data range is very small
+	if ymax - ymin < 20
+		center = (jij_min + jij_max) / 2
+		ymin = floor(center / 10) * 10 - 10
+		ymax = ceil(center / 10) * 10 + 10
+	end
+	
 	# Create scatter plot
 	p = plot(
 		distances,
@@ -93,7 +109,8 @@ function plot_jij(distance_jij_pairs::Vector{Tuple{Float64, Float64}}; invert_si
 		grid = true,
 		size = (800, 600),
 		dpi = 300,
-		framestyle = :box
+		framestyle = :box,
+		ylims = (ymin, ymax)
 	)
 	
 	# Add horizontal line at y=0
