@@ -297,7 +297,7 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::ExchangeTensorD
 		for (salc_index, j_phi, coefficient, multiplicity) in salc_info_Lf0
 			for mf_idx in 1:1
 				coeff_total_l0 +=
-					j_phi * coeff_tensor_Lf0[:, :, mf_idx] .* coefficient[mf_idx] * 3 * multiplicity
+					j_phi * coeff_tensor_Lf0[:, :, mf_idx] .* coefficient[mf_idx] * 3
 			end
 			# coeff_total_l0 += j_phi * coefficient[1] * I(3) * sqrt(3)
 		end
@@ -312,7 +312,7 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::ExchangeTensorD
 				# coefficient[mf_idx] is the SALC coefficient for Mf = mf_idx - 2 (i.e., -1, 0, 1)
 				# Scaling factor: 3 * multiplicity (from design matrix scaling)
 				coeff_total_l1 +=
-					j_phi * coeff_tensor_Lf1[:, :, mf_idx] .* coefficient[mf_idx] * 3 * multiplicity
+					j_phi * coeff_tensor_Lf1[:, :, mf_idx] .* coefficient[mf_idx] * 3 
 			end
 		end
 	end
@@ -320,7 +320,7 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::ExchangeTensorD
 		for (salc_index, j_phi, coefficient, multiplicity) in salc_info_Lf2
 			for mf_idx in 1:5
 				coeff_total_l2 +=
-					j_phi * coeff_tensor_Lf2[:, :, mf_idx] .* coefficient[mf_idx] * 3 * multiplicity
+					j_phi * coeff_tensor_Lf2[:, :, mf_idx] .* coefficient[mf_idx] * 3 
 			end
 		end
 	end
