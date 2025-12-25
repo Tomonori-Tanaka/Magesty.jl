@@ -8,6 +8,7 @@ using LinearAlgebra
 using EzXML
 using Plots
 using ArgParse
+using Printf
 
 if !@isdefined(Magesty)
 	include("../src/Magesty.jl")
@@ -94,6 +95,18 @@ function plot_jij(distance_jij_pairs::Vector{Tuple{Float64, Float64}}; invert_si
 		ymin = floor(center / 10) * 10 - 10
 		ymax = ceil(center / 10) * 10 + 10
 	end
+	
+	# Print data to stdout
+	println("\nDistance (Å)    Jij (meV)")
+	println("---------------------------")
+	for (dist, jij) in distance_jij_pairs
+		# Apply sign inversion for display if needed
+		display_jij = invert_sign ? -jij : jij
+		println(@sprintf("%12.6f  %12.6f", dist, display_jij))
+	end
+	println("---------------------------")
+	println(@sprintf("Total pairs: %d", length(distance_jij_pairs)))
+	println()
 	
 	# Create scatter plot
 	p = plot(
