@@ -1,0 +1,39 @@
+[general]
+name = "2d_fcc_2x2x2"
+kd = ["A"]
+nat = 8
+periodicity = [true, true, false]
+
+[symmetry]
+tolerance = 1e-5
+isotropy = true
+
+[interaction]
+nbody = 2
+[interaction.body1]
+lmax.A = 0
+[interaction.body2] # unit is bohr
+cutoff."A-A" = -1
+lsum = 2
+
+[regression]
+datafile = "EMBSET"
+weight = 0.0
+
+[structure]
+kd_list = [1, 1, 1, 1, 1, 1, 1, 1]
+lattice = [
+  [1.0, 0.0, 0.0],
+  [0.0, 1.0, 0.0],
+  [0.0, 0.0, 10.0],
+]
+position = [
+  [0.00, 0.00, 0.00],
+  [0.00, 0.50, 0.00],
+  [0.50, 0.00, 0.00],
+  [0.50, 0.50, 0.00],
+  [0.25, 0.25, 0.00],
+  [0.25, 0.75, 0.00],
+  [0.75, 0.25, 0.00],
+  [0.75, 0.75, 0.00],
+]
