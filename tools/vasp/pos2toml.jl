@@ -184,6 +184,7 @@ function create_toml(data::NamedTuple, output_file::String)
         # [symmetry] section
         symmetry = OrderedDict{String, Any}()
         symmetry["tolerance"] = 1e-5
+        symmetry["isotropy"] = true
         toml_data["symmetry"] = symmetry
         
         # [interaction] section (latest format)
