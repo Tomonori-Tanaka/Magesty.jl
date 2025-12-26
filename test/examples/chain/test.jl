@@ -18,19 +18,19 @@ input["regression"]["datafile"] = joinpath(@__DIR__, "EMBSET.dat")
 	afm_energy = 2.0
 	fm_spin_directions =
 		[0.0 0.0;
-			0.0 0.0;
-			1.0 1.0]
+			   0.0 0.0;
+			   1.0 1.0]
 	afm_spin_directions =
-		[ 0.0 0.0;
-			 0.0 0.0;
-			-1.0 1.0]
+		[0.0 0.0;
+			   0.0 0.0;
+			  -1.0 1.0]
 	# magfield is dummy
 	fm_local_magfield =
-		[   0.0 0.0;
+		[0.0 0.0;
 			0.0 0.0;
 			0.0 0.0]
 	afm_local_magfield =
-		[   0.0 0.0;
+		[0.0 0.0;
 			0.0 0.0;
 			0.0 0.0]
 	push!(
@@ -75,7 +75,9 @@ input["regression"]["datafile"] = joinpath(@__DIR__, "EMBSET.dat")
 	Magesty.write_xml(spincluster, path)
 
 	design_matrix_energy = spincluster.optimize.design_matrix_energy
-	@test design_matrix_energy[1, 2] ≈ √3/(4π) * 1.0 * 2 * 2* 4π atol = 1e-6
+
+	# 3/4π (spherical harmonic) * 1/√3 (tensor element) * 1.0 (coefficient) * 2(multiplicity) * 2(translation) * 4π (scaling factor)
+	@test design_matrix_energy[1, 2] ≈ √3/(4π) * 1.0 * 2 * 2 * 4π atol = 1e-6
 
 	@test Magesty.MySphericalHarmonics.Zₗₘ(1, 0, [0.0, 0.0, 1.0]) ≈ √(3 / 4π) atol = 1e-6
 
