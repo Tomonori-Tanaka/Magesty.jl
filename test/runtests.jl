@@ -34,6 +34,7 @@ if TEST_MODE in ("unit", "all")
 end
 if TEST_MODE in ("integration", "all")
 	@testset "examples" begin
+		include("./examples/square_lattice/test.jl")
 		include("./examples/dimer/test.jl")
 		include("./examples/chain/test.jl")
 		include("./examples/febcc_2x2x2_pm/test.jl")
