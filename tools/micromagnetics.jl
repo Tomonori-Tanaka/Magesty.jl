@@ -6,7 +6,6 @@ using ArgParse
 using LinearAlgebra
 using EzXML
 using JLD2
-using Base.Threads
 
 @isdefined(Magesty) || begin
 	include("../src/Magesty.jl")
@@ -28,21 +27,11 @@ function calc_micromagnetics(
 	atoms_in_prim = system.symmetry.atoms_in_prim   # atom indices in the primitive cell
 	min_distance_pairs = system.cluster.min_distance_pairs
 
-	nthreads = max(1, Threads.nthreads())
-	stiff_loc = [zeros(Float64, 3, 3) for _ in 1:nthreads]
-	spiral_loc = [zeros(Float64, 3, 3) for _ in 1:nthreads]
-
 	stiffness_matrix = zeros(Float64, 3, 3)
 	spiralization_matrix = zeros(Float64, 3, 3)
-	@threads for idx in 1:length(atoms_in_prim)
+	
+	for idx in 1:length(atoms_in_prim)
 		i_atom = atoms_in_prim[idx]
-		t_id = Threads.threadid()
-		# Ensure thread ID is within bounds
-		if t_id > nthreads
-			t_id = 1  # Fallback to first thread if out of bounds
-		end
-		stiff  = stiff_loc[t_id]
-		spiral = spiral_loc[t_id]
 
 		for i_pair in 1:num_atoms
 			if i_pair == i_atom
@@ -75,24 +64,15 @@ function calc_micromagnetics(
 
 				# Avoid creating temporary arrays by using direct element access
 				for i in 1:3, j in 1:3
-					stiff[i, j] += 0.5 * jij * relvec[i] * relvec[j]
+					stiffness_matrix[i, j] += 0.5 * jij * relvec[i] * relvec[j]
 				end
 
 				# Avoid creating temporary arrays by using direct element access
 				for i in 1:3, j in 1:3
-					spiral[i, j] += dm_vector[i] * relvec[j]
+					spiralization_matrix[i, j] += dm_vector[i] * relvec[j]
 				end
 			end
 		end
-		# Update thread-local storage safely
-		if t_id <= nthreads
-			stiff_loc[t_id] = stiff
-			spiral_loc[t_id] = spiral
-		end
-	end
-	for t_id in 1:nthreads
-		stiffness_matrix .+= stiff_loc[t_id]
-		spiralization_matrix .+= spiral_loc[t_id]
 	end
 
 	return stiffness_matrix, spiralization_matrix
@@ -129,3 +109,4 @@ end
 if abspath(PROGRAM_FILE) == @__FILE__
 	main()
 end
+
