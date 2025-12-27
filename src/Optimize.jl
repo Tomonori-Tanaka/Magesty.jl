@@ -309,23 +309,19 @@ function design_matrix_energy_element(
 	result::Float64 = 0.0
 	N = length(cbc.atoms)
 
+	# Store (atoms_sorted, ls) pairs to avoid counting the same basis twice
+	searched_pairs = Set{Tuple{Vector{Int}, Vector{Int}}}()
+
 	for itrans in symmetry.symnum_translation
 		# Translate atoms
 		translated_atoms = [symmetry.map_sym[atom, itrans] for atom in cbc.atoms]
-		if !isapprox(symmetry.symdata[itrans].translation_frac, [0.0, 0.0, 0.0], atol = 1e-8)
-			# Sort translated_atoms for comparison (cbc_in_salc.atoms is already sorted)
-			translated_atoms_sorted = sort(translated_atoms)
-			found_match = false
-			for cbc_in_salc::Basis.CoupledBasis_with_coefficient in salc
-				if cbc_in_salc.atoms == translated_atoms_sorted
-					found_match = true
-					break
-				end
-			end
-			if found_match
-				continue
-			end
+		# Sort atoms for comparison, but keep ls in original order
+		atoms_sorted = sort(translated_atoms)
+		pair = (atoms_sorted, cbc.ls)
+		if pair in searched_pairs
+			continue
 		end
+		push!(searched_pairs, pair)
 
 
 		# Compute spherical harmonics for each site
@@ -465,23 +461,19 @@ function calc_∇ₑu(
 	result = MVector{3, Float64}(0.0, 0.0, 0.0)
 	N = length(cbc.atoms)
 
+	# Store (atoms_sorted, ls) pairs to avoid counting the same basis twice
+	searched_pairs = Set{Tuple{Vector{Int}, Vector{Int}}}()
+
 	@inbounds for itrans in symmetry.symnum_translation
 		# Translate atoms
 		translated_atoms = [symmetry.map_sym[a, itrans] for a in cbc.atoms]
-
-		if !isapprox(symmetry.symdata[itrans].translation_frac, [0.0, 0.0, 0.0], atol = 1e-8)
-			found_match = false
-			translated_atoms_sorted = sort(translated_atoms)
-			for cbc_in_salc::Basis.CoupledBasis_with_coefficient in salc
-				if cbc_in_salc.atoms == translated_atoms_sorted
-					found_match = true
-					break
-				end
-			end
-			if found_match
-				continue
-			end
+		# Sort atoms for comparison, but keep ls in original order
+		atoms_sorted = sort(translated_atoms)
+		pair = (atoms_sorted, cbc.ls)
+		if pair in searched_pairs
+			continue
 		end
+		push!(searched_pairs, pair)
 
 		# Check if atom is in the translated atoms list
 		atom_site_idx = findfirst(==(atom), translated_atoms)
