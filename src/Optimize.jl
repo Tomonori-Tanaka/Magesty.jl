@@ -313,9 +313,11 @@ function design_matrix_energy_element(
 		# Translate atoms
 		translated_atoms = [symmetry.map_sym[atom, itrans] for atom in cbc.atoms]
 		if !isapprox(symmetry.symdata[itrans].translation_frac, [0.0, 0.0, 0.0], atol = 1e-8)
+			# Sort translated_atoms for comparison (cbc_in_salc.atoms is already sorted)
+			translated_atoms_sorted = sort(translated_atoms)
 			found_match = false
 			for cbc_in_salc::Basis.CoupledBasis_with_coefficient in salc
-				if sort(cbc_in_salc.atoms) == sort(translated_atoms)
+				if cbc_in_salc.atoms == translated_atoms_sorted
 					found_match = true
 					break
 				end
@@ -469,8 +471,9 @@ function calc_∇ₑu(
 
 		if !isapprox(symmetry.symdata[itrans].translation_frac, [0.0, 0.0, 0.0], atol = 1e-8)
 			found_match = false
+			translated_atoms_sorted = sort(translated_atoms)
 			for cbc_in_salc::Basis.CoupledBasis_with_coefficient in salc
-				if cbc_in_salc.atoms == translated_atoms
+				if cbc_in_salc.atoms == translated_atoms_sorted
 					found_match = true
 					break
 				end
