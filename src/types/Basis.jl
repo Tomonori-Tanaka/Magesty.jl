@@ -445,4 +445,19 @@ function reorder_atoms(cbc::CoupledBasis_with_coefficient, new_atoms::AbstractVe
 	)
 end
 
+"""
+	convert_to_coupled_basis(cbc::CoupledBasis_with_coefficient)::CoupledBasis
+
+Convert a `CoupledBasis_with_coefficient` to a `CoupledBasis` by removing the coefficients.
+"""
+function convert_to_coupled_basis(cbc::CoupledBasis_with_coefficient)::CoupledBasis
+	return CoupledBasis(
+		cbc.ls,
+		cbc.Lf,
+		cbc.Lseq,
+		cbc.atoms,
+		cbc.coeff_tensor,
+	)
+end
+
 end # module Basis
