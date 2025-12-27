@@ -382,4 +382,67 @@ function Base.show(io::IO, cbc::CoupledBasis_with_coefficient)
 	print(io, ")")
 end
 
+"""
+	reorder_atoms(cbc::CoupledBasis_with_coefficient, new_atoms::AbstractVector{<:Integer})
+
+Reorder the atom indices in the coupled angular momentum basis with coefficients and reorder 
+the corresponding tensor dimensions accordingly.
+
+This function takes a new set of atom indices `new_atoms` and:
+1. Sorts `new_atoms` to maintain the sorted order requirement
+2. Permutes the orbital angular momenta `ls` to match the sorted atom order
+3. Permutes the first N dimensions of `coeff_tensor` to correspond to the reordered sites,
+   while keeping the last dimension (Mf) unchanged
+4. Keeps the `coefficient` vector unchanged (since it corresponds to the Mf dimension which is not permuted)
+
+**Arguments:**
+- `cbc`       : The `CoupledBasis_with_coefficient` to modify
+- `new_atoms` : New atom indices (length must equal the number of sites N)
+
+**Returns:**
+A new `CoupledBasis_with_coefficient` with updated atom indices and reordered tensor dimensions.
+The `coefficient` vector is preserved as-is since it corresponds to the Mf dimension.
+
+**Example:**
+```julia
+# If new_atoms = [5, 1, 2], it will be sorted to [1, 2, 5]
+# The permutation p = [2, 3, 1] is applied to reorder ls and coeff_tensor dimensions
+# The coefficient vector remains unchanged
+```
+"""
+function reorder_atoms(cbc::CoupledBasis_with_coefficient, new_atoms::AbstractVector{<:Integer})
+	N = length(cbc.ls)
+	length(new_atoms) == N ||
+		throw(ArgumentError("length(new_atoms) must be $N, got $(length(new_atoms))"))
+
+	nd = ndims(cbc.coeff_tensor)
+	nd == N + 1 ||
+		throw(ArgumentError("coeff_tensor must have N+1 dims, got $nd (N=$N)"))
+
+	# Find permutation p that sorts new_atoms
+	# Example: new_atoms = [5,1,2] -> p = [2,3,1], new_atoms[p] = [1,2,5]
+	p = sortperm(new_atoms)
+	atoms_sorted = Int.(new_atoms[p])
+
+	# Permute ls to match the sorted atom order (ls is associated with sites)
+	ls_sorted = cbc.ls[p]
+
+	# Permute the first N dimensions of coeff_tensor according to p,
+	# keeping the last dimension (Mf) unchanged
+	dims_perm = vcat(p, nd)  # [p..., N+1]
+	coeff_perm = permutedims(cbc.coeff_tensor, dims_perm)
+
+	# coefficient vector corresponds to the Mf dimension (last dimension),
+	# which is not permuted, so we keep it unchanged
+	return CoupledBasis_with_coefficient(
+		ls_sorted,
+		cbc.Lf,
+		cbc.Lseq,
+		atoms_sorted,
+		coeff_perm,
+		cbc.coefficient,  # unchanged - corresponds to Mf dimension
+		cbc.multiplicity,
+	)
+end
+
 end # module Basis
