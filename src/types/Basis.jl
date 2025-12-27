@@ -8,7 +8,8 @@ export CoupledBasis,
 	CoupledBasis_with_coefficient,
 	AngularMomentumCouplingResult,
 	reorder_atoms,
-	tesseral_coupled_bases_from_tesseral_bases
+	tesseral_coupled_bases_from_tesseral_bases,
+	convert_to_coupled_basis
 
 """
 	CoupledBasis{T,N}
