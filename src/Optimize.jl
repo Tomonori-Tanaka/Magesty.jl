@@ -51,7 +51,7 @@ struct ElasticNet <: AbstractEstimator
 	lambda::Float64
 end
 
-ElasticNet(; alpha::Real=0.0, lambda::Real=0.0) = ElasticNet(Float64(alpha), Float64(lambda))
+ElasticNet(; alpha::Real = 0.0, lambda::Real = 0.0) = ElasticNet(Float64(alpha), Float64(lambda))
 
 struct Optimizer
 	spinconfig_list::Vector{SpinConfig}
@@ -73,7 +73,7 @@ struct Optimizer
 		spinconfig_list::AbstractVector{SpinConfig},
 		;
 		verbosity::Bool = true,
-		estimator::AbstractEstimator = ElasticNet(alpha=alpha, lambda=lambda),
+		estimator::AbstractEstimator = ElasticNet(alpha = alpha, lambda = lambda),
 	)
 		# Start timing
 		start_time = time_ns()
@@ -272,6 +272,7 @@ function build_design_matrix_energy(
 					cbc,
 					spinconfig_list[j].spin_directions,
 					symmetry,
+					salc_list[i],
 				)
 			end
 			design_matrix[j, i+1] = group_value * scaling_factor
@@ -303,6 +304,7 @@ function design_matrix_energy_element(
 	cbc::Basis.CoupledBasis_with_coefficient,
 	spin_directions::AbstractMatrix{<:Real},
 	symmetry::Symmetry,
+	salc::Vector{Basis.CoupledBasis_with_coefficient},
 )::Float64
 	result::Float64 = 0.0
 	N = length(cbc.atoms)
@@ -310,6 +312,19 @@ function design_matrix_energy_element(
 	for itrans in symmetry.symnum_translation
 		# Translate atoms
 		translated_atoms = [symmetry.map_sym[atom, itrans] for atom in cbc.atoms]
+		if !isapprox(symmetry.symdata[itrans].translation_frac, [0.0, 0.0, 0.0], atol = 1e-8)
+			found_match = false
+			for cbc_in_salc::Basis.CoupledBasis_with_coefficient in salc
+				if sort(cbc_in_salc.atoms) == sort(translated_atoms)
+					found_match = true
+					break
+				end
+			end
+			if found_match
+				continue
+			end
+		end
+
 
 		# Compute spherical harmonics for each site
 		sh_values = Vector{Vector{Float64}}(undef, N)
@@ -397,7 +412,13 @@ function build_design_matrix_torque(
 				# Sum contributions from all CoupledBasis_with_coefficient in this key group
 				group_grad = MVector{3, Float64}(0.0, 0.0, 0.0)
 				for cbc in key_group
-					grad_u = calc_∇ₑu(cbc, iatom, spinconfig.spin_directions, symmetry)
+					grad_u = calc_∇ₑu(
+						cbc,
+						iatom,
+						spinconfig.spin_directions,
+						symmetry,
+						salc_list[salc_idx],
+					)
 					group_grad .+= grad_u
 				end
 				n_C = length(key_group[1].atoms)  # Number of sites in the cluster
@@ -437,6 +458,7 @@ function calc_∇ₑu(
 	atom::Integer,
 	spin_directions::AbstractMatrix{<:Real},
 	symmetry::Symmetry,
+	salc::Vector{Basis.CoupledBasis_with_coefficient},
 )::Vector{Float64}
 	result = MVector{3, Float64}(0.0, 0.0, 0.0)
 	N = length(cbc.atoms)
@@ -444,6 +466,19 @@ function calc_∇ₑu(
 	@inbounds for itrans in symmetry.symnum_translation
 		# Translate atoms
 		translated_atoms = [symmetry.map_sym[a, itrans] for a in cbc.atoms]
+
+		if !isapprox(symmetry.symdata[itrans].translation_frac, [0.0, 0.0, 0.0], atol = 1e-8)
+			found_match = false
+			for cbc_in_salc::Basis.CoupledBasis_with_coefficient in salc
+				if cbc_in_salc.atoms == translated_atoms
+					found_match = true
+					break
+				end
+			end
+			if found_match
+				continue
+			end
+		end
 
 		# Check if atom is in the translated atoms list
 		atom_site_idx = findfirst(==(atom), translated_atoms)
