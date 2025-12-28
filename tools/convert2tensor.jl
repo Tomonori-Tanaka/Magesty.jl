@@ -35,9 +35,10 @@ struct ExchangeTensorData<:AbstractMatrix{Float64}
 		# D_y = W[3,1] = (1/2)(J[3,1] - J[1,3])
 		# D_z = W[1,2] = (1/2)(J[1,2] - J[2,1])
 		# This matches calc_dm_vector in micromagnetics.jl
-		dm_vec = [jij_tensor[2, 3] - jij_tensor[3, 2],
-		          jij_tensor[3, 1] - jij_tensor[1, 3],
-		          jij_tensor[1, 2] - jij_tensor[2, 1]] / 2
+		dm_vec =
+			[jij_tensor[2, 3] - jij_tensor[3, 2],
+				jij_tensor[3, 1] - jij_tensor[1, 3],
+				jij_tensor[1, 2] - jij_tensor[2, 1]] / 2
 		gamma_mat = (jij_tensor + jij_tensor') / 2 - iso_jij * I(3)
 		return new(jij_tensor, iso_jij, dm_vec, gamma_mat)
 	end
@@ -86,10 +87,13 @@ function print_full(io::IO, tensor::ExchangeTensorData)
 	println(io, "=" ^ 50)
 	println(io, "\nJ_ij tensor (3×3):")
 	for i in 1:3
-		println(io, @sprintf("  % 12.6f  % 12.6f  % 12.6f", 
-			tensor.jij_tensor[i, 1], 
-			tensor.jij_tensor[i, 2], 
-			tensor.jij_tensor[i, 3]))
+		println(
+			io,
+			@sprintf("  % 12.6f  % 12.6f  % 12.6f",
+				tensor.jij_tensor[i, 1],
+				tensor.jij_tensor[i, 2],
+				tensor.jij_tensor[i, 3])
+		)
 	end
 	println(io, "\nIsotropic exchange J_ij: ", @sprintf("% 12.6f meV", tensor.isotropic_jij))
 	println(io, "\nDzyaloshinskii-Moriya vector (meV):")
@@ -98,10 +102,13 @@ function print_full(io::IO, tensor::ExchangeTensorData)
 	println(io, @sprintf("  D_z: % 12.6f", tensor.dm_vector[3]))
 	println(io, "\nAnisotropic symmetric exchange Γ (3×3):")
 	for i in 1:3
-		println(io, @sprintf("  % 12.6f  % 12.6f  % 12.6f", 
-			tensor.gamma[i, 1], 
-			tensor.gamma[i, 2], 
-			tensor.gamma[i, 3]))
+		println(
+			io,
+			@sprintf("  % 12.6f  % 12.6f  % 12.6f",
+				tensor.gamma[i, 1],
+				tensor.gamma[i, 2],
+				tensor.gamma[i, 3])
+		)
 	end
 	println(io, "=" ^ 50)
 end
@@ -122,22 +129,22 @@ function convert2tensor(input::AbstractString, atoms::AbstractVector{Int})::Exch
 
 	# Strategy: First try mapping atom1 to primitive cell, then atom2 if not found
 	# This ensures 1-2 and 16-1 give the same result
-	
+
 	# Try 1: Map atom1 to primitive cell, apply translation to atom2
 	atom1_in_prim = symmetry.atoms_in_prim[symmetry.map_s2p[atom1].atom]
 	translation_global = symmetry.symnum_translation[symmetry.map_s2p[atom1].translation]
 	atom2_translated = symmetry.map_sym_inv[atom2, translation_global]
-	
+
 	# Normalize pair order: always use smaller index as first atom
 	atom1_prim = atom1_in_prim
 	atom2_prim = atom2_translated
 	is_permuted = false
-	
+
 	if atom1_prim > atom2_prim
 		is_permuted = true
 		atom1_prim, atom2_prim = atom2_prim, atom1_prim
 	end
-	
+
 	# Check if this pair exists
 	pair_found = false
 	try
@@ -145,7 +152,11 @@ function convert2tensor(input::AbstractString, atoms::AbstractVector{Int})::Exch
 	catch
 		pair_found = false
 	end
-	
+
+	result_debug = calculate_tensor_for_pair_debug(doc, atom1_prim, atom2_prim)
+	println("result_debug:")
+	display(result_debug)
+
 	if pair_found
 		result = calculate_tensor_for_pair(doc, atom1_prim, atom2_prim)
 		if is_permuted
@@ -156,22 +167,22 @@ function convert2tensor(input::AbstractString, atoms::AbstractVector{Int})::Exch
 		# Convert from Hartree to meV (multiply by 1000)
 		return result * 1000
 	end
-	
+
 	# Try 2: Map atom2 to primitive cell, apply translation to atom1
 	atom2_in_prim = symmetry.atoms_in_prim[symmetry.map_s2p[atom2].atom]
 	translation_global = symmetry.symnum_translation[symmetry.map_s2p[atom2].translation]
 	atom1_translated = symmetry.map_sym_inv[atom1, translation_global]
-	
+
 	# Normalize pair order again
 	atom1_prim = atom1_translated
 	atom2_prim = atom2_in_prim
 	is_permuted = false
-	
+
 	if atom1_prim > atom2_prim
 		is_permuted = true
 		atom1_prim, atom2_prim = atom2_prim, atom1_prim
 	end
-	
+
 	# Check if this pair exists
 	pair_found = false
 	try
@@ -179,7 +190,8 @@ function convert2tensor(input::AbstractString, atoms::AbstractVector{Int})::Exch
 	catch
 		pair_found = false
 	end
-	
+
+
 	if pair_found
 		result = calculate_tensor_for_pair(doc, atom1_prim, atom2_prim)
 		if is_permuted
@@ -190,7 +202,6 @@ function convert2tensor(input::AbstractString, atoms::AbstractVector{Int})::Exch
 		# Convert from Hartree to meV (multiply by 1000)
 		return result * 1000
 	end
-	
 	# If no pair found, return zero tensor
 	return ExchangeTensorData(zeros(3, 3)) * 1000
 end
@@ -312,7 +323,7 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::ExchangeTensorD
 				# coefficient[mf_idx] is the SALC coefficient for Mf = mf_idx - 2 (i.e., -1, 0, 1)
 				# Scaling factor: 3 * multiplicity (from design matrix scaling)
 				coeff_total_l1 +=
-					j_phi * coeff_tensor_Lf1[:, :, mf_idx] .* coefficient[mf_idx] * 3 
+					j_phi * coeff_tensor_Lf1[:, :, mf_idx] .* coefficient[mf_idx] * 3
 			end
 		end
 	end
@@ -320,7 +331,7 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::ExchangeTensorD
 		for (salc_index, j_phi, coefficient, multiplicity) in salc_info_Lf2
 			for mf_idx in 1:5
 				coeff_total_l2 +=
-					j_phi * coeff_tensor_Lf2[:, :, mf_idx] .* coefficient[mf_idx] * 3 
+					j_phi * coeff_tensor_Lf2[:, :, mf_idx] .* coefficient[mf_idx] * 3
 			end
 		end
 	end
@@ -346,24 +357,24 @@ function check_pair_exists(doc, atom1::Int, atom2::Int)::Bool
 	if isnothing(sce_basis_set)
 		return false
 	end
-	
+
 	# Check if pair exists in any SALC
 	for salc_node in EzXML.findall("SALC", sce_basis_set)
 		body = parse(Int, salc_node["body"])
 		if body != 2
 			continue
 		end
-		
+
 		for basis_node in EzXML.findall("basis", salc_node)
 			atoms = parse.(Int, split(basis_node["atoms"]))
 			ls = parse.(Int, split(basis_node["ls"]))
-			
+
 			if ls == [1, 1] && atoms == [atom1, atom2]
 				return true
 			end
 		end
 	end
-	
+
 	return false
 end
 
@@ -461,6 +472,83 @@ function reconstruct_coeff_tensor_from_node(coupling_node)::Array{Float64, 3}
 	end
 
 	return coeff_tensor
+end
+
+"""
+	calculate_tensor_for_pair_debug(doc, atom1::Int, atom2::Int)::ExchangeTensorData
+
+Calculate the exchange tensor for a pair of atoms using the debug mode.
+Directly calculate the tensor brute force.
+"""
+function calculate_tensor_for_pair_debug(doc, atom1::Int, atom2::Int)::ExchangeTensorData
+	# Pre-fetch XML nodes
+	sce_basis_set = findfirst("//SCEBasisSet", doc)
+	if isnothing(sce_basis_set)
+		throw(ArgumentError("<SCEBasisSet> node not found in the XML file."))
+	end
+
+	JPhi_node = findfirst("//JPhi", doc)
+	if isnothing(JPhi_node)
+		throw(ArgumentError("<JPhi> node not found in the XML file."))
+	end
+
+	# Pre-parse JPhi values
+	jphi_dict = Dict{String, Float64}()
+	for jphi in EzXML.findall("jphi", JPhi_node)
+		jphi_dict[jphi["salc_index"]] = parse(Float64, nodecontent(jphi))
+	end
+
+	coeff_tensor_Lf0, coeff_tensor_Lf1, coeff_tensor_Lf2 = reconstruct_coeff_tensors(doc)
+
+	# Calculate the tensor brute force.
+	# alpha and beta means m and m' in the tesseral basis.
+	# Convert to Cartesian basis (x, y, z) later.
+	tensor = zeros(Float64, 3, 3)
+	for salc_node in EzXML.findall("SALC", sce_basis_set)
+		salc_index = parse(Int, salc_node["index"])
+		index_str = string(salc_index)
+		j_phi = get(jphi_dict, index_str, 0.0)
+
+		if j_phi == 0.0 || !haskey(jphi_dict, index_str)
+			continue
+		end
+
+		# Lf = 0: Isotropic exchange
+		Lf = parse(Int, salc_node["Lf"])
+		if Lf == 0
+			if isnothing(coeff_tensor_Lf0)
+				continue
+			end
+			
+			for basis_node in EzXML.findall("basis", salc_node)
+				atoms = parse.(Int, split(basis_node["atoms"]))
+				ls = parse.(Int, split(basis_node["ls"]))
+				multiplicity = parse(Int, basis_node["multiplicity"])
+
+				if ls != [1, 1]
+					continue
+				end
+				# Check if atoms match (considering order: [atom1, atom2] or [atom2, atom1])
+				if sort(atoms) != sort([atom1, atom2])
+					continue
+				end
+
+				coeff_str = nodecontent(basis_node)
+				coefficient::Vector{Float64} = parse.(Float64, split(coeff_str))
+				# because Lf = 0, there is only one basis function.
+				coeff = coefficient[1]
+				coupling_tensor = coeff_tensor_Lf0[:, :, 1]
+
+				for alpha in 1:3, beta in 1:3
+					tensor[alpha, beta] += j_phi * coupling_tensor[alpha, beta] * coeff * multiplicity 
+				end
+			end
+		end
+
+	end
+	tensor = tensor * 1000 * 3
+
+	return ExchangeTensorData(tensor)
 end
 
 end # module ExchangeTensor
