@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Magesty>
+  <version>0.0.2</version>
+  <System>
+    <NumberOfAtoms>2</NumberOfAtoms>
+    <NumberOfElements>1</NumberOfElements>
+    <LatticeVector>
+      <a1>1.00000000e+00 0.00000000e+00 0.00000000e+00</a1>
+      <a2>0.00000000e+00 1.00000000e+00 0.00000000e+00</a2>
+      <a3>0.00000000e+00 0.00000000e+00 1.00000000e+00</a3>
+    </LatticeVector>
+    <Periodicity>0 0 0</Periodicity>
+    <Positions>
+      <pos atom_index="1" element="X">0.000000000000 0.000000000000 0.000000000000</pos>
+      <pos atom_index="2" element="X">0.000000000000 0.000000000000 0.100000000000</pos>
+    </Positions>
+    <Symmetry>
+      <NumberOfTranslations>1</NumberOfTranslations>
+      <Translations>
+        <map trans="1" atom="1">1</map>
+        <map trans="1" atom="2">2</map>
+      </Translations>
+    </Symmetry>
+    <SCEBasisSet num_salc="1">
+      <SALC index="1" num_basis="1" body="2" Lf="1">
+        <basis multiplicity="1" atoms="1 2" ls="1 1" Lseq="" index="1">0.0 1.0 0.0</basis>
+      </SALC>
+    </SCEBasisSet>
+    <AngularMomentumCouplings num_couplings="3">
+      <Coupling index="1" ls="1 1" Lseq="" Lf="0" tensor_shape="3 3" Mf_size="1">
+        <Mf value="0" index="1">
+          <coeff_tensor>5.773502691896256e-01 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 5.773502691896257e-01 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 5.773502691896256e-01</coeff_tensor>
+        </Mf>
+      </Coupling>
+      <Coupling index="2" ls="1 1" Lseq="" Lf="1" tensor_shape="3 3" Mf_size="3">
+        <Mf value="-1" index="1">
+          <coeff_tensor>0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 -7.071067811865475e-01 0.000000000000000e+00 7.071067811865475e-01 0.000000000000000e+00</coeff_tensor>
+        </Mf>
+        <Mf value="0" index="2">
+          <coeff_tensor>0.000000000000000e+00 0.000000000000000e+00 7.071067811865475e-01 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 -7.071067811865475e-01 0.000000000000000e+00 0.000000000000000e+00</coeff_tensor>
+        </Mf>
+        <Mf value="1" index="3">
+          <coeff_tensor>0.000000000000000e+00 -7.071067811865475e-01 0.000000000000000e+00 7.071067811865475e-01 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00</coeff_tensor>
+        </Mf>
+      </Coupling>
+      <Coupling index="3" ls="1 1" Lseq="" Lf="2" tensor_shape="3 3" Mf_size="5">
+        <Mf value="-2" index="1">
+          <coeff_tensor>0.000000000000000e+00 0.000000000000000e+00 7.071067811865474e-01 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 7.071067811865474e-01 0.000000000000000e+00 0.000000000000000e+00</coeff_tensor>
+        </Mf>
+        <Mf value="-1" index="2">
+          <coeff_tensor>0.000000000000000e+00 7.071067811865475e-01 0.000000000000000e+00 7.071067811865475e-01 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00</coeff_tensor>
+        </Mf>
+        <Mf value="0" index="3">
+          <coeff_tensor>-4.082482904638630e-01 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 8.164965809277260e-01 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 -4.082482904638630e-01</coeff_tensor>
+        </Mf>
+        <Mf value="1" index="4">
+          <coeff_tensor>0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 7.071067811865475e-01 0.000000000000000e+00 7.071067811865475e-01 0.000000000000000e+00</coeff_tensor>
+        </Mf>
+        <Mf value="2" index="5">
+          <coeff_tensor>-7.071067811865474e-01 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 7.071067811865474e-01</coeff_tensor>
+        </Mf>
+      </Coupling>
+    </AngularMomentumCouplings>
+  </System>
+  <JPhi unit="eV">
+    <ReferenceEnergy>0.000000000000000e+00</ReferenceEnergy>
+    <jphi salc_index="1">-4.714045207910316e-01</jphi>
+  </JPhi>
+</Magesty>
