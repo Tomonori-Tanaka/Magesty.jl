@@ -517,9 +517,10 @@ function calculate_tensor_for_pair_debug(doc, atom1::Int, atom2::Int)::ExchangeT
 		Lf = parse(Int, salc_node["Lf"])
 		if Lf == 0
 			if isnothing(coeff_tensor_Lf0)
+				println("coeff_tensor_Lf0 is nothing. skipping this SALC.")
 				continue
 			end
-			
+
 			for basis_node in EzXML.findall("basis", salc_node)
 				atoms = parse.(Int, split(basis_node["atoms"]))
 				ls = parse.(Int, split(basis_node["ls"]))
@@ -540,15 +541,48 @@ function calculate_tensor_for_pair_debug(doc, atom1::Int, atom2::Int)::ExchangeT
 				coupling_tensor = coeff_tensor_Lf0[:, :, 1]
 
 				for alpha in 1:3, beta in 1:3
-					tensor[alpha, beta] += j_phi * coupling_tensor[alpha, beta] * coeff * multiplicity 
+					tensor[alpha, beta] +=
+						j_phi * coupling_tensor[alpha, beta] * coeff * multiplicity
 				end
+			end
+		end
+		if Lf == 1
+			if isnothing(coeff_tensor_Lf1)
+				println("coeff_tensor_Lf1 is nothing. skipping this SALC.")
+				continue
+			end
+
+			for basis_node in EzXML.findall("basis", salc_node)
+				atoms = parse.(Int, split(basis_node["atoms"]))
+				ls = parse.(Int, split(basis_node["ls"]))
+				multiplicity = parse(Int, basis_node["multiplicity"])
+
+				if ls != [1, 1]
+					continue
+				end
+				if sort(atoms) != sort([atom1, atom2])
+					continue
+				end
+
+				coeff_str = nodecontent(basis_node)
+				coefficient::Vector{Float64} = parse.(Float64, split(coeff_str))
+				for mf_idx in 1:3
+					coupling_tensor = coeff_tensor_Lf1[:, :, mf_idx]
+					for alpha in 1:3, beta in 1:3
+						tensor[alpha, beta] += j_phi * coupling_tensor[alpha, beta] * coefficient[mf_idx] * multiplicity 
+					end
+				end
+
 			end
 		end
 
 	end
 	tensor = tensor * 1000 * 3
+	# convert to Cartesian basis
+	convert_matrix = [0 0 1; 1 0 0; 0 1 0]  # Maps: [tesseral_y, tesseral_z, tesseral_x] → [cart_x, cart_y, cart_z]
+	tensor_cartesian = convert_matrix * tensor * convert_matrix'
 
-	return ExchangeTensorData(tensor)
+	return ExchangeTensorData(tensor_cartesian)
 end
 
 end # module ExchangeTensor
