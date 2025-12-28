@@ -4,6 +4,8 @@ using Test
 using StaticArrays
 using Random
 using Magesty
+include("../../../tools/convert2tensor.jl")
+using .ExchangeTensor
 
 
 input = TOML.parse(open(joinpath(@__DIR__, "input.toml"), "r"))
@@ -151,6 +153,15 @@ input["regression"]["datafile"] = joinpath(@__DIR__, "EMBSET.dat")
 		@test spincluster.optimize.reference_energy ≈ 0.0 atol = 1e-6
 		@test length(spincluster.optimize.SCE) == 1
 		@test spincluster.optimize.SCE[1]*3/√(2) ≈ -1.0 atol = 1e-6
+		Magesty.write_xml(spincluster, joinpath(@__DIR__, "dimer_dmi.xml"))
+		exchange_tensor = convert2tensor(
+			joinpath(@__DIR__, "dimer_dmi.xml"),
+			[1, 2],
+		)
+		display(exchange_tensor)
+		display(exchange_tensor.isotropic_jij)
+		display(exchange_tensor.dm_vector)
+		display(exchange_tensor.gamma)
 
 	end
 

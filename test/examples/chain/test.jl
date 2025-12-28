@@ -18,21 +18,21 @@ input["regression"]["datafile"] = joinpath(@__DIR__, "EMBSET.dat")
 	afm_energy = 2.0
 	fm_spin_directions =
 		[0.0 0.0;
-			   0.0 0.0;
-			   1.0 1.0]
+				  0.0 0.0;
+				  1.0 1.0]
 	afm_spin_directions =
 		[0.0 0.0;
-			   0.0 0.0;
-			  -1.0 1.0]
+				  0.0 0.0;
+				 -1.0 1.0]
 	# magfield is dummy
 	fm_local_magfield =
 		[0.0 0.0;
-			0.0 0.0;
-			0.0 0.0]
+			   0.0 0.0;
+			   0.0 0.0]
 	afm_local_magfield =
 		[0.0 0.0;
-			0.0 0.0;
-			0.0 0.0]
+			   0.0 0.0;
+			   0.0 0.0]
 	push!(
 		spinconfig_list,
 		Magesty.SpinConfigs.SpinConfig(

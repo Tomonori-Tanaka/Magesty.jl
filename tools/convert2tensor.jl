@@ -110,7 +110,7 @@ function print_full(tensor::ExchangeTensorData)
 	print_full(stdout, tensor)
 end
 
-function convert2tensor(input::AbstractString, atoms::Vector{Int})::ExchangeTensorData
+function convert2tensor(input::AbstractString, atoms::AbstractVector{Int})::ExchangeTensorData
 	atom1 = atoms[1]
 	atom2 = atoms[2]
 
@@ -470,7 +470,7 @@ using ArgParse
 
 function main()
 	s = ArgParseSettings()
-	@add_arg_table s begin
+	@add_arg_table! s begin
 		"input"
 		help = "Input XML file"
 		required = true
