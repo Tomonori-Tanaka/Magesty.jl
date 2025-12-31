@@ -74,13 +74,6 @@ struct CoupledBasis
 
 		# Check if atoms are sorted
 		atoms_vec = collect(Int.(atoms))
-		if !issorted(atoms_vec)
-			throw(
-				ArgumentError(
-					"atoms must be sorted in ascending order; got $(atoms_vec)",
-				),
-			)
-		end
 
 		return new(collect(Int.(ls)), Lf, Lseq, atoms_vec, coeff_tensor)
 	end

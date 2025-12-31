@@ -125,7 +125,7 @@ function BasisSet(
 	# Pre-allocate array to store results for each key (preserving order)
 	# Each key can have multiple SALC groups (one per eigenvector)
 	salc_list_per_key = Vector{Vector{Vector{Basis.CoupledBasis_with_coefficient}}}(undef, num_keys)
-	
+
 	@threads for idx in 1:num_keys
 		key = keys_list[idx]
 		coupled_basislist = classified_coupled_basisdict[key]
@@ -145,10 +145,10 @@ function BasisSet(
 		Lf = coupled_basislist[1].Lf
 		submatrix_dim = 2 * Lf + 1
 		nbasis = length(coupled_basislist)
-		
+
 		# Create a list of SALC groups for this key (one per eigenvector)
 		key_salc_groups = Vector{Vector{Basis.CoupledBasis_with_coefficient}}()
-		
+
 		for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
 			eigenvec = eigenvecs[:, idx_eigenval]
 			eigenvec = real.(eigenvec)
@@ -181,20 +181,20 @@ function BasisSet(
 				cbc = Basis.CoupledBasis_with_coefficient(cb, coefficient, multiplicity)
 				push!(salc_group, cbc)
 			end
-			
+
 			# Add this SALC group if it's not empty
 			if !isempty(salc_group)
 				push!(key_salc_groups, salc_group)
 			end
 		end
-		
+
 		# Store the list of SALC groups for this key (preserving order by index)
 		salc_list_per_key[idx] = key_salc_groups
 		# Free large matrices after processing each key
 		h_projection = nothing
 		eigenvecs = nothing
 	end
-	
+
 	# Collect all SALC groups in order
 	salc_list = Vector{Vector{Basis.CoupledBasis_with_coefficient}}()
 	for key_salc_groups in salc_list_per_key
@@ -243,12 +243,15 @@ function BasisSet(
 					tensors = bases_by_L[Lf]
 					Lseqs = paths_by_L[Lf]
 					for (tensor, Lseq) in zip(tensors, Lseqs)
-						push!(angular_momentum_couplings, Basis.AngularMomentumCouplingResult(
-							ls_vec,  # Use original ls order
-							Lseq,
-							Lf,
-							copy(tensor),  # Make a copy to avoid reference issues
-						))
+						push!(
+							angular_momentum_couplings,
+							Basis.AngularMomentumCouplingResult(
+								ls_vec,  # Use original ls order
+								Lseq,
+								Lf,
+								copy(tensor),  # Make a copy to avoid reference issues
+							),
+						)
 					end
 				end
 				break  # Found in cache, no need to check other isotropy flag
@@ -322,7 +325,7 @@ function construct_and_classify_coupled_basislist(
 	classified_dict = OrderedDict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}()
 	label_map = Dict{Any, Int}()
 	next_label = 0
-	
+
 	irreducible_cluster_dict::Dict{Int, SortedCountingUniqueVector{Vector{Int}}} =
 		cluster.irreducible_cluster_dict
 	cluster_orbits_dict::Dict{Int, Dict{Int, Vector{Vector{Int}}}} =
@@ -346,7 +349,7 @@ function construct_and_classify_coupled_basislist(
 				nbody_val = length(cb.ls)
 				ls_sorted = Tuple(sort(cb.ls))
 				key = (nbody_val, cb.Lf, sum(cb.ls), ls_sorted)
-				
+
 				label = get(label_map, key, 0)
 				if label == 0
 					next_label += 1
@@ -371,7 +374,7 @@ function construct_and_classify_coupled_basislist(
 				orbit_basis_list = Vector{Basis.CoupledBasis}()
 				# Use IdDict instead of Dict since CoupledBasis doesn't implement hash
 				orbit_basis_counts = IdDict{Basis.CoupledBasis, Int}()
-				
+
 				for atom_list::Vector{Int} in orbit_clusters
 					# Get multiplicity from irreducible_cluster_dict
 					count = irreducible_cluster_dict[body].counts[atom_list]
@@ -381,16 +384,21 @@ function construct_and_classify_coupled_basislist(
 						bodyn_lsum[body];
 						isotropy = isotropy,
 					)
-					
+
 					# Collect basis functions from this cluster
 					for cb::Basis.CoupledBasis in cb_list
 						# Check for translationally equivalent within orbit
 						found_equivalent = false
 						for existing_cb in orbit_basis_list
-							if is_translationally_equivalent_coupled_basis(cb, existing_cb, symmetry)
+							if is_translationally_equivalent_coupled_basis(
+								cb,
+								existing_cb,
+								symmetry,
+							)
 								found_equivalent = true
 								# Safe access: get existing count or 0, then add
-								orbit_basis_counts[existing_cb] = get(orbit_basis_counts, existing_cb, 0) + count
+								orbit_basis_counts[existing_cb] =
+									get(orbit_basis_counts, existing_cb, 0) + count
 								break
 							end
 						end
@@ -400,14 +408,14 @@ function construct_and_classify_coupled_basislist(
 						end
 					end
 				end
-				
+
 				# Classify basis functions from this orbit
 				# Use orbit index in classification key to group by orbit
 				for cb::Basis.CoupledBasis in orbit_basis_list
 					ls_sorted = Tuple(sort(cb.ls))
 					# Include orbit_index in classification key to utilize orbit information
 					key = (body, orbit_index, cb.Lf, sum(cb.ls), ls_sorted)
-					
+
 					label = get(label_map, key, 0)
 					if label == 0
 						next_label += 1
@@ -415,14 +423,14 @@ function construct_and_classify_coupled_basislist(
 						label_map[key] = label
 						classified_dict[label] = SortedCountingUniqueVector{Basis.CoupledBasis}()
 					end
-					
+
 					count = orbit_basis_counts[cb]
 					push!(classified_dict[label], cb, count)
 				end
 			end
 		end
 	end
-	
+
 	return classified_dict
 end
 
@@ -576,9 +584,6 @@ function is_obviously_zero_coupled_basis_product(
 	if cb1.Lf != cb2.Lf
 		return true
 	end
-	if cb1.Lseq != cb2.Lseq
-		return true
-	end
 	if cb1.ls != cb2.ls
 		return true
 	end
@@ -588,7 +593,33 @@ function is_obviously_zero_coupled_basis_product(
 	return false
 end
 
+"""
+	tensor_inner_product(tensor1::AbstractArray{T, N}, tensor2::AbstractArray{T, N}) where {T, N} -> Float64
 
+Compute the inner product of two tensors.
+
+Both tensors must have the same element type `T` and the same number of dimensions `N`.
+
+# Arguments
+- `tensor1::AbstractArray{T, N}`: First tensor
+- `tensor2::AbstractArray{T, N}`: Second tensor (must have same element type and dimensions as tensor1)
+
+# Returns
+- `Float64`: Inner product of the two tensors
+
+# Examples
+```julia
+t1 = [1.0 2.0; 3.0 4.0]
+t2 = [5.0 6.0; 7.0 8.0]
+tensor_inner_product(t1, t2)  # 70.0
+```
+"""
+function tensor_inner_product(
+	tensor1::AbstractArray{T, N},
+	tensor2::AbstractArray{T, N},
+) where {T, N}
+	return sum(conj.(tensor1) .* tensor2)
+end
 
 
 """
@@ -698,7 +729,8 @@ function projection_matrix_coupled_basis(
 		for (i, cb1) in enumerate(coupled_basislist)
 			atoms_shifted_list = [symmetry.map_sym[atom, n] for atom in cb1.atoms]
 			primitive_atoms = find_translation_atoms(atoms_shifted_list, cluster_atoms, symmetry)
-			reordered_cb = reorder_atoms(cb1, primitive_atoms)
+			reordered_cb = reorder_atoms(cb1, atoms_shifted_list)
+			phase = tensor_inner_product(cb1.coeff_tensor, reordered_cb.coeff_tensor) / (2*Lf+1)
 			for (j, cb2) in enumerate(coupled_basislist)
 				if is_obviously_zero_coupled_basis_product(reordered_cb, cb2)
 					submat_in_mat[j, i] = nothing
@@ -712,7 +744,7 @@ function projection_matrix_coupled_basis(
 						multiplier = (-1)^total_l
 						rot_mat = multiplier * rot_mat
 					end
-					submat_in_mat[j, i] = rot_mat
+					submat_in_mat[j, i] = rot_mat * phase
 				end
 			end
 		end
@@ -736,6 +768,7 @@ function projection_matrix_coupled_basis(
 	# Average over all symmetry operations (2 for time reversal)
 	return projection_mat ./ (2 * symmetry.nsym)
 end
+
 
 """
 	is_translationally_equivalent_coupled_basis(
