@@ -125,6 +125,21 @@
 			# Check that Lf and Lseq are unchanged
 			@test cb_new.Lf == cb.Lf
 			@test cb_new.Lseq == cb.Lseq
+
+			# Lf=1
+			cb = cb_list[2]
+			# Test with new_atoms = [5, 1, 2] -> sorted to [1, 2, 5]
+			new_atoms = [2, 1]
+			cb_new = reorder_atoms(cb, new_atoms)
+
+
+			function tensor_inner_product(
+				tensor1::AbstractArray{T, N},
+				tensor2::AbstractArray{T, N},
+			) where {T, N}
+				return sum(conj.(tensor1) .* tensor2)
+			end
+			@show tensor_inner_product(cb.coeff_tensor, cb_new.coeff_tensor)
 		end
 
 		@testset "Three-body case" begin
