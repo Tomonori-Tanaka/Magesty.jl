@@ -113,6 +113,9 @@ function BasisSet(
 			nbody,
 			isotropy = isotropy,
 		)
+	classified_coupled_basisdict = filter_basisdict(classified_coupled_basisdict, symmetry)
+
+
 	if verbosity
 		println(" Done.")
 	end
@@ -672,17 +675,20 @@ function find_translation_atoms(
 				Vector{Int}([symmetry.map_sym[atom, itran] for atom in atom_list_shifted])
 			sorted_atom_list_shifted_shifted = sort(atom_list_shifted_shifted)
 			if sorted_atom_list_shifted_shifted in cluster_atoms
-				push!(matched_set, sorted_atom_list_shifted_shifted)
+				push!(matched_set, atom_list_shifted_shifted)
 			end
 		end
 	end
 	if isempty(matched_set)
 		error("Failed to find translation atoms")
 	elseif length(matched_set) > 1
-		@show atom_list
-		@show cluster_atoms
-		@show matched_set
-		error("Multiple translation atoms found")
+		sorted_matched_set = Set([sort(vec) for vec in matched_set])
+		if length(sorted_matched_set) > 1
+			@show atom_list
+			@show cluster_atoms
+			@show matched_set
+			error("Multiple translation atoms found")
+		end
 	end
 	return first(matched_set)
 end
@@ -729,7 +735,7 @@ function projection_matrix_coupled_basis(
 		for (i, cb1) in enumerate(coupled_basislist)
 			atoms_shifted_list = [symmetry.map_sym[atom, n] for atom in cb1.atoms]
 			primitive_atoms = find_translation_atoms(atoms_shifted_list, cluster_atoms, symmetry)
-			reordered_cb = reorder_atoms(cb1, atoms_shifted_list)
+			reordered_cb = reorder_atoms(cb1, primitive_atoms)
 			phase = tensor_inner_product(cb1.coeff_tensor, reordered_cb.coeff_tensor) / (2*Lf+1)
 			for (j, cb2) in enumerate(coupled_basislist)
 				if is_obviously_zero_coupled_basis_product(reordered_cb, cb2)
@@ -1544,28 +1550,65 @@ end
 
 """
 	filter_basisdict(
-		basisdict::Dict{Int, SortedCountingUniqueVector{SHProduct}},
-	) -> Dict{Int, SortedCountingUniqueVector{SHProduct}}
+		basisdict::Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}},
+		symmetry::Symmetry,
+	) -> Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}
 
-Filter out basis entries whose `SortedCountingUniqueVector` contains at least
-one `SHProduct` with (a) multiplicity greater than 1 and (b) the sum of `l`
-quantum numbers exceeding 2. The surviving lists are deep-copied to avoid
-aliasing and relabeled sequentially (following ascending original keys) so the
-resulting dictionary has deterministic, compact indices.
+Filter out basis entries that correspond to clusters where all atoms map to the same
+primitive atom, have odd total angular momentum Lf, and have multiplicity greater than 1.
+
+# Description
+For clusters consisting of atom sites located at cell boundaries that are connected by
+pure translations, the symmetry-adapted linear combinations (SALCs) vanish when the total
+angular momentum Lf is odd. This function filters out such basis entries beforehand to
+avoid unnecessary computation in the SALC construction process.
+
+A cluster is filtered if all of the following conditions are satisfied:
+1. All atoms in the cluster map to the same atom in the primitive cell (i.e., they are
+   translationally equivalent)
+2. The total angular momentum Lf of the coupled basis is odd
+3. The multiplicity (count) of the basis is greater than 1
+
+The third condition ensures that only clusters at cell boundaries are filtered, as
+translationally equivalent sites at cell boundaries always have multiplicity > 1 due to
+periodic boundary conditions.
+
+# Arguments
+- `basisdict::Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}`: Dictionary of
+  classified coupled basis sets, where keys are labels and values are lists of basis
+  functions belonging to the same symmetry class. The `counts` field of each
+  `SortedCountingUniqueVector` stores the multiplicity of each basis.
+- `symmetry::Symmetry`: Symmetry information containing the mapping from supercell atoms
+  to primitive cell atoms (`symmetry.map_s2p`)
+
+# Returns
+- `Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}`: Filtered dictionary with
+  renumbered labels. Entries that satisfy all filtering conditions are removed, and
+  remaining entries are assigned new consecutive labels starting from 1.
+
+# Notes
+- The function checks only the first basis in each `SortedCountingUniqueVector` to determine
+  the filtering condition, as all bases in the same list share the same Lf value.
+- The multiplicity is accessed via `basislist.counts[first_basis]`, which counts how many
+  times the same basis appears due to translational symmetry.
+- The input dictionary keys are sorted before processing to ensure deterministic output.
 """
 function filter_basisdict(
-	basisdict::Dict{Int, SortedCountingUniqueVector{SHProduct}},
-)::Dict{Int, SortedCountingUniqueVector{SHProduct}}
-	result_basisdict = Dict{Int, SortedCountingUniqueVector{SHProduct}}()
+	basisdict::Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}},
+	symmetry::Symmetry,
+)::Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}
+	result_basisdict = Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}()
 	new_label = 1
 	for label in sort!(collect(keys(basisdict)))
-		basislist::SortedCountingUniqueVector{SHProduct} = basisdict[label]
-		has_forbidden_basis = any(basislist) do basis::SHProduct
-			basislist.counts[basis] > 1 && sum(shsi.l for shsi in basis) > 2
-		end
-		if has_forbidden_basis
+		basislist::SortedCountingUniqueVector{Basis.CoupledBasis} = basisdict[label]
+		first_basis = basislist[begin]
+		atom_list = first_basis.atoms
+		atom_list_in_prim = [symmetry.map_s2p[atom].atom for atom in atom_list]
+		unique_atom_list_in_prim = unique(atom_list_in_prim)
+		if length(unique_atom_list_in_prim) == 1 && isodd(first_basis.Lf) && basislist.counts[first_basis] > 1
 			continue
 		end
+
 		result_basisdict[new_label] = deepcopy(basislist)
 		new_label += 1
 	end
