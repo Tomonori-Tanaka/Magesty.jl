@@ -38,12 +38,15 @@ function rotmat2euler(
 		throw(ArgumentError("Only 3x3 matrices are allowed"))
 	end
 
-	β = acos(m[3, 3])# 0 ≤ β ≤ π
-
-	if isapprox(m[3, 3], 1.0, atol = tol)
+	# Clamp m[3, 3] to [-1, 1] to handle floating point errors
+	m33_clamped = clamp(m[3, 3], -1.0, 1.0)
+	
+	if isapprox(m33_clamped, 1.0, atol = tol)
 		β = 0.0
-	elseif isapprox(m[3, 3], -1.0, atol = tol)
+	elseif isapprox(m33_clamped, -1.0, atol = tol)
 		β = π
+	else
+		β = acos(m33_clamped)  # 0 ≤ β ≤ π
 	end
 
 	if isapprox(β, 0.0, atol = tol) || isapprox(β, π, atol = tol)
