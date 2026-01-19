@@ -153,10 +153,6 @@ function convert2tensor(input::AbstractString, atoms::AbstractVector{Int})::Exch
 		pair_found = false
 	end
 
-	result_debug = calculate_tensor_for_pair_debug(doc, atom1_prim, atom2_prim)
-	println("result_debug:")
-	display(result_debug)
-
 	if pair_found
 		result = calculate_tensor_for_pair(doc, atom1_prim, atom2_prim)
 		if is_permuted
