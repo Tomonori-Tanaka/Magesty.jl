@@ -98,9 +98,11 @@ function parse_incar(filename::String)::OrderedDict{Symbol, Any}
 				continue
 			end
 			
-			# Handle line continuation (backslash backslash means continue to next line)
-			if endswith(rstrip(line), "\\\\")
-				current_line *= rstrip(line[1:end-2]) * " "
+			# Handle line continuation (single backslash means continue to next line)
+			line_rstrip = rstrip(line)
+			if endswith(line_rstrip, "\\")
+				# Remove the backslash and add to current_line
+				current_line *= line_rstrip[1:end-1] * " "
 				continue
 			else
 				current_line *= line * " "
@@ -208,36 +210,58 @@ function write_incar(filename::String, params::OrderedDict{Symbol, Any}; wrap_ve
 			if value isa Vector
 				# Handle arrays (e.g., MAGMOM)
 				if wrap_vectors
-					# Split into chunks of 30 elements
-					chunks = Iterators.partition(value, 30)
-					first_chunk = true
-					for chunk in chunks
-						if !first_chunk
-							print(io, "  ")  # Add indentation for continuation lines
-						end
-						if first_chunk
-							if param_name in [:MAGMOM, :M_CONSTR]
-								print(io, "$param_name = $(join([@sprintf("%.9f", x) for x in chunk], " "))")
-							else
-								print(io, "$param_name = $(join(chunk, " "))")
+					if param_name in [:MAGMOM, :M_CONSTR]
+						# Format MAGMOM/M_CONSTR: 3 components per vector with double space, 24 elements (8 vectors) per line
+						num_atoms = length(value) ÷ 3
+						print(io, "$param_name = ")
+						for i in 1:num_atoms
+							# Add continuation line with backslash every 8 vectors (24 elements)
+							if i > 1 && (i - 1) % 8 == 0
+								print(io, "  \\\n  ")  # Continuation line with backslash
 							end
-						else
-							if param_name in [:MAGMOM, :M_CONSTR]
-								print(io, "$(join([@sprintf("%.9f", x) for x in chunk], " "))")
+							idx_start = 3 * (i - 1) + 1
+							idx_end = 3 * i
+							vec_str = join([@sprintf("%.9f", x) for x in value[idx_start:idx_end]], " ")
+							if i < num_atoms
+								print(io, "$vec_str  ")  # Double space between vectors
+							else
+								print(io, vec_str)  # No trailing space for last vector
+							end
+						end
+						println(io)
+					else
+						# Split into chunks of 30 elements for other vectors
+						chunks = Iterators.partition(value, 30)
+						first_chunk = true
+						for chunk in chunks
+							if !first_chunk
+								print(io, "  ")  # Add indentation for continuation lines
+							end
+							if first_chunk
+								print(io, "$param_name = $(join(chunk, " "))")
 							else
 								print(io, "$(join(chunk, " "))")
 							end
+							if length(chunk) == 30
+								println(io, " \\")
+							else
+								println(io)
+							end
+							first_chunk = false
 						end
-						if length(chunk) == 30
-							println(io, " \\")
-						else
-							println(io)
-						end
-						first_chunk = false
 					end
 				else
 					if param_name in [:MAGMOM, :M_CONSTR]
-						println(io, "$param_name = $(join([@sprintf("%.9f", x) for x in value], " "))")
+						# Format MAGMOM/M_CONSTR: 3 components per vector with double space
+						num_atoms = length(value) ÷ 3
+						vec_strings = String[]
+						for i in 1:num_atoms
+							idx_start = 3 * (i - 1) + 1
+							idx_end = 3 * i
+							vec_str = join([@sprintf("%.9f", x) for x in value[idx_start:idx_end]], " ")
+							push!(vec_strings, vec_str)
+						end
+						println(io, "$param_name = $(join(vec_strings, "  "))")  # Double space between vectors
 					else
 						println(io, "$param_name = $(join(value, " "))")
 					end

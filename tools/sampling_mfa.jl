@@ -285,7 +285,12 @@ function sampling_mfa(
 	# Ensure magmom is a Vector{Float64}
 	if magmom isa AbstractString
 		# Parse string to array of floats
-		magmom = [parse(Float64, n) for n in filter(!isempty, split(magmom, r"\s+"))]
+		# Remove backslashes and line breaks, then split by whitespace
+		magmom_cleaned = replace(magmom, r"\\\s*[\r\n]+" => " ")  # Remove backslash and following newline(s)
+		magmom_cleaned = replace(magmom_cleaned, "\\" => "")  # Remove any remaining standalone backslashes
+		magmom_cleaned = replace(magmom_cleaned, r"[\r\n]+" => " ")  # Remove any remaining newlines
+		magmom_cleaned = strip(magmom_cleaned)  # Remove leading/trailing whitespace
+		magmom = [parse(Float64, n) for n in filter(!isempty, split(magmom_cleaned, r"\s+"))]
 	elseif magmom isa AbstractVector
 		# Convert to Vector{Float64} if needed
 		magmom = [Float64(x) for x in magmom]
@@ -331,14 +336,13 @@ function sampling_mfa(
 		output_spin_flattened = reshape(output_spin_matrix, :)  # more efficient than output_spin_matrix[:]
 		output_incar = copy(incar)
 		output_incar[:MAGMOM] = output_spin_flattened
-		if :M_CONSTR in keys(incar)
-			output_incar[:M_CONSTR] = output_spin_flattened
-		end
+		# Always set M_CONSTR to the same value as MAGMOM
+		output_incar[:M_CONSTR] = output_spin_flattened
 
 		# Write the INCAR file with sample number
 		output_path = @sprintf("sample-%0*d.INCAR", digits, output_index*num_sample + i)
 		try
-			write_incar(output_path, output_incar)
+			write_incar(output_path, output_incar; wrap_vectors=true)
 		catch e
 			@error "Failed to write INCAR file" path=output_path exception=(e, catch_backtrace())
 			rethrow(e)
