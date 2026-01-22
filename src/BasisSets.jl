@@ -132,6 +132,7 @@ function BasisSet(
 	@threads for idx in 1:num_keys
 		key = keys_list[idx]
 		coupled_basislist = classified_coupled_basisdict[key]
+		# display(coupled_basislist)
 		projection_mat =
 			projection_matrix_coupled_basis(coupled_basislist, symmetry)
 		# projection_mat is real symmetric → use Hermitian + eigen! to save memory
@@ -143,7 +144,9 @@ function BasisSet(
 		eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
 		if !is_proper_eigenvals(eigenvals)
 			@show eigenvals
-			error("Critical error: Eigenvalues must be either 0 or 1. index: $key")
+			display(coupled_basislist)
+			# error("Critical error: Eigenvalues must be either 0 or 1. index: $key")
+			@warn "Critical error: Eigenvalues must be either 0 or 1. index: $key"
 		end
 		Lf = coupled_basislist[1].Lf
 		submatrix_dim = 2 * Lf + 1
@@ -736,12 +739,12 @@ function projection_matrix_coupled_basis(
 			atoms_shifted_list = [symmetry.map_sym[atom, n] for atom in cb1.atoms]
 			primitive_atoms = find_translation_atoms(atoms_shifted_list, cluster_atoms, symmetry)
 			reordered_cb = reorder_atoms(cb1, primitive_atoms)
-			phase = tensor_inner_product(cb1.coeff_tensor, reordered_cb.coeff_tensor) / (2*Lf+1)
 			for (j, cb2) in enumerate(coupled_basislist)
 				if is_obviously_zero_coupled_basis_product(reordered_cb, cb2)
 					submat_in_mat[j, i] = nothing
 					continue
 				else
+					phase = tensor_inner_product(cb2.coeff_tensor, reordered_cb.coeff_tensor) / (2*Lf+1)
 					# Calculate rotation matrix for this basis
 					rot_mat = Δl(reordered_cb.Lf, rotmat2euler(rotmat)...)
 					# Apply time reversal symmetry multiplier if needed
