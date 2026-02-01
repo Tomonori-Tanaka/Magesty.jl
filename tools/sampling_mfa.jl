@@ -168,6 +168,17 @@ function randomize_quantization_axis(spin_matrix::AbstractMatrix{<:Real})
 end
 
 """
+	random_rotation_matrix()
+
+Generate a random rotation matrix used for quantization-axis randomization.
+"""
+function random_rotation_matrix()
+	axis = randn(3)
+	axis = axis / norm(axis)
+	return rotation_matrix_from_vectors([0.0, 0.0, 1.0], axis)
+end
+
+"""
 	rotation_matrix_from_vectors(v1::Vector{Float64}, v2::Vector{Float64})
 
 Calculate the rotation matrix that rotates vector v1 to align with vector v2.
@@ -270,6 +281,7 @@ function sampling_mfa(
 	output_index::Integer,
 	digits::Integer,
 	variable::AbstractString,
+	fix_spec::AbstractString = "",
 )
 	# Parse the INCAR file
 	incar = parse_incar(input_path)
@@ -315,6 +327,9 @@ function sampling_mfa(
 		spin_matrix[:, i] = magmom[(3i-2):3i]
 	end
 
+	# Indices whose magnetic moments should be kept as-is (1-based atom indices)
+	fixed_atom_indices = parse_atom_index_spec(fix_spec; max_index = num_atoms)
+
 	# Sample the spin configurations
 	for i in 1:num_sample
 		if variable == "tau"
@@ -328,8 +343,23 @@ function sampling_mfa(
 				""")
 		end
 
-		if randomize# Randomize the quantization axis if specified
-			output_spin_matrix = randomize_quantization_axis(output_spin_matrix)
+		# Randomize the quantization axis if specified.
+		# If --fix is used together with --randomize, fixed atoms should undergo
+		# the SAME uniform rotation (but no sampling).
+		R = nothing
+		if randomize
+			R = random_rotation_matrix()
+			output_spin_matrix = R * output_spin_matrix
+		end
+
+		# Keep the specified atoms' magnetic moments unchanged from the input
+		# (or uniformly rotated if --randomize is on)
+		for idx in fixed_atom_indices
+			if randomize
+				@inbounds output_spin_matrix[:, idx] = R * spin_matrix[:, idx]
+			else
+				@inbounds output_spin_matrix[:, idx] = spin_matrix[:, idx]
+			end
 		end
 
 		# Write the spin configuration to the output file
@@ -352,12 +382,62 @@ end
 
 
 """
+	parse_atom_index_spec(spec::AbstractString; max_index::Integer)
+
+Parse atom index specification like:
+- "1-10"
+- "1-10,12,20-22"
+- "1 2 5-8" (spaces are also allowed)
+
+Indices are **1-based** and inclusive for ranges.
+Returns sorted unique indices.
+"""
+function parse_atom_index_spec(spec::AbstractString; max_index::Integer)
+	s = strip(spec)
+	isempty(s) && return Int[]
+
+	# Split by commas and/or whitespace
+	tokens = filter(!isempty, split(s, r"[,\s]+"))
+	indices = Int[]
+
+	for t in tokens
+		# single index
+		if occursin(r"^\d+$", t)
+			push!(indices, parse(Int, t))
+			continue
+		end
+
+		# range: a-b or a:b (accept ':' as well)
+		m = match(r"^(\d+)[-:](\d+)$", t)
+		if m !== nothing
+			a = parse(Int, m.captures[1])
+			b = parse(Int, m.captures[2])
+			lo = min(a, b)
+			hi = max(a, b)
+			append!(indices, lo:hi)
+			continue
+		end
+
+		error("Invalid --fix spec token: '$t'. Example: \"1-10,12,20-22\"")
+	end
+
+	# Validate and normalize
+	unique!(sort!(indices))
+	if any(i -> i < 1 || i > max_index, indices)
+		error("--fix indices must be within 1:$max_index. Got: $(join(indices, ","))")
+	end
+	return indices
+end
+
+
+"""
 	Main function to parse arguments and execute sampling.
 """
 function main()
 	s = ArgParseSettings(description = """
 	A program for sampling spin configurations using Mean Field Approximation (MFA).
 	The distribution function becomes the von Mises-Fisher distribution.
+	If both MAGMOM and M_CONSTR exist in INCAR, MAGMOM is used with priority.
 
 	Main features:
 	- Sampling spin configurations at specified temperature range (T/Tc)
@@ -398,6 +478,11 @@ function main()
 		help = "Randomize the quantization axis"
 		action = "store_true"
 
+		"--fix"
+		help = "Fix magnetic moments for specified 1-based atom indices (e.g. \"1-10,12,20-22\"). Without --randomize: keep original values from the input INCAR. With --randomize: apply the same uniform rotation as other atoms (no sampling for fixed atoms)."
+		arg_type = String
+		default = ""
+
 	end
 
 	args = parse_args(s)
@@ -425,6 +510,7 @@ function main()
 			i-1,
 			digits,
 			args["variable"],
+			args["fix"],
 		)
 	end
 
@@ -443,6 +529,7 @@ function print_info(args, total_files::Int)
 	)
 	@printf("Number of samples per step: %d\n", args["num_samples"])
 	@printf("Randomize quantization axis: %s\n", args["randomize"] ? "Yes" : "No")
+	@printf("Fixed atom indices (--fix): %s\n", isempty(strip(args["fix"])) ? "(none)" : args["fix"])
 	@printf("Total number of INCAR files created: %d\n", total_files)
 end
 
