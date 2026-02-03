@@ -571,6 +571,12 @@ function listup_coupled_basislist(
 		end
 		l_list = Combinat.compositions(l, length(atom_list); min = 1)
 		for l_vec::Vector{Int} in l_list
+
+			# TODO: Remove this exceptional handling when the bug is fixed in the projection matrix construction.
+			if sort(l_vec) == [1, 3]
+				continue
+			end
+
 			cb_list =
 				tesseral_coupled_bases_from_tesseral_bases(l_vec, atom_list; isotropy = isotropy)
 			append!(result_basislist, cb_list)
