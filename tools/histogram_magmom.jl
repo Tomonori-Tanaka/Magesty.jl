@@ -5,10 +5,10 @@ using Statistics
 include("../src/SpinConfigs.jl")
 using .SpinConfigs
 
-# parse atoms argument that may include ranges like "1-5" and comma-separated tokens
-function parse_atom_indices(atoms_args::AbstractVector{<:AbstractString})::Vector{Int}
+# parse indices argument that may include ranges like "1-5" and comma-separated tokens
+function parse_indices_args(args::AbstractVector{<:AbstractString})::Vector{Int}
 	indices = Int[]
-	for raw_token in atoms_args
+	for raw_token in args
 		for token in split(raw_token, ',')
 			t = strip(token)
 			if isempty(t)
@@ -44,6 +44,12 @@ function parse_atom_indices(atoms_args::AbstractVector{<:AbstractString})::Vecto
 	return indices
 end
 
+# backward-compatible name (CLI option is still --atoms)
+parse_atom_indices(atoms_args::AbstractVector{<:AbstractString})::Vector{Int} = parse_indices_args(atoms_args)
+
+# data indices (SpinConfig indices) parser (same syntax as --atoms)
+parse_data_indices(data_args::AbstractVector{<:AbstractString})::Vector{Int} = parse_indices_args(data_args)
+
 # Freedman–Diaconis rule bin width with sensible fallbacks
 function fd_bin_width(values::AbstractVector{<:Real})::Float64
 	v = collect(skipmissing(values))
@@ -76,6 +82,7 @@ end
 function plot_histogram(
 	inputs::AbstractVector{<:AbstractString},
 	target_atom_indices::AbstractVector{<:Integer},
+	target_data_indices::AbstractVector{<:Integer},
 	min_bound::Union{<:Real, Nothing},
 	max_bound::Union{<:Real, Nothing},
 	bin_width::Union{<:Real, Nothing},
@@ -114,11 +121,27 @@ function plot_histogram(
 	for (file_idx, input) in enumerate(inputs)
 		# read the input file
 		embset::Vector{SpinConfig} = SpinConfigs.read_embset(input)
+		n_data = length(embset)
+		if n_data <= 0
+			error("No data found in file: $input")
+		end
+
+		# determine the target data (SpinConfig indices)
+		target_data = (-1 in target_data_indices) ? collect(1:n_data) : collect(Int.(target_data_indices))
+		if !(-1 in target_data_indices)
+			for idx in target_data
+				if idx < 1 || idx > n_data
+					error("Data index out of range (1..$n_data) for file $(basename(input)): $idx")
+				end
+			end
+			target_data = sort(unique(target_data))
+		end
+		selected_embset = (-1 in target_data_indices) ? embset : embset[target_data]
 		
 		# collect the magmom size for this file
 		magmom_size_list = Float64[
 			sconfig.magmom_size[atom]
-			for sconfig in embset
+			for sconfig in selected_embset
 			for atom in target_atoms
 		]
 		
@@ -246,6 +269,12 @@ s = ArgParseSettings(
 	default = ["-1"]
 	arg_type = String
 
+	"--data", "-d"
+	help = "The data indices (SpinConfig indices) to analyze. Accepts integers, ranges like 1-5, and comma-separated lists. If -1 is given (default), all data are analyzed."
+	nargs = '+'
+	default = ["-1"]
+	arg_type = String
+
 	"--min_bound", "-l"
 	help = "The lower bound of the histogram"
 	arg_type = Float64
@@ -272,6 +301,11 @@ plot_histogram(
 		atoms_arg = parsed_args["atoms"]
 		# atoms_arg is Vector{String}; convert to Vector{Int} expanding ranges
 		parse_atom_indices(atoms_arg)
+	end,
+	begin
+		data_arg = parsed_args["data"]
+		# data_arg is Vector{String}; convert to Vector{Int} expanding ranges
+		parse_data_indices(data_arg)
 	end,
 	parsed_args["min_bound"],
 	parsed_args["max_bound"],
