@@ -18,7 +18,10 @@ using .Magesty
 include("./convert2tensor.jl")
 using .ExchangeTensor
 
-function collect_jij(input::String, reference_atom::Int)::Vector{Tuple{Float64, Float64}}
+function collect_jij(
+	input::String,
+	reference_atom::Int,
+)::Vector{Tuple{Float64, Float64, String}}
 	
 	structure = Magesty.Structure(input, verbosity = false)
 	symmetry = Magesty.Symmetry(structure, 1e-5, verbosity = false)
@@ -26,9 +29,13 @@ function collect_jij(input::String, reference_atom::Int)::Vector{Tuple{Float64, 
 	doc = readxml(input)
 
 	num_atoms = structure.supercell.num_atoms
+
+	# Element symbol of the reference atom (i)
+	ref_element_index = structure.supercell.kd_int_list[reference_atom]
+	ref_element_symbol = structure.kd_name[ref_element_index]
 	
-	# Array to store distance-Jij pairs
-	distance_jij_pairs = Vector{Tuple{Float64, Float64}}()
+	# Array to store (distance, Jij, element) tuples
+	distance_jij_pairs = Vector{Tuple{Float64, Float64, String}}()
 
 	for j_atom in 1:num_atoms
 		if j_atom == reference_atom
@@ -53,9 +60,16 @@ function collect_jij(input::String, reference_atom::Int)::Vector{Tuple{Float64, 
 
 		# Calculate Jij
 		jij = convert2tensor(input, [reference_atom, j_atom])
-		
-		# Add (distance, Jij) pair
-		push!(distance_jij_pairs, (min_distance, jij.isotropic_jij))
+
+		# Get element of the partner atom (j_atom)
+		partner_index = structure.supercell.kd_int_list[j_atom]
+		partner_symbol = structure.kd_name[partner_index]
+
+		# Pair label like "Fe–O" (using en dash)
+		pair_label = string(ref_element_symbol, "–", partner_symbol)
+
+		# Add (distance, Jij, pair_label) tuple
+		push!(distance_jij_pairs, (min_distance, jij.isotropic_jij, pair_label))
 	end
 
 	# Sort by distance
@@ -65,7 +79,12 @@ function collect_jij(input::String, reference_atom::Int)::Vector{Tuple{Float64, 
 end
 
 
-function plot_jij(distance_jij_pairs::Vector{Tuple{Float64, Float64}}; invert_sign::Bool = false)
+function plot_jij(
+	distance_jij_pairs::Vector{Tuple{Float64, Float64, String}};
+	invert_sign::Bool = false,
+	ymin::Real = NaN,
+	ymax::Real = NaN,
+)
 	if isempty(distance_jij_pairs)
 		println("No data to plot.")
 		return
@@ -74,60 +93,64 @@ function plot_jij(distance_jij_pairs::Vector{Tuple{Float64, Float64}}; invert_si
 	# Separate distances and Jij values
 	distances = [pair[1] for pair in distance_jij_pairs]
 	jij_values = [pair[2] for pair in distance_jij_pairs]
+	elements = [pair[3] for pair in distance_jij_pairs]
 	
 	# Invert sign if requested
 	if invert_sign
 		jij_values = -jij_values
 	end
 	
-	# Calculate y-axis limits rounded to multiples of 10
+	# Calculate default y-axis limits rounded to multiples of 10
 	jij_min = minimum(jij_values)
 	jij_max = maximum(jij_values)
-	
-	# Round down to nearest multiple of 10 for minimum
-	ymin = floor(jij_min / 10) * 10
-	# Round up to nearest multiple of 10 for maximum
-	ymax = ceil(jij_max / 10) * 10
-	
-	# Ensure range is at least 20 if data range is very small
-	if ymax - ymin < 20
+
+	auto_ymin = floor(jij_min / 10) * 10
+	auto_ymax = ceil(jij_max / 10) * 10
+
+	# If user did not specify ymin/ymax, ensure range is at least 20
+	if !isfinite(ymin) && !isfinite(ymax) && auto_ymax - auto_ymin < 20
 		center = (jij_min + jij_max) / 2
-		ymin = floor(center / 10) * 10 - 10
-		ymax = ceil(center / 10) * 10 + 10
+		auto_ymin = floor(center / 10) * 10 - 10
+		auto_ymax = ceil(center / 10) * 10 + 10
 	end
+
+	# Decide final y-limits (user-specified values override auto limits if finite)
+	final_ymin = isfinite(ymin) ? float(ymin) : auto_ymin
+	final_ymax = isfinite(ymax) ? float(ymax) : auto_ymax
 	
 	# Print data to stdout
-	println("\nDistance (Å)    Jij (meV)")
-	println("---------------------------")
-	for (dist, jij) in distance_jij_pairs
+	println("\nDistance (Å)    Jij (meV)   Pair(i–j)")
+	println("------------------------------------------------")
+	for (dist, jij, elem) in distance_jij_pairs
 		# Apply sign inversion for display if needed
 		display_jij = invert_sign ? -jij : jij
-		println(@sprintf("%12.6f  %12.6f", dist, display_jij))
+		println(@sprintf("%12.6f  %12.6f  %s", dist, display_jij, elem))
 	end
-	println("---------------------------")
+	println("------------------------------------------------")
 	println(@sprintf("Total pairs: %d", length(distance_jij_pairs)))
 	println()
 	
-	# Create scatter plot
-	p = plot(
+	# Create scatter plot (color-coded by element)
+	p = scatter(
 		distances,
 		jij_values,
-		seriestype = :scatter,
+		group = elements,
 		markersize = 5,
 		markeralpha = 0.8,
 		title = "Isotropic Jij vs Distance",
 		xlabel = "Distance (Å)",
 		ylabel = "Jij (meV)",
-		legend = false,
+		legend = :topright,
+		legendfontsize = 13,
 		grid = true,
 		size = (800, 600),
 		dpi = 300,
 		framestyle = :box,
-		ylims = (ymin, ymax)
+		ylims = (final_ymin, final_ymax)
 	)
 	
-	# Add horizontal line at y=0
-	hline!(p, [0.0], color = :black, linestyle = :dash, linewidth = 1, alpha = 0.5)
+	# Add horizontal line at y=0 (no legend entry)
+	hline!(p, [0.0], color = :black, linestyle = :dash, linewidth = 1, alpha = 0.5, label = "")
 	
 	display(p)
 	println("\nPress Enter to exit...")
@@ -152,10 +175,27 @@ function main()
         "--invert-sign", "-i"
         help = "Invert the sign of Jij values"
         action = :store_true
+
+        "--ymin"
+        help = "Minimum value of y-axis"
+        arg_type = Float64
+        required = false
+        default = NaN
+
+        "--ymax"
+        help = "Maximum value of y-axis"
+        arg_type = Float64
+        required = false
+        default = NaN
     end
     args = parse_args(ARGS, s)
     distance_jij_pairs = collect_jij(args["input"], args["reference_atom"])
-    plot_jij(distance_jij_pairs; invert_sign = args["invert-sign"])
+    plot_jij(
+        distance_jij_pairs;
+        invert_sign = args["invert-sign"],
+        ymin = args["ymin"],
+        ymax = args["ymax"],
+    )
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
