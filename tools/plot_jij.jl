@@ -140,6 +140,8 @@ function plot_jij(
 		title = "Isotropic Jij vs Distance",
 		xlabel = "Distance (Å)",
 		ylabel = "Jij (meV)",
+		xtickfont = font(13),
+		ytickfont = font(13),
 		legend = :topright,
 		legendfontsize = 13,
 		grid = true,

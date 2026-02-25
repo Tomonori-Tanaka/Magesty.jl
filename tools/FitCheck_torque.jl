@@ -9,6 +9,42 @@ const MARKER_SIZE = 5# marker size for scatter
 const MARKER_ALPHA = 0.8# marker transparency
 const AXIS_PADDING = 10.0# padding around data range (meV)
 
+# parse atoms argument that may include ranges like "1-5" and comma-separated tokens
+function parse_atom_indices(atoms_args::AbstractVector{<:AbstractString})::Vector{Int}
+	indices = Int[]
+	for raw_token in atoms_args
+		for token in split(raw_token, ',')
+			t = strip(token)
+			if isempty(t)
+				continue
+			end
+			if occursin('-', t)
+				parts = split(t, '-')
+				if length(parts) != 2
+					error("Invalid range token: $t")
+				end
+				start_str, end_str = strip.(parts)
+				start_idx = tryparse(Int, start_str)
+				end_idx = tryparse(Int, end_str)
+				if isnothing(start_idx) || isnothing(end_idx)
+					error("Invalid integer in range: $t")
+				end
+				if start_idx > end_idx
+					error("Range start greater than end: $t")
+				end
+				append!(indices, collect(start_idx:end_idx))
+			else
+				val = tryparse(Int, t)
+				if isnothing(val)
+					error("Invalid integer token: $t")
+				end
+				push!(indices, val)
+			end
+		end
+	end
+	return indices
+end
+
 """
 	calculate_statistics(y1::Vector{Float64}, y2::Vector{Float64}) -> Dict{String, Float64}
 
@@ -313,7 +349,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
 		default = nothing
 
 		"--atom-indices", "-a"
-		help = "Atom indices to plot (comma-separated, e.g., '1,2,3')"
+		help = "Atom indices to plot (comma-separated, e.g., '1,2,3' or ranges like '1-5,7,10-12')"
 		arg_type = String
 		default = nothing
 
@@ -330,7 +366,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
 	elements = nothing
 
 	if parsed_args["atom-indices"] !== nothing
-		atom_indices = [parse(Int, x) for x in split(parsed_args["atom-indices"], ",")]
+		atom_indices = parse_atom_indices([parsed_args["atom-indices"]])
 	end
 
 	if parsed_args["elements"] !== nothing
