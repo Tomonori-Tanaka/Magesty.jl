@@ -193,12 +193,12 @@ s = ArgParseSettings(
 	nargs = '+'
 	required = true
 
-	"--output" "-o"
+	"--output", "-o"
 	help = "Output filename (png, svg, pdf; format inferred from extension)"
 	arg_type = String
 	default = nothing
 
-	"--lim" "-l"
+	"--lim", "-l"
 	help = "X/Y axis limits (meV). Fix to [-lim, lim]"
 	arg_type = Float64
 	default = nothing
