@@ -189,6 +189,7 @@ function plot_torque(
 	lim::Union{Float64, Nothing} = nothing,
 	atom_indices::Union{Vector{Int}, Nothing} = nothing,
 	elements::Union{Vector{String}, Nothing} = nothing,
+	no_legend::Bool = false,
 	marker_size::Real = MARKER_SIZE,
 	marker_alpha::Real = MARKER_ALPHA,
 )
@@ -250,6 +251,11 @@ function plot_torque(
 
 	# Create base plot and add reference line
 	p, unit = create_plot(plot_type)
+
+	# Optionally hide legend
+	if no_legend
+		plot!(p, legend = false)
+	end
 
 	# Print statistics per dataset
 	for (i, file) in enumerate(files)
@@ -369,6 +375,10 @@ if abspath(PROGRAM_FILE) == @__FILE__
 		help = "Marker transparency (0-1) for scatter points"
 		arg_type = Float64
 		default = MARKER_ALPHA
+
+		"--no-legend", "-L"
+		help = "Disable legend in the plot"
+		action = :store_true
 	end
 
 	parsed_args = parse_args(s)
@@ -399,6 +409,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
 		lim = parsed_args["lim"],
 		atom_indices = atom_indices,
 		elements = elements,
+		no_legend = parsed_args["no-legend"],
 		marker_size = parsed_args["marker-size"],
 		marker_alpha = parsed_args["marker-alpha"],
 	)
