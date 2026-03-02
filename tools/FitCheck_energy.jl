@@ -142,6 +142,7 @@ function plot_energy(
 	output::Union{String, Nothing} = nothing,
 	lim::Union{Float64, Nothing} = nothing,
 	colored_indices::Union{Vector{Int}, Nothing} = nothing,
+	no_legend::Bool = false,
 	marker_size::Real = MARKER_SIZE,
 	marker_alpha::Real = MARKER_ALPHA,
 )
@@ -177,6 +178,11 @@ function plot_energy(
 
 	# Create base plot and add reference line
 	p, unit = create_plot()
+
+	# Optionally hide legend
+	if no_legend
+		plot!(p, legend = false)
+	end
 
 	# Determine axis limits
 	if lim !== nothing
@@ -301,6 +307,10 @@ s = ArgParseSettings(
 	help = "Marker transparency (0-1) for scatter points"
 	arg_type = Float64
 	default = MARKER_ALPHA
+
+	"--no-legend", "-L"
+	help = "Disable legend in the plot"
+	action = :store_true
 end
 
 parsed_args = parse_args(s)
@@ -312,6 +322,7 @@ plot_energy(parsed_args["files"];
 	output = parsed_args["output"],
 	lim = parsed_args["lim"],
 	colored_indices = colored_indices,
+	no_legend = parsed_args["no-legend"],
 	marker_size = parsed_args["marker-size"],
 	marker_alpha = parsed_args["marker-alpha"],
 )
