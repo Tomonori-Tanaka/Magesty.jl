@@ -102,6 +102,8 @@ function plot_energy(
 	files::Vector{String};
 	output::Union{String, Nothing} = nothing,
 	lim::Union{Float64, Nothing} = nothing,
+	marker_size::Real = MARKER_SIZE,
+	marker_alpha::Real = MARKER_ALPHA,
 )
 	observed_lists = Vector{Vector{Float64}}()
 	predicted_lists = Vector{Vector{Float64}}()
@@ -155,8 +157,8 @@ function plot_energy(
 		series_label = @sprintf("%d: %s (RMSE: %.2f %s)", i, basename(files[i]), calculate_statistics(obs, pre)["RMSE"], unit)
 		plot!(p, obs, pre,
 			seriestype = :scatter,
-			markersize = MARKER_SIZE,
-			markeralpha = MARKER_ALPHA,
+			markersize = marker_size,
+			markeralpha = marker_alpha,
 			label = series_label,
 		)
 	end
@@ -202,12 +204,24 @@ s = ArgParseSettings(
 	help = "X/Y axis limits (meV). Fix to [-lim, lim]"
 	arg_type = Float64
 	default = nothing
+
+	"--marker-size", "-m"
+	help = "Marker size for scatter points"
+	arg_type = Float64
+	default = MARKER_SIZE
+
+	"--marker-alpha", "-A"
+	help = "Marker transparency (0-1) for scatter points"
+	arg_type = Float64
+	default = MARKER_ALPHA
 end
 
 parsed_args = parse_args(s)
 plot_energy(parsed_args["files"];
 	output = parsed_args["output"],
 	lim = parsed_args["lim"],
+	marker_size = parsed_args["marker-size"],
+	marker_alpha = parsed_args["marker-alpha"],
 )
 
 

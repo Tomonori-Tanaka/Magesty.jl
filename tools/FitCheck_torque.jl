@@ -189,6 +189,8 @@ function plot_torque(
 	lim::Union{Float64, Nothing} = nothing,
 	atom_indices::Union{Vector{Int}, Nothing} = nothing,
 	elements::Union{Vector{String}, Nothing} = nothing,
+	marker_size::Real = MARKER_SIZE,
+	marker_alpha::Real = MARKER_ALPHA,
 )
 	observed_lists = Vector{Vector{Float64}}()
 	predicted_lists = Vector{Vector{Float64}}()
@@ -291,8 +293,8 @@ function plot_torque(
 			)
 			plot!(p, obs, pre,
 				seriestype = :scatter,
-				markersize = MARKER_SIZE,
-				markeralpha = MARKER_ALPHA,
+				markersize = marker_size,
+				markeralpha = marker_alpha,
 				label = series_label,
 			)
 		end
@@ -357,6 +359,16 @@ if abspath(PROGRAM_FILE) == @__FILE__
 		help = "Elements to plot (comma-separated, e.g., 'Fe,Co')"
 		arg_type = String
 		default = nothing
+
+		"--marker-size", "-m"
+		help = "Marker size for scatter points"
+		arg_type = Float64
+		default = MARKER_SIZE
+
+		"--marker-alpha", "-A"
+		help = "Marker transparency (0-1) for scatter points"
+		arg_type = Float64
+		default = MARKER_ALPHA
 	end
 
 	parsed_args = parse_args(s)
@@ -387,5 +399,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
 		lim = parsed_args["lim"],
 		atom_indices = atom_indices,
 		elements = elements,
+		marker_size = parsed_args["marker-size"],
+		marker_alpha = parsed_args["marker-alpha"],
 	)
 end
