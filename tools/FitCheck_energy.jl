@@ -9,6 +9,45 @@ const MARKER_ALPHA = 0.8	# marker transparency
 const AXIS_PADDING = 10.0	# padding around data range (meV)
 
 """
+	parse_index_list(spec::AbstractString) -> Vector{Int}
+
+Parse a string like \"1,3,5-10\" into a list of integer indices.
+Supports comma-separated integers and ranges with hyphens.
+"""
+function parse_index_list(spec::AbstractString)::Vector{Int}
+	indices = Int[]
+	for token in split(spec, ',')
+		t = strip(token)
+		if isempty(t)
+			continue
+		end
+		if occursin('-', t)
+			parts = split(t, '-')
+			if length(parts) != 2
+				error("Invalid range token: $t")
+			end
+			start_str, end_str = strip.(parts)
+			start_idx = tryparse(Int, start_str)
+			end_idx = tryparse(Int, end_str)
+			if isnothing(start_idx) || isnothing(end_idx)
+				error("Invalid integer in range: $t")
+			end
+			if start_idx > end_idx
+				error("Range start greater than end: $t")
+			end
+			append!(indices, collect(start_idx:end_idx))
+		else
+			val = tryparse(Int, t)
+			if isnothing(val)
+				error("Invalid integer token: $t")
+			end
+			push!(indices, val)
+		end
+	end
+	return indices
+end
+
+"""
 	calculate_statistics(y1::Vector{Float64}, y2::Vector{Float64}) -> Dict{String, Float64}
 
 	Compute summary statistics between observed and predicted values.
@@ -102,6 +141,7 @@ function plot_energy(
 	files::Vector{String};
 	output::Union{String, Nothing} = nothing,
 	lim::Union{Float64, Nothing} = nothing,
+	colored_indices::Union{Vector{Int}, Nothing} = nothing,
 	marker_size::Real = MARKER_SIZE,
 	marker_alpha::Real = MARKER_ALPHA,
 )
@@ -154,13 +194,55 @@ function plot_energy(
 
 	# Scatter for each file dataset
 	for (i, (obs, pre)) in enumerate(zip(observed_lists, predicted_lists))
-		series_label = @sprintf("%d: %s (RMSE: %.2f %s)", i, basename(files[i]), calculate_statistics(obs, pre)["RMSE"], unit)
-		plot!(p, obs, pre,
-			seriestype = :scatter,
-			markersize = marker_size,
-			markeralpha = marker_alpha,
-			label = series_label,
+		series_label = @sprintf(
+			"%d: %s (RMSE: %.2f %s)",
+			i,
+			basename(files[i]),
+			calculate_statistics(obs, pre)["RMSE"],
+			unit,
 		)
+
+		if colored_indices === nothing
+			# Plot all points with the same marker style
+			plot!(p, obs, pre,
+				seriestype = :scatter,
+				markersize = marker_size,
+				markeralpha = marker_alpha,
+				label = series_label,
+			)
+		else
+			n = length(obs)
+			mask_colored = falses(n)
+			for idx in colored_indices
+				if 1 <= idx <= n
+					mask_colored[idx] = true
+				end
+			end
+			mask_uncolored = .!mask_colored
+
+			obs_uncolored = obs[mask_uncolored]
+			pre_uncolored = pre[mask_uncolored]
+			obs_colored = obs[mask_colored]
+			pre_colored = pre[mask_colored]
+
+			if !isempty(obs_uncolored)
+				plot!(p, obs_uncolored, pre_uncolored,
+					seriestype = :scatter,
+					markersize = marker_size,
+					markeralpha = marker_alpha,
+					label = series_label,
+				)
+			end
+			if !isempty(obs_colored)
+				plot!(p, obs_colored, pre_colored,
+					seriestype = :scatter,
+					markersize = marker_size,
+					markeralpha = marker_alpha,
+					color = :lightblue,
+					label = string(series_label, " (colored)"),
+				)
+			end
+		end
 	end
 
 	if !isnothing(output)
@@ -205,6 +287,11 @@ s = ArgParseSettings(
 	arg_type = Float64
 	default = nothing
 
+	"--colored", "-c"
+	help = "Indices to highlight in a different color (e.g., '5,7-10')"
+	arg_type = String
+	default = nothing
+
 	"--marker-size", "-m"
 	help = "Marker size for scatter points"
 	arg_type = Float64
@@ -217,9 +304,14 @@ s = ArgParseSettings(
 end
 
 parsed_args = parse_args(s)
+colored_indices = nothing
+if parsed_args["colored"] !== nothing
+	colored_indices = parse_index_list(parsed_args["colored"])
+end
 plot_energy(parsed_args["files"];
 	output = parsed_args["output"],
 	lim = parsed_args["lim"],
+	colored_indices = colored_indices,
 	marker_size = parsed_args["marker-size"],
 	marker_alpha = parsed_args["marker-alpha"],
 )
