@@ -230,7 +230,8 @@ function plot_histogram(
 			label = "$(file_stat.filename) (n=$(file_stat.count))",
 			color = color,
 			linecolor = :black,
-			linewidth = 0.5
+			linewidth = 0.5,
+			legend = false
 		)
 	end
 	
