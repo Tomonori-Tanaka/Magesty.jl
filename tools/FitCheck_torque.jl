@@ -177,16 +177,32 @@ function create_plot(plot_type::String)::Tuple{Plots.Plot, String}
 end
 
 """
-	plot_torque(files::Vector{String}, plot_type::String; output::Union{String,Nothing}=nothing, lim::Union{Float64,Nothing}=nothing, atom_indices::Union{Vector{Int},Nothing}=nothing, elements::Union{Vector{String},Nothing}=nothing)
+	plot_torque(
+		files::Vector{String},
+		plot_type::String;
+		output::Union{String,Nothing}=nothing,
+		lim::Union{Float64,Nothing}=nothing,
+		lim_min::Union{Float64,Nothing}=nothing,
+		lim_max::Union{Float64,Nothing}=nothing,
+		atom_indices::Union{Vector{Int},Nothing}=nothing,
+		elements::Union{Vector{String},Nothing}=nothing,
+	)
 
 	Load torque data from files (convert eV -> meV),
 	shift each file by its own observed-value center, then draw scatter and y=x line.
+
+	If `lim` is provided, X/Y axes are fixed to [-lim, lim] (meV).
+	If `lim_min` and/or `lim_max` are provided, X/Y axes are fixed to [lim_min, lim_max] (meV).
+	When only one of `lim_min` or `lim_max` is given, the other is set to the same absolute value
+	with the opposite sign.
 """
 function plot_torque(
 	files::Vector{String},
 	plot_type::String;
 	output::Union{String, Nothing} = nothing,
 	lim::Union{Float64, Nothing} = nothing,
+	lim_min::Union{Float64, Nothing} = nothing,
+	lim_max::Union{Float64, Nothing} = nothing,
 	atom_indices::Union{Vector{Int}, Nothing} = nothing,
 	elements::Union{Vector{String}, Nothing} = nothing,
 	no_legend::Bool = false,
@@ -265,8 +281,10 @@ function plot_torque(
 			println("File Index: $i")
 			println("File Name: $file")
 			println("RMSE: $(@sprintf("%.4f", stats["RMSE"])) $unit")
-			println("R²: $(@sprintf("%.4f", stats["R²"]))")
 			println("Max Error: $(@sprintf("%.4f", stats["Max Error"])) $unit")
+			println("Mean Error: $(@sprintf("%.4f", stats["Mean Error"])) $unit")
+			println("Std Error: $(@sprintf("%.4f", stats["Std Error"])) $unit")
+			println("R²: $(@sprintf("%.4f", stats["R²"]))")
 			println("-"^30)
 		end
 	end
@@ -275,6 +293,17 @@ function plot_torque(
 	if lim !== nothing
 		xmin, xmax = -lim, lim
 		ymin, ymax = -lim, lim
+	elseif lim_min !== nothing || lim_max !== nothing
+		local_min = lim_min
+		local_max = lim_max
+		if local_min === nothing && local_max !== nothing
+			local_min = -abs(local_max)
+		elseif local_min !== nothing && local_max === nothing
+			local_max = abs(local_min)
+		end
+		# At this point both local_min and local_max must be non-nothing
+		xmin, xmax = local_min, local_max
+		ymin, ymax = local_min, local_max
 	else
 		all_observed = vcat(observed_lists...)
 		all_predicted = vcat(predicted_lists...)
@@ -327,6 +356,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
 			after shifting each file by its own observed-value center. Input is whitespace-separated text.\n
 			Format: atom_index element DFT_torque_x DFT_torque_y DFT_torque_z SCE_torque_x SCE_torque_y SCE_torque_z\n
 			If --lim is provided, axes are fixed to [-lim, lim] (meV).\n
+			Alternatively, use --lim-min/--lim-max to fix axes to [lim-min, lim-max] (meV).\n
 			Use --atom-indices or --elements to filter data (mutually exclusive).
 		""",
 		version = "0.1.0",
@@ -353,6 +383,16 @@ if abspath(PROGRAM_FILE) == @__FILE__
 
 		"--lim", "-l"
 		help = "X/Y axis limits (meV). Fix to [-lim, lim]"
+		arg_type = Float64
+		default = nothing
+
+		"--lim-min"
+		help = "Minimum X/Y axis limit (meV). Used together with --lim-max; if one side is omitted, it is set to the opposite sign with the same absolute value."
+		arg_type = Float64
+		default = nothing
+
+		"--lim-max"
+		help = "Maximum X/Y axis limit (meV). Used together with --lim-min; if one side is omitted, it is set to the opposite sign with the same absolute value."
 		arg_type = Float64
 		default = nothing
 
@@ -400,13 +440,17 @@ if abspath(PROGRAM_FILE) == @__FILE__
 	println("Plotting $(plot_type) type of data")
 	println("Atom indices: $atom_indices")
 	println("Elements: $elements")
-	println("Output: $(parsed_args["output"])")
-	println("Lim: $(parsed_args["lim"])")
+		println("Output: $(parsed_args["output"])")
+		println("Lim: $(parsed_args["lim"])")
+		println("Lim-min: $(parsed_args["lim-min"])")
+		println("Lim-max: $(parsed_args["lim-max"])")
 
 
 	plot_torque(parsed_args["files"], plot_type;
 		output = parsed_args["output"],
 		lim = parsed_args["lim"],
+		lim_min = parsed_args["lim-min"],
+		lim_max = parsed_args["lim-max"],
 		atom_indices = atom_indices,
 		elements = elements,
 		no_legend = parsed_args["no-legend"],

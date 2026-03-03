@@ -132,15 +132,35 @@ function create_plot()::Tuple{Plots.Plot, String}
 end
 
 """
-	plot_energy(files::Vector{String}; output::Union{String,Nothing}=nothing, lim::Union{Float64,Nothing}=nothing)
+	plot_energy(files::Vector{String};
+		output::Union{String,Nothing}=nothing,
+		lim::Union{Float64,Nothing}=nothing,
+		lim_min::Union{Float64,Nothing}=nothing,
+		lim_max::Union{Float64,Nothing}=nothing,
+		zero_min::Bool=false,
+		zero_at::Union{Float64,Nothing}=nothing)
 
-Load energy data from files (convert eV -> meV),
-shift each file by its own observed-value center, then draw scatter and y=x line.
+	Load energy data from files (convert eV -> meV),
+	shift each file by its own observed-value center (or optionally so that the global minimum
+	observed energy or a specified energy becomes 0), then draw scatter and y=x line.
+
+	If `lim` is provided, X/Y axes are fixed to [-lim, lim] (meV).
+	If `lim_min` and/or `lim_max` are provided, X/Y axes are fixed to [lim_min, lim_max] (meV).
+	When only one of `lim_min` or `lim_max` is given, the other is set to the same absolute value
+	with the opposite sign.
+	If `zero_min` is true, all datasets are shifted so that the global minimum observed energy
+	becomes 0.
+	If `zero_at` is provided (in meV), all datasets are shifted so that the specified energy
+	corresponds to 0. `zero_min` and `zero_at` are mutually exclusive.
 """
 function plot_energy(
 	files::Vector{String};
 	output::Union{String, Nothing} = nothing,
 	lim::Union{Float64, Nothing} = nothing,
+	lim_min::Union{Float64, Nothing} = nothing,
+	lim_max::Union{Float64, Nothing} = nothing,
+	zero_min::Bool = false,
+	zero_at::Union{Float64, Nothing} = nothing,
 	colored_indices::Union{Vector{Int}, Nothing} = nothing,
 	no_legend::Bool = false,
 	marker_size::Real = MARKER_SIZE,
@@ -157,11 +177,30 @@ function plot_energy(
 		push!(predicted_lists, pre)
 	end
 
-	# Shift origin per file by its own observed-value center
-	for i in eachindex(observed_lists)
-		center_i = (minimum(observed_lists[i]) + maximum(observed_lists[i])) / 2
-		observed_lists[i] .-= center_i
-		predicted_lists[i] .-= center_i
+	if zero_min && zero_at !== nothing
+		error("Options `--zero-min` and `--zero-at` are mutually exclusive.")
+	end
+
+	if zero_at !== nothing
+		# Shift all datasets so that the specified energy becomes 0
+		for i in eachindex(observed_lists)
+			observed_lists[i] .-= zero_at
+			predicted_lists[i] .-= zero_at
+		end
+	elseif zero_min
+		# Shift all datasets so that the global minimum observed energy becomes 0
+		global_min = minimum(vcat(observed_lists...))
+		for i in eachindex(observed_lists)
+			observed_lists[i] .-= global_min
+			predicted_lists[i] .-= global_min
+		end
+	else
+		# Shift origin per file by its own observed-value center
+		for i in eachindex(observed_lists)
+			center_i = (minimum(observed_lists[i]) + maximum(observed_lists[i])) / 2
+			observed_lists[i] .-= center_i
+			predicted_lists[i] .-= center_i
+		end
 	end
 
 	# Print statistics per dataset
@@ -188,6 +227,17 @@ function plot_energy(
 	if lim !== nothing
 		xmin, xmax = -lim, lim
 		ymin, ymax = -lim, lim
+	elseif lim_min !== nothing || lim_max !== nothing
+		local_min = lim_min
+		local_max = lim_max
+		if local_min === nothing && local_max !== nothing
+			local_min = -abs(local_max)
+		elseif local_min !== nothing && local_max === nothing
+			local_max = abs(local_min)
+		end
+		# At this point both local_min and local_max must be non-nothing
+		xmin, xmax = local_min, local_max
+		ymin, ymax = local_min, local_max
 	else
 		minv = min(minimum(vcat(observed_lists...)), minimum(vcat(predicted_lists...)))
 		maxv = max(maximum(vcat(observed_lists...)), maximum(vcat(predicted_lists...)))
@@ -268,9 +318,10 @@ end
 s = ArgParseSettings(
 	description = """
 	Draw a meV scatter plot between observed and predicted energies (given in eV),\n
-		after shifting each file by its own observed-value center. Input is whitespace-separated text.\n
+		after shifting each file by its own observed-value center (or optionally so that the global minimum observed energy becomes 0, or a specified energy becomes 0). Input is whitespace-separated text.\n
 		Accepts either 2 columns (observed predicted) or 3+ columns (index observed predicted).\n
-		If --lim is provided, axes are fixed to [-lim, lim] (meV).
+		If --lim is provided, axes are fixed to [-lim, lim] where lim is specified in eV (internally converted to meV).\n
+		Alternatively, use --lim-min/--lim-max to fix axes to [lim-min, lim-max], also specified in eV.
 	""",
 	version = "0.1.0",
 	add_version = true,
@@ -289,7 +340,26 @@ s = ArgParseSettings(
 	default = nothing
 
 	"--lim", "-l"
-	help = "X/Y axis limits (meV). Fix to [-lim, lim]"
+	help = "X/Y axis limits (eV). Fix to [-lim, lim] (converted to meV internally)"
+	arg_type = Float64
+	default = nothing
+
+	"--lim-min"
+	help = "Minimum X/Y axis limit (eV). Used together with --lim-max; if one side is omitted, it is set to the opposite sign with the same absolute value."
+	arg_type = Float64
+	default = nothing
+
+	"--lim-max"
+	help = "Maximum X/Y axis limit (eV). Used together with --lim-min; if one side is omitted, it is set to the opposite sign with the same absolute value."
+	arg_type = Float64
+	default = nothing
+
+	"--zero-min", "-z"
+	help = "Shift all energies so that the global minimum observed energy becomes 0"
+	action = :store_true
+
+	"--zero-at"
+	help = "Shift all energies so that the specified observed energy (eV) becomes 0 (mutually exclusive with --zero-min; converted to meV internally)"
 	arg_type = Float64
 	default = nothing
 
@@ -314,13 +384,40 @@ s = ArgParseSettings(
 end
 
 parsed_args = parse_args(s)
+
+# Convert CLI energy options from eV to meV for internal use
+lim_mev = parsed_args["lim"]
+if lim_mev !== nothing
+	lim_mev *= 1000.0
+end
+
+lim_min_mev = parsed_args["lim-min"]
+if lim_min_mev !== nothing
+	lim_min_mev *= 1000.0
+end
+
+lim_max_mev = parsed_args["lim-max"]
+if lim_max_mev !== nothing
+	lim_max_mev *= 1000.0
+end
+
+zero_at_mev = parsed_args["zero-at"]
+if zero_at_mev !== nothing
+	zero_at_mev *= 1000.0
+end
+
 colored_indices = nothing
 if parsed_args["colored"] !== nothing
 	colored_indices = parse_index_list(parsed_args["colored"])
 end
+
 plot_energy(parsed_args["files"];
 	output = parsed_args["output"],
-	lim = parsed_args["lim"],
+	lim = lim_mev,
+	lim_min = lim_min_mev,
+	lim_max = lim_max_mev,
+	zero_min = parsed_args["zero-min"],
+	zero_at = zero_at_mev,
 	colored_indices = colored_indices,
 	no_legend = parsed_args["no-legend"],
 	marker_size = parsed_args["marker-size"],
