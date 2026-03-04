@@ -217,7 +217,7 @@ function create_toml(data::NamedTuple, output_file::String)
         
         # [regression] section (defaults aligned with examples)
         regression = OrderedDict{String, Any}()
-        regression["datafile"] = "EMBSET.dat"
+        regression["datafile"] = "EMBSET"
         regression["weight"] = 1.0
         regression["alpha"] = 0
         regression["lambda"] = 0.0
