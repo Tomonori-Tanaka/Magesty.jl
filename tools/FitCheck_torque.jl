@@ -163,7 +163,7 @@ function create_plot(plot_type::String)::Tuple{Plots.Plot, String}
 		xlabel = xlabel,
 		ylabel = ylabel,
 		legend = :topleft,
-		grid = true,
+		grid = false,
 		size = (1000, 1000),
 		dpi = 300,
 		framestyle = :box,
@@ -172,6 +172,11 @@ function create_plot(plot_type::String)::Tuple{Plots.Plot, String}
 	# Reference line y = x
 	plot!(p, [-100000.0, 100000.0], [-100000.0, 100000.0],
 		line = (:black, 1), label = "y = x")
+	# Dashed lines at x=0 and y=0 (GR: line = (width, :dash))
+	plot!(p, [0.0, 0.0], [-100000.0, 100000.0];
+		color = :gray, line = (1, :dash), label = "")
+	plot!(p, [-100000.0, 100000.0], [0.0, 0.0];
+		color = :gray, line = (1, :dash), label = "")
 
 	return p, unit
 end
