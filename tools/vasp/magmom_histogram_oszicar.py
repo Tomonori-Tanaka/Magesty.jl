@@ -9,52 +9,15 @@ import re
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
+import os
+import sys
 
+# Allow importing shared helpers when running this file directly as a script
+TOOLS_DIR = os.path.dirname(os.path.dirname(__file__))  # .../tools
+if TOOLS_DIR not in sys.path:
+    sys.path.append(TOOLS_DIR)
 
-def parse_atom_spec(spec_str):
-    """
-    Parse atom specification string into a set of atom indices.
-
-    Supports:
-    - Range specification: "1-32" -> {1, 2, ..., 32}
-    - Individual atoms: "1,2,5" -> {1, 2, 5}
-    - Mixed: "1-5,10,15-20" -> {1,2,3,4,5,10,15,16,17,18,19,20}
-
-    Parameters:
-    -----------
-    spec_str : str
-        Atom specification string (e.g., "1-32" or "1,2,5" or "1-5,10,15-20")
-
-    Returns:
-    --------
-    atoms : set
-        Set of atom indices
-    """
-    atoms = set()
-    if not spec_str:
-        return atoms
-
-    # Split by comma
-    parts = spec_str.split(',')
-    for part in parts:
-        part = part.strip()
-        if '-' in part:
-            # Range specification
-            try:
-                start, end = part.split('-')
-                start = int(start.strip())
-                end = int(end.strip())
-                atoms.update(range(start, end + 1))
-            except ValueError:
-                raise ValueError(f"Invalid range specification: {part}")
-        else:
-            # Individual atom
-            try:
-                atoms.add(int(part.strip()))
-            except ValueError:
-                raise ValueError(f"Invalid atom specification: {part}")
-
-    return atoms
+from utils.utils import parse_atom_indices
 
 
 def parse_oszicar(filepath, magmom_type='MW_int', atom_filter=None):
@@ -155,7 +118,9 @@ def parse_oszicar(filepath, magmom_type='MW_int', atom_filter=None):
     return data
 
 
-def plot_magmom_histogram(data, output_file=None, show_plot=True, bins='auto', density=False):
+def plot_magmom_histogram(
+    data, output_file=None, show_plot=True, bins="auto", density=False, bin_width=None
+):
     """
     Plot histogram of magnetic moment magnitudes for the last SCF step.
 
@@ -196,15 +161,25 @@ def plot_magmom_histogram(data, output_file=None, show_plot=True, bins='auto', d
         return
 
     # Extract magnitudes
-    magnitudes = list(last_step_data.values())
+    magnitudes = np.array(list(last_step_data.values()), dtype=float)
 
-    if not magnitudes:
+    if magnitudes.size == 0:
         print("No magnetic moment data found.")
         return
 
+    # Decide bins from width if requested
+    if bin_width is not None:
+        vmin = float(magnitudes.min())
+        vmax = float(magnitudes.max())
+        if bin_width <= 0:
+            print("Error: bin width must be positive.")
+            return
+        # Slightly extend the last edge so the max value is included
+        bins = np.arange(vmin, vmax + bin_width * 1.001, bin_width)
+
     # Create histogram
     plt.figure(figsize=(10, 6))
-    plt.hist(magnitudes, bins=bins, density=density, alpha=0.7, edgecolor='black')
+    plt.hist(magnitudes, bins=bins, density=density, alpha=0.7, edgecolor="black")
 
     plt.xlabel('Magnetic Moment Magnitude (μB)', fontsize=12)
     ylabel = 'Density' if density else 'Frequency'
@@ -278,7 +253,12 @@ Examples:
     )
     parser.add_argument(
         '--bins', '-b', type=str, default=None,
-        help='Number of bins for histogram (default: auto). Use "auto" for automatic binning.'
+        help='Number of bins for histogram (default: auto). Use "auto" for automatic binning. '
+             'Ignored if --bin-width is specified.'
+    )
+    parser.add_argument(
+        '--bin-width', '-w', type=float, default=None,
+        help='Bin width for histogram (in μB). If specified, this is used instead of --bins.'
     )
     parser.add_argument(
         '--density', action='store_true',
@@ -291,15 +271,23 @@ Examples:
 
     args = parser.parse_args()
 
-    # Handle bins argument
-    if args.bins is None or args.bins.lower() == 'auto':
-        bins = 'auto'
+    # Handle bin settings
+    bin_width = args.bin_width
+    if bin_width is not None and bin_width <= 0:
+        print("Error: --bin-width must be positive.")
+        return 1
+
+    if bin_width is not None:
+        bins = 'auto'  # actual bin edges will be computed from bin_width in the plot function
     else:
-        try:
-            bins = int(args.bins)
-        except ValueError:
-            print(f"Error: Invalid bins value: {args.bins}. Must be an integer or 'auto'.")
-            return 1
+        if args.bins is None or args.bins.lower() == 'auto':
+            bins = 'auto'
+        else:
+            try:
+                bins = int(args.bins)
+            except ValueError:
+                print(f"Error: Invalid bins value: {args.bins}. Must be an integer or 'auto'.")
+                return 1
 
     # Check if file exists
     oszicar_path = Path(args.oszicar_file)
@@ -311,7 +299,8 @@ Examples:
     atom_filter = None
     if args.atoms:
         try:
-            atom_filter = parse_atom_spec(args.atoms)
+            # reuse common parser: returns list[int], convert to set for filtering
+            atom_filter = set(parse_atom_indices([args.atoms]))
             print(f"Atom filter: {sorted(atom_filter)}")
         except ValueError as e:
             print(f"Error: Invalid atom specification: {e}")
@@ -348,7 +337,14 @@ Examples:
 
     # Plot histogram
     show_plot = not args.no_show
-    plot_magmom_histogram(data, args.output, show_plot, bins, args.density)
+    plot_magmom_histogram(
+        data,
+        args.output,
+        show_plot,
+        bins,
+        args.density,
+        bin_width=bin_width,
+    )
 
     return 0
 

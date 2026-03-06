@@ -13,12 +13,19 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import os
+import sys
 
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 
-from utils import parse_atom_indices
+# Allow importing shared helpers from tools/utils when run as a script
+TOOLS_DIR = os.path.dirname(__file__)  # .../tools
+if TOOLS_DIR not in sys.path:
+    sys.path.append(TOOLS_DIR)
+
+from utils.utils import parse_atom_indices
 
 MARKER_SIZE = 5
 MARKER_ALPHA = 0.8
