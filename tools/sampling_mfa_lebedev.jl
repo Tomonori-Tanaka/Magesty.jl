@@ -307,7 +307,7 @@ function main()
 	digits = length(string(total_files))
 
 	@printf("Lebedev grid: %s (%d directions after angle filter)\n", grid_src, n_axes)
-	@printf("  theta: [%.1f, %.1f] deg  phi: [%.1f, %.1f] deg\n",
+	@printf("  theta: [%.5f, %.5f] deg  phi: [%.5f, %.5f] deg\n",
 		args["theta-min"], args["theta-max"], args["phi-min"], args["phi-max"])
 	@printf("Input: %s  Variable: %s = %.4f\n", args["input"], args["variable"], value)
 	@printf("Samples per direction (-n): %d  Total INCAR files: %d\n", n_per_axis, total_files)
