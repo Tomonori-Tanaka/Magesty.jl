@@ -115,8 +115,11 @@ def plot_energy(
     marker_size: float = MARKER_SIZE,
     marker_alpha: float = MARKER_ALPHA,
     tick_interval: float | None = None,
+    per: int | None = None,
 ) -> None:
     unit = "meV"
+    if per is not None and per != 0:
+        unit = f"meV/{per}"
 
     observed_lists = []
     predicted_lists = []
@@ -124,6 +127,9 @@ def plot_energy(
         obs, pre = parse_file(path)
         obs = obs * 1000.0  # eV -> meV
         pre = pre * 1000.0
+        if per is not None and per != 0:
+            obs = obs / per
+            pre = pre / per
         observed_lists.append(obs)
         predicted_lists.append(pre)
 
@@ -159,8 +165,8 @@ def plot_energy(
     fig, ax = plt.subplots()
     ax.set_aspect("equal")
     ax.set_title("Energy Comparison")
-    ax.set_xlabel("DFT Energy (meV)")
-    ax.set_ylabel("SCE Energy (meV)")
+    ax.set_xlabel(f"DFT Energy ({unit})")
+    ax.set_ylabel(f"SCE Energy ({unit})")
     ax.set_box_aspect(1)
 
     # Reference lines behind the scatter (zorder=0)
@@ -345,6 +351,12 @@ def main() -> None:
         metavar="meV",
         help="Major tick interval (meV). Same for X and Y. Default: auto.",
     )
+    parser.add_argument(
+        "--per",
+        type=int,
+        default=None,
+        help="Divide all energies by this integer (e.g. number of atoms per formula unit) and show results per that unit.",
+    )
     args = parser.parse_args()
 
     lim_mev = args.lim * 1000.0 if args.lim is not None else None
@@ -369,6 +381,7 @@ def main() -> None:
         marker_size=args.marker_size,
         marker_alpha=args.marker_alpha,
         tick_interval=args.tick_interval,
+        per=args.per,
     )
 
 
