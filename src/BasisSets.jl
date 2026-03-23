@@ -573,9 +573,9 @@ function listup_coupled_basislist(
 		for l_vec::Vector{Int} in l_list
 
 			# TODO: Remove this exceptional handling when the bug is fixed in the projection matrix construction.
-			if sort(l_vec) == [1, 3]
-				continue
-			end
+			# if sort(l_vec) == [1, 3]
+			# 	continue
+			# end
 
 			cb_list =
 				tesseral_coupled_bases_from_tesseral_bases(l_vec, atom_list; isotropy = isotropy)
@@ -658,48 +658,76 @@ end
 """
 	find_translation_atoms(atom_list, cluster_atoms, symmetry) -> Vector{Int}
 
-Find the translationally equivalent atom list in the primitive cell for a given atom list.
+Fold `atom_list` (same site order as a `CoupledBasis` before sorting) onto one of the
+clusters in `cluster_atoms` using the same supercell→primitive translation recipe as
+`operate_symop` (`map_s2p`, `symnum_translation`, `map_sym_inv`).
+
+This matches the legacy SHProduct path and yields a group action whose averaged projector
+is symmetric and idempotent; the previous double-loop over translations could pick
+inconsistent images at cell boundaries.
 
 # Arguments
-- `atom_list::Vector{<:Integer}`: Input atom list
-- `cluster_atoms::Set{Vector{Int}}`: Set of atom lists from cluster basis functions
-- `symmetry::Symmetry`: Symmetry information containing translation mappings
+- `atom_list::Vector{<:Integer}`: Atom indices after a point-group map (`map_sym`), one per site
+- `cluster_atoms::Set{Vector{Int}}`: Sorted atom lists appearing in the coupled-basis orbit
+- `symmetry::Symmetry`: Symmetry data (must include `map_s2p`, `atoms_in_prim`)
 
 # Returns
-- `Vector{Int}`: Translationally equivalent atom list in the primitive cell
+- `Vector{Int}`: Folded atom indices in **site order parallel to** `atom_list` (for `reorder_atoms`)
+
+When several reference-site folds land on the same sorted cluster, the implementation picks one
+whose **sort permutation matches** `sortperm(atom_list)`. Otherwise the first successful fold
+(e.g. `[17, 1]` → `[1, 17]` in site order) would make `reorder_atoms` apply the identity
+permutation to `ls`, incorrectly turning a site-swapping translation into the identity on the
+coupled basis.
 
 # Throws
-- `ErrorException`: If no matching atom list is found or multiple matches are found
+- `ErrorException`: If no folding matches any cluster in `cluster_atoms`
 """
 function find_translation_atoms(
 	atom_list::Vector{<:Integer},
 	cluster_atoms::Set{Vector{Int}},
 	symmetry::Symmetry,
 )::Vector{Int}
-	matched_set = Set{Vector{Int}}()
-	for sym_tran in symmetry.symnum_translation
-		atom_list_shifted = Vector{Int}([symmetry.map_sym[atom, sym_tran] for atom in atom_list])
-		for itran in symmetry.symnum_translation
-			atom_list_shifted_shifted =
-				Vector{Int}([symmetry.map_sym[atom, itran] for atom in atom_list_shifted])
-			sorted_atom_list_shifted_shifted = sort(atom_list_shifted_shifted)
-			if sorted_atom_list_shifted_shifted in cluster_atoms
-				push!(matched_set, atom_list_shifted_shifted)
+	new_atom_list = Vector{Int}(atom_list)
+	atoms_in_prim = symmetry.atoms_in_prim
+	map_s2p = symmetry.map_s2p
+	symnum_translation = symmetry.symnum_translation
+	map_sym_inv = symmetry.map_sym_inv
+
+	p_target = sortperm(new_atom_list)
+	candidates = Vector{Vector{Int}}()
+
+	# Same reference-site recipe as `operate_symop`; collect all folds that hit `cluster_atoms`.
+	for i in eachindex(new_atom_list)
+		ref_atom = new_atom_list[i]
+		ref_atom_in_prim = atoms_in_prim[map_s2p[ref_atom].atom]
+		corresponding_translation = symnum_translation[map_s2p[ref_atom].translation]
+		atom_translated = similar(new_atom_list)
+		atom_translated[i] = ref_atom_in_prim
+		for (n, new_atom) in enumerate(new_atom_list)
+			if n == i
+				continue
 			end
+			atom_translated[n] = map_sym_inv[new_atom, corresponding_translation]
+		end
+		if sort(atom_translated) ∈ cluster_atoms
+			push!(candidates, atom_translated)
 		end
 	end
-	if isempty(matched_set)
-		error("Failed to find translation atoms")
-	elseif length(matched_set) > 1
-		sorted_matched_set = Set([sort(vec) for vec in matched_set])
-		if length(sorted_matched_set) > 1
-			@show atom_list
-			@show cluster_atoms
-			@show matched_set
-			error("Multiple translation atoms found")
+
+	if isempty(candidates)
+		error(
+			"Failed to find translation atoms (map_s2p fold): atom_list=$atom_list, cluster_atoms=$cluster_atoms",
+		)
+	end
+
+	# Prefer a fold that preserves sort-order permutation (so `reorder_atoms` permutes `ls` correctly).
+	for c in candidates
+		if sortperm(c) == p_target
+			return c
 		end
 	end
-	return first(matched_set)
+	return first(candidates)
 end
 
 
@@ -774,6 +802,12 @@ function projection_matrix_coupled_basis(
 				temp_projection_mat[row_range, col_range] = submat
 			end
 			# If submat is nothing, the corresponding block remains zero
+		end
+
+		if !is_unitary(temp_projection_mat, tol = 1e-8)
+			#@warn "Projection matrix is not unitary. symmetry operation index: $n"
+			display(temp_projection_mat' * temp_projection_mat)
+			error("Projection matrix is not unitary. symmetry operation index: $n")
 		end
 
 		# Accumulate the projection matrix
