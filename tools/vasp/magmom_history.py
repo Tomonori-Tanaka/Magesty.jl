@@ -9,52 +9,15 @@ import re
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
+import os
+import sys
 
+# Allow importing shared helpers when running this file directly as a script
+TOOLS_DIR = os.path.dirname(os.path.dirname(__file__))  # .../tools
+if TOOLS_DIR not in sys.path:
+    sys.path.append(TOOLS_DIR)
 
-def parse_atom_spec(spec_str):
-    """
-    Parse atom specification string into a set of atom indices.
-
-    Supports:
-    - Range specification: "1-32" -> {1, 2, ..., 32}
-    - Individual atoms: "1,2,5" -> {1, 2, 5}
-    - Mixed: "1-5,10,15-20" -> {1,2,3,4,5,10,15,16,17,18,19,20}
-
-    Parameters:
-    -----------
-    spec_str : str
-        Atom specification string (e.g., "1-32" or "1,2,5" or "1-5,10,15-20")
-
-    Returns:
-    --------
-    atoms : set
-        Set of atom indices
-    """
-    atoms = set()
-    if not spec_str:
-        return atoms
-
-    # Split by comma
-    parts = spec_str.split(',')
-    for part in parts:
-        part = part.strip()
-        if '-' in part:
-            # Range specification
-            try:
-                start, end = part.split('-')
-                start = int(start.strip())
-                end = int(end.strip())
-                atoms.update(range(start, end + 1))
-            except ValueError:
-                raise ValueError(f"Invalid range specification: {part}")
-        else:
-            # Individual atom
-            try:
-                atoms.add(int(part.strip()))
-            except ValueError:
-                raise ValueError(f"Invalid atom specification: {part}")
-
-    return atoms
+from utils.utils import parse_atom_indices
 
 
 def parse_oszicar(filepath, magmom_type='MW_int', atom_filter=None):
@@ -275,7 +238,8 @@ Examples:
     atom_filter = None
     if args.atoms:
         try:
-            atom_filter = parse_atom_spec(args.atoms)
+            # reuse common parser: returns list[int], convert to set for filtering
+            atom_filter = set(parse_atom_indices([args.atoms]))
             print(f"Atom filter: {sorted(atom_filter)}")
         except ValueError as e:
             print(f"Error: Invalid atom specification: {e}")

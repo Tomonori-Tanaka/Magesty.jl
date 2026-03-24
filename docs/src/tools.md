@@ -54,6 +54,25 @@ julia extract.jl --target_files OUTCAR1 OUTCAR2 --energy_kind f --saxis 0 0 1
 julia extract.jl --target_files OUTCAR1 OUTCAR2 --energy_kind f --saxis 1 0 0 --randomize
 ```
 
+### check_convergence_embset.jl
+Scan training-set size `n` along a Julia-style range (`start:end` or `start:step:end`), compare fitted `jphi` to the all-data reference, and compute energy RMSE over **all** EMBSET configurations. Writes a summary TSV, `{prefix}_jphi_wide.tsv` and `{prefix}_jphi_long.tsv` (per-SALC coefficients vs. training size), and optionally a two-panel PNG (requires Plots.jl).
+
+**Usage:**
+```bash
+julia --project=. tools/check_convergence_embset.jl -i input.toml -e EMBSET.dat --n-range 10:10:200 -o convergence_out
+julia --project=. tools/check_convergence_embset.jl -i input.toml -s system.jld2 --n-range 5:5:100
+```
+
+**Arguments:**
+- `--input`, `-i`: `input.toml` (required)
+- `--system`, `-s`: `system.jld2` with key `system` (optional; if omitted, `System` is built from the TOML)
+- `--embset`, `-e`: EMBSET path (optional; defaults to `regression.datafile`, resolved relative to the TOML directory when needed)
+- `--n-range`, `-n`: e.g. `20:200` or `10:10:200` (required)
+- `--out`, `-o`: output prefix for `.tsv` / `.png` (default: `convergence_embset`)
+- `--shuffle`: shuffle configuration order before taking the first `n` for training
+- `--seed`: RNG seed for `--shuffle` (default: 42)
+- `--no-plot`: skip PNG (TSV only)
+
 ## Visualization Tools
 
 ### FitCheck_energy.jl

@@ -282,6 +282,7 @@ function sampling_mfa(
 	digits::Integer,
 	variable::AbstractString,
 	fix_spec::AbstractString = "",
+	uniform_atoms_spec::AbstractString = "",
 )
 	# Parse the INCAR file
 	incar = parse_incar(input_path)
@@ -330,6 +331,10 @@ function sampling_mfa(
 	# Indices whose magnetic moments should be kept as-is (1-based atom indices)
 	fixed_atom_indices = parse_atom_index_spec(fix_spec; max_index = num_atoms)
 
+	# Indices whose magnetic moments should be sampled from a *uniform* distribution
+	# on the sphere (i.e. fully random orientations corresponding to τ = 1).
+	uniform_atom_indices = parse_atom_index_spec(uniform_atoms_spec; max_index = num_atoms)
+
 	# Sample the spin configurations
 	for i in 1:num_sample
 		if variable == "tau"
@@ -341,6 +346,20 @@ function sampling_mfa(
 				Invalid variable: $variable
 				Expected one of: ["tau", "m"]
 				""")
+		end
+
+		# Overwrite specified atoms with uniformly random orientations (on the unit sphere),
+		# preserving the magnitude of the original spin.
+		for idx in uniform_atom_indices
+			@inbounds begin
+				orig_spin = spin_matrix[:, idx]
+				if isapprox(norm(orig_spin), 0.0, atol = 1e-10)
+					continue
+				end
+				dir = randn(3)
+				dir /= norm(dir)
+				output_spin_matrix[:, idx] = dir * norm(orig_spin)
+			end
 		end
 
 		# Randomize the quantization axis if specified.
@@ -483,6 +502,11 @@ function main()
 		arg_type = String
 		default = ""
 
+		"--uniform-atoms"
+		help = "Sample specified 1-based atom indices from a *uniform* distribution on the sphere, instead of the MFA von Mises-Fisher distribution. Uses the same index syntax as --fix (e.g. \"1-10,12,20-22\")."
+		arg_type = String
+		default = ""
+
 	end
 
 	args = parse_args(s)
@@ -511,6 +535,7 @@ function main()
 			digits,
 			args["variable"],
 			args["fix"],
+			args["uniform-atoms"],
 		)
 	end
 
@@ -522,7 +547,7 @@ function print_info(args, total_files::Int)
 	@printf("Input file: %s\n", args["input"])
 	@printf("Variable: %s\n", args["variable"])
 	@printf(
-		"Sampling list: %.2f to %.2f with step %.2f\n",
+		"Sampling list: %.5f to %.5f with step %.5f\n",
 		args["start"],
 		args["end"],
 		args["step"]
@@ -530,6 +555,7 @@ function print_info(args, total_files::Int)
 	@printf("Number of samples per step: %d\n", args["num_samples"])
 	@printf("Randomize quantization axis: %s\n", args["randomize"] ? "Yes" : "No")
 	@printf("Fixed atom indices (--fix): %s\n", isempty(strip(args["fix"])) ? "(none)" : args["fix"])
+	@printf("Uniform atoms indices (--uniform-atoms): %s\n", isempty(strip(get(args, "uniform-atoms", ""))) ? "(none)" : get(args, "uniform-atoms", ""))
 	@printf("Total number of INCAR files created: %d\n", total_files)
 end
 

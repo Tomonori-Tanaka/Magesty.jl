@@ -8,3 +8,4 @@
 tools/personal/
 /test/develop_tmp/*
 docs/build/
+**/__pycache__/
