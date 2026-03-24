@@ -17,7 +17,7 @@ lmax.Ge = 0
 
 [interaction.body2]
 cutoff."Fe-Fe" = -1
-cutoff."Fe-Ge" = 0
+cutoff."Fe-Ge" = -1
 cutoff."Ge-Ge" = 0
 lsum = 2
 
