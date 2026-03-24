@@ -21,7 +21,8 @@ function parse_args(args::Vector{String})
         :input => joinpath(@__DIR__, "examples", "fege_2x2x2", "input.toml"),
         :samples => 15,
         :evals => 1,
-        :profile_iters => 30,
+        :profile_iters_grad => 3000,
+        :profile_iters_torque => 30,
         :verbosity => false,
     )
 
@@ -35,7 +36,15 @@ function parse_args(args::Vector{String})
         elseif a == "--evals"
             cfg[:evals] = parse(Int, args[i + 1]); i += 2
         elseif a == "--profile-iters"
-            cfg[:profile_iters] = parse(Int, args[i + 1]); i += 2
+            # Backward-compatible: set both profile loops at once.
+            v = parse(Int, args[i + 1])
+            cfg[:profile_iters_grad] = v
+            cfg[:profile_iters_torque] = v
+            i += 2
+        elseif a == "--profile-iters-grad"
+            cfg[:profile_iters_grad] = parse(Int, args[i + 1]); i += 2
+        elseif a == "--profile-iters-torque"
+            cfg[:profile_iters_torque] = parse(Int, args[i + 1]); i += 2
         elseif a == "--verbose"
             cfg[:verbosity] = true; i += 1
         else
@@ -102,7 +111,12 @@ function run_bench(cfg::Dict{Symbol, Any})
     println("salc key groups: ", length(ctx.salc_list))
     println("num atoms: ", ctx.num_atoms)
     println("benchmark samples: ", cfg[:samples], ", evals: ", cfg[:evals])
-    println("profile iters: ", cfg[:profile_iters])
+    println(
+        "profile iters: grad=",
+        cfg[:profile_iters_grad],
+        ", torque=",
+        cfg[:profile_iters_torque],
+    )
 
     println("\nWarming up target functions...")
     Magesty.Optimize.calc_∇ₑu(
@@ -110,7 +124,6 @@ function run_bench(cfg::Dict{Symbol, Any})
         ctx.iatom,
         ctx.sc.spin_directions,
         ctx.symmetry,
-        ctx.key_group,
     )
     Magesty.Optimize.build_design_matrix_torque(
         ctx.salc_list,
@@ -128,7 +141,6 @@ function run_bench(cfg::Dict{Symbol, Any})
         $(ctx.iatom),
         $(ctx.sc.spin_directions),
         $(ctx.symmetry),
-        $(ctx.key_group),
     ) samples=nsamples evals=nevals
     show(stdout, MIME"text/plain"(), bench_grad)
     println()
@@ -142,22 +154,19 @@ function run_bench(cfg::Dict{Symbol, Any})
     show(stdout, MIME"text/plain"(), bench_torque)
     println()
 
-    iters = cfg[:profile_iters]
-
     print_profile_for(() -> begin
-        for _ in 1:iters
+        for _ in 1:cfg[:profile_iters_grad]
             Magesty.Optimize.calc_∇ₑu(
                 ctx.cbc,
                 ctx.iatom,
                 ctx.sc.spin_directions,
                 ctx.symmetry,
-                ctx.key_group,
             )
         end
     end, "calc_∇ₑu")
 
     print_profile_for(() -> begin
-        for _ in 1:iters
+        for _ in 1:cfg[:profile_iters_torque]
             Magesty.Optimize.build_design_matrix_torque(
                 ctx.salc_list,
                 [ctx.sc],
