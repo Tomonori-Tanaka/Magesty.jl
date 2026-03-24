@@ -19,7 +19,7 @@ lmax.Ge = 0
 cutoff."Fe-Fe" = -1
 cutoff."Fe-Ge" = 0
 cutoff."Ge-Ge" = 0
-lsum = 4
+lsum = 2
 
 [regression]
 datafile = "EMBSET"
