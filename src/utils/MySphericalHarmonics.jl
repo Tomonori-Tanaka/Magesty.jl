@@ -43,6 +43,7 @@ where Pₗₘ includes the Condon-Shortley phase from LegendrePolynomials.jl.
 # Notes
 - The function automatically handles the Condon-Shortley phase
 - For vector input, uses the z-component (uvec[3]) as r̂z
+- Caller must ensure valid `(l, m)`, `r̂z ∈ [-1, 1]`, and for the vector method a 3D normalized `uvec` (no validation; invalid input may yield incorrect results or errors from dependencies)
 
 # References
 - R. Drautz, Phys. Rev. B 102, 024104 (2020)
@@ -54,9 +55,6 @@ P̄ₗₘ(2, 1, [0.0, 0.0, 1.0])  # Vector input
 ```
 """
 function P̄ₗₘ(l::Integer, m::Integer, r̂z::Real)::Float64
-	validate_lm(l, m)
-	validate_r̂z(r̂z)
-
 	const_factor = √((2l + 1) / (4π))
 	factorial_ratio = √(factorial(l - abs(m)) / factorial(l + abs(m)))
 	phase = (-1)^m
@@ -65,7 +63,6 @@ function P̄ₗₘ(l::Integer, m::Integer, r̂z::Real)::Float64
 end
 
 function P̄ₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
-	validate_uvec(uvec)
 	return P̄ₗₘ(l, m, uvec[3])
 end
 
