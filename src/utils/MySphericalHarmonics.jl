@@ -9,10 +9,12 @@ This module provides functions to compute spherical harmonics ( Y_{l,m} ) and re
 
 # Functions
 - `P̄ₗₘ(l, m, r̂z)`: Compute the normalized associated Legendre polynomial.
-- `Yₗₘ(l, m, uvec)`: Compute the spherical harmonic.
-- `Zₗₘ(l, m, uvec)`: Compute the tesseral harmonic.
-- `∂Zₗₘ_∂r̂x(l, m, uvec)`, `∂Zₗₘ_∂r̂y(l, m, uvec)`, `∂Zₗₘ_∂r̂z(l, m, uvec)`: Partial derivatives of ( Z_{l,m} ).
-- `∂ᵢZlm(l, m, uvec)`: Compute the gradient of ( Z_{l,m} ) as a vector.
+- `Yₗₘ(l, m, uvec)`: Compute the spherical harmonic (validates inputs).
+- `Yₗₘ_unsafe(l, m, uvec)`: Same as `Yₗₘ` without validation (for hot paths).
+- `Zₗₘ(l, m, uvec)`: Compute the tesseral harmonic (validates inputs).
+- `Zₗₘ_unsafe(l, m, uvec)`: Same as `Zₗₘ` without validation (for hot paths).
+- `∂Yₗₘ_∂r̂x`, `∂Yₗₘ_∂r̂y`, `∂Yₗₘ_∂r̂z`, `yₗₘ`, `dP̄ₗₘ`, `∂Zₗₘ_∂r̂x`, `∂Zₗₘ_∂r̂y`, `∂Zₗₘ_∂r̂z`, `zzₗₘ`, `∂Zₗₘ_∂x`, `∂Zₗₘ_∂y`, `∂Zₗₘ_∂z`, `∂ᵢZlm`: validate then compute; each has a `…_unsafe` twin for hot paths.
+- `d_Zlm` / `d_Zlm_unsafe`: length-3 lists of the Cartesian `∂Z` callbacks (safe vs unsafe).
 """
 module MySphericalHarmonics
 
@@ -67,6 +69,18 @@ function P̄ₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float6
 end
 
 """
+	dP̄ₗₘ_unsafe(l::Integer, m::Integer, r̂z::Real) -> Float64
+
+Derivative ``\\mathrm{d}\\bar{P}_{\\ell m}/\\mathrm{d}\\hat{r}_z`` with **no** validation of
+`l`, `m`, or `r̂z`. See also [`dP̄ₗₘ`](@ref).
+"""
+function dP̄ₗₘ_unsafe(l::Integer, m::Integer, r̂z::Real)::Float64
+	normalization = √((2l + 1) / (4π) * factorial(l - abs(m)) / factorial(l + abs(m)))
+	phase = (-1)^m
+	return phase * normalization * dnPl(r̂z, l, m + 1)
+end
+
+"""
 	dP̄ₗₘ(l::Integer, m::Integer, r̂z::Real) -> Float64
 	dP̄ₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
@@ -90,6 +104,7 @@ where dPₗₘ/dr̂z is computed using the LegendrePolynomials.jl package.
 # Notes
 - Uses the recurrence relation for associated Legendre polynomials
 - For vector input, uses the z-component (uvec[3]) as r̂z
+- For hot paths with valid `(l, m)` and `r̂z`, use [`dP̄ₗₘ_unsafe`](@ref).
 
 # Examples
 ```julia
@@ -100,17 +115,13 @@ dP̄ₗₘ(2, 1, [0.0, 0.0, 1.0])  # Vector input
 function dP̄ₗₘ(l::Integer, m::Integer, r̂z::Real)::Float64
 	validate_lm(l, m)
 	validate_r̂z(r̂z)
-	normalization = √((2l + 1) / (4π) * factorial(l - abs(m)) / factorial(l + abs(m)))
-	phase = (-1)^m
-
-	return phase * normalization * dnPl(r̂z, l, m + 1)
+	return dP̄ₗₘ_unsafe(l, m, r̂z)
 end
 
 function dP̄ₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 	validate_lm(l, m)
 	validate_uvec(uvec)
-
-	return dP̄ₗₘ(l, m, uvec[3])
+	return dP̄ₗₘ_unsafe(l, m, uvec[3])
 end
 
 
@@ -137,6 +148,9 @@ where:
 - R. Drautz, Phys. Rev. B 102, 024104 (2020)
 
 
+# Notes
+- For repeated calls with inputs already checked, use [`Yₗₘ_unsafe`](@ref).
+
 # Examples
 ```julia
 # z-axis
@@ -149,13 +163,43 @@ Yₗₘ(1, 1, [1.0, 0.0, 0.0])
 function Yₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Complex
 	validate_lm(l, m)
 	validate_uvec(uvec)
+	return Yₗₘ_unsafe(l, m, uvec)
+end
 
+"""
+	Yₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex
+
+Same as [`Yₗₘ`](@ref) but **does not** validate `l`, `m`, or `uvec`. Caller must ensure
+`-l ≤ m ≤ l`, `l ≥ 0`, and `uvec` is a length-3 unit vector (within numerical tolerance
+you care about). Violations may produce wrong results or errors from lower-level code.
+
+Use after a single upfront `validate_lm` / `validate_uvec`, or when inputs come from
+invariants elsewhere.
+"""
+function Yₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Complex
 	if m < 0
 		return (-1)^(abs(m)) * conj(uvec[1] + uvec[2] * im)^abs(m) *
 			   P̄ₗₘ(l, abs(m), uvec[3])
 	else
 		return (uvec[1] + uvec[2] * im)^m * P̄ₗₘ(l, m, uvec[3])
 	end
+end
+
+"""
+	∂Yₗₘ_∂r̂x_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex{Float64}
+
+Same as [`∂Yₗₘ_∂r̂x`](@ref) without validating `l`, `m`, or `uvec`.
+"""
+function ∂Yₗₘ_∂r̂x_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Complex{Float64}
+	m == 0 && return Complex{Float64}(0)
+	n = abs(m)
+	plm = P̄ₗₘ(l, n, uvec[3])
+	z_xy = if m < 0
+		ComplexF64(uvec[1], -uvec[2])
+	else
+		ComplexF64(uvec[1], uvec[2])
+	end
+	return (m < 0 ? (-1)^n * n : m) * z_xy^(n - 1) * plm
 end
 
 """
@@ -181,27 +225,25 @@ where:
 - P̄ₗₘ is the normalized associated Legendre polynomial
 
 Reference: Equation (D18) in R. Drautz, Phys. Rev. B 102, 024104 (2020)
+
+# Notes
+- For hot paths, use [`∂Yₗₘ_∂r̂x_unsafe`](@ref).
 """
 function ∂Yₗₘ_∂r̂x(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Complex{Float64}
 	validate_lm(l, m)
 	validate_uvec(uvec)
+	return ∂Yₗₘ_∂r̂x_unsafe(l, m, uvec)
+end
 
-	# Early return for m = 0
+"""
+	∂Yₗₘ_∂r̂y_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex{Float64}
+
+Same as [`∂Yₗₘ_∂r̂y`](@ref) without validating `l`, `m`, or `uvec`.
+"""
+function ∂Yₗₘ_∂r̂y_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Complex{Float64}
 	m == 0 && return Complex{Float64}(0)
-
-	# Common calculations
-	n = abs(m)
-	plm = P̄ₗₘ(l, n, uvec[3])
-
-	# Complex coordinate z = x ± iy
-	z_xy = if m < 0
-		ComplexF64(uvec[1], -uvec[2])  # x - iy
-	else
-		ComplexF64(uvec[1], uvec[2])   # x + iy
-	end
-
-	# Compute derivative with phase factor
-	return (m < 0 ? (-1)^n * n : m) * z_xy^(n - 1) * plm
+	im_factor = m < 0 ? -im : im
+	return im_factor * ∂Yₗₘ_∂r̂x_unsafe(l, m, uvec)
 end
 
 """
@@ -223,17 +265,31 @@ For m < 0:  ∂Yₗₘ/∂r̂y = -i ∂Yₗₘ/∂r̂x
 For m = 0:  ∂Yₗₘ/∂r̂y = 0
 
 Reference: Equation (D19) in R. Drautz, Phys. Rev. B 102, 024104 (2020)
+
+# Notes
+- For hot paths, use [`∂Yₗₘ_∂r̂y_unsafe`](@ref).
 """
 function ∂Yₗₘ_∂r̂y(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Complex{Float64}
 	validate_lm(l, m)
 	validate_uvec(uvec)
+	return ∂Yₗₘ_∂r̂y_unsafe(l, m, uvec)
+end
 
-	# Early return for m = 0
-	m == 0 && return Complex{Float64}(0)
+"""
+	∂Yₗₘ_∂r̂z_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex{Float64}
 
-	# The sign of the imaginary unit depends on the sign of m
-	im_factor = m < 0 ? -im : im
-	return im_factor * ∂Yₗₘ_∂r̂x(l, m, uvec)
+Same as [`∂Yₗₘ_∂r̂z`](@ref) without validating `l`, `m`, or `uvec`.
+"""
+function ∂Yₗₘ_∂r̂z_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Complex{Float64}
+	n = abs(m)
+	dplm = dP̄ₗₘ_unsafe(l, n, uvec[3])
+	z_xy = if m < 0
+		ComplexF64(uvec[1], -uvec[2])
+	else
+		ComplexF64(uvec[1], uvec[2])
+	end
+	phase = m < 0 ? (-1)^n : 1
+	return phase * z_xy^n * dplm
 end
 
 """
@@ -254,31 +310,29 @@ where:
 - n = |m|
 - dP̄ₗₘ/dr̂z is the derivative of the normalized associated Legendre polynomial
 
-# Notes
 The angular dependence on φ is carried by the complex exponential term (r̂x ± ir̂y)ᵐ,
 while the θ dependence is in the derivative of P̄ₗₘ.
 
 Reference: Equation (D20) in R. Drautz, Phys. Rev. B 102, 024104 (2020)
+
+# Notes
+- For hot paths, use [`∂Yₗₘ_∂r̂z_unsafe`](@ref).
 """
 function ∂Yₗₘ_∂r̂z(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Complex{Float64}
 	validate_lm(l, m)
 	validate_uvec(uvec)
+	return ∂Yₗₘ_∂r̂z_unsafe(l, m, uvec)
+end
 
-	# Common calculations
-	n = abs(m)
-	dplm = dP̄ₗₘ(l, n, uvec[3])
+"""
+	yₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex
 
-	# Complex coordinate z = x ± iy
-	z_xy = if m < 0
-		ComplexF64(uvec[1], -uvec[2])  # x - iy
-	else
-		ComplexF64(uvec[1], uvec[2])   # x + iy
-	end
-
-	# Phase factor for negative m
-	phase = m < 0 ? (-1)^n : 1
-
-	return phase * z_xy^n * dplm
+Same as [`yₗₘ`](@ref) without validating `l`, `m`, or `uvec`.
+"""
+function yₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Complex
+	return uvec[1] * ∂Yₗₘ_∂r̂x_unsafe(l, m, uvec) +
+		   uvec[2] * ∂Yₗₘ_∂r̂y_unsafe(l, m, uvec) +
+		   uvec[3] * ∂Yₗₘ_∂r̂z_unsafe(l, m, uvec)
 end
 
 """
@@ -290,13 +344,14 @@ Compute the directional derivative (uvec ⋅ ∇)Yₗₘ.
 yₗₘ = x ∂Yₗₘ/∂x̂ + y ∂Yₗₘ/∂ŷ + z ∂Yₗₘ/∂ẑ
 
 Reference: Equation (D22) in R. Drautz, Phys. Rev. B 102, 024104 (2020)
+
+# Notes
+- For hot paths, use [`yₗₘ_unsafe`](@ref).
 """
 function yₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Complex
 	validate_lm(l, m)
 	validate_uvec(uvec)
-
-	return uvec[1] * ∂Yₗₘ_∂r̂x(l, m, uvec) + uvec[2] * ∂Yₗₘ_∂r̂y(l, m, uvec) +
-		   uvec[3] * ∂Yₗₘ_∂r̂z(l, m, uvec)
+	return yₗₘ_unsafe(l, m, uvec)
 end
 
 """
@@ -317,13 +372,26 @@ For m < 0:  Zₗₘ = (-1)ⁿ√2 P̄ₗₘ(r̂z) ∑ₖ (-1)ᵏ (n,2k+1) r̂x^(
 where n = |m| and (n,k) denotes binomial coefficient.
 
 Reference: Equation (***) in T. Tanaka and Y. Gohda, ***
+
+# Notes
+- For repeated calls with inputs already checked, use [`Zₗₘ_unsafe`](@ref).
 """
 function Zₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 	validate_lm(l, m)
 	validate_uvec(uvec)
+	return Zₗₘ_unsafe(l, m, uvec)
+end
 
+"""
+	Zₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+
+Same as [`Zₗₘ`](@ref) but **does not** validate `l`, `m`, or `uvec`. Caller must ensure
+`-l ≤ m ≤ l`, `l ≥ 0`, and `uvec` is a length-3 unit vector. Violations may produce wrong
+results or errors from lower-level code.
+"""
+function Zₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 	# Special case for m = 0
-	m == 0 && return real(Yₗₘ(l, 0, uvec))
+	m == 0 && return real(Yₗₘ_unsafe(l, 0, uvec))
 
 	# Common factors for m ≠ 0
 	n = abs(m)
@@ -342,6 +410,34 @@ function Zₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 			uvec[1]^(n - (2k + 1)) * uvec[2]^(2k + 1)
 			for k in 0:floor(Int, (n - 1) / 2)
 		)
+	end
+end
+
+"""
+	∂Zₗₘ_∂r̂x_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+
+Same as [`∂Zₗₘ_∂r̂x`](@ref) without validating `l`, `m`, or `uvec`.
+"""
+function ∂Zₗₘ_∂r̂x_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
+	m == 0 && return 0.0
+	m == -1 && return 0.0
+	m_abs = abs(m)
+	plm = P̄ₗₘ(l, m_abs, uvec[3])
+	phase = (-1)^m_abs
+	if m > 0
+		return phase * √2 * m * plm *
+			   sum(
+				   (-1)^k * binomial(m - 1, 2k) *
+				   uvec[1]^(m - 1 - 2k) * uvec[2]^(2k)
+				   for k in 0:floor(Int, (m - 1) / 2)
+			   )
+	else
+		return phase * √2 * m_abs * plm *
+			   sum(
+				   (-1)^k * binomial(m_abs - 1, 2k + 1) *
+				   uvec[1]^(m_abs - 2 - 2k) * uvec[2]^(2k + 1)
+				   for k in 0:floor(Int, (m_abs - 2) / 2)
+			   )
 	end
 end
 
@@ -367,34 +463,27 @@ Special case: For m = -1, ∂Zₗₘ/∂r̂x = 0
 - Value of ∂Zₗₘ/∂r̂x
 
 Reference: Equation (***) in T. Tanaka and Y. Gohda, ***
+
+# Notes
+- For hot paths, use [`∂Zₗₘ_∂r̂x_unsafe`](@ref).
 """
 function ∂Zₗₘ_∂r̂x(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 	validate_lm(l, m)
 	validate_uvec(uvec)
+	return ∂Zₗₘ_∂r̂x_unsafe(l, m, uvec)
+end
 
-	# Early returns for special cases
+"""
+	∂Zₗₘ_∂r̂y_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+
+Same as [`∂Zₗₘ_∂r̂y`](@ref) without validating `l`, `m`, or `uvec`.
+"""
+function ∂Zₗₘ_∂r̂y_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 	m == 0 && return 0.0
-	m == -1 && return 0.0
-
-	# Common factors
-	m_abs = abs(m)
-	plm = P̄ₗₘ(l, m_abs, uvec[3])
-	phase = (-1)^m_abs
-
 	if m > 0
-		return phase * √2 * m * plm *
-			   sum(
-				   (-1)^k * binomial(m - 1, 2k) *
-				   uvec[1]^(m - 1 - 2k) * uvec[2]^(2k)
-				   for k in 0:floor(Int, (m - 1) / 2)
-			   )
+		return -∂Zₗₘ_∂r̂x_unsafe(l, -m, uvec)
 	else
-		return phase * √2 * m_abs * plm *
-			   sum(
-				   (-1)^k * binomial(m_abs - 1, 2k + 1) *
-				   uvec[1]^(m_abs - 2 - 2k) * uvec[2]^(2k + 1)
-				   for k in 0:floor(Int, (m_abs - 2) / 2)
-			   )
+		return ∂Zₗₘ_∂r̂x_unsafe(l, abs(m), uvec)
 	end
 end
 
@@ -417,21 +506,37 @@ For m < 0:  ∂Zₗₘ/∂r̂y = +∂Zₗₘ/∂r̂x(l, |m|)
 - Value of ∂Zₗₘ/∂r̂y
 
 # Notes
-The y-derivative is related to the x-derivative through sign changes and 
+The y-derivative is related to the x-derivative through sign changes and
 magnetic quantum number inversion, reducing computational complexity.
+For hot paths, use [`∂Zₗₘ_∂r̂y_unsafe`](@ref).
 """
 function ∂Zₗₘ_∂r̂y(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 	validate_lm(l, m)
 	validate_uvec(uvec)
+	return ∂Zₗₘ_∂r̂y_unsafe(l, m, uvec)
+end
 
-	# Early return for m = 0 case
-	m == 0 && return 0.0
+"""
+	∂Zₗₘ_∂r̂z_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
-	# Use the relationship between x and y derivatives
+Same as [`∂Zₗₘ_∂r̂z`](@ref) without validating `l`, `m`, or `uvec`.
+"""
+function ∂Zₗₘ_∂r̂z_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
+	m == 0 && return dP̄ₗₘ_unsafe(l, m, uvec[3])
+	n = abs(m)
+	dplm = dP̄ₗₘ_unsafe(l, n, uvec[3])
+	phase = (-1)^m
+	common_factor = phase * √2 * dplm
 	if m > 0
-		return -∂Zₗₘ_∂r̂x(l, -m, uvec)
+		return common_factor * sum(
+			(-1)^k * binomial(m, 2k) * uvec[1]^(m - 2k) * uvec[2]^(2k) for
+			k in 0:floor(Int, m / 2)
+		)
 	else
-		return ∂Zₗₘ_∂r̂x(l, abs(m), uvec)
+		return common_factor * sum(
+			(-1)^k * binomial(n, 2k + 1) * uvec[1]^(n - (2k + 1)) * uvec[2]^(2k + 1)
+			for k in 0:floor(Int, (n - 1) / 2)
+		)
 	end
 end
 
@@ -454,71 +559,104 @@ where n = |m| and (n,k) denotes binomial coefficient.
 
 # Returns
 - Value of ∂Zₗₘ/∂r̂z
+
+# Notes
+- For hot paths, use [`∂Zₗₘ_∂r̂z_unsafe`](@ref).
 """
 function ∂Zₗₘ_∂r̂z(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 	validate_lm(l, m)
 	validate_uvec(uvec)
+	return ∂Zₗₘ_∂r̂z_unsafe(l, m, uvec)
+end
 
-	# special case for m = 0
-	m == 0 && return dP̄ₗₘ(l, m, uvec[3])
+"""
+	zzₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
-	# common factors for m ≠ 0
-	n = abs(m)
-	dplm = dP̄ₗₘ(l, n, uvec[3])
-	phase = (-1)^m
-	common_factor = phase * √2 * dplm
-
-	if m > 0
-		return common_factor * sum(
-			(-1)^k * binomial(m, 2k) * uvec[1]^(m - 2k) * uvec[2]^(2k) for
-			k in 0:floor(Int, m / 2)
-		)
-	else
-		return common_factor * sum(
-			(-1)^k * binomial(n, 2k + 1) * uvec[1]^(n - (2k + 1)) * uvec[2]^(2k + 1)
-			for k in 0:floor(Int, (n - 1) / 2)
-		)
-	end
+Same as [`zzₗₘ`](@ref) (directional derivative ``\\hat{r}\\cdot\\nabla Z_{\\ell m}`` in the
+tangent frame) without validating `l`, `m`, or `uvec`.
+"""
+function zzₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
+	return uvec[1] * ∂Zₗₘ_∂r̂x_unsafe(l, m, uvec) +
+		   uvec[2] * ∂Zₗₘ_∂r̂y_unsafe(l, m, uvec) +
+		   uvec[3] * ∂Zₗₘ_∂r̂z_unsafe(l, m, uvec)
 end
 
 # zz imply "small z"
 function zzₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 	validate_lm(l, m)
 	validate_uvec(uvec)
+	return zzₗₘ_unsafe(l, m, uvec)
+end
 
-	return uvec[1] * ∂Zₗₘ_∂r̂x(l, m, uvec) +
-		   uvec[2] * ∂Zₗₘ_∂r̂y(l, m, uvec) +
-		   uvec[3] * ∂Zₗₘ_∂r̂z(l, m, uvec)
+"""
+	∂Zₗₘ_∂x_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+
+Same as [`∂Zₗₘ_∂x`](@ref) without validating `l`, `m`, or `uvec`.
+"""
+function ∂Zₗₘ_∂x_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
+	return ∂Zₗₘ_∂r̂x_unsafe(l, m, uvec) - uvec[1] * zzₗₘ_unsafe(l, m, uvec)
 end
 
 function ∂Zₗₘ_∂x(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 	validate_lm(l, m)
 	validate_uvec(uvec)
+	return ∂Zₗₘ_∂x_unsafe(l, m, uvec)
+end
 
-	return ∂Zₗₘ_∂r̂x(l, m, uvec) - uvec[1] * zzₗₘ(l, m, uvec)
+"""
+	∂Zₗₘ_∂y_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+
+Same as [`∂Zₗₘ_∂y`](@ref) without validating `l`, `m`, or `uvec`.
+"""
+function ∂Zₗₘ_∂y_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
+	return ∂Zₗₘ_∂r̂y_unsafe(l, m, uvec) - uvec[2] * zzₗₘ_unsafe(l, m, uvec)
 end
 
 function ∂Zₗₘ_∂y(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 	validate_lm(l, m)
 	validate_uvec(uvec)
+	return ∂Zₗₘ_∂y_unsafe(l, m, uvec)
+end
 
-	return ∂Zₗₘ_∂r̂y(l, m, uvec) - uvec[2] * zzₗₘ(l, m, uvec)
+"""
+	∂Zₗₘ_∂z_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+
+Same as [`∂Zₗₘ_∂z`](@ref) without validating `l`, `m`, or `uvec`.
+"""
+function ∂Zₗₘ_∂z_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
+	return ∂Zₗₘ_∂r̂z_unsafe(l, m, uvec) - uvec[3] * zzₗₘ_unsafe(l, m, uvec)
 end
 
 function ∂Zₗₘ_∂z(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 	validate_lm(l, m)
 	validate_uvec(uvec)
-
-	return ∂Zₗₘ_∂r̂z(l, m, uvec) - uvec[3] * zzₗₘ(l, m, uvec)
+	return ∂Zₗₘ_∂z_unsafe(l, m, uvec)
 end
 
 d_Zlm = [∂Zₗₘ_∂x, ∂Zₗₘ_∂y, ∂Zₗₘ_∂z]
+d_Zlm_unsafe = [∂Zₗₘ_∂x_unsafe, ∂Zₗₘ_∂y_unsafe, ∂Zₗₘ_∂z_unsafe]
 
+"""
+	∂ᵢZlm_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Vector{Float64}
+
+Same as [`∂ᵢZlm`](@ref) without validating `l`, `m`, or `uvec`.
+"""
+function ∂ᵢZlm_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Vector{Float64}
+	return [∂Zₗₘ_∂x_unsafe(l, m, uvec), ∂Zₗₘ_∂y_unsafe(l, m, uvec), ∂Zₗₘ_∂z_unsafe(l, m, uvec)]
+end
+
+"""
+	∂ᵢZlm(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Vector{Float64}
+
+Cartesian gradient ``(\\partial_x Z_{\\ell m}, \\partial_y Z_{\\ell m}, \\partial_z Z_{\\ell m})``.
+
+# Notes
+- For hot paths, use [`∂ᵢZlm_unsafe`](@ref).
+"""
 function ∂ᵢZlm(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Vector{Float64}
 	validate_lm(l, m)
 	validate_uvec(uvec)
-
-	return [∂Zₗₘ_∂x(l, m, uvec), ∂Zₗₘ_∂y(l, m, uvec), ∂Zₗₘ_∂z(l, m, uvec)]
+	return ∂ᵢZlm_unsafe(l, m, uvec)
 end
 
 """

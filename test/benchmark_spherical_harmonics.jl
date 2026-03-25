@@ -7,13 +7,12 @@ using BenchmarkTools
 using Profile
 using LinearAlgebra
 using Magesty
-using Magesty: MySphericalHarmonics
-using Magesty.MySphericalHarmonics: P̄ₗₘ, dP̄ₗₘ, Yₗₘ, Zₗₘ,
-    ∂Zₗₘ_∂r̂x, ∂Zₗₘ_∂r̂y, ∂Zₗₘ_∂r̂z, zzₗₘ,
-    ∂Zₗₘ_∂x, ∂Zₗₘ_∂y, ∂Zₗₘ_∂z, ∂ᵢZlm
+using Magesty.MySphericalHarmonics: P̄ₗₘ, dP̄ₗₘ, dP̄ₗₘ_unsafe, Yₗₘ, Yₗₘ_unsafe, Zₗₘ, Zₗₘ_unsafe, ∂ᵢZlm, ∂ᵢZlm_unsafe
 
 """
 Micro-benchmark and line-profile for MySphericalHarmonics.jl.
+Compares safe APIs (with `validate_lm` / `validate_uvec`) vs `*_unsafe` where applicable.
+Note: `P̄ₗₘ` has no validation in the library, so only `dP̄ₗₘ` is shown for Legendre-derivative safe/unsafe.
 
 Usage:
   julia test/benchmark_spherical_harmonics.jl
@@ -72,6 +71,14 @@ function sweep_zlm(lmax::Int, uvec::Vector{Float64})
     return s
 end
 
+function sweep_zlm_unsafe(lmax::Int, uvec::Vector{Float64})
+    s = 0.0
+    for l in 0:lmax, m in -l:l
+        s += Zₗₘ_unsafe(l, m, uvec)
+    end
+    return s
+end
+
 function sweep_plm(lmax::Int, z::Float64)
     s = 0.0
     for l in 0:lmax, m in 0:l
@@ -86,6 +93,25 @@ function sweep_grad_zlm(lmax::Int, uvec::Vector{Float64})
         s .+= ∂ᵢZlm(l, m, uvec)
     end
     return s
+end
+
+function sweep_grad_zlm_unsafe(lmax::Int, uvec::Vector{Float64})
+    s = zeros(3)
+    for l in 0:lmax, m in -l:l
+        s .+= ∂ᵢZlm_unsafe(l, m, uvec)
+    end
+    return s
+end
+
+"""Print median times and speedup factor (how many × faster the second benchmark is)."""
+function print_speedup(label::AbstractString, bench_safe, bench_unsafe)
+    t_s = median(bench_safe).time
+    t_u = median(bench_unsafe).time
+    ratio = t_s / t_u
+    println("\n[$label] safe vs unsafe (median time per sample)")
+    println("  safe:   $(t_s) ns")
+    println("  unsafe: $(t_u) ns")
+    println("  unsafe is ~$(round(ratio, digits=2))× faster than safe")
 end
 
 function print_profile_for(f::Function, label::AbstractString)
@@ -117,7 +143,9 @@ function run_bench(cfg::Dict{Symbol, Any})
     println("Warming up...")
     sweep_plm(lmax, z)
     sweep_zlm(lmax, uvec)
+    sweep_zlm_unsafe(lmax, uvec)
     sweep_grad_zlm(lmax, uvec)
+    sweep_grad_zlm_unsafe(lmax, uvec)
     println()
 
     # --- BenchmarkTools ---
@@ -132,11 +160,21 @@ function run_bench(cfg::Dict{Symbol, Any})
     bench_zlm = @benchmark sweep_zlm($lmax, $uvec) samples=nsamples evals=nevals
     show(stdout, MIME"text/plain"(), bench_zlm)
     println()
+    bench_zlm_u = @benchmark sweep_zlm_unsafe($lmax, $uvec) samples=nsamples evals=nevals
+    println("\n--- Zₗₘ_unsafe sweep (same work) ---")
+    show(stdout, MIME"text/plain"(), bench_zlm_u)
+    println()
+    print_speedup("Zₗₘ full sweep", bench_zlm, bench_zlm_u)
 
     println("\n--- ∂ᵢZlm sweep (l=0..$(lmax), all m) ---")
     bench_grad = @benchmark sweep_grad_zlm($lmax, $uvec) samples=nsamples evals=nevals
     show(stdout, MIME"text/plain"(), bench_grad)
     println()
+    bench_grad_u = @benchmark sweep_grad_zlm_unsafe($lmax, $uvec) samples=nsamples evals=nevals
+    println("\n--- ∂ᵢZlm_unsafe sweep (same work) ---")
+    show(stdout, MIME"text/plain"(), bench_grad_u)
+    println()
+    print_speedup("∂ᵢZlm full sweep", bench_grad, bench_grad_u)
 
     # Single-call benchmarks for a representative (l, m) = (lmax, lmax-1)
     l_rep = lmax
@@ -146,15 +184,44 @@ function run_bench(cfg::Dict{Symbol, Any})
     show(stdout, MIME"text/plain"(), bench_plm_single)
     println()
 
+    println("\n--- Single call: Yₗₘ(l=$l_rep, m=$m_rep, uvec) ---")
+    bench_ylm_single = @benchmark Yₗₘ($l_rep, $m_rep, $uvec) samples=nsamples evals=nevals
+    show(stdout, MIME"text/plain"(), bench_ylm_single)
+    println()
+    bench_ylm_single_u = @benchmark Yₗₘ_unsafe($l_rep, $m_rep, $uvec) samples=nsamples evals=nevals
+    println("\n--- Single call: Yₗₘ_unsafe ---")
+    show(stdout, MIME"text/plain"(), bench_ylm_single_u)
+    println()
+    print_speedup("Yₗₘ single call", bench_ylm_single, bench_ylm_single_u)
+
     println("\n--- Single call: Zₗₘ(l=$l_rep, m=$m_rep, uvec) ---")
     bench_zlm_single = @benchmark Zₗₘ($l_rep, $m_rep, $uvec) samples=nsamples evals=nevals
     show(stdout, MIME"text/plain"(), bench_zlm_single)
     println()
+    bench_zlm_single_u = @benchmark Zₗₘ_unsafe($l_rep, $m_rep, $uvec) samples=nsamples evals=nevals
+    println("\n--- Single call: Zₗₘ_unsafe (same l, m, uvec) ---")
+    show(stdout, MIME"text/plain"(), bench_zlm_single_u)
+    println()
+    print_speedup("Zₗₘ single call", bench_zlm_single, bench_zlm_single_u)
 
     println("\n--- Single call: ∂ᵢZlm(l=$l_rep, m=$m_rep, uvec) ---")
     bench_grad_single = @benchmark ∂ᵢZlm($l_rep, $m_rep, $uvec) samples=nsamples evals=nevals
     show(stdout, MIME"text/plain"(), bench_grad_single)
     println()
+    bench_grad_single_u = @benchmark ∂ᵢZlm_unsafe($l_rep, $m_rep, $uvec) samples=nsamples evals=nevals
+    println("\n--- Single call: ∂ᵢZlm_unsafe ---")
+    show(stdout, MIME"text/plain"(), bench_grad_single_u)
+    println()
+    print_speedup("∂ᵢZlm single call", bench_grad_single, bench_grad_single_u)
+
+    println("\n--- Single call: dP̄ₗₘ (still validates l,m,r̂z) vs dP̄ₗₘ_unsafe ---")
+    bench_dp = @benchmark dP̄ₗₘ($l_rep, $(abs(m_rep)), $z) samples=nsamples evals=nevals
+    show(stdout, MIME"text/plain"(), bench_dp)
+    println()
+    bench_dp_u = @benchmark dP̄ₗₘ_unsafe($l_rep, $(abs(m_rep)), $z) samples=nsamples evals=nevals
+    show(stdout, MIME"text/plain"(), bench_dp_u)
+    println()
+    print_speedup("dP̄ₗₘ single call", bench_dp, bench_dp_u)
 
     # --- Profile ---
     print_profile_for(() -> begin
