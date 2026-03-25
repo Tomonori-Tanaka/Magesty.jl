@@ -20,9 +20,23 @@ module MySphericalHarmonics
 
 using LegendrePolynomials
 using LinearAlgebra
+using StaticArrays
 
 # abstract type SphericalHarmonicsProduct end
 export Zₗₘ, d_Zlm, ∂ᵢZlm
+
+# Fast integer parity: (-1)^n without float exponentiation
+@inline _parity(n::Integer) = isodd(n) ? -1 : 1
+
+# Compute sqrt((2l+1)/(4π) * (l-m)!/(l+m)!) avoiding large factorial intermediates.
+# Uses (l+m)!/(l-m)! = (l-m+1)*(l-m+2)*...*(l+m) to stay in Float64 throughout.
+@inline function _plm_norm(l::Int, m::Int)::Float64
+    acc = (2 * l + 1) / (4π)
+    for i in (l - m + 1):(l + m)
+        acc /= i
+    end
+    return sqrt(acc)
+end
 
 """
 	P̄ₗₘ(l::Integer, m::Integer, r̂z::Real) -> Float64
@@ -57,11 +71,8 @@ P̄ₗₘ(2, 1, [0.0, 0.0, 1.0])  # Vector input
 ```
 """
 function P̄ₗₘ(l::Integer, m::Integer, r̂z::Real)::Float64
-	const_factor = √((2l + 1) / (4π))
-	factorial_ratio = √(factorial(l - abs(m)) / factorial(l + abs(m)))
-	phase = (-1)^m
-
-	return phase * const_factor * factorial_ratio * dnPl(r̂z, l, m)
+	am = abs(m)
+	return _parity(m) * _plm_norm(l, am) * dnPl(r̂z, l, am)
 end
 
 function P̄ₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
@@ -75,9 +86,8 @@ Derivative ``\\mathrm{d}\\bar{P}_{\\ell m}/\\mathrm{d}\\hat{r}_z`` with **no** v
 `l`, `m`, or `r̂z`. See also [`dP̄ₗₘ`](@ref).
 """
 function dP̄ₗₘ_unsafe(l::Integer, m::Integer, r̂z::Real)::Float64
-	normalization = √((2l + 1) / (4π) * factorial(l - abs(m)) / factorial(l + abs(m)))
-	phase = (-1)^m
-	return phase * normalization * dnPl(r̂z, l, m + 1)
+	am = abs(m)
+	return _parity(m) * _plm_norm(l, am) * dnPl(r̂z, l, am + 1)
 end
 
 """
@@ -177,11 +187,12 @@ Use after a single upfront `validate_lm` / `validate_uvec`, or when inputs come 
 invariants elsewhere.
 """
 function Yₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Complex
+	n = abs(m)
+	plm = P̄ₗₘ(l, n, uvec[3])
 	if m < 0
-		return (-1)^(abs(m)) * conj(uvec[1] + uvec[2] * im)^abs(m) *
-			   P̄ₗₘ(l, abs(m), uvec[3])
+		return _parity(n) * ComplexF64(uvec[1], -uvec[2])^n * plm
 	else
-		return (uvec[1] + uvec[2] * im)^m * P̄ₗₘ(l, m, uvec[3])
+		return ComplexF64(uvec[1], uvec[2])^n * plm
 	end
 end
 
@@ -390,27 +401,14 @@ Same as [`Zₗₘ`](@ref) but **does not** validate `l`, `m`, or `uvec`. Caller 
 results or errors from lower-level code.
 """
 function Zₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
-	# Special case for m = 0
-	m == 0 && return real(Yₗₘ_unsafe(l, 0, uvec))
+	m == 0 && return P̄ₗₘ(l, 0, uvec[3])
 
-	# Common factors for m ≠ 0
 	n = abs(m)
 	plm = P̄ₗₘ(l, n, uvec[3])
-	phase = (-1)^n
-	common_factor = phase * √2 * plm
+	c = _parity(n) * √2 * plm
+	z_pow = ComplexF64(uvec[1], uvec[2])^n
 
-	if m > 0
-		return common_factor * sum(
-			(-1)^k * binomial(m, 2k) * uvec[1]^(m - 2k) * uvec[2]^(2k) for
-			k in 0:floor(Int, m / 2)
-		)
-	else
-		return common_factor * sum(
-			(-1)^k * binomial(n, 2k + 1) *
-			uvec[1]^(n - (2k + 1)) * uvec[2]^(2k + 1)
-			for k in 0:floor(Int, (n - 1) / 2)
-		)
-	end
+	return m > 0 ? c * real(z_pow) : c * imag(z_pow)
 end
 
 """
@@ -420,25 +418,11 @@ Same as [`∂Zₗₘ_∂r̂x`](@ref) without validating `l`, `m`, or `uvec`.
 """
 function ∂Zₗₘ_∂r̂x_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 	m == 0 && return 0.0
-	m == -1 && return 0.0
-	m_abs = abs(m)
-	plm = P̄ₗₘ(l, m_abs, uvec[3])
-	phase = (-1)^m_abs
-	if m > 0
-		return phase * √2 * m * plm *
-			   sum(
-				   (-1)^k * binomial(m - 1, 2k) *
-				   uvec[1]^(m - 1 - 2k) * uvec[2]^(2k)
-				   for k in 0:floor(Int, (m - 1) / 2)
-			   )
-	else
-		return phase * √2 * m_abs * plm *
-			   sum(
-				   (-1)^k * binomial(m_abs - 1, 2k + 1) *
-				   uvec[1]^(m_abs - 2 - 2k) * uvec[2]^(2k + 1)
-				   for k in 0:floor(Int, (m_abs - 2) / 2)
-			   )
-	end
+	n = abs(m)
+	plm = P̄ₗₘ(l, n, uvec[3])
+	c = _parity(n) * √2 * n * plm
+	z_pow_n1 = ComplexF64(uvec[1], uvec[2])^(n - 1)
+	return m > 0 ? c * real(z_pow_n1) : c * imag(z_pow_n1)
 end
 
 """
@@ -480,11 +464,11 @@ Same as [`∂Zₗₘ_∂r̂y`](@ref) without validating `l`, `m`, or `uvec`.
 """
 function ∂Zₗₘ_∂r̂y_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 	m == 0 && return 0.0
-	if m > 0
-		return -∂Zₗₘ_∂r̂x_unsafe(l, -m, uvec)
-	else
-		return ∂Zₗₘ_∂r̂x_unsafe(l, abs(m), uvec)
-	end
+	n = abs(m)
+	plm = P̄ₗₘ(l, n, uvec[3])
+	c = _parity(n) * √2 * n * plm
+	z_pow_n1 = ComplexF64(uvec[1], uvec[2])^(n - 1)
+	return m > 0 ? -c * imag(z_pow_n1) : c * real(z_pow_n1)
 end
 
 """
@@ -522,22 +506,12 @@ end
 Same as [`∂Zₗₘ_∂r̂z`](@ref) without validating `l`, `m`, or `uvec`.
 """
 function ∂Zₗₘ_∂r̂z_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
-	m == 0 && return dP̄ₗₘ_unsafe(l, m, uvec[3])
 	n = abs(m)
 	dplm = dP̄ₗₘ_unsafe(l, n, uvec[3])
-	phase = (-1)^m
-	common_factor = phase * √2 * dplm
-	if m > 0
-		return common_factor * sum(
-			(-1)^k * binomial(m, 2k) * uvec[1]^(m - 2k) * uvec[2]^(2k) for
-			k in 0:floor(Int, m / 2)
-		)
-	else
-		return common_factor * sum(
-			(-1)^k * binomial(n, 2k + 1) * uvec[1]^(n - (2k + 1)) * uvec[2]^(2k + 1)
-			for k in 0:floor(Int, (n - 1) / 2)
-		)
-	end
+	m == 0 && return dplm
+	c = _parity(n) * √2 * dplm
+	z_pow = ComplexF64(uvec[1], uvec[2])^n
+	return m > 0 ? c * real(z_pow) : c * imag(z_pow)
 end
 
 """
@@ -641,8 +615,35 @@ d_Zlm_unsafe = [∂Zₗₘ_∂x_unsafe, ∂Zₗₘ_∂y_unsafe, ∂Zₗₘ_∂z_
 
 Same as [`∂ᵢZlm`](@ref) without validating `l`, `m`, or `uvec`.
 """
-function ∂ᵢZlm_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Vector{Float64}
-	return [∂Zₗₘ_∂x_unsafe(l, m, uvec), ∂Zₗₘ_∂y_unsafe(l, m, uvec), ∂Zₗₘ_∂z_unsafe(l, m, uvec)]
+function ∂ᵢZlm_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::SVector{3,Float64}
+	x, y, z = uvec[1], uvec[2], uvec[3]
+	n = abs(m)
+	plm  = P̄ₗₘ(l, n, z)
+	dplm = dP̄ₗₘ_unsafe(l, n, z)
+
+	if m == 0
+		# ∂r̂x = ∂r̂y = 0, ∂r̂z = dplm  →  zzₗₘ = z * dplm
+		zz = z * dplm
+		return SVector{3,Float64}(-x * zz, -y * zz, dplm - z * zz)
+	end
+
+	c = _parity(n) * √2
+	z_xy     = ComplexF64(x, y)
+	z_pow_n  = z_xy^n
+	z_pow_n1 = z_xy^(n - 1)
+	rn  = real(z_pow_n);  in_  = imag(z_pow_n)
+	rn1 = real(z_pow_n1); in1  = imag(z_pow_n1)
+
+	# ∂r̂ components of Zₗₘ
+	dZx, dZy, dZz = if m > 0
+		(c * n * plm * rn1, -c * n * plm * in1, c * dplm * rn)
+	else
+		(c * n * plm * in1,  c * n * plm * rn1, c * dplm * in_)
+	end
+
+	# zzₗₘ = r̂ ⋅ ∂r̂Z  (computed once, used three times)
+	zz = x * dZx + y * dZy + z * dZz
+	return SVector{3,Float64}(dZx - x * zz, dZy - y * zz, dZz - z * zz)
 end
 
 """
