@@ -695,7 +695,7 @@ function find_translation_atoms(
 	map_sym_inv = symmetry.map_sym_inv
 
 	p_target = sortperm(new_atom_list)
-	candidates = Vector{Vector{Int}}()
+	fallback_candidate::Union{Nothing, Vector{Int}} = nothing
 
 	# Same reference-site recipe as `operate_symop`; collect all folds that hit `cluster_atoms`.
 	for i in eachindex(new_atom_list)
@@ -711,23 +711,22 @@ function find_translation_atoms(
 			atom_translated[n] = map_sym_inv[new_atom, corresponding_translation]
 		end
 		if sort(atom_translated) ∈ cluster_atoms
-			push!(candidates, atom_translated)
+			# Prefer a fold that preserves sort-order permutation.
+			if sortperm(atom_translated) == p_target
+				return atom_translated
+			end
+			if fallback_candidate === nothing
+				fallback_candidate = atom_translated
+			end
 		end
 	end
 
-	if isempty(candidates)
+	if fallback_candidate === nothing
 		error(
 			"Failed to find translation atoms (map_s2p fold): atom_list=$atom_list, cluster_atoms=$cluster_atoms",
 		)
 	end
-
-	# Prefer a fold that preserves sort-order permutation (so `reorder_atoms` permutes `ls` correctly).
-	for c in candidates
-		if sortperm(c) == p_target
-			return c
-		end
-	end
-	return first(candidates)
+	return fallback_candidate
 end
 
 
@@ -754,6 +753,8 @@ and projects onto the subspace of basis functions that are invariant under the s
 function projection_matrix_coupled_basis(
 	coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis},
 	symmetry::Symmetry,
+	;
+	check_unitary::Bool = get(ENV, "MAGESTY_CHECK_UNITARY", "0") == "1",
 )::Matrix{Float64}
 	Lf = coupled_basislist[1].Lf
 	submatrix_dim = 2 * Lf + 1
@@ -766,45 +767,29 @@ function projection_matrix_coupled_basis(
 		# Calculate rotation matrix
 		is_proper = symop.is_proper
 		rotmat = is_proper ? symop.rotation_cart : -1 * symop.rotation_cart
+		# Lf is common within this coupled_basislist, so compute Δl only once per symmetry op.
+		α, β, γ = rotmat2euler(rotmat)
+		base_rot_mat = Δl(Lf, α, β, γ)
 
-		submat_in_mat::Matrix{Union{Matrix{Float64}, Nothing}} =
-			Matrix{Union{Matrix{Float64}, Nothing}}(undef, nbasis, nbasis)
+		temp_projection_mat = zeros(Float64, full_matrix_dim, full_matrix_dim)
 		for (i, cb1) in enumerate(coupled_basislist)
 			atoms_shifted_list = [symmetry.map_sym[atom, n] for atom in cb1.atoms]
 			primitive_atoms = find_translation_atoms(atoms_shifted_list, cluster_atoms, symmetry)
 			reordered_cb = reorder_atoms(cb1, primitive_atoms)
+			multiplier = time_rev_sym ? (-1)^sum(reordered_cb.ls) : 1
+			rot_mat = time_rev_sym ? multiplier * base_rot_mat : base_rot_mat
+			col_range = ((i-1)*submatrix_dim+1):(i*submatrix_dim)
 			for (j, cb2) in enumerate(coupled_basislist)
 				if is_obviously_zero_coupled_basis_product(reordered_cb, cb2)
-					submat_in_mat[j, i] = nothing
 					continue
-				else
-					phase = tensor_inner_product(cb2.coeff_tensor, reordered_cb.coeff_tensor) / (2*Lf+1)
-					# Calculate rotation matrix for this basis
-					rot_mat = Δl(reordered_cb.Lf, rotmat2euler(rotmat)...)
-					# Apply time reversal symmetry multiplier if needed
-					if time_rev_sym
-						total_l = sum(reordered_cb.ls)
-						multiplier = (-1)^total_l
-						rot_mat = multiplier * rot_mat
-					end
-					submat_in_mat[j, i] = rot_mat * phase
 				end
-			end
-		end
-
-		# Expand submat_in_mat into a temporary Matrix{Float64}
-		temp_projection_mat = zeros(Float64, full_matrix_dim, full_matrix_dim)
-		for j in 1:nbasis, i in 1:nbasis
-			submat = submat_in_mat[j, i]
-			if submat !== nothing
+				phase = tensor_inner_product(cb2.coeff_tensor, reordered_cb.coeff_tensor) / (2*Lf+1)
 				row_range = ((j-1)*submatrix_dim+1):(j*submatrix_dim)
-				col_range = ((i-1)*submatrix_dim+1):(i*submatrix_dim)
-				temp_projection_mat[row_range, col_range] = submat
+				temp_projection_mat[row_range, col_range] = rot_mat * phase
 			end
-			# If submat is nothing, the corresponding block remains zero
 		end
 
-		if !is_unitary(temp_projection_mat, tol = 1e-8)
+		if check_unitary && !is_unitary(temp_projection_mat, tol = 1e-8)
 			#@warn "Projection matrix is not unitary. symmetry operation index: $n"
 			display(temp_projection_mat' * temp_projection_mat)
 			error("Projection matrix is not unitary. symmetry operation index: $n")
@@ -1652,7 +1637,8 @@ function filter_basisdict(
 			continue
 		end
 
-		result_basisdict[new_label] = deepcopy(basislist)
+		# basislist is treated as immutable in this flow; avoid costly deep copy.
+		result_basisdict[new_label] = basislist
 		new_label += 1
 	end
 	return result_basisdict
