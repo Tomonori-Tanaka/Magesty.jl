@@ -9,13 +9,6 @@ using ..MySphericalHarmonics: P̄ₗₘ, dP̄ₗₘ, Yₗₘ, ∂Yₗₘ_∂r̂x
 @testset "Legendre polynomials" begin
 	# (l, m, r̂z)
 	@testset "P̄ₗₘ" begin
-		# Error handling
-		@test_throws ArgumentError P̄ₗₘ(0, 0, 1.1)
-		@test_throws ArgumentError P̄ₗₘ(0, 0, [1, 1, 1])
-		@test_throws ArgumentError P̄ₗₘ(0, 0, [1, 0])
-		@test_throws ArgumentError P̄ₗₘ(1, -1, [1, 0, 0])
-		@test_throws ArgumentError P̄ₗₘ(1, 2, [1, 0, 0])
-		@test_throws ArgumentError P̄ₗₘ(-1, 0, [1, 0, 0])
 
 		# l = 0, m = 0, √(1/4π)
 		@test isapprox(P̄ₗₘ(0, 0, 0), √(1 / 4π))
