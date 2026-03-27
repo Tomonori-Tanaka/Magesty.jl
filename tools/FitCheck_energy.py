@@ -171,7 +171,7 @@ def plot_energy(
 
     # Reference lines behind the scatter (zorder=0)
     big = 100_000.0
-    ax.plot([-big, big], [-big, big], color="black", lw=1, label="y = x", zorder=0)
+    ax.plot([-big, big], [-big, big], color="black", lw=1, zorder=0)
     ax.axvline(0, color="gray", ls="--", lw=1, zorder=0)
     ax.axhline(0, color="gray", ls="--", lw=1, zorder=0)
 
