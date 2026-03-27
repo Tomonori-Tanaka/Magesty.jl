@@ -332,7 +332,7 @@ function design_matrix_energy_element(
 			for m_idx in 1:(2*l+1)
 				# Convert tesseral index to m value: m = m_idx - l - 1
 				m = m_idx - l - 1
-				sh_values[site_idx][m_idx] = @views Zₗₘ(l, m, spin_directions[:, atom])
+				sh_values[site_idx][m_idx] = @views Zₗₘ_unsafe(l, m, spin_directions[:, atom])
 			end
 		end
 
@@ -500,11 +500,11 @@ function calc_∇ₑu(
 
 				# Use regular spherical harmonic for all sites
 				sh_values[site_idx][m_idx] =
-					@views Zₗₘ(l, m, spin_directions[:, translated_atom])
+					@views Zₗₘ_unsafe(l, m, spin_directions[:, translated_atom])
 				if site_idx == atom_site_idx
 					# Keep gradients only for the differentiated site.
 					atom_grad_values[m_idx] =
-						@views ∂ᵢZlm(l, m, spin_directions[:, translated_atom])
+						@views ∂ᵢZlm_unsafe(l, m, spin_directions[:, translated_atom])
 				end
 			end
 		end
