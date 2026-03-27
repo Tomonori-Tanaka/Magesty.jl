@@ -30,6 +30,7 @@ if TEST_MODE in ("unit", "all")
 		include("./component_test/test_Structures.jl")
 		include("./component_test/test_Symmetries.jl")
 		include("./component_test/test_Basis.jl")
+		include("./component_test/test_Optimize.jl")
 	end
 end
 if TEST_MODE in ("integration", "all")

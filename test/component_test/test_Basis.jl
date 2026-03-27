@@ -139,7 +139,7 @@
 			) where {T, N}
 				return sum(conj.(tensor1) .* tensor2)
 			end
-			@show tensor_inner_product(cb.coeff_tensor, cb_new.coeff_tensor)
+			# @show tensor_inner_product(cb.coeff_tensor, cb_new.coeff_tensor)
 		end
 
 		@testset "Three-body case" begin
