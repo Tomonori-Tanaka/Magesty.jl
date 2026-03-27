@@ -1,0 +1,12 @@
+[32m[1m  Activating[22m[39m project at `~/Packages/Magesty.jl`
+nthreads = 1
+Loading context...
+  spinconfigs : 100
+  salc groups : 146
+  num atoms   : 64
+Benchmarking (1 reps + 1 warmup)...
+
+=======================================================
+  build_design_matrix_energy (serial)     19.988 s 
+  build_design_matrix_torque (@threads)   76.960 s 
+=======================================================
