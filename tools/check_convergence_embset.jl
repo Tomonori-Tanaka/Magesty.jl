@@ -136,13 +136,14 @@ function main()
 	ordered_configs = all_configs[perm]
 
 	energies = Float64[c.energy for c in ordered_configs]
-	salc_list = system.basisset.salc_list
-	sym = system.symmetry
-	X_full = Magesty.Optimize.build_design_matrix_energy(salc_list, ordered_configs, sym)
+	observed_torque_full = [c.torques for c in ordered_configs]
 
-	# Reference fit: all N structures
+	# Reference fit: all N structures (design matrices live in sc_ref.optimize)
 	@info "Fitting all $N structures (reference jphi / j0)…"
 	sc_ref = SpinCluster(system, input, ordered_configs; verbosity = false)
+	opt_ref = sc_ref.optimize
+	X_full = opt_ref.design_matrix_energy
+	torque_row_block = 3 * system.structure.supercell.num_atoms
 	j0_ref, jphi_ref = Magesty.get_j0_jphi(sc_ref)
 	norm_jphi_ref = norm(jphi_ref)
 	denom_jphi = norm_jphi_ref > 0 ? norm_jphi_ref : 1.0
@@ -174,11 +175,24 @@ function main()
 
 	M = length(jphi_ref)
 
+	cfg_opt = Magesty.Config4Optimize(input)
+	estimator = Magesty.ElasticNet(alpha = cfg_opt.alpha, lambda = cfg_opt.lambda)
+	fit_w = cfg_opt.weight
+
 	for (k, n) in enumerate(n_list)
-		subset = ordered_configs[1:n]
 		try
-			sc_n = SpinCluster(system, input, subset; verbosity = false)
-			j0_n, jphi_n = Magesty.get_j0_jphi(sc_n)
+			@views Xe_n = opt_ref.design_matrix_energy[1:n, :]
+			@views Xt_n = opt_ref.design_matrix_torque[1:(n * torque_row_block), :]
+			@views e_n = energies[1:n]
+			@views tau_n = observed_torque_full[1:n]
+			j0_n, jphi_n = Magesty.Optimize._fit_sce_model_internal(
+				Xe_n,
+				Xt_n,
+				e_n,
+				tau_n,
+				estimator,
+				fit_w,
+			)
 			dj = jphi_n .- jphi_ref
 			l2 = norm(dj)
 			rel = l2 / denom_jphi
