@@ -48,6 +48,38 @@ function _fmt_tsv_e(x::Float64)
 	@sprintf("%.15e", x)
 end
 
+# Called via Base.invokelatest after `eval(Main, :(using Plots))` so `Main.Plots` is visible
+# (same-function `Plots.plot` after eval hits a world-age UndefVarError).
+function _save_convergence_embset_figure(
+	ns_p::AbstractVector,
+	je_p::AbstractVector,
+	er_p::AbstractVector,
+	png_path::AbstractString,
+)
+	Plt = Base.getproperty(Main, :Plots)
+	p1 = Plt.plot(
+		ns_p,
+		je_p;
+		marker = :circle,
+		xlabel = "Training set size n",
+		ylabel = "||jphi(n) - jphi(full)|| / ||jphi(full)||",
+		title = "jphi convergence (relative L2 vs. full-data reference)",
+		legend = false,
+	)
+	p2 = Plt.plot(
+		ns_p,
+		er_p;
+		marker = :square,
+		xlabel = "Training set size n",
+		ylabel = "RMSE (eV)",
+		title = "Energy prediction RMSE over all N structures",
+		legend = false,
+	)
+	Plt.plot(p1, p2; layout = (2, 1), size = (600, 700))
+	Plt.savefig(png_path)
+	return nothing
+end
+
 function main()
 	s = ArgParseSettings(
 		description = """
@@ -337,28 +369,14 @@ function main()
 				ns_p = ns[mask]
 				je_p = jphi_rel[mask]
 				er_p = energy_rmse[mask]
-
-				p1 = Plots.plot(
-					ns_p,
-					je_p;
-					marker = :circle,
-					xlabel = "Training set size n",
-					ylabel = "||jphi(n) - jphi(full)|| / ||jphi(full)||",
-					title = "jphi convergence (relative L2 vs. full-data reference)",
-					legend = false,
-				)
-				p2 = Plots.plot(
-					ns_p,
-					er_p;
-					marker = :square,
-					xlabel = "Training set size n",
-					ylabel = "RMSE (eV)",
-					title = "Energy prediction RMSE over all N structures",
-					legend = false,
-				)
 				png_path = out_prefix * ".png"
-				Plots.plot(p1, p2; layout = (2, 1), size = (600, 700))
-				Plots.savefig(png_path)
+				Base.invokelatest(
+					_save_convergence_embset_figure,
+					ns_p,
+					je_p,
+					er_p,
+					png_path,
+				)
 				@info "Saved figure: $png_path"
 				plot_ok = true
 			catch err
