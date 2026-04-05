@@ -17,7 +17,6 @@ Magesty.write_xml(system)
 @load "system.jld2" system
 
 sclus = SpinCluster(system, input, verbosity = true)
-@save "sclus.jld2" sclus
 #Magesty.write_energies(sclus)
 #Magesty.write_torques(sclus)
 Magesty.write_xml(sclus, "jphi.xml")
