@@ -4,173 +4,251 @@ This tutorial will guide you through the basic usage of Magesty.jl for magnetic 
 
 ## Installation
 
-First, install Magesty.jl:
-
 ```julia
 using Pkg
 Pkg.add("Magesty")
 ```
 
-## Basic Workflow
+## Configuration File Format
 
-### 1. Setting up a Configuration
-
-Magesty.jl uses TOML configuration files to specify input parameters. Here's a basic example:
+Magesty.jl uses TOML configuration files. Below is an annotated example for a BCC Fe supercell:
 
 ```toml
-[structure]
-lattice = [[2.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 2.0]]
-atoms = [["Fe", [0.0, 0.0, 0.0]], ["Fe", [0.5, 0.5, 0.5]]]
+[general]
+name = "bccfe"
+kd   = ["Fe"]           # list of element names
+nat  = 16               # total number of atoms in the supercell
+periodicity = [true, true, true]
 
-[optimization]
-method = "LBFGS"
-max_iterations = 1000
-tolerance = 1e-6
+[symmetry]
+tolerance = 1e-5        # symmetry detection tolerance (optional, default 1e-3)
+
+[interaction]
+nbody = 2               # maximum interaction order
+[interaction.body1]
+lmax.Fe = 0             # on-site (1-body) max angular momentum per element
+[interaction.body2]
+lsum = 2                # max L for two-body basis functions
+cutoff."Fe-Fe" = 5.66   # pairwise cutoff radius in bohr (-1 uses all pairs)
+
+[regression]
+datafile = "EMBSET.dat" # path to training data
+weight   = 1.0          # 0 = torque only, 1 = energy only, 0.5 = balanced
+alpha    = 0.0          # elastic-net mixing (0 = ridge)
+lambda   = 0.0          # regularization strength (0 = no regularization)
+
+[structure]
+kd_list  = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]  # element index per atom
+lattice  = [
+  [5.66, 0.0, 0.0],
+  [0.0, 5.66, 0.0],
+  [0.0, 0.0, 5.66],
+]
+position = [            # fractional coordinates
+  [0.00, 0.00, 0.00],
+  [0.25, 0.25, 0.25],
+  # ...
+]
 ```
 
-### 2. Creating a System
+## Basic Workflow
+
+### 1. Creating a SpinCluster (All-in-One)
+
+The simplest approach reads the TOML file, builds the basis, loads the training set, and fits the SCE model in one call:
 
 ```julia
 using Magesty
 
-# Create a system from a TOML file
-system = System("config.toml")
-
-# Or create from a dictionary
-input_dict = Dict(
-    "structure" => Dict(
-        "lattice" => [[2.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 2.0]],
-        "atoms" => [["Fe", [0.0, 0.0, 0.0]], ["Fe", [0.5, 0.5, 0.5]]]
-    )
-)
-system = System(input_dict)
-```
-
-### 3. Creating a SpinCluster for Optimization
-
-```julia
-# Create a SpinCluster for optimization
 sc = SpinCluster("config.toml")
-
-# Or create from an existing System
-sc = SpinCluster(system, input_dict)
 ```
 
-### 4. Calculating Energies
+### 2. Accessing Fitted Results
 
 ```julia
-# Generate a random spin configuration
-num_atoms = sc.structure.supercell.num_atoms
-spin_config = rand(3, num_atoms)
+# Reference energy (eV)
+j0 = Magesty.get_j0(sc)
 
-# Normalize spins to unit length
+# SCE coefficients
+jphi = Magesty.get_jphi(sc)
+
+# Both at once
+j0, jphi = Magesty.get_j0_jphi(sc)
+```
+
+### 3. Exporting Results
+
+```julia
+# Write SCE coefficients to XML
+write_xml(sc, "results.xml")
+
+# Write without coefficients (structure + basis only)
+write_xml(sc, "structure_only.xml", write_jphi = false)
+
+# Write energy and torque comparison files
+Magesty.write_energies(sc, "energy_list.txt")
+Magesty.write_torques(sc, "torque_list.txt")
+```
+
+### 4. Evaluating Energy and Torque
+
+```julia
+using LinearAlgebra
+
+num_atoms = sc.structure.supercell.num_atoms
+spin_config = randn(3, num_atoms)
 for i in 1:num_atoms
     spin_config[:, i] ./= norm(spin_config[:, i])
 end
 
-# Calculate energy
-energy = calc_energy(sc, spin_config)
-println("Energy: ", energy)
+energy = Magesty.calc_energy(sc, spin_config)
+torque = Magesty.calc_torque(sc, spin_config)
+println("Energy: ", energy, " eV")
 ```
 
-### 5. Accessing Results
+## Programmatic Fitting with `fit_sce_model`
+
+For more control—e.g., cross-validation or custom training sets—use the
+lower-level `fit_sce_model` API:
 
 ```julia
-# Get reference energy
-j0 = get_j0(sc)
+using Magesty, TOML
 
-# Get spin-cluster coefficients
-jphi = get_jphi(sc)
+input  = TOML.parsefile("config.toml")
+system = build_sce_basis(input)
 
-# Get both
-j0, jphi = get_j0_jphi(sc)
+# Load training data
+spinconfigs = read_embset("EMBSET.dat")
+
+# OLS fit
+optimizer = fit_sce_model(system, spinconfigs)
+
+# Elastic-Net fit
+estimator = ElasticNet(lambda = 1e-4)
+optimizer = fit_sce_model(system, spinconfigs, estimator, 0.5)
+
+j0   = optimizer.reference_energy
+jphi = optimizer.SCE
+println("RMSE energy: ", optimizer.metrics[:rmse_energy] * 1000, " meV")
+println("RMSE torque: ", optimizer.metrics[:rmse_torque] * 1000, " meV")
 ```
 
-### 6. Exporting Results
+### Creating a SpinCluster from an Existing System
 
 ```julia
-# Write results to XML file
-write_xml(sc, "results.xml")
+# Reuse a System built above
+sc = SpinCluster(system, input)
+```
 
-# Write without J_ij parameters
-write_xml(sc, "structure_only.xml", write_jphi=false)
+### Creating a SpinCluster with a Pre-loaded Training Set
 
-# Write energy and torque lists
-write_energies(sc, "energy_list.txt")
-write_torques(sc, "torque_list.txt")
+```julia
+spinconfigs = read_embset("EMBSET.dat")
+sc = SpinCluster(system, input, spinconfigs)
+```
+
+## Building Basis from XML
+
+If the basis set has already been saved to XML, load it directly to skip the
+expensive SALC computation:
+
+```julia
+using Magesty, TOML
+
+input  = TOML.parsefile("config.toml")
+system = build_sce_basis_from_xml(input, "scecoeffs.xml")
 ```
 
 ## Advanced Usage
 
-### Working with Spin Configurations
+### Symmetry Information
 
 ```julia
-# Create specific spin configurations
-spin_config = zeros(3, num_atoms)
-spin_config[1, :] .= 1.0  # All spins along x-axis
+sym = sc.symmetry
+println("Space group: ", sym.international_symbol, " (#", sym.spacegroup_number, ")")
+println("Number of symmetry operations: ", sym.nsym)
 
-# Calculate energy and torque
-energy = calc_energy(sc, spin_config)
-torque = calc_torque(sc, spin_config)
+for (i, symop) in enumerate(sym.symdata)
+    println("Operation $i:")
+    println("  Rotation (fractional): ", symop.rotation_frac)
+    println("  Translation (fractional): ", symop.translation_frac)
+    println("  Is proper: ", symop.is_proper)
+end
 ```
 
-### Symmetry Analysis
+### Structure Information
 
 ```julia
-# Access symmetry information
-symmetry = sc.symmetry
-println("Number of symmetry operations: ", length(symmetry.symmetry_operations))
-
-# Access structure information
-structure = sc.structure
-println("Number of atoms: ", structure.supercell.num_atoms)
-println("Lattice vectors: ", structure.supercell.lattice_vectors)
+cell = sc.structure.supercell
+println("Number of atoms: ", cell.num_atoms)
+println("Lattice vectors:")
+for i in 1:3
+    println("  a$i: ", cell.lattice_vectors[:, i])
+end
+println("Atomic positions (fractional):")
+for i in 1:cell.num_atoms
+    elem = sc.structure.kd_name[cell.kd_int_list[i]]
+    println("  $elem: ", cell.x_frac[:, i])
+end
 ```
 
-### Cluster Information
+### Basis Set Information
 
 ```julia
-# Access cluster information
-cluster = sc.cluster
-println("Number of clusters: ", length(cluster.interaction_clusters))
-
-# Access basis set information
 basisset = sc.basisset
-println("Number of basis functions: ", length(basisset.salc_list))
+println("Number of SALCs: ", length(basisset.salc_list))
 ```
 
-## Configuration Options
+## Configuration Reference
 
-### Structure Parameters
+### `[general]`
 
-- `lattice`: 3x3 matrix of lattice vectors
-- `atoms`: List of [element, position] pairs
-- `supercell`: Supercell dimensions (optional)
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `name` | String | yes | System name |
+| `kd` | Vector{String} | yes | Element names |
+| `nat` | Int | yes | Number of atoms in supercell |
+| `periodicity` | Vector{Bool} | no | Periodic boundary conditions (default: `[true,true,true]`) |
 
-### Optimization Parameters
+### `[symmetry]`
 
-- `method`: Optimization method ("LBFGS", "CG", etc.)
-- `max_iterations`: Maximum number of iterations
-- `tolerance`: Convergence tolerance
-- `alpha`: Regularization parameter
-- `lambda`: Weight parameter
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `tolerance` | Float64 | no | Symmetry detection tolerance (default: `1e-3`) |
+| `isotropy` | Bool | no | Only include isotropic (L=0) terms (default: `false`) |
 
-### Symmetry Parameters
+### `[interaction]`
 
-- `tolerance`: Symmetry detection tolerance
-- `use_spglib`: Whether to use Spglib for symmetry detection
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `nbody` | Int | yes | Maximum interaction order |
+| `body1.lmax.<elem>` | Int | no | On-site max angular momentum per element |
+| `body<n>.lsum` | Int | yes (n≥2) | Max L sum for n-body basis |
+| `body<n>.cutoff."<e1>-<e2>"` | Float64 | yes (n≥2) | Pairwise cutoff radius in bohr |
+
+### `[regression]`
+
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `datafile` | String | yes | Path to EMBSET training data |
+| `weight` | Float64 | no | Energy/torque balance: 0=torque only, 1=energy only (default: `0.0`) |
+| `alpha` | Float64 | no | Elastic-net mixing parameter (default: `0.0`) |
+| `lambda` | Float64 | no | Regularization strength (default: `0.0`) |
+
+### `[structure]`
+
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `kd_list` | Vector{Int} | yes | Element index (1-based, into `kd`) per atom |
+| `lattice` | 3×3 Float64 | yes | Lattice vectors (each row is a vector, in Å) |
+| `position` | Vector of 3-vectors | yes | Fractional atomic coordinates |
 
 ## Troubleshooting
 
-### Common Issues
+1. **File not found**: Check that `datafile` in `[regression]` and the TOML path are correct.
+2. **Missing section**: All four sections (`general`, `symmetry`, `interaction`, `structure`) are required; `regression` is additionally required for `SpinCluster`.
+3. **Memory issues**: Reduce the cutoff radius or lower `lsum`/`lmax` to decrease the basis size.
+4. **Poor fit**: Increase `weight` toward 0.5 to balance energy and torque, or add regularization via `lambda`.
 
-1. **File not found**: Make sure the TOML file path is correct
-2. **Invalid configuration**: Check that all required parameters are present
-3. **Memory issues**: For large systems, consider reducing the cluster cutoff radius
-4. **Convergence problems**: Try adjusting the tolerance or maximum iterations
-
-### Getting Help
-
-- Check the [API Reference](@ref) for detailed function documentation
-- Look at the [Examples](@ref) for more complex use cases
-- Report issues on the GitHub repository
+For detailed function documentation see the [API Reference](@ref).
+For more complex use cases see [Examples](@ref).
