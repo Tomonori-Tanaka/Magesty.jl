@@ -1,304 +1,187 @@
 # Examples
 
-This page provides comprehensive examples of using Magesty.jl for various magnetic structure analysis tasks.
+This page provides examples of using Magesty.jl for various magnetic structure analysis tasks.
 
-## Example 1: Simple BCC Iron
+## Example 1: BCC Iron — Full Workflow
 
-This example demonstrates the basic workflow for a simple BCC iron structure.
+Load a TOML configuration, fit the SCE model, and export results.
 
 ```julia
 using Magesty
 
-# Define input parameters
-input_dict = Dict(
-    "structure" => Dict(
-        "lattice" => [[2.87, 0.0, 0.0], [0.0, 2.87, 0.0], [0.0, 0.0, 2.87]],
-        "atoms" => [["Fe", [0.0, 0.0, 0.0]]]
-    ),
-    "optimization" => Dict(
-        "method" => "LBFGS",
-        "max_iterations" => 1000,
-        "tolerance" => 1e-6
-    )
-)
+sc = SpinCluster("input.toml")
 
-# Create system and spin cluster
-system = System(input_dict)
-sc = SpinCluster(system, input_dict)
-
-# Generate random spin configuration
-num_atoms = sc.structure.supercell.num_atoms
-spin_config = rand(3, num_atoms)
-for i in 1:num_atoms
-    spin_config[:, i] ./= norm(spin_config[:, i])
-end
-
-# Calculate energy
-energy = calc_energy(sc, spin_config)
-println("Energy: ", energy)
-
-# Export results
 write_xml(sc, "bcc_fe_results.xml")
+Magesty.write_energies(sc, "energy_list.txt")
+Magesty.write_torques(sc, "torque_list.txt")
+
+j0   = Magesty.get_j0(sc)
+jphi = Magesty.get_jphi(sc)
+println("Reference energy: ", j0, " eV")
+println("Number of SCE coefficients: ", length(jphi))
 ```
 
-## Example 2: Ferromagnetic vs Antiferromagnetic
+## Example 2: Programmatic Fitting with `fit_sce_model`
 
-This example compares ferromagnetic and antiferromagnetic configurations.
+Use the lower-level API for more control over the fitting process.
 
 ```julia
-using Magesty
+using Magesty, TOML
 
-# Load configuration
-sc = SpinCluster("config.toml")
+input  = TOML.parsefile("input.toml")
+system = build_sce_basis(input)
+
+spinconfigs = read_embset("EMBSET.dat")
+
+# OLS fit
+optimizer = fit_sce_model(system, spinconfigs)
+println("RMSE energy: ", optimizer.metrics[:rmse_energy] * 1000, " meV")
+println("RMSE torque: ", optimizer.metrics[:rmse_torque] * 1000, " meV")
+
+# Elastic-Net fit
+estimator = ElasticNet(lambda = 1e-4)
+optimizer_reg = fit_sce_model(system, spinconfigs, estimator)
+```
+
+## Example 3: Ferromagnetic vs Antiferromagnetic Energies
+
+```julia
+using Magesty, LinearAlgebra
+
+sc        = SpinCluster("input.toml")
 num_atoms = sc.structure.supercell.num_atoms
 
-# Ferromagnetic configuration (all spins aligned)
-fm_config = ones(3, num_atoms)
-for i in 1:num_atoms
-    fm_config[:, i] ./= norm(fm_config[:, i])
-end
+# Ferromagnetic: all spins along +z
+fm_config       = zeros(3, num_atoms)
+fm_config[3, :] .= 1.0
 
-# Antiferromagnetic configuration (alternating spins)
+# Antiferromagnetic: alternating +z/-z
 afm_config = zeros(3, num_atoms)
 for i in 1:num_atoms
-    if i % 2 == 1
-        afm_config[1, i] = 1.0  # +x direction
-    else
-        afm_config[1, i] = -1.0  # -x direction
-    end
+    afm_config[3, i] = iseven(i) ? -1.0 : 1.0
 end
 
-# Calculate energies
-fm_energy = calc_energy(sc, fm_config)
-afm_energy = calc_energy(sc, afm_config)
+fm_energy  = Magesty.calc_energy(sc, fm_config)
+afm_energy = Magesty.calc_energy(sc, afm_config)
 
-println("Ferromagnetic energy: ", fm_energy)
-println("Antiferromagnetic energy: ", afm_energy)
-println("Energy difference: ", afm_energy - fm_energy)
-```
-
-## Example 3: Spin Wave Analysis
-
-This example demonstrates how to analyze spin wave excitations.
-
-```julia
-using Magesty
-using LinearAlgebra
-
-# Create spin cluster
-sc = SpinCluster("config.toml")
-num_atoms = sc.structure.supercell.num_atoms
-
-# Create ground state configuration
-ground_state = zeros(3, num_atoms)
-ground_state[1, :] .= 1.0  # All spins along x-axis
-
-# Calculate ground state energy
-ground_energy = calc_energy(sc, ground_state)
-
-# Create small perturbation
-perturbation = 0.1 * randn(3, num_atoms)
-excited_state = ground_state + perturbation
-
-# Normalize spins
-for i in 1:num_atoms
-    excited_state[:, i] ./= norm(excited_state[:, i])
-end
-
-# Calculate excited state energy
-excited_energy = calc_energy(sc, excited_state)
-
-# Calculate excitation energy
-excitation_energy = excited_energy - ground_energy
-println("Excitation energy: ", excitation_energy)
+println("FM  energy: ", fm_energy,  " eV")
+println("AFM energy: ", afm_energy, " eV")
+println("ΔE (AFM-FM): ", (afm_energy - fm_energy) * 1000, " meV")
 ```
 
 ## Example 4: Symmetry Analysis
 
-This example demonstrates how to analyze the symmetry properties of a magnetic structure.
+```julia
+using Magesty
+
+system = build_sce_basis(TOML.parsefile("input.toml"))
+sym    = system.symmetry
+
+println("Space group: ", sym.international_symbol, " (#", sym.spacegroup_number, ")")
+println("Number of symmetry operations: ", sym.nsym)
+println("Number of pure translations: ", sym.ntran)
+println("Atoms in primitive cell: ", sym.atoms_in_prim)
+
+for (i, symop) in enumerate(sym.symdata)
+    println("Operation $i: proper=", symop.is_proper,
+            "  translation=", symop.translation_frac)
+end
+```
+
+## Example 5: Structure Information
 
 ```julia
 using Magesty
 
-# Create system
-system = System("config.toml")
+system = build_sce_basis(TOML.parsefile("input.toml"))
+cell   = system.structure.supercell
 
-# Access symmetry information
-symmetry = system.symmetry
-println("Number of symmetry operations: ", length(symmetry.symmetry_operations))
-
-# Print symmetry operations
-for (i, symop) in enumerate(symmetry.symmetry_operations)
-    println("Symmetry operation $i:")
-    println("  Rotation (fractional): ", symop.rotation_frac)
-    println("  Translation (fractional): ", symop.translation_frac)
-    println("  Is proper: ", symop.is_proper)
-    println()
-end
-
-# Access structure information
-structure = system.structure
-println("Lattice vectors:")
-for i in 1:3
-    println("  a$i: ", structure.supercell.lattice_vectors[i, :])
-end
+println("Number of atoms: ", cell.num_atoms)
+println("Lattice vectors (columns):")
+display(Matrix(cell.lattice_vectors))
 
 println("Atomic positions (fractional):")
-for i in 1:structure.supercell.num_atoms
-    element = structure.kd_name[structure.supercell.kd_int_list[i]]
-    pos = structure.supercell.x_frac[:, i]
-    println("  $element: ", pos)
+for i in 1:cell.num_atoms
+    elem = system.structure.kd_name[cell.kd_int_list[i]]
+    println("  $elem: ", cell.x_frac[:, i])
 end
 ```
 
-## Example 5: Cluster Analysis
-
-This example demonstrates how to analyze the cluster expansion.
+## Example 6: Basis Set Information
 
 ```julia
 using Magesty
 
-# Create spin cluster
-sc = SpinCluster("config.toml")
+system = build_sce_basis(TOML.parsefile("input.toml"))
+bs     = system.basisset
 
-# Access cluster information
-cluster = sc.cluster
-println("Number of interaction clusters: ", length(cluster.interaction_clusters))
-
-# Print cluster information
-for (i, interaction_cluster) in enumerate(cluster.interaction_clusters)
-    println("Cluster $i:")
-    println("  Number of atoms: ", length(interaction_cluster.atom_indices))
-    println("  Atom indices: ", interaction_cluster.atom_indices)
-    println("  Maximum distance: ", interaction_cluster.distmax)
-    println()
-end
-
-# Access basis set information
-basisset = sc.basisset
-println("Number of basis functions: ", length(basisset.salc_list))
-
-# Print basis function information
-for (i, salc) in enumerate(basisset.salc_list)
-    println("Basis function $i:")
-    println("  Cluster index: ", salc.cluster_index)
-    println("  Angular momentum: ", salc.l)
-    println("  Magnetic quantum number: ", salc.m)
-    println()
-end
-```
-
-## Example 6: Optimization Results
-
-This example demonstrates how to access and analyze optimization results.
-
-```julia
-using Magesty
-
-# Create spin cluster with optimization
-sc = SpinCluster("config.toml")
-
-# Get optimization results
-j0 = get_j0(sc)
-jphi = get_jphi(sc)
-
-println("Reference energy (J0): ", j0)
-println("Number of spin-cluster coefficients: ", length(jphi))
-println("First 10 coefficients: ", jphi[1:min(10, length(jphi))])
-
-# Analyze coefficient magnitudes
-max_coeff = maximum(abs.(jphi))
-min_coeff = minimum(abs.(jphi))
-println("Maximum coefficient magnitude: ", max_coeff)
-println("Minimum coefficient magnitude: ", min_coeff)
-
-# Find most important coefficients
-important_indices = findall(x -> abs(x) > 0.1 * max_coeff, jphi)
-println("Important coefficient indices: ", important_indices)
+println("Number of SALCs: ", length(bs.salc_list))
+println("Number of coupled basis functions: ", length(bs.coupled_basislist))
 ```
 
 ## Example 7: Custom Spin Configurations
 
-This example demonstrates how to work with custom spin configurations.
+Evaluate energy and torque for arbitrary spin configurations.
 
 ```julia
-using Magesty
-using LinearAlgebra
+using Magesty, LinearAlgebra
 
-# Create spin cluster
-sc = SpinCluster("config.toml")
+sc        = SpinCluster("input.toml")
 num_atoms = sc.structure.supercell.num_atoms
 
-# Create custom spin configuration
-spin_config = zeros(3, num_atoms)
-
-# Set spins in a specific pattern
+# Spiral configuration in the xy-plane
+spiral = zeros(3, num_atoms)
 for i in 1:num_atoms
-    # Create a spiral pattern
-    angle = 2π * i / num_atoms
-    spin_config[1, i] = cos(angle)
-    spin_config[2, i] = sin(angle)
-    spin_config[3, i] = 0.0
+    angle = 2π * (i - 1) / num_atoms
+    spiral[1, i] = cos(angle)
+    spiral[2, i] = sin(angle)
 end
 
-# Calculate energy and torque
-energy = calc_energy(sc, spin_config)
-torque = calc_torque(sc, spin_config)
-
-println("Spiral configuration energy: ", energy)
-println("Maximum torque magnitude: ", maximum(norm.(eachcol(torque))))
-
-# Create another configuration (random)
-random_config = randn(3, num_atoms)
-for i in 1:num_atoms
-    random_config[:, i] ./= norm(random_config[:, i])
-end
-
-random_energy = calc_energy(sc, random_config)
-println("Random configuration energy: ", random_energy)
+energy = Magesty.calc_energy(sc, spiral)
+torque = Magesty.calc_torque(sc, spiral)
+println("Spiral energy: ", energy, " eV")
+println("Max torque magnitude: ", maximum(norm.(eachcol(torque))), " eV")
 ```
 
-## Example 8: Batch Processing
-
-This example demonstrates how to process multiple configurations efficiently.
+## Example 8: Batch Energy Evaluation
 
 ```julia
-using Magesty
+using Magesty, LinearAlgebra, Statistics
 
-# Create spin cluster
-sc = SpinCluster("config.toml")
+sc        = SpinCluster("input.toml")
 num_atoms = sc.structure.supercell.num_atoms
 
-# Generate multiple random configurations
 n_configs = 100
-energies = Float64[]
-configurations = []
+energies  = Vector{Float64}(undef, n_configs)
 
 for i in 1:n_configs
-    # Generate random configuration
     config = randn(3, num_atoms)
     for j in 1:num_atoms
         config[:, j] ./= norm(config[:, j])
     end
-    
-    # Calculate energy
-    energy = calc_energy(sc, config)
-    
-    push!(energies, energy)
-    push!(configurations, config)
+    energies[i] = Magesty.calc_energy(sc, config)
 end
 
-# Analyze results
-println("Number of configurations: ", length(energies))
-println("Minimum energy: ", minimum(energies))
-println("Maximum energy: ", maximum(energies))
-println("Average energy: ", mean(energies))
-println("Standard deviation: ", std(energies))
-
-# Find lowest energy configuration
-min_index = argmin(energies)
-println("Lowest energy configuration index: ", min_index)
-println("Lowest energy: ", energies[min_index])
+println("Min energy: ",  minimum(energies) * 1000, " meV")
+println("Max energy: ",  maximum(energies) * 1000, " meV")
+println("Mean energy: ", mean(energies)    * 1000, " meV")
+println("Std dev: ",     std(energies)     * 1000, " meV")
 ```
 
-These examples demonstrate the versatility and power of Magesty.jl for magnetic structure analysis and spin cluster expansion calculations. Each example can be adapted and extended for specific research needs.
+## Example 9: Load Basis from XML and Refit
+
+Reuse a previously computed basis set to refit with different training data or
+regularization without recomputing SALCs:
+
+```julia
+using Magesty, TOML
+
+input  = TOML.parsefile("input.toml")
+system = build_sce_basis_from_xml(input, "scecoeffs.xml")
+
+spinconfigs = read_embset("new_EMBSET.dat")
+estimator   = ElasticNet(lambda = 1e-3)
+optimizer   = fit_sce_model(system, spinconfigs, estimator, 0.5)
+
+write_xml(system.structure, system.symmetry, system.basisset, optimizer, "new_results.xml")
+```

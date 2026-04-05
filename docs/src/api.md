@@ -18,10 +18,10 @@ SpinCluster
 
 ## Main Functions
 
-### System Creation
+### System Building
 ```@docs
-System(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)
-System(toml_file::AbstractString; verbosity::Bool = true)
+build_sce_basis
+build_sce_basis_from_xml
 ```
 
 ### SpinCluster Creation
@@ -32,24 +32,51 @@ SpinCluster(system::System, input_dict::Dict{<:AbstractString, <:Any}; verbosity
 SpinCluster(system::System, input_dict::AbstractDict{<:AbstractString, <:Any}, spinconfig_list::AbstractVector{SpinConfig}; verbosity::Bool = true)
 ```
 
-### Energy and Torque Calculations
+### Model Fitting
 ```@docs
-calc_energy
-calc_torque
+fit_sce_model
 ```
 
-### Results Access
+### Estimators
 ```@docs
-get_j0
-get_jphi
-get_j0_jphi
+AbstractEstimator
+OLS
+ElasticNet
 ```
 
 ### Output Functions
 ```@docs
 write_xml
-write_energies
-write_torques
+```
+
+### Data Loading
+```@docs
+read_embset
+```
+
+## Non-Exported Convenience Functions
+
+The following functions are defined in the `Magesty` module but are **not exported**.
+After `using Magesty`, access them with the `Magesty.` prefix:
+
+```julia
+Magesty.calc_energy(sc, spin_config)
+Magesty.calc_torque(sc, spin_config)
+Magesty.get_j0(sc)
+Magesty.get_jphi(sc)
+Magesty.get_j0_jphi(sc)
+Magesty.write_energies(sc, filename)
+Magesty.write_torques(sc, filename)
+```
+
+```@docs
+Magesty.calc_energy
+Magesty.calc_torque
+Magesty.get_j0
+Magesty.get_jphi
+Magesty.get_j0_jphi
+Magesty.write_energies
+Magesty.write_torques
 ```
 
 ## Submodules
