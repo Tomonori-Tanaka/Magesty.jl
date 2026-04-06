@@ -158,10 +158,6 @@ input["regression"]["datafile"] = joinpath(@__DIR__, "EMBSET.dat")
 			joinpath(@__DIR__, "dimer_dmi.xml"),
 			[1, 2],
 		)
-		display(exchange_tensor)
-		display(exchange_tensor.isotropic_jij)
-		display(exchange_tensor.dm_vector)
-		display(exchange_tensor.gamma)
 
 	end
 
