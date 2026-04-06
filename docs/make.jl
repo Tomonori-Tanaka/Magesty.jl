@@ -22,6 +22,7 @@ makedocs(
 		"Tutorial" => "tutorial.md",
 		"Examples" => "examples.md",
 		"Tools" => "tools.md",
+		"Technical Notes" => "technical_notes.md",
 	],
 	warnonly = true,
 	checkdocs = :exports,
