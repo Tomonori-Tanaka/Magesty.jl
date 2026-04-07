@@ -7,6 +7,8 @@ against the maximum over cluster atom pairs of minimum-image (MIC) distance.
 - By default, all SALCs (all N-body terms) are shown.
 - Different N (`body`) are drawn as separate series / colors.
 - Restrict to selected N with `--bodies 2,3`.
+- Use `--per-cluster` to convert SALC coefficients to per-cluster values:
+  j_per_cluster = j_SALC / √num_basis  (exact for scalar Lf=0 SALCs; RMS approximation for Lf>0).
 
 Requires Plots.jl (`using Pkg; Pkg.add("Plots")`). When saving with `-o`, sets
 `GKSwstype=100` for GR if unset (headless-friendly).
@@ -57,23 +59,30 @@ function parse_bodies_filter(s::AbstractString)::Union{Nothing, Vector{Int}}
 	return [parse(Int, strip(p)) for p in parts]
 end
 
-function load_salc_metadata(xml_path::String)::Dict{Int, Tuple{Int, Vector{Int}}}
+struct SALCMeta
+	body::Int
+	atoms::Vector{Int}  # atoms of the first basis element (used for distance)
+	num_basis::Int
+end
+
+function load_salc_metadata(xml_path::String)::Dict{Int, SALCMeta}
 	doc = readxml(xml_path)
 	system_node = findfirst("//System", doc)
 	isnothing(system_node) && throw(ArgumentError("<System> not found in XML: $xml_path"))
 	basis_node = findfirst("SCEBasisSet", system_node)
 	isnothing(basis_node) && throw(ArgumentError("<SCEBasisSet> not found in XML: $xml_path"))
-	out = Dict{Int, Tuple{Int, Vector{Int}}}()
+	out = Dict{Int, SALCMeta}()
 	for salc in findall("SALC", basis_node)
 		idx = parse(Int, salc["index"])
 		body = parse(Int, salc["body"])
+		num_basis = parse(Int, salc["num_basis"])
 		bnodes = findall("basis", salc)
 		isempty(bnodes) && continue
 		atoms = parse.(Int, split(bnodes[1]["atoms"]))
 		if length(atoms) != body
 			@warn "SALC index=$idx: body=$body does not match number of atoms in first basis ($(length(atoms))); using first basis atoms for distance."
 		end
-		out[idx] = (body, atoms)
+		out[idx] = SALCMeta(body, atoms, num_basis)
 	end
 	return out
 end
@@ -96,21 +105,23 @@ end
 function collect_plot_rows(
 	xml_path::String,
 	bodies_filter::Union{Nothing, Vector{Int}},
-)::Vector{NamedTuple{(:salc_index, :nbody, :r_max, :jphi), Tuple{Int, Int, Float64, Float64}}}
+	per_cluster::Bool,
+)::Vector{NamedTuple{(:salc_index, :nbody, :r_max, :jphi, :num_basis), Tuple{Int, Int, Float64, Float64, Int}}}
 	st = Magesty.Structure(xml_path, verbosity = false)
 	meta = load_salc_metadata(xml_path)
-	rows = NamedTuple{(:salc_index, :nbody, :r_max, :jphi), Tuple{Int, Int, Float64, Float64}}[]
+	rows = NamedTuple{(:salc_index, :nbody, :r_max, :jphi, :num_basis), Tuple{Int, Int, Float64, Float64, Int}}[]
 	for (salc_index, jphi) in load_jphi_values(xml_path)
 		if !haskey(meta, salc_index)
 			@warn "No <SALC> for salc_index=$salc_index in XML; skipping."
 			continue
 		end
-		body, atoms = meta[salc_index]
-		if bodies_filter !== nothing && !(body in bodies_filter)
+		m = meta[salc_index]
+		if bodies_filter !== nothing && !(m.body in bodies_filter)
 			continue
 		end
-		rmax = max_intracluster_mic_distance(st, atoms)
-		push!(rows, (; salc_index, nbody = body, r_max = rmax, jphi))
+		rmax = max_intracluster_mic_distance(st, m.atoms)
+		val = per_cluster ? jphi / sqrt(m.num_basis) : jphi
+		push!(rows, (; salc_index, nbody = m.body, r_max = rmax, jphi = val, num_basis = m.num_basis))
 	end
 	return rows
 end
@@ -118,7 +129,7 @@ end
 function plot_rows(
 	rows;
 	title_str::String = "SCE jφ vs max intracluster distance",
-	ylabel_unit::String = "eV",
+	ylabel_str::String = "jφ (eV)",
 	output_path::Union{Nothing, String} = nothing,
 )
 	if isempty(rows)
@@ -139,7 +150,7 @@ function plot_rows(
 		markeralpha = 0.85,
 		title = title_str,
 		xlabel = "Max pairwise MIC distance (Å)",
-		ylabel = "jφ ($ylabel_unit)",
+		ylabel = ylabel_str,
 		legend = :best,
 		grid = true,
 		size = (800, 600),
@@ -186,10 +197,14 @@ function main()
 		help = "Plot title"
 		arg_type = String
 		default = "SCE jφ vs max intracluster distance"
+		"--per-cluster"
+		help = "Convert SALC coefficients to per-cluster values: j / sqrt(num_basis)."
+		action = :store_true
 	end
 	args = parse_args(ARGS, s)
 	xml_path = args["input"]
 	bodies_f = parse_bodies_filter(args["bodies"])
+	per_cluster = args["per-cluster"]
 	outp = String(strip(args["output"]))
 	outp = isempty(outp) ? nothing : outp
 	# Headless / no display backend: only when saving and GKSwstype not already set
@@ -197,10 +212,13 @@ function main()
 		ENV["GKSwstype"] = "100"
 	end
 
-	rows = collect_plot_rows(xml_path, bodies_f)
+	rows = collect_plot_rows(xml_path, bodies_f, per_cluster)
+	ylabel = per_cluster ? "jφ / √num_basis (eV)" : "jφ (eV)"
+	default_title = per_cluster ? "SCE jφ per cluster vs max intracluster distance" : "SCE jφ vs max intracluster distance"
 	plot_rows(
 		rows;
-		title_str = args["title"],
+		title_str = args["title"] == "SCE jφ vs max intracluster distance" ? default_title : args["title"],
+		ylabel_str = ylabel,
 		output_path = outp,
 	)
 	return nothing
