@@ -9,15 +9,15 @@ tolerance = 1e-5
 isotropy = true
 
 [interaction]
-nbody = 3
+nbody = 2
 [interaction.body1]
 lmax.A = 0
 [interaction.body2] # unit is bohr
 cutoff."A-A" = -1
 lsum = 2
-[interaction.body3]
-cutoff."A-A" = -1
-lsum = 4
+#[interaction.body3]
+#cutoff."A-A" = -1
+#lsum = 4
 
 [regression]
 datafile = "EMBSET"
