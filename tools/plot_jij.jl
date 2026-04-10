@@ -12,8 +12,12 @@ function collect_jij_all(
 	element1::Union{String, Nothing} = nothing,
 	element2::Union{String, Nothing} = nothing,
 )::Vector{Tuple{Float64, Float64, String}}
-	structure = Magesty.Structure(input, verbosity = false)
-	symmetry = Magesty.Symmetry(structure, 1e-5, verbosity = false)
+	t_setup = @elapsed begin
+		structure = Magesty.Structure(input, verbosity = false)
+		symmetry = Magesty.Symmetry(structure, 1e-5, verbosity = false)
+		pre = ExchangeTensor.precompute_xml(input)
+	end
+	println(@sprintf("  [timing] setup (Structure + Symmetry + XML precompute): %.3f s", t_setup))
 
 	num_atoms = structure.supercell.num_atoms
 
@@ -29,6 +33,8 @@ function collect_jij_all(
 
 	distance_jij_pairs = Vector{Tuple{Float64, Float64, String}}()
 
+	num_pairs = num_atoms * (num_atoms - 1) ÷ 2
+	t_loop = @elapsed begin
 	for i in 1:num_atoms
 		for j in (i + 1):num_atoms
 			# Minimum distance considering periodic boundary conditions
@@ -46,7 +52,7 @@ function collect_jij_all(
 				end
 			end
 
-			jij = convert2tensor(input, [i, j])
+			jij = ExchangeTensor.convert2tensor_fast(symmetry, i, j, pre)
 
 			elem_i = structure.kd_name[structure.supercell.kd_int_list[i]]
 			elem_j = structure.kd_name[structure.supercell.kd_int_list[j]]
@@ -60,6 +66,9 @@ function collect_jij_all(
 			push!(distance_jij_pairs, (min_distance, jij.isotropic_jij, pair_label))
 		end
 	end
+	end # t_loop
+	println(@sprintf("  [timing] pair loop (%d pairs): %.3f s", num_pairs, t_loop))
+	println(@sprintf("  [timing] total collect_jij_all: %.3f s", t_setup + t_loop))
 
 	sort!(distance_jij_pairs, by = x -> x[1])
 	return distance_jij_pairs
