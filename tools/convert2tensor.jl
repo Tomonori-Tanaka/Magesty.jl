@@ -9,6 +9,7 @@ end
 using .Magesty
 
 export ExchangeTensorData, print_full, convert2tensor
+export PrecomputedXMLData, precompute_xml, convert2tensor_fast
 
 
 """
@@ -579,6 +580,147 @@ function calculate_tensor_for_pair_debug(doc, atom1::Int, atom2::Int)::ExchangeT
 	tensor_cartesian = convert_matrix * tensor * convert_matrix'
 
 	return ExchangeTensorData(tensor_cartesian)
+end
+
+"""
+	PrecomputedXMLData
+
+Cached result of XML parsing. Built once by `precompute_xml` and passed to
+`convert2tensor_fast` to avoid re-parsing the file for every atom pair.
+"""
+struct PrecomputedXMLData
+	jphi_dict::Dict{String, Float64}
+	coeff_tensor_Lf0::Union{Array{Float64, 3}, Nothing}
+	coeff_tensor_Lf1::Union{Array{Float64, 3}, Nothing}
+	coeff_tensor_Lf2::Union{Array{Float64, 3}, Nothing}
+	# (atom1, atom2) => Vector of (Lf, j_phi, coefficient, multiplicity)
+	salc_lookup::Dict{Tuple{Int, Int}, Vector{Tuple{Int, Float64, Vector{Float64}, Int}}}
+end
+
+"""
+	precompute_xml(input) -> PrecomputedXMLData
+
+Read the XML file once and build all data shared across atom pairs.
+"""
+function precompute_xml(input::AbstractString)::PrecomputedXMLData
+	doc = readxml(input)
+
+	# Build JPhi dictionary
+	jphi_dict = Dict{String, Float64}()
+	JPhi_node = findfirst("//JPhi", doc)
+	if !isnothing(JPhi_node)
+		for jphi in EzXML.findall("jphi", JPhi_node)
+			jphi_dict[jphi["salc_index"]] = parse(Float64, nodecontent(jphi))
+		end
+	end
+
+	# Coupling tensors (atom-pair independent)
+	coeff_tensor_Lf0, coeff_tensor_Lf1, coeff_tensor_Lf2 = reconstruct_coeff_tensors(doc)
+
+	# Build SALC lookup table for all pairs at once
+	salc_lookup = Dict{Tuple{Int, Int}, Vector{Tuple{Int, Float64, Vector{Float64}, Int}}}()
+	sce_basis_set = findfirst("//SCEBasisSet", doc)
+	if !isnothing(sce_basis_set)
+		for salc_node in EzXML.findall("SALC", sce_basis_set)
+			body = parse(Int, salc_node["body"])
+			Lf = parse(Int, salc_node["Lf"])
+			if body != 2 || !(Lf in [0, 1, 2])
+				continue
+			end
+
+			salc_index = parse(Int, salc_node["index"])
+			j_phi = get(jphi_dict, string(salc_index), 0.0)
+			if j_phi == 0.0
+				continue
+			end
+
+			for basis_node in EzXML.findall("basis", salc_node)
+				ls = parse.(Int, split(basis_node["ls"]))
+				if ls != [1, 1]
+					continue
+				end
+				atoms_pair = parse.(Int, split(basis_node["atoms"]))
+				multiplicity = parse(Int, basis_node["multiplicity"])
+				coefficient = parse.(Float64, split(nodecontent(basis_node)))
+
+				key = (atoms_pair[1], atoms_pair[2])
+				if !haskey(salc_lookup, key)
+					salc_lookup[key] = Vector{Tuple{Int, Float64, Vector{Float64}, Int}}()
+				end
+				push!(salc_lookup[key], (Lf, j_phi, coefficient, multiplicity))
+			end
+		end
+	end
+
+	return PrecomputedXMLData(jphi_dict, coeff_tensor_Lf0, coeff_tensor_Lf1, coeff_tensor_Lf2, salc_lookup)
+end
+
+function _calculate_tensor_fast(pre::PrecomputedXMLData, atom1::Int, atom2::Int)::ExchangeTensorData
+	entries = get(pre.salc_lookup, (atom1, atom2), nothing)
+	if isnothing(entries)
+		return ExchangeTensorData(zeros(3, 3)) * 1000
+	end
+
+	coeff_total_l0 = zeros(3, 3)
+	coeff_total_l1 = zeros(3, 3)
+	coeff_total_l2 = zeros(3, 3)
+
+	for (Lf, j_phi, coefficient, _) in entries
+		if Lf == 0 && !isnothing(pre.coeff_tensor_Lf0)
+			coeff_total_l0 += j_phi * pre.coeff_tensor_Lf0[:, :, 1] .* coefficient[1] * 3
+		elseif Lf == 1 && !isnothing(pre.coeff_tensor_Lf1)
+			for mf_idx in 1:3
+				coeff_total_l1 += j_phi * pre.coeff_tensor_Lf1[:, :, mf_idx] .* coefficient[mf_idx] * 3
+			end
+		elseif Lf == 2 && !isnothing(pre.coeff_tensor_Lf2)
+			for mf_idx in 1:5
+				coeff_total_l2 += j_phi * pre.coeff_tensor_Lf2[:, :, mf_idx] .* coefficient[mf_idx] * 3
+			end
+		end
+	end
+
+	tensor = coeff_total_l0 + coeff_total_l1 + coeff_total_l2
+	convert_matrix = [0 0 1; 1 0 0; 0 1 0]
+	tensor_cartesian = convert_matrix * tensor * convert_matrix'
+	return ExchangeTensorData(tensor_cartesian) * 1000
+end
+
+"""
+	convert2tensor_fast(symmetry, atom1, atom2, pre) -> ExchangeTensorData
+
+Calculate the exchange tensor using precomputed data from `precompute_xml`,
+avoiding any XML re-parsing.
+"""
+function convert2tensor_fast(symmetry, atom1::Int, atom2::Int, pre::PrecomputedXMLData)::ExchangeTensorData
+	# Try 1: map atom1 to the primitive cell
+	atom1_in_prim = symmetry.atoms_in_prim[symmetry.map_s2p[atom1].atom]
+	trans1 = symmetry.symnum_translation[symmetry.map_s2p[atom1].translation]
+	atom2_translated = symmetry.map_sym_inv[atom2, trans1]
+
+	a1, a2 = atom1_in_prim, atom2_translated
+	perm1 = a1 > a2
+	perm1 && ((a1, a2) = (a2, a1))
+
+	if haskey(pre.salc_lookup, (a1, a2))
+		result = _calculate_tensor_fast(pre, a1, a2)
+		return perm1 ? result' : result
+	end
+
+	# Try 2: map atom2 to the primitive cell
+	atom2_in_prim = symmetry.atoms_in_prim[symmetry.map_s2p[atom2].atom]
+	trans2 = symmetry.symnum_translation[symmetry.map_s2p[atom2].translation]
+	atom1_translated = symmetry.map_sym_inv[atom1, trans2]
+
+	a1, a2 = atom1_translated, atom2_in_prim
+	perm2 = a1 > a2
+	perm2 && ((a1, a2) = (a2, a1))
+
+	if haskey(pre.salc_lookup, (a1, a2))
+		result = _calculate_tensor_fast(pre, a1, a2)
+		return perm2 ? result' : result
+	end
+
+	return ExchangeTensorData(zeros(3, 3)) * 1000
 end
 
 end # module ExchangeTensor

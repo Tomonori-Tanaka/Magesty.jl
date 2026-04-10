@@ -22,59 +22,61 @@ function collect_jij(
 	input::String,
 	reference_atom::Int,
 )::Vector{Tuple{Float64, Float64, String}}
-	
-	structure = Magesty.Structure(input, verbosity = false)
-	symmetry = Magesty.Symmetry(structure, 1e-5, verbosity = false)
 
-	doc = readxml(input)
+	t_setup = @elapsed begin
+		structure = Magesty.Structure(input, verbosity = false)
+		symmetry = Magesty.Symmetry(structure, 1e-5, verbosity = false)
+		pre = ExchangeTensor.precompute_xml(input)
+	end
+	println(@sprintf("  [timing] setup (Structure + Symmetry + XML precompute): %.3f s", t_setup))
 
 	num_atoms = structure.supercell.num_atoms
 
 	# Element symbol of the reference atom (i)
 	ref_element_index = structure.supercell.kd_int_list[reference_atom]
 	ref_element_symbol = structure.kd_name[ref_element_index]
-	
+
 	# Array to store (distance, Jij, element) tuples
 	distance_jij_pairs = Vector{Tuple{Float64, Float64, String}}()
 
-	for j_atom in 1:num_atoms
-		if j_atom == reference_atom
-			continue
-		end
-
-		# Calculate minimum distance considering periodic boundary conditions
-		min_distance = Inf
-		for cell_index in 1:27
-			if !structure.exist_image[cell_index]
+	t_loop = @elapsed begin
+		for j_atom in 1:num_atoms
+			if j_atom == reference_atom
 				continue
 			end
-			# Distance between reference_atom in center cell (cell 1) and j_atom in cell_index
-			distance = norm(
-				structure.x_image_cart[:, reference_atom, 1] - 
-				structure.x_image_cart[:, j_atom, cell_index]
-			)
-			if distance < min_distance
-				min_distance = distance
+
+			# Calculate minimum distance considering periodic boundary conditions
+			min_distance = Inf
+			for cell_index in 1:27
+				if !structure.exist_image[cell_index]
+					continue
+				end
+				distance = norm(
+					structure.x_image_cart[:, reference_atom, 1] -
+					structure.x_image_cart[:, j_atom, cell_index]
+				)
+				if distance < min_distance
+					min_distance = distance
+				end
 			end
+
+			# Calculate Jij using precomputed data (no XML re-parse)
+			jij = ExchangeTensor.convert2tensor_fast(symmetry, reference_atom, j_atom, pre)
+
+			# Get element of the partner atom (j_atom)
+			partner_index = structure.supercell.kd_int_list[j_atom]
+			partner_symbol = structure.kd_name[partner_index]
+
+			pair_label = string(ref_element_symbol, "–", partner_symbol)
+			push!(distance_jij_pairs, (min_distance, jij.isotropic_jij, pair_label))
 		end
-
-		# Calculate Jij
-		jij = convert2tensor(input, [reference_atom, j_atom])
-
-		# Get element of the partner atom (j_atom)
-		partner_index = structure.supercell.kd_int_list[j_atom]
-		partner_symbol = structure.kd_name[partner_index]
-
-		# Pair label like "Fe–O" (using en dash)
-		pair_label = string(ref_element_symbol, "–", partner_symbol)
-
-		# Add (distance, Jij, pair_label) tuple
-		push!(distance_jij_pairs, (min_distance, jij.isotropic_jij, pair_label))
 	end
+	println(@sprintf("  [timing] pair loop (%d pairs): %.3f s", num_atoms - 1, t_loop))
+	println(@sprintf("  [timing] total collect_jij: %.3f s", t_setup + t_loop))
 
 	# Sort by distance
 	sort!(distance_jij_pairs, by = x -> x[1])
-	
+
 	return distance_jij_pairs
 end
 
