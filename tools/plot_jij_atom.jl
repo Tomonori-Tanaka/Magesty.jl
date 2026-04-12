@@ -87,6 +87,8 @@ function plot_jij(
 	half_jij::Bool = false,
 	ymin::Real = NaN,
 	ymax::Real = NaN,
+	markersize::Int = 5,
+	no_legend::Bool = false,
 )
 	if isempty(distance_jij_pairs)
 		println("No data to plot.")
@@ -145,14 +147,14 @@ function plot_jij(
 		distances,
 		jij_values,
 		group = elements,
-		markersize = 5,
+		markersize = markersize,
 		markeralpha = 0.8,
 		title = "Isotropic Jij vs Distance",
 		xlabel = "Distance (Å)",
 		ylabel = "Jij (meV)",
 		xtickfont = font(13),
 		ytickfont = font(13),
-		legend = :topright,
+		legend = no_legend ? false : :topright,
 		legendfontsize = 13,
 		grid = true,
 		size = (800, 600),
@@ -203,6 +205,15 @@ function main()
         arg_type = Float64
         required = false
         default = NaN
+
+        "--markersize", "-m"
+        help = "Marker size (default: 5)"
+        arg_type = Int
+        default = 5
+
+        "--no-legend"
+        help = "Hide the legend"
+        action = :store_true
     end
     args = parse_args(ARGS, s)
     distance_jij_pairs = collect_jij(args["input"], args["reference_atom"])
@@ -212,6 +223,8 @@ function main()
         half_jij = args["half-jij"],
         ymin = args["ymin"],
         ymax = args["ymax"],
+        markersize = args["markersize"],
+        no_legend = args["no-legend"],
     )
 end
 
