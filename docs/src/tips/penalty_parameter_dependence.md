@@ -41,7 +41,7 @@ It is advisable to perform restart calculations, gradually increasing `LAMBDA` f
 The calculations were performed with VASP 6.4.1.
 The base `INCAR` file used is shown below.
 
-```
+```doc-incar
 NCORE = 4
 ENCUT = 350.0
 PREC = accurate
@@ -79,7 +79,7 @@ ISYM = 0
 
 The `POSCAR` used is:
 
-```
+```doc-poscar
 Ni
 3.5158
 2 0 0
@@ -124,7 +124,7 @@ Direct
 
 The `KPOINTS` used is:
 
-```
+```doc-kpoints
 Ni
 0
 Gamma

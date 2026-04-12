@@ -5,7 +5,8 @@
 pre:has(> code.language-doc-incar)::before,
 pre:has(> code.language-doc-poscar)::before,
 pre:has(> code.language-doc-kpoints)::before,
-pre:has(> code.language-doc-input-toml)::before {
+pre:has(> code.language-doc-input-toml)::before,
+pre:has(> code.language-doc-run-jl)::before {
 	display: block;
 	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 	font-size: 0.82em;
@@ -29,4 +30,8 @@ pre:has(> code.language-doc-kpoints)::before {
 
 pre:has(> code.language-doc-input-toml)::before {
 	content: "input.toml";
+}
+
+pre:has(> code.language-doc-run-jl)::before {
+	content: "run.jl";
 }
