@@ -7,7 +7,7 @@ Here we demonstrate that the extracted spin model parameters are not sensitive t
 ## Setup
 
 A bcc Fe 2×2×2 cubic supercell containing 16 atoms was used.
-The system was initialized in a nearly ferromagnetic state: one atom (atom $i_0$) has its magnetic moment $\boldsymbol{m}_{i_0}$ tilted to point along the positive $x$-axis, while all remaining atoms have their moments aligned along the positive $z$-axis.
+The system was initialized in a nearly ferromagnetic state: one atom (atom $i_0$) has its magnetic moment $\boldsymbol{\mathfrak{m}}_{i_0}$ tilted to point along the positive $x$-axis, while all remaining atoms have their moments aligned along the positive $z$-axis.
 Only the orientations of the magnetic moments are constrained; their magnitudes are allowed to relax freely.
 The magnetic configuration is illustrated in Fig. 1.
 
@@ -22,17 +22,17 @@ We vary the RWIGS parameter $r$ over the range $r/r_\mathrm{ref} \in (0, 1]$ and
 
 The torque on atom $i$ is defined as
 
-$$\boldsymbol{\tau}_i = \boldsymbol{m}_i \times \boldsymbol{B}_{\mathrm{eff},i},$$
+$$\boldsymbol{\tau}_i = \boldsymbol{\mathfrak{m}}_i \times \boldsymbol{B}_{\mathrm{eff},i},$$
 
-where $\boldsymbol{m}_i$ is the magnetic moment vector of atom $i$ and $\boldsymbol{B}_{\mathrm{eff},i}$ is the effective magnetic field at site $i$.
-Since $\boldsymbol{m}_{i_0}$ points along $x$ and $\boldsymbol{B}_{\mathrm{eff},i_0}$ is directed nearly along $z$, the torque $\boldsymbol{\tau}_{i_0}$ is oriented nearly along the negative $y$-axis.
+where $\boldsymbol{\mathfrak{m}}_i$ is the magnetic moment vector of atom $i$ and $\boldsymbol{B}_{\mathrm{eff},i}$ is the effective magnetic field at site $i$.
+Since $\boldsymbol{\mathfrak{m}}_{i_0}$ points along $x$ and $\boldsymbol{B}_{\mathrm{eff},i_0}$ is directed nearly along $z$, the torque $\boldsymbol{\tau}_{i_0}$ is oriented nearly along the negative $y$-axis.
 Figure 2 shows the $y$-component of $\boldsymbol{\tau}_{i_0}$ as a function of $r/r_\mathrm{ref}$.
 The torque remains nearly constant over a wide range of $r$, confirming that the extracted parameters are insensitive to `RWIGS`.
 
 This result can be understood intuitively as follows.
-As $r$ decreases, the integrated magnetic moment $|\boldsymbol{m}_i|$ within the atomic sphere inevitably decreases.
+As $r$ decreases, the integrated magnetic moment $|\boldsymbol{\mathfrak{m}}_i|$ within the atomic sphere inevitably decreases.
 At the same time, the constraining field required to maintain the prescribed moment direction — which is equal in magnitude but opposite in direction to $\boldsymbol{B}_{\mathrm{eff},i_0}$ — increases correspondingly.
-These two competing effects largely cancel, leaving the torque $\boldsymbol{\tau}_{i_0} = \boldsymbol{m}_{i_0} \times \boldsymbol{B}_{\mathrm{eff},i_0}$ nearly independent of `RWIGS`.
+These two competing effects largely cancel, leaving the torque $\boldsymbol{\tau}_{i_0} = \boldsymbol{\mathfrak{m}}_{i_0} \times \boldsymbol{B}_{\mathrm{eff},i_0}$ nearly independent of `RWIGS`.
 
 ![Fig. 2](../assets/rwigs_dependence/torque_r.png)
 
@@ -45,7 +45,7 @@ The Heisenberg Hamiltonian is defined as
 
 $$\mathcal{H} = -\sum_{i,j} J_{ij}\, \boldsymbol{e}_i \cdot \boldsymbol{e}_j,$$
 
-where $\boldsymbol{e}_i = \boldsymbol{m}_i / |\boldsymbol{m}_i|$ is the unit vector along the magnetic moment of atom $i$, and the sum runs over all ordered pairs $(i, j)$ with double counting.
+where $\boldsymbol{e}_i = \boldsymbol{\mathfrak{m}}_i / |\boldsymbol{\mathfrak{m}}_i|$ is the unit vector along the magnetic moment of atom $i$, and the sum runs over all ordered pairs $(i, j)$ with double counting.
 Figure 3 shows $J_{ij}$ as a function of interatomic distance for $r/r_\mathrm{ref} = 1.0,\ 0.8,\ 0.7,\ 0.5$, plotted using `plot_jij.jl` with the `-i -H` options (corresponding to $-J_{ij}/2$).
 The curves overlap almost entirely, confirming that the exchange parameters are robust against the choice of `RWIGS`.
 
@@ -58,7 +58,7 @@ The curves overlap almost entirely, confirming that the exchange parameters are 
 The calculations were performed with VASP 5.4.4.
 The base `INCAR` file ($r/r_\mathrm{ref} = 1.0$) used is shown below.
 
-```
+```INCAR
 NCORE = 4
 
 ICHARG = 1
@@ -104,7 +104,7 @@ MAGMOM = 2.3 0 0  0 0 2.3  0 0 2.3  0 0 2.3  0 0 2.3  0 0 2.3  0 0 2.3  0 0 2.3 
 
 The `POSCAR` used is:
 
-```
+```POSCAR
 bccFe
 2.8298
 2.00   0.00   0.00
@@ -133,10 +133,92 @@ Direct
 
 The `KPOINTS` used is:
 
-```
+```KPOINTS
 bccFe
 0
 Gamma
 3 3 3
 0 0 0
+```
+
+
+Input toml file and julia script for Magesty.jl are follows:
+
+```toml:input.toml
+[general]
+name = "bccFe"
+nat = 16
+kd = ["Fe"]
+periodicity = [true, true, true]
+
+[symmetry]
+tolerance = 1.0e-5
+isotropy = true
+
+[interaction]
+nbody = 2
+
+[interaction.body1]
+lmax.Fe = 0
+
+[interaction.body2]
+cutoff."Fe-Fe" = -1
+lsum = 2
+
+[regression]
+datafile = "EMBSET"
+weight = 1.0
+alpha = 0
+lambda = 0.0
+
+[structure]
+lattice = [
+  [5.6596, 0.0, 0.0],
+  [0.0, 5.6596, 0.0],
+  [0.0, 0.0, 5.6596],
+]
+
+[structure]
+lattice = [
+  [5.6596, 0.0, 0.0],
+  [0.0, 5.6596, 0.0],
+  [0.0, 0.0, 5.6596],
+]
+kd_list = [
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+]
+position = [
+  [0.000000000000000, 0.000000000000000, 0.000000000000000],
+  [0.250000000000000, 0.250000000000000, 0.250000000000000],
+  [0.000000000000000, 0.000000000000000, 0.500000000000000],
+  [0.500000000000000, 0.000000000000000, 0.000000000000000],
+  [0.000000000000000, 0.500000000000000, 0.000000000000000],
+  [0.250000000000000, 0.250000000000000, 0.750000000000000],
+  [0.750000000000000, 0.250000000000000, 0.250000000000000],
+  [0.250000000000000, 0.750000000000000, 0.250000000000000],
+  [0.000000000000000, 0.500000000000000, 0.500000000000000],
+  [0.500000000000000, 0.000000000000000, 0.500000000000000],
+  [0.500000000000000, 0.500000000000000, 0.000000000000000],
+  [0.250000000000000, 0.750000000000000, 0.750000000000000],
+  [0.750000000000000, 0.250000000000000, 0.750000000000000],
+  [0.750000000000000, 0.750000000000000, 0.250000000000000],
+  [0.500000000000000, 0.500000000000000, 0.500000000000000],
+  [0.750000000000000, 0.750000000000000, 0.750000000000000],
+]
+```
+
+```run.jl
+using Magesty
+using TOML
+using JLD2
+
+input = TOML.parse(open("input.toml", "r"))
+system = System(input, verbosity = true)
+@save "system.jld2" system
+@load "system.jld2" system
+
+sclus = SpinCluster(system, input, verbosity = true)
+Magesty.write_energies(sclus)
+Magesty.write_torques(sclus)
+Magesty.write_xml(sclus, "jphi.xml")
 ```

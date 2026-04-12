@@ -14,7 +14,7 @@ makedocs(
 	format = Documenter.HTML(
 		prettyurls = get(ENV, "CI", "false") == "true",
 		canonical = "https://Tomonori-Tanaka.github.io/Magesty.jl",
-		assets = String[],
+		assets = ["assets/codeblock_filenames.css"],
 		mathengine = Documenter.MathJax3(),
 		edit_link = "main",
 		repolink = "https://github.com/Tomonori-Tanaka/Magesty.jl",
