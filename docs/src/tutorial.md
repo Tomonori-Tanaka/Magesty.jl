@@ -251,4 +251,4 @@ println("Number of SALCs: ", length(basisset.salc_list))
 4. **Poor fit**: Increase `weight` toward 0.5 to balance energy and torque, or add regularization via `lambda`.
 
 For detailed function documentation see the [API Reference](@ref).
-For more complex use cases see [Examples](@ref).
+For more complex use cases see [Examples](examples.md).

@@ -27,7 +27,6 @@ build_sce_basis_from_xml
 ### SpinCluster Creation
 ```@docs
 SpinCluster(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)
-SpinCluster(toml_file::AbstractString; verbosity::Bool = true)
 SpinCluster(system::System, input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)
 SpinCluster(system::System, input_dict::AbstractDict{<:AbstractString, <:Any}, spinconfig_list::AbstractVector{SpinConfig}; verbosity::Bool = true)
 ```
@@ -104,11 +103,6 @@ Clusters.cluster_orbits
 BasisSets.BasisSet
 ```
 
-### Optimization
-```@docs
-Optimize.Optimizer
-```
-
 ### Spin Configurations
 ```@docs
 SpinConfigs.SpinConfig
@@ -116,11 +110,6 @@ SpinConfigs.read_embset
 ```
 
 ## Utility Types
-
-### Atomic Indices
-```@docs
-AtomicIndices.get_atom_l_list
-```
 
 ### Spherical Harmonics Transforms
 ```@docs
@@ -144,7 +133,6 @@ ConfigParser.Config4Optimize
 ### Spherical Harmonics
 ```@docs
 MySphericalHarmonics.Zₗₘ
-MySphericalHarmonics.d_Zlm
 MySphericalHarmonics.∂ᵢZlm
 ```
 
@@ -171,8 +159,6 @@ Version.version_string
 SortedContainer.SortedVector
 SortedContainer.SortedUniqueVector
 SortedContainer.SortedCountingUniqueVector
-SortedContainer.getcount
-SortedContainer.addcount!
 ```
 
 ### Counting Containers
@@ -181,8 +167,3 @@ CountingContainer.CountingUniqueVector
 CountingContainer.getcounts
 ```
 
-## Constants
-
-```@docs
-VERSION
-```

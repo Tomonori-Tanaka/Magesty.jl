@@ -15,6 +15,8 @@ makedocs(
 		prettyurls = get(ENV, "CI", "false") == "true",
 		canonical = "https://Tomonori-Tanaka.github.io/Magesty.jl",
 		assets = String[],
+		mathengine = Documenter.MathJax3(),
+		edit_link = "main",
 	),
 	pages = [
 		"Home" => "index.md",
@@ -23,6 +25,11 @@ makedocs(
 		"Examples" => "examples.md",
 		"Tools" => "tools.md",
 		"Technical Notes" => "technical_notes.md",
+		"Tips" => [
+			"Overview" => "tips/index.md",
+			"Penalty term dependence" => "tips/penalty_parameter_dependence.md",
+			"RWIGS dependence" => "tips/rwigs_dependence.md",
+		],
 	],
 	warnonly = true,
 	checkdocs = :exports,
