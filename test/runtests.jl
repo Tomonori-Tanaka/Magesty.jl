@@ -17,7 +17,7 @@ using Test
 const TEST_MODE = get(ENV, "TEST_MODE", "all")
 
 if TEST_MODE in ("unit", "all")
-	@testset verbose = true "component tests" begin
+	@testset "component tests" begin
 		include("./component_test/test_MySphericalHarmonics.jl")
 		include("./component_test/test_AngularMomentumCoupling.jl")
 		include("./component_test/test_SortedContainer.jl")

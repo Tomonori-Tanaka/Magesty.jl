@@ -21,7 +21,7 @@ using ..Basis
 using ..BasisSets
 using ..SpinConfigs
 
-export Optimizer, fit_sce_model, AbstractEstimator, OLS, ElasticNet
+export Optimizer, SCEModel, fit_sce_model, predict_energy, AbstractEstimator, OLS, ElasticNet
 
 """
 	AbstractEstimator
@@ -52,6 +52,34 @@ struct ElasticNet <: AbstractEstimator
 end
 
 ElasticNet(; alpha::Real = 0.0, lambda::Real = 0.0) = ElasticNet(Float64(alpha), Float64(lambda))
+
+"""
+	SCEModel
+
+A fitted SCE (Spin Cluster Expansion) model containing the coefficients and basis
+information required to make energy and torque predictions on new spin configurations.
+
+# Fields
+- `reference_energy::Float64`: Reference energy (bias term j0) in eV
+- `SCE::Vector{Float64}`: SCE coefficients (jphi)
+- `basisset::BasisSet`: Basis function set used during fitting
+- `symmetry::Symmetry`: Symmetry information of the crystal structure
+- `num_atoms::Int`: Number of atoms in the supercell
+
+# Examples
+```julia
+# Construct a hypothetical model directly (e.g., for testing)
+model = SCEModel(0.0, [J], system.basisset, system.symmetry, system.structure.supercell.num_atoms)
+E = predict_energy(model, spin_directions)
+```
+"""
+struct SCEModel
+	reference_energy::Float64
+	SCE::Vector{Float64}
+	basisset::BasisSet
+	symmetry::Symmetry
+	num_atoms::Int
+end
 
 struct Optimizer
 	spinconfig_list::Vector{SpinConfig}
@@ -693,6 +721,41 @@ function fit_sce_model(
 		design_matrix_energy,
 		design_matrix_torque,
 	)
+end
+
+
+"""
+	predict_energy(model::SCEModel, spin_directions::AbstractMatrix{<:Real}) -> Float64
+
+Predict the energy of a spin configuration using an SCE model.
+
+# Arguments
+- `model::SCEModel`: SCE model containing coefficients and basis information
+- `spin_directions::AbstractMatrix{<:Real}`: 3×N matrix of spin unit vectors
+
+# Returns
+- `Float64`: Predicted energy in eV
+"""
+function predict_energy(
+	model::SCEModel,
+	spin_directions::AbstractMatrix{<:Real},
+)::Float64
+	salc_list = model.basisset.salc_list
+	num_salcs = length(salc_list)
+	design_vector = Vector{Float64}(undef, num_salcs)
+
+	for i in 1:num_salcs
+		key_group = salc_list[i]
+		n_C = length(key_group[1].atoms)
+		scaling_factor = (4π)^(n_C / 2)
+		group_value = 0.0
+		for cbc in key_group
+			group_value += design_matrix_energy_element(cbc, spin_directions, model.symmetry)
+		end
+		design_vector[i] = group_value * scaling_factor
+	end
+
+	return dot(design_vector, model.SCE) + model.reference_energy
 end
 
 
