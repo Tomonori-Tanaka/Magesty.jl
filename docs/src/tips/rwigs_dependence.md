@@ -58,7 +58,7 @@ The curves overlap almost entirely, confirming that the exchange parameters are 
 The calculations were performed with VASP 5.4.4.
 The base `INCAR` file ($r/r_\mathrm{ref} = 1.0$) used is shown below.
 
-```INCAR
+```doc-incar
 NCORE = 4
 
 ICHARG = 1
@@ -104,7 +104,7 @@ MAGMOM = 2.3 0 0  0 0 2.3  0 0 2.3  0 0 2.3  0 0 2.3  0 0 2.3  0 0 2.3  0 0 2.3 
 
 The `POSCAR` used is:
 
-```POSCAR
+```doc-poscar
 bccFe
 2.8298
 2.00   0.00   0.00
@@ -133,7 +133,7 @@ Direct
 
 The `KPOINTS` used is:
 
-```KPOINTS
+```doc-kpoints
 bccFe
 0
 Gamma
@@ -144,7 +144,7 @@ Gamma
 
 Input toml file and julia script for Magesty.jl are follows:
 
-```toml:input.toml
+```doc-input-toml
 [general]
 name = "bccFe"
 nat = 16
@@ -207,7 +207,7 @@ position = [
 ]
 ```
 
-```run.jl
+```doc-run.jl
 using Magesty
 using TOML
 using JLD2
