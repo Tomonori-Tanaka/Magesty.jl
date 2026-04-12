@@ -17,7 +17,7 @@ using Test
 const TEST_MODE = get(ENV, "TEST_MODE", "all")
 
 if TEST_MODE in ("unit", "all")
-	@testset "component tests" begin
+	@testset verbose = true "component tests" begin
 		include("./component_test/test_MySphericalHarmonics.jl")
 		include("./component_test/test_AngularMomentumCoupling.jl")
 		include("./component_test/test_SortedContainer.jl")
@@ -34,7 +34,7 @@ if TEST_MODE in ("unit", "all")
 	end
 end
 if TEST_MODE in ("integration", "all")
-	@testset "examples" begin
+	@testset verbose = true "examples" begin
 		include("./examples/square_lattice/test.jl")
 		include("./examples/dimer/test.jl")
 		include("./examples/chain/test.jl")
@@ -43,7 +43,7 @@ if TEST_MODE in ("integration", "all")
 	end
 end
 if TEST_MODE in ("develop",)
-	@testset "develop" begin
+	@testset verbose = true "develop" begin
 		include("./develop_tmp/test_develop.jl")
 	end
 end
