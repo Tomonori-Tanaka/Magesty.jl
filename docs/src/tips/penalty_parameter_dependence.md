@@ -33,7 +33,7 @@ Note that starting directly with a large `LAMBDA` often causes SCF convergence d
 It is advisable to perform restart calculations, gradually increasing `LAMBDA` from a small initial value.
 
 ```@raw html
-<img src="../assets/penalty_parameter_dependence/lambda_dependence.png" width="80%" />
+<img src="../../assets/penalty_parameter_dependence/lambda_dependence.png" width="80%" />
 ```
 
 *Fig. 1: Energy prediction error of the SCE model as a function of `LAMBDA`. The error decreases and saturates as `LAMBDA` increases, indicating that a sufficiently large value is required for reliable model fitting.*

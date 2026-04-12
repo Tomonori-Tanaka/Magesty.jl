@@ -12,7 +12,7 @@ Only the orientations of the magnetic moments are constrained; their magnitudes 
 The magnetic configuration is illustrated in Fig. 1.
 
 ```@raw html
-<img src="../assets/rwigs_dependence/bccFe_1atom_tilt.png" width="80%" />
+<img src="../../assets/rwigs_dependence/bccFe_1atom_tilt.png" width="80%" />
 ```
 
 *Fig. 1: Magnetic configuration of the bcc Fe supercell. One atom is tilted toward the $x$-axis; all others remain along the $z$-axis.*
@@ -37,7 +37,7 @@ At the same time, the constraining field required to maintain the prescribed mom
 These two competing effects largely cancel, leaving the torque $\boldsymbol{\tau}_{i_0} = \boldsymbol{m}_{i_0} \times \boldsymbol{B}_{\mathrm{eff},i_0}$ nearly independent of `RWIGS`.
 
 ```@raw html
-<img src="../assets/rwigs_dependence/torque_r.png" width="80%" />
+<img src="../../assets/rwigs_dependence/torque_r.png" width="80%" />
 ```
 
 *Fig. 2: $y$-component of the torque $\boldsymbol{\tau}_{i_0}$ on the tilted atom as a function of $r/r_\mathrm{ref}$.*
@@ -54,7 +54,7 @@ Figure 3 shows $J_{ij}$ as a function of interatomic distance for $r/r_\mathrm{r
 The curves overlap almost entirely, confirming that the exchange parameters are robust against the choice of `RWIGS`.
 
 ```@raw html
-<img src="../assets/rwigs_dependence/jij_rwigs.png" width="80%" />
+<img src="../../assets/rwigs_dependence/jij_rwigs.png" width="80%" />
 ```
 
 *Fig. 3: Heisenberg exchange parameters $J_{ij}$ as a function of interatomic distance for $r/r_\mathrm{ref} = 1.0,\ 0.8,\ 0.7,\ 0.5$. The markers overlap almost entirely in the displayed range, indicating negligible dependence on `RWIGS`.*
