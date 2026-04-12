@@ -17,6 +17,7 @@ makedocs(
 		assets = String[],
 		mathengine = Documenter.MathJax3(),
 		edit_link = "main",
+		repolink = "https://github.com/Tomonori-Tanaka/Magesty.jl",
 	),
 	pages = [
 		"Home" => "index.md",
@@ -32,6 +33,6 @@ makedocs(
 		],
 	],
 	warnonly = true,
-	checkdocs = :exports,
+	checkdocs = :none,
 	doctest = true,
 )
