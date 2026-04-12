@@ -1,4 +1,31 @@
 /*
+ * Sidebar: Documenter emits logo then sitename; reorder so the sitename appears above the logo.
+ */
+#documenter .docs-sidebar .docs-package-name {
+	order: -1;
+	margin-top: 1rem;
+}
+
+#documenter .docs-sidebar .docs-logo {
+	margin-top: 0.5rem;
+}
+
+/*
+ * Sidebar logo image size (Documenter default is max-height: 6rem).
+ * Themed CSS uses `html.theme--…` so a plain `#documenter …` rule loses to it; include both.
+ * Tune max-height / max-width; object-fit keeps aspect ratio.
+ */
+html[class*="theme--"] #documenter .docs-sidebar .docs-logo > img,
+#documenter .docs-sidebar .docs-logo > img {
+	max-height: 10rem;
+	max-width: 100%;
+	width: auto;
+	height: auto;
+	object-fit: contain;
+	margin: auto;
+}
+
+/*
  * Map fenced-code language tags (doc-*) to a visible filename bar.
  * Use ```doc-incar``` etc. in Markdown so the HTML has class "language-doc-incar".
  */
