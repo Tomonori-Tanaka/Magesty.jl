@@ -75,7 +75,7 @@ include("utils/EnergyTorque.jl")
 using .EnergyTorque
 
 export System, SpinCluster, VERSION
-export fit_sce_model, AbstractEstimator, OLS, ElasticNet
+export SCEModel, fit_sce_model, predict_energy, AbstractEstimator, OLS, ElasticNet
 export build_sce_basis, build_sce_basis_from_xml
 export write_xml
 
