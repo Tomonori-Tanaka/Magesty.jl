@@ -3,6 +3,7 @@
 
 Plot isotropic Jij vs distance for ALL pairs in the system.
 Optionally filter by element pair (--element1 and --element2).
+Accepts multiple XML files; each file is plotted in a distinct color.
 """
 
 include("./plot_jij_atom.jl")
@@ -74,15 +75,116 @@ function collect_jij_all(
 	return distance_jij_pairs
 end
 
+# Palette used when multiple datasets are plotted together.
+# Each dataset gets one color; all its data points share that color.
+const MULTI_COLORS = [:royalblue, :crimson, :forestgreen, :darkorange, :purple, :saddlebrown, :teal, :deeppink]
+
+"""
+Plot multiple datasets on a single figure.  Each dataset is identified by a
+label string and rendered in a distinct color.  The y-axis limits are computed
+from all data combined.
+
+`datasets` is a vector of `(label, pairs)` where `pairs` is the output of
+`collect_jij_all`.
+"""
+function plot_jij_multi(
+	datasets::Vector{Tuple{String, Vector{Tuple{Float64, Float64, String}}}};
+	invert_sign::Bool = false,
+	half_jij::Bool = false,
+	ymin::Real = NaN,
+	ymax::Real = NaN,
+	markersize::Int = 5,
+	no_legend::Bool = false,
+)
+	all_jij_raw = [pair[2] for (_, pairs) in datasets for pair in pairs]
+	if isempty(all_jij_raw)
+		println("No data to plot.")
+		return
+	end
+
+	sign_factor = invert_sign ? -1.0 : 1.0
+	half_factor = half_jij ? 0.5 : 1.0
+	scale = sign_factor * half_factor
+
+	all_jij = all_jij_raw .* scale
+	jij_min = minimum(all_jij)
+	jij_max = maximum(all_jij)
+
+	auto_ymin = floor(jij_min / 10) * 10
+	auto_ymax = ceil(jij_max / 10) * 10
+
+	if !isfinite(ymin) && !isfinite(ymax) && auto_ymax - auto_ymin < 20
+		center = (jij_min + jij_max) / 2
+		auto_ymin = floor(center / 10) * 10 - 10
+		auto_ymax = ceil(center / 10) * 10 + 10
+	end
+
+	final_ymin = isfinite(ymin) ? float(ymin) : auto_ymin
+	final_ymax = isfinite(ymax) ? float(ymax) : auto_ymax
+
+	# Print data table
+	for (label, pairs) in datasets
+		println("\n=== $label ===")
+		println("Distance (Å)    Jij (meV)   Pair(i–j)")
+		println("------------------------------------------------")
+		for (dist, jij, elem) in pairs
+			println(@sprintf("%12.6f  %12.6f  %s", dist, jij * scale, elem))
+		end
+		println("------------------------------------------------")
+		println(@sprintf("Total pairs: %d", length(pairs)))
+	end
+	println()
+
+	p = plot(
+		title = "Isotropic Jij vs Distance",
+		xlabel = "Distance (Å)",
+		ylabel = "Jij (meV)",
+		xtickfont = font(13),
+		ytickfont = font(13),
+		legend = no_legend ? false : :topright,
+		legendfontsize = 13,
+		grid = true,
+		size = (800, 600),
+		dpi = 300,
+		framestyle = :box,
+		ylims = (final_ymin, final_ymax),
+	)
+	hline!(p, [0.0], color = :black, linestyle = :dash, linewidth = 1, alpha = 0.5, label = "")
+
+	for (idx, (label, pairs)) in enumerate(datasets)
+		isempty(pairs) && continue
+		distances = [pair[1] for pair in pairs]
+		jij_values = [pair[2] for pair in pairs] .* scale
+		color = MULTI_COLORS[mod1(idx, length(MULTI_COLORS))]
+		scatter!(p, distances, jij_values;
+			label = label,
+			color = color,
+			markersize = markersize,
+			markeralpha = 0.8,
+		)
+	end
+
+	display(p)
+	println("\nPress Enter to exit...")
+	readline()
+	return nothing
+end
+
 function main()
 	s = ArgParseSettings(
 		description = "Plot isotropic Jij vs distance for all pairs. Optionally filter by element pair.",
 	)
 	@add_arg_table s begin
 		"input"
-		help = "Input XML file"
+		help = "Input XML file(s)"
 		required = true
 		arg_type = String
+		nargs = '+'
+
+		"--label", "-l"
+		help = "Label(s) for each input file (comma-separated, e.g. 'A,B,C'). Defaults to file basename."
+		arg_type = String
+		default = nothing
 
 		"--element1", "-e"
 		help = "First element for filtering (use with --element2)"
@@ -113,6 +215,15 @@ function main()
 		arg_type = Float64
 		required = false
 		default = NaN
+
+		"--markersize", "-m"
+		help = "Marker size (default: 5)"
+		arg_type = Int
+		default = 5
+
+		"--no-legend"
+		help = "Hide the legend"
+		action = :store_true
 	end
 	args = parse_args(ARGS, s)
 
@@ -122,15 +233,50 @@ function main()
 		error("--element1 and --element2 must be specified together")
 	end
 
-	distance_jij_pairs = collect_jij_all(args["input"]; element1 = e1, element2 = e2)
+	input_files = args["input"]
 
-	plot_jij(
-		distance_jij_pairs;
-		invert_sign = args["invert-sign"],
-		half_jij = args["half-jij"],
-		ymin = args["ymin"],
-		ymax = args["ymax"],
-	)
+	# Build per-file labels
+	if args["label"] !== nothing
+		labels = strip.(split(args["label"], ","))
+		if length(labels) != length(input_files)
+			error("Number of --label entries ($(length(labels))) must match number of input files ($(length(input_files)))")
+		end
+	else
+		# Default: use the basename without extension
+		labels = [splitext(basename(f))[1] for f in input_files]
+	end
+
+	# Collect data per file
+	datasets = Vector{Tuple{String, Vector{Tuple{Float64, Float64, String}}}}()
+	for (file, label) in zip(input_files, labels)
+		println("\n=== Processing: $file (label: $label) ===")
+		pairs = collect_jij_all(file; element1 = e1, element2 = e2)
+		push!(datasets, (label, pairs))
+	end
+
+	if length(datasets) == 1
+		# Single file: use the existing plot_jij (color-coded by pair type)
+		plot_jij(
+			datasets[1][2];
+			invert_sign = args["invert-sign"],
+			half_jij = args["half-jij"],
+			ymin = args["ymin"],
+			ymax = args["ymax"],
+			markersize = args["markersize"],
+			no_legend = args["no-legend"],
+		)
+	else
+		# Multiple files: color-coded by file
+		plot_jij_multi(
+			datasets;
+			invert_sign = args["invert-sign"],
+			half_jij = args["half-jij"],
+			ymin = args["ymin"],
+			ymax = args["ymax"],
+			markersize = args["markersize"],
+			no_legend = args["no-legend"],
+		)
+	end
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
