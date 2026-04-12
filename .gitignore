@@ -4,6 +4,7 @@
 **/.DS_Store
 .DS_Store
 *_list.txt
+CLAUDE.md
 
 tools/personal/
 /test/develop_tmp/*
