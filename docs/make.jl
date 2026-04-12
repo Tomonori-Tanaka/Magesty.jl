@@ -36,3 +36,8 @@ makedocs(
 	checkdocs = :none,
 	doctest = true,
 )
+
+deploydocs(
+	repo = "github.com/Tomonori-Tanaka/Magesty.jl",
+	devbranch = "main",
+)
