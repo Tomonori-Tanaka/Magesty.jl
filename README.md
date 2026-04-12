@@ -11,53 +11,11 @@ using Pkg
 Pkg.add(url="https://github.com/Tomonori-Tanaka/Magesty.jl")
 ```
 
-## Quick Start
+## Documentation
 
-```julia
-using Magesty
-using TOML
+For usage, tutorials, and API reference, see the documentation:
 
-# Build SCE basis set
-input = TOML.parsefile("input.toml")
-system = build_sce_basis(input, verbosity = false)
-
-# Read spin configurations and fit coefficients
-spinconfig_list = read_embset("EMBSET.dat")
-optimizer = fit_sce_model(system, spinconfig_list)
-
-# Calculate energy and torque
-using Magesty.EnergyTorque
-num_atoms = system.structure.supercell.num_atoms
-spin_config = rand(3, num_atoms)
-for i in 1:num_atoms
-    spin_config[:, i] ./= norm(spin_config[:, i])
-end
-
-energy = EnergyTorque.calc_energy(
-    system.basisset.salc_list,
-    spin_config,
-    system.symmetry,
-    optimizer
-)
-
-# Access coefficients
-j0 = optimizer.reference_energy
-jphi = optimizer.SCE
-
-# Write results
-write_xml(system.structure, system.symmetry, system.basisset, optimizer, "jphi.xml")
-```
-
-## Main Functions
-
-- `build_sce_basis(input_dict; verbosity=false)`: Build SCE basis set (returns `System`)
-- `fit_sce_model(system, spinconfig_list, estimator=OLS(), weight=0.5)`: Fit SCE coefficients (returns `Optimizer`)
-- `read_embset(filename)`: Read spin configuration data from EMBSET format file
-- `write_xml(structure, symmetry, basis_set, optimizer, filename)`: Write results to XML file
-
-## Examples
-
-See `test/examples` directory for complete examples.
+https://Tomonori-Tanaka.github.io/Magesty.jl/dev
 
 ## License
 
@@ -71,7 +29,7 @@ Mozilla Public License Version 2.0
 
 If you use this software in your research, please cite:
 
-[Citation information to be added]
+[Tomonori Tanaka and Yoshihiro Gohda "General spin models from noncollinear spin density functional theory and spin-cluster expansion" https://arxiv.org/abs/2512.04458]
 
 ## Contributing
 
@@ -80,17 +38,6 @@ We welcome contributions! Please feel free to:
 - Submit pull requests
 - Improve documentation
 - Share usage examples
-
-## Documentation
-
-https://Tomonori-Tanaka.github.io/Magesty.jl/dev
-
-## Support
-
-For questions and support:
-1. Check the documentation
-2. Search existing issues
-3. Open a new issue if needed
 
 ## References
 
