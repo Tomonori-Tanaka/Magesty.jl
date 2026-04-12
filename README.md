@@ -1,6 +1,5 @@
 # Magesty.jl
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://Tomonori-Tanaka.github.io/Magesty.jl/stable)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://Tomonori-Tanaka.github.io/Magesty.jl/dev)
 
 Julia package for constructing effective spin models in magnetic materials using Spin-Cluster Expansion (SCE) formalism.
@@ -84,8 +83,7 @@ We welcome contributions! Please feel free to:
 
 ## Documentation
 
-- **Stable**: https://Tomonori-Tanaka.github.io/Magesty.jl/stable
-- **Dev**: https://Tomonori-Tanaka.github.io/Magesty.jl/dev
+https://Tomonori-Tanaka.github.io/Magesty.jl/dev
 
 ## Support
 
