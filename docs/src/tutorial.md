@@ -2,44 +2,38 @@
 
 This tutorial will guide you through the basic usage of Magesty.jl for magnetic structure analysis and spin cluster expansion calculations.
 
-## Installation
-
-```julia
-using Pkg
-Pkg.add("Magesty")
-```
-
 ## Configuration File Format
 
 Magesty.jl uses TOML configuration files. Below is an annotated example for a BCC Fe supercell:
 
-```toml
+```toml:input.toml
 [general]
 name = "bccfe"
 kd   = ["Fe"]           # list of element names
 nat  = 16               # total number of atoms in the supercell
-periodicity = [true, true, true]
+periodicity = [true, true, true]  # apply periodic boundary to all (x, y, z) directions
 
 [symmetry]
 tolerance = 1e-5        # symmetry detection tolerance (optional, default 1e-3)
+isotropy = true
 
 [interaction]
-nbody = 2               # maximum interaction order
+nbody = 2               # maximum interaction body
 [interaction.body1]
-lmax.Fe = 0             # on-site (1-body) max angular momentum per element
+lmax.Fe = 0             # 1-body maximum angular momentum per element, i.e. this represents on-site anisotropy
 [interaction.body2]
-lsum = 2                # max L for two-body basis functions
-cutoff."Fe-Fe" = 5.66   # pairwise cutoff radius in bohr (-1 uses all pairs)
+lsum = 2                # cutoff summation of l values for basis functions
+cutoff."Fe-Fe" = -1     # pairwise cutoff radius in Å (-1 uses all possible pairs)
 
 [regression]
-datafile = "EMBSET.dat" # path to training data
-weight   = 1.0          # 0 = torque only, 1 = energy only, 0.5 = balanced
+datafile = "EMBSET" # path to training data
+weight   = 0.5          # 0 = torque only, 1 = energy only, 0.5 = balanced
 alpha    = 0.0          # elastic-net mixing (0 = ridge)
 lambda   = 0.0          # regularization strength (0 = no regularization)
 
 [structure]
 kd_list  = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]  # element index per atom
-lattice  = [
+lattice  = [            # lattice parameters
   [5.66, 0.0, 0.0],
   [0.0, 5.66, 0.0],
   [0.0, 0.0, 5.66],
@@ -47,9 +41,24 @@ lattice  = [
 position = [            # fractional coordinates
   [0.00, 0.00, 0.00],
   [0.25, 0.25, 0.25],
-  # ...
+  [0.00, 0.00, 0.50],
+  [0.50, 0.00, 0.00],
+  [0.00, 0.50, 0.00],
+  [0.25, 0.25, 0.75],
+  [0.75, 0.25, 0.25],
+  [0.25, 0.75, 0.25],
+  [0.00, 0.50, 0.50],
+  [0.50, 0.00, 0.50],
+  [0.50, 0.50, 0.00],
+  [0.25, 0.75, 0.75],
+  [0.75, 0.25, 0.75],
+  [0.75, 0.75, 0.25],
+  [0.50, 0.50, 0.50],
+  [0.75, 0.75, 0.75],
 ]
 ```
+
+For a full key reference see [Input Keys](input_keys.md).
 
 ## Basic Workflow
 
@@ -80,30 +89,12 @@ j0, jphi = Magesty.get_j0_jphi(sc)
 
 ```julia
 # Write SCE coefficients to XML
+# This XML file can be used for the Monte Carlo package, `SpinClusterMC.jl`.
 write_xml(sc, "results.xml")
-
-# Write without coefficients (structure + basis only)
-write_xml(sc, "structure_only.xml", write_jphi = false)
 
 # Write energy and torque comparison files
 Magesty.write_energies(sc, "energy_list.txt")
 Magesty.write_torques(sc, "torque_list.txt")
-```
-
-### 4. Evaluating Energy and Torque
-
-```julia
-using LinearAlgebra
-
-num_atoms = sc.structure.supercell.num_atoms
-spin_config = randn(3, num_atoms)
-for i in 1:num_atoms
-    spin_config[:, i] ./= norm(spin_config[:, i])
-end
-
-energy = Magesty.calc_energy(sc, spin_config)
-torque = Magesty.calc_torque(sc, spin_config)
-println("Energy: ", energy, " eV")
 ```
 
 ## Programmatic Fitting with `fit_sce_model`
@@ -198,57 +189,6 @@ end
 basisset = sc.basisset
 println("Number of SALCs: ", length(basisset.salc_list))
 ```
-
-## Configuration Reference
-
-### `[general]`
-
-| Key | Type | Required | Description |
-|-----|------|----------|-------------|
-| `name` | String | yes | System name |
-| `kd` | Vector{String} | yes | Element names |
-| `nat` | Int | yes | Number of atoms in supercell |
-| `periodicity` | Vector{Bool} | no | Periodic boundary conditions (default: `[true,true,true]`) |
-
-### `[symmetry]`
-
-| Key | Type | Required | Description |
-|-----|------|----------|-------------|
-| `tolerance` | Float64 | no | Symmetry detection tolerance (default: `1e-3`) |
-| `isotropy` | Bool | no | Only include isotropic (L=0) terms (default: `false`) |
-
-### `[interaction]`
-
-| Key | Type | Required | Description |
-|-----|------|----------|-------------|
-| `nbody` | Int | yes | Maximum interaction order |
-| `body1.lmax.<elem>` | Int | no | On-site max angular momentum per element |
-| `body<n>.lsum` | Int | yes (n≥2) | Max L sum for n-body basis |
-| `body<n>.cutoff."<e1>-<e2>"` | Float64 | yes (n≥2) | Pairwise cutoff radius in bohr |
-
-### `[regression]`
-
-| Key | Type | Required | Description |
-|-----|------|----------|-------------|
-| `datafile` | String | yes | Path to EMBSET training data |
-| `weight` | Float64 | no | Energy/torque balance: 0=torque only, 1=energy only (default: `0.0`) |
-| `alpha` | Float64 | no | Elastic-net mixing parameter (default: `0.0`) |
-| `lambda` | Float64 | no | Regularization strength (default: `0.0`) |
-
-### `[structure]`
-
-| Key | Type | Required | Description |
-|-----|------|----------|-------------|
-| `kd_list` | Vector{Int} | yes | Element index (1-based, into `kd`) per atom |
-| `lattice` | 3×3 Float64 | yes | Lattice vectors (each row is a vector, in Å) |
-| `position` | Vector of 3-vectors | yes | Fractional atomic coordinates |
-
-## Troubleshooting
-
-1. **File not found**: Check that `datafile` in `[regression]` and the TOML path are correct.
-2. **Missing section**: All four sections (`general`, `symmetry`, `interaction`, `structure`) are required; `regression` is additionally required for `SpinCluster`.
-3. **Memory issues**: Reduce the cutoff radius or lower `lsum`/`lmax` to decrease the basis size.
-4. **Poor fit**: Increase `weight` toward 0.5 to balance energy and torque, or add regularization via `lambda`.
 
 For detailed function documentation see the [API Reference](@ref).
 For more complex use cases see [Examples](examples.md).

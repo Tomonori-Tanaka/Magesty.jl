@@ -23,6 +23,7 @@ makedocs(
 		"Home" => "index.md",
 		"API Reference" => "api.md",
 		"Tutorial" => "tutorial.md",
+		"Input Keys" => "input_keys.md",
 		"Examples" => "examples.md",
 		"Tools" => "tools.md",
 		"Technical Notes" => "technical_notes.md",
