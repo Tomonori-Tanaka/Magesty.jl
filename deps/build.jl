@@ -1,12 +1,5 @@
 # Automatically installs CLI wrapper scripts into ~/.julia/bin/ on Pkg.add / Pkg.update.
 pkg_dir = dirname(@__DIR__)
-
-# Resolve dependencies into the package's own environment so that
-# wrappers launched with --project="$pkg_dir" can find EzXML etc.
-@info "Instantiating Magesty environment…"
-run(`$(Base.julia_cmd()) --startup-file=no -e "import Pkg; Pkg.activate($(repr(pkg_dir))); Pkg.instantiate()"`)
-@info "Done."
-
 bindir  = joinpath(homedir(), ".julia", "bin")
 mkpath(bindir)
 
@@ -24,3 +17,12 @@ for (name, rel_path) in tools
 end
 
 @info "Add ~/.julia/bin to PATH if not already done:\n  export PATH=\"\$HOME/.julia/bin:\$PATH\""
+
+# Resolve dependencies into the package's own environment (best-effort).
+@info "Instantiating Magesty environment…"
+try
+    run(`$(Base.julia_cmd()) --startup-file=no -e "import Pkg; Pkg.activate($(repr(pkg_dir))); Pkg.instantiate()"`)
+    @info "Done."
+catch e
+    @warn "Could not instantiate automatically. Run manually if needed:\n  julia -e 'import Pkg; Pkg.activate(\"$pkg_dir\"); Pkg.instantiate()'"
+end
