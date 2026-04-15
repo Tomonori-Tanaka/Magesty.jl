@@ -726,7 +726,7 @@ function install_tools(; bindir::AbstractString = joinpath(homedir(), ".julia", 
     for (name, rel_path) in tools
         script = joinpath(pkg_dir, rel_path)
         wrapper = joinpath(bindir, name)
-        write(wrapper, "#!/bin/sh\nexec julia \"$script\" \"\$@\"\n")
+        write(wrapper, "#!/bin/sh\nexec julia --project=\"$pkg_dir\" \"$script\" \"\$@\"\n")
         chmod(wrapper, 0o755)
         println("Installed: $wrapper")
     end
