@@ -2,6 +2,79 @@
 
 This page describes the utility tools available in the `tools/` directory of Magesty.jl.
 
+## ExtXYZ Tools
+
+These tools convert VASP output to the [extended XYZ (extxyz)](https://github.com/libAtoms/extxyz) format, which is the standard training-data format for machine-learning interatomic potentials.
+
+### tools/vasp/vasp2extxyz.jl
+
+Convert a single VASP calculation directory (vasprun.xml + optional OSZICAR) to an extxyz file.
+
+**Usage:**
+```bash
+# Structure, forces, stress, and energies only
+julia tools/vasp/vasp2extxyz.jl --vasprun vasprun.xml
+
+# Add per-atom magnetic moments and constraint field
+julia tools/vasp/vasp2extxyz.jl --vasprun vasprun.xml --oszicar OSZICAR --output out.xyz
+```
+
+**Arguments:**
+- `--vasprun`, `-v`: Path to `vasprun.xml` (required)
+- `--oszicar`, `-s`: Path to `OSZICAR` — enables per-atom magnetic moment (`MAGMOM_smoothed`, `magmom_raw`) and constraint field (`constr_field`) columns
+- `--output`, `-o`: Output filename (appends `.extxyz` automatically if omitted; default: stdout)
+
+**Output columns (extxyz Properties field):**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `species` | S:1 | Element symbol |
+| `pos` | R:3 | Cartesian positions (Å) |
+| `forces` | R:3 | Forces (eV/Å) |
+| `rwigs` | R:1 | Per-atom RWIGS radius (Å); present when `RWIGS` is set in INCAR |
+| `MAGMOM_smoothed` | R:3 | Wannier-interpolated magnetic moments `MW_int` (μB); present with `--oszicar` |
+| `magmom_raw` | R:3 | Directly integrated magnetic moments `M_int` (μB); present with `--oszicar` |
+| `constr_field` | R:3 | Penalty constraint field λ·MW_perp (eV/μB); present with `--oszicar` |
+
+**Global header keys:** `energy_free` (eV), `energy_zero` (eV), `stress` (eV/Å³, Voigt notation), `comment` (VASP version, ENCUT, KPOINTS, ICONST, LAMBDA).
+
+### tools/vasp/vasp2extxyz_recursive.jl
+
+Recursively walk a directory tree and convert every subdirectory that contains `vasprun.xml` to extxyz. Useful for batch-processing large training datasets.
+
+**Usage:**
+```bash
+# Write <dirname>.extxyz in each subdirectory
+julia tools/vasp/vasp2extxyz_recursive.jl --root ./calculations
+
+# Collect all frames into a single file
+julia tools/vasp/vasp2extxyz_recursive.jl --root ./calculations --mode combined --output dataset.extxyz
+
+# Both individual files and a combined file
+julia tools/vasp/vasp2extxyz_recursive.jl --root ./calculations --mode both
+```
+
+**Arguments:**
+- `--root`, `-r`: Root directory to search (default: `.`)
+- `--vasprun`, `-v`: `vasprun.xml` filename to look for (default: `vasprun.xml`)
+- `--oszicar`, `-s`: `OSZICAR` filename to look for (default: `OSZICAR`)
+- `--mode`, `-m`: Output mode — `each`, `combined`, or `both` (default: `each`)
+- `--output`, `-o`: Output filename for `combined` mode (default: `combined.extxyz`)
+
+**Output modes:**
+
+| Mode | Behavior |
+|------|----------|
+| `each` | Write `<dirname>.extxyz` inside each successfully processed directory |
+| `combined` | Append all frames to a single file (set with `--output`) |
+| `both` | Do both of the above |
+
+**Skip / warning rules:**
+- Neither `vasprun.xml` nor `OSZICAR` found → silently skip
+- `vasprun.xml` missing but `OSZICAR` present → warn and skip
+- `OSZICAR` missing but `vasprun.xml` present → note and proceed (magnetic data omitted)
+- Parse error → warn and skip that directory
+
 ## Data Processing Tools
 
 ### tools/vasp/pos2toml.jl
