@@ -1,5 +1,15 @@
 # Automatically installs CLI wrapper scripts into ~/.julia/bin/ on Pkg.add / Pkg.update.
+import Pkg
+
 pkg_dir = dirname(@__DIR__)
+
+# Resolve dependencies into the package's own environment so that
+# wrappers launched with --project="$pkg_dir" can find EzXML etc.
+@info "Instantiating Magesty environment…"
+Pkg.activate(pkg_dir; io = devnull)
+Pkg.instantiate(; io = devnull)
+Pkg.activate(; io = devnull)  # restore caller's environment
+
 bindir  = joinpath(homedir(), ".julia", "bin")
 mkpath(bindir)
 

@@ -32,6 +32,7 @@ sc = SpinCluster("config.toml")
 """
 module Magesty
 
+import Pkg
 using Printf
 using TOML
 using Dates
@@ -716,6 +717,14 @@ After running this once, add `~/.julia/bin` to your PATH:
 """
 function install_tools(; bindir::AbstractString = joinpath(homedir(), ".julia", "bin"))
     pkg_dir = pkgdir(Magesty)
+
+    # Resolve dependencies into the package's own environment so that
+    # wrappers launched with --project="$pkg_dir" can find EzXML etc.
+    println("Instantiating Magesty environment…")
+    Pkg.activate(pkg_dir; io = devnull)
+    Pkg.instantiate(; io = devnull)
+    Pkg.activate(; io = devnull)
+
     mkpath(bindir)
 
     tools = [
