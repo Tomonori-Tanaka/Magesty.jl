@@ -74,7 +74,7 @@ using .XMLIO
 include("utils/EnergyTorque.jl")
 using .EnergyTorque
 
-export System, SpinCluster, VERSION
+export System, SpinCluster, VERSION, install_tools
 export SCEModel, fit_sce_model, predict_energy, AbstractEstimator, OLS, ElasticNet
 export build_sce_basis, build_sce_basis_from_xml
 export write_xml
@@ -698,6 +698,41 @@ end
 """
 function get_j0_jphi(sc::SpinCluster)::Tuple{Float64, Vector{Float64}}
 	return sc.optimize.reference_energy, sc.optimize.SCE
+end
+
+"""
+    install_tools(; bindir=joinpath(homedir(), ".julia", "bin"))
+
+Install CLI wrapper scripts for Magesty tools into `bindir` (default: `~/.julia/bin`).
+Each wrapper calls `julia /path/to/script.jl "\$@"`, so the correct package version
+is always used regardless of where the package is installed.
+
+After running this once, add `~/.julia/bin` to your PATH:
+    export PATH="\$HOME/.julia/bin:\$PATH"
+
+# Available commands after installation
+- `vasp2extxyz`           — convert a single VASP output to extxyz
+- `vasp2extxyz_recursive` — recursively convert VASP outputs under a directory
+"""
+function install_tools(; bindir::AbstractString = joinpath(homedir(), ".julia", "bin"))
+    pkg_dir = pkgdir(Magesty)
+    mkpath(bindir)
+
+    tools = [
+        "vasp2extxyz"           => joinpath("tools", "vasp", "vasp2extxyz.jl"),
+        "vasp2extxyz_recursive" => joinpath("tools", "vasp", "vasp2extxyz_recursive.jl"),
+    ]
+
+    for (name, rel_path) in tools
+        script = joinpath(pkg_dir, rel_path)
+        wrapper = joinpath(bindir, name)
+        write(wrapper, "#!/bin/sh\nexec julia \"$script\" \"\$@\"\n")
+        chmod(wrapper, 0o755)
+        println("Installed: $wrapper")
+    end
+
+    println("\nMake sure ~/.julia/bin is in your PATH:")
+    println("  export PATH=\"\$HOME/.julia/bin:\$PATH\"")
 end
 
 function print_header()
