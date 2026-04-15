@@ -724,10 +724,11 @@ function install_tools(; bindir::AbstractString = joinpath(homedir(), ".julia", 
         "vasp2extxyz_recursive" => joinpath("tools", "vasp", "vasp2extxyz_recursive.jl"),
     ]
 
+    global_env = "@v$(Sys.VERSION.major).$(Sys.VERSION.minor)"
     for (name, rel_path) in tools
         script = joinpath(pkg_dir, rel_path)
         wrapper = joinpath(bindir, name)
-        write(wrapper, "#!/bin/sh\nexec julia \"$script\" \"\$@\"\n")
+        write(wrapper, "#!/bin/sh\nexec julia --project=$global_env \"$script\" \"\$@\"\n")
         chmod(wrapper, 0o755)
         println("Installed: $wrapper")
     end
