@@ -4,7 +4,7 @@ pkg_dir = dirname(@__DIR__)
 # Resolve dependencies into the package's own environment so that
 # wrappers launched with --project="$pkg_dir" can find EzXML etc.
 @info "Instantiating Magesty environment…"
-run(`$(Base.julia_cmd()) --startup-file=no --project=$pkg_dir -e "import Pkg; Pkg.instantiate()"`)
+run(`$(Base.julia_cmd()) --startup-file=no -e "import Pkg; Pkg.activate($(repr(pkg_dir))); Pkg.instantiate()"`)
 @info "Done."
 
 bindir  = joinpath(homedir(), ".julia", "bin")
