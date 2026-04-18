@@ -38,9 +38,9 @@ optimizer = fit_sce_model(system, spinconfigs)
 println("RMSE energy: ", optimizer.metrics[:rmse_energy] * 1000, " meV")
 println("RMSE torque: ", optimizer.metrics[:rmse_torque] * 1000, " meV")
 
-# Elastic-Net fit
+# Elastic-Net fit (weight=0.5: balanced energy/torque)
 estimator = ElasticNet(lambda = 1e-4)
-optimizer_reg = fit_sce_model(system, spinconfigs, estimator)
+optimizer_reg = fit_sce_model(system, spinconfigs, estimator, 0.5)
 ```
 
 ## Example 3: Ferromagnetic vs Antiferromagnetic Energies

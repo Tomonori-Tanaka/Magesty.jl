@@ -99,5 +99,5 @@ position = [            # fractional coordinates
 | Key | Type | Required | Description |
 |-----|------|----------|-------------|
 | `kd_list` | Vector{Int} | yes | Element index (1-based, into `kd`) per atom |
-| `lattice` | 3×3 Float64 | yes | Lattice vectors (each row is a vector, in Å) |
+| `lattice` | 3×3 Float64 | yes | Lattice vectors in Å; each of the three rows in the TOML array defines one lattice vector (a₁, a₂, a₃) |
 | `position` | Vector of 3-vectors | yes | Fractional atomic coordinates |
