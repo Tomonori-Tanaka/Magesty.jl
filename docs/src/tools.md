@@ -19,6 +19,12 @@ julia tools/vasp/vasp2extxyz.jl --vasprun vasprun.xml
 julia tools/vasp/vasp2extxyz.jl --vasprun vasprun.xml --oszicar OSZICAR --output out.xyz
 ```
 
+If `~/.julia/bin` is in your PATH (see [Installation](installation.md)), you can also call it as a CLI command:
+```bash
+vasp2extxyz --vasprun vasprun.xml
+vasp2extxyz --vasprun vasprun.xml --oszicar OSZICAR --output out.xyz
+```
+
 **Arguments:**
 - `--vasprun`, `-v`: Path to `vasprun.xml` (required)
 - `--oszicar`, `-s`: Path to `OSZICAR` — enables per-atom magnetic moment (`MAGMOM_smoothed`, `magmom_raw`) and constraint field (`constr_field`) columns
@@ -52,6 +58,12 @@ julia tools/vasp/vasp2extxyz_recursive.jl --root ./calculations --mode combined 
 
 # Both individual files and a combined file
 julia tools/vasp/vasp2extxyz_recursive.jl --root ./calculations --mode both
+```
+
+If `~/.julia/bin` is in your PATH (see [Installation](installation.md)), you can also call it as a CLI command:
+```bash
+vasp2extxyz_recursive --root ./calculations
+vasp2extxyz_recursive --root ./calculations --mode combined --output dataset.extxyz
 ```
 
 **Arguments:**

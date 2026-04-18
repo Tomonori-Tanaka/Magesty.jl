@@ -21,6 +21,7 @@ makedocs(
 	),
 	pages = [
 		"Home" => "index.md",
+		"Installation" => "installation.md",
 		"API Reference" => "api.md",
 		"Tutorial" => "tutorial.md",
 		"Input Keys" => "input_keys.md",
