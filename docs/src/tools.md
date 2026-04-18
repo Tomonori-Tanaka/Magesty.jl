@@ -44,6 +44,8 @@ vasp2extxyz --vasprun vasprun.xml --oszicar OSZICAR --output out.xyz
 
 **Global header keys:** `energy_free` (eV), `energy_zero` (eV), `stress` (eV/Å³, Voigt notation), `comment` (VASP version, ENCUT, KPOINTS, ICONST, LAMBDA).
 
+---
+
 ### tools/vasp/vasp2extxyz_recursive.jl
 
 Recursively walk a directory tree and convert every subdirectory that contains `vasprun.xml` to extxyz. Useful for batch-processing large training datasets.
@@ -90,6 +92,7 @@ vasp2extxyz_recursive --root ./calculations --mode combined --output dataset.ext
 ## Data Processing Tools
 
 ### tools/vasp/pos2toml.jl
+
 Convert a VASP structure file (POSCAR) to a Magesty.jl TOML configuration file.
 
 **Usage:**
@@ -106,6 +109,8 @@ julia tools/vasp/pos2toml.jl POSCAR --output structure.toml
 - Parses VASP POSCAR format (direct and Cartesian coordinates)
 - Converts to Magesty.jl TOML format
 - Handles scaling factors and element symbols
+
+---
 
 ### tools/extract.jl
 Extract energy, magnetic moments, and local magnetic field from VASP OUTCAR files and write in EMBSET format.
@@ -126,6 +131,8 @@ julia tools/extract.jl -f OUTCAR1 OUTCAR2 -e f -s 0 0 1
 ```bash
 julia tools/extract.jl -f OUTCAR1 OUTCAR2 -e f -s 1 0 0 --randomize
 ```
+
+---
 
 ### tools/check_convergence_embset.jl
 Scan training-set size `n` along a Julia-style range, compare fitted `jphi` to the all-data reference, and compute energy RMSE over all EMBSET configurations. Writes a summary TSV, `{prefix}_jphi_wide.tsv` and `{prefix}_jphi_long.tsv`, and optionally a two-panel PNG (requires Plots.jl).
@@ -149,6 +156,7 @@ julia --project=. tools/check_convergence_embset.jl -i input.toml -s system.jld2
 ## Visualization Tools
 
 ### tools/FitCheck_energy.py
+
 Scatter plot comparing observed (DFT) and predicted (SCE) energies. Requires Python with `matplotlib` and `numpy`.
 
 **Usage:**
@@ -173,6 +181,8 @@ python3 tools/FitCheck_energy.py energy_list.txt -o energy.png -l 0.2
 - eV → meV conversion for display
 - Per-file center shift on observed values
 - y=x reference line with per-series RMSE in legend
+
+---
 
 ### tools/FitCheck_torque.py
 Scatter plot comparing observed (DFT) and predicted (SCE) torques. Supports component, magnitude, and direction comparisons, with filtering by atom indices or elements. Requires Python with `matplotlib` and `numpy`.
@@ -201,6 +211,8 @@ python3 tools/FitCheck_torque.py torque_list.txt -t dir -a 1,2,3 -l 50
 - eV → meV conversion for `all`/`norm`; unitless for `dir`
 - Per-file center shift on observed values
 - y=x reference line with per-series RMSE in legend
+
+---
 
 ### tools/histogram_magmom.jl
 Generate histograms of magnetic moment magnitudes from an EMBSET file.
@@ -256,6 +268,7 @@ This generates 50 samples at each step for $\tau$ = 0.1, 0.2, …, 1.0.
 ## Advanced Analysis Tools
 
 ### tools/micromagnetics.jl
+
 Calculate micromagnetics model parameters (stiffness and spiralization matrices) from SCE coefficients.
 
 **Usage:**
@@ -270,6 +283,8 @@ julia tools/micromagnetics.jl -x jphi.xml -j system.jld2 --cutoff 5.0
 - `--cutoff`, `-c`: Cutoff distance for atom pairs in Å (optional)
 
 **Note:** Only the lowest-order two-body interaction terms are included.
+
+---
 
 ### tools/convert2tensor.jl
 Convert SCE coefficients to pairwise interaction tensor representation.
