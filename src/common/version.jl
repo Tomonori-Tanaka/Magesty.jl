@@ -12,13 +12,13 @@ export version_string
 const MAJOR = 0
 
 # Minor version
-const MINOR = 0
+const MINOR = 1
 
 # Patch version
-const PATCH = 2
+const PATCH = 0
 
 # Prerelease information (set if needed)
-const PRERELEASE = nothing
+const PRERELEASE = "DEV"
 
 # Build metadata (set if needed)
 const BUILD = nothing

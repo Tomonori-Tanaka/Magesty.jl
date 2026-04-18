@@ -212,8 +212,8 @@ using Magesty
 using TOML
 using JLD2
 
-input = TOML.parse(open("input.toml", "r"))
-system = System(input, verbosity = true)
+input = TOML.parsefile("input.toml")
+system = build_sce_basis(input, verbosity = true)
 @save "system.jld2" system
 @load "system.jld2" system
 
