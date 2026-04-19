@@ -1,13 +1,8 @@
 /*
- * Sidebar: Documenter emits logo then sitename; reorder so the sitename appears above the logo.
+ * Sidebar: hide the sitename text, show logo only.
  */
 #documenter .docs-sidebar .docs-package-name {
-	order: -1;
-	margin-top: 1rem;
-}
-
-#documenter .docs-sidebar .docs-logo {
-	margin-top: 0.5rem;
+	display: none;
 }
 
 /*
