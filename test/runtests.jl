@@ -47,3 +47,6 @@ if TEST_MODE in ("develop",)
 		include("./develop_tmp/test_develop.jl")
 	end
 end
+if TEST_MODE in ("jet",)
+	include("./jet.jl")
+end
