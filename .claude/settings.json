@@ -3,7 +3,8 @@
     "allow": [
       "Bash(make test-jet *)",
       "Bash(grep -v \"^$\")",
-      "Bash(make test-unit *)"
+      "Bash(make test-unit *)",
+      "Bash(make test-aqua *)"
     ]
   }
 }
