@@ -4,7 +4,13 @@
       "Bash(make test-jet *)",
       "Bash(grep -v \"^$\")",
       "Bash(make test-unit *)",
-      "Bash(make test-aqua *)"
+      "Bash(make test-aqua *)",
+      "Bash(julia --project -e 'using Pkg; Pkg.add\\(\"SpheriCart\"\\)')",
+      "Bash(julia --project -e ' *)",
+      "Read(//Users/tomorin/.julia/packages/SpheriCart/13arR/src/**)",
+      "Bash(julia --project test/benchmark_sphericart.jl --lmax 4 --npoints 50 --samples 5 --evals 2)",
+      "Bash(BENCH_LMAX=3 BENCH_NPOINTS=20 BENCH_SAMPLES=5 BENCH_EVALS=2 TEST_MODE=bench_sphericart julia --project -e 'using Pkg; Pkg.test\\(\\)')",
+      "Bash(make test-sphericart *)"
     ]
   }
 }

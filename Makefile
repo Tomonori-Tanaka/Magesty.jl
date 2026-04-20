@@ -18,3 +18,9 @@ test-jet:
 
 test-aqua:
 	TEST_MODE=aqua julia --project -e 'using Pkg; Pkg.test()'
+
+bench-sphericart:
+	TEST_MODE=bench_sphericart julia --project -e 'using Pkg; Pkg.test()'
+
+test-sphericart:
+	TEST_MODE=sphericart julia --project -e 'using Pkg; Pkg.test()'

@@ -53,3 +53,11 @@ end
 if TEST_MODE in ("aqua",)
 	include("./aqua.jl")
 end
+if TEST_MODE in ("bench_sphericart",)
+	include("./benchmark_sphericart.jl")
+end
+if TEST_MODE in ("sphericart",)
+	@testset verbose = true "SpheriCart agreement" begin
+		include("./component_test/test_sphericart_agreement.jl")
+	end
+end
