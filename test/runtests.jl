@@ -50,3 +50,6 @@ end
 if TEST_MODE in ("jet",)
 	include("./jet.jl")
 end
+if TEST_MODE in ("aqua",)
+	include("./aqua.jl")
+end

@@ -15,3 +15,6 @@ test-tools:
 
 test-jet:
 	TEST_MODE=jet julia --project -e 'using Pkg; Pkg.test()'
+
+test-aqua:
+	TEST_MODE=aqua julia --project -e 'using Pkg; Pkg.test()'
