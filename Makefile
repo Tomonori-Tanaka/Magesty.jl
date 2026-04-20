@@ -12,3 +12,6 @@ test-develop:
 
 test-tools:
 	julia tools/test/runtests.jl
+
+test-jet:
+	TEST_MODE=jet julia --project -e 'using Pkg; Pkg.test()'
