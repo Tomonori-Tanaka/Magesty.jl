@@ -152,7 +152,7 @@ function System(toml_file::AbstractString; verbosity::Bool = true)
 		open(toml_file) do io
 			toml = read(io, String)
 			input_dict = TOML.parse(toml)
-			return System(input_dict, verbosity)
+			return System(input_dict; verbosity = verbosity)
 		end
 	catch e
 		if isa(e, SystemError)
@@ -716,6 +716,9 @@ After running this once, add `~/.julia/bin` to your PATH:
 """
 function install_tools(; bindir::AbstractString = joinpath(homedir(), ".julia", "bin"))
     pkg_dir = pkgdir(Magesty)
+    if isnothing(pkg_dir)
+        error("Cannot determine Magesty package directory")
+    end
 
     mkpath(bindir)
 
