@@ -146,7 +146,7 @@ function write_xml(structure::Structure,
 				tensor_slice = selectdim(amc.coeff_tensor, ndims(amc.coeff_tensor), mf_idx)
 				# Flatten the slice and store as space-separated string
 				tensor_flat = vec(tensor_slice)
-				tensor_str = join([@sprintf("%.15e", x) for x in tensor_flat], " ")
+				tensor_str::String = string(join([@sprintf("%.15e", x) for x in tensor_flat], " "))
 				addelement!(mf_node, "coeff_tensor", tensor_str)
 			end
 		end
@@ -305,7 +305,7 @@ function write_xml(
 				tensor_slice = selectdim(amc.coeff_tensor, ndims(amc.coeff_tensor), mf_idx)
 				# Flatten the slice and store as space-separated string
 				tensor_flat = vec(tensor_slice)
-				tensor_str = join([@sprintf("%.15e", x) for x in tensor_flat], " ")
+				tensor_str::String = string(join([@sprintf("%.15e", x) for x in tensor_flat], " "))
 				addelement!(mf_node, "coeff_tensor", tensor_str)
 			end
 		end

@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(make test-jet *)"
+      "Bash(make test-jet *)",
+      "Bash(grep -v \"^$\")",
+      "Bash(make test-unit *)"
     ]
   }
 }

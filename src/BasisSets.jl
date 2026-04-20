@@ -77,6 +77,51 @@ struct BasisSet
 	angular_momentum_couplings::Vector{Basis.AngularMomentumCouplingResult}
 end
 
+function _compute_salc_groups(
+	coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis},
+	symmetry::Symmetry,
+)::Vector{Vector{Basis.CoupledBasis_with_coefficient}}
+	projection_mat = projection_matrix_coupled_basis(coupled_basislist, symmetry)
+	h_projection = Hermitian(projection_mat)
+	eigenvals, eigenvecs = eigen!(h_projection)
+	eigenvals = real.(round.(eigenvals, digits = 6))
+	eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
+	if !is_proper_eigenvals(eigenvals)
+		@show eigenvals
+		display(coupled_basislist)
+		@warn "Critical error: Eigenvalues must be either 0 or 1."
+	end
+	Lf = coupled_basislist[1].Lf
+	submatrix_dim = 2 * Lf + 1
+
+	key_salc_groups = Vector{Vector{Basis.CoupledBasis_with_coefficient}}()
+	for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
+		eigenvec = eigenvecs[:, idx_eigenval]
+		eigenvec = real.(eigenvec)
+		eigenvec = round.(eigenvec .* (abs.(eigenvec) .≥ 1e-8), digits = 10)
+		eigenvec = eigenvec / norm(eigenvec)
+		if sum(eigenvec) < 0
+			eigenvec .= -eigenvec
+		end
+		salc_group = Vector{Basis.CoupledBasis_with_coefficient}()
+		for (idx_basis, cb) in enumerate(coupled_basislist)
+			coeff_start = (idx_basis - 1) * submatrix_dim + 1
+			coeff_end = idx_basis * submatrix_dim
+			coefficient = eigenvec[coeff_start:coeff_end]
+			if isapprox(norm(coefficient), 0.0, atol = 1e-10)
+				continue
+			end
+			multiplicity = coupled_basislist.counts[cb]
+			cbc = Basis.CoupledBasis_with_coefficient(cb, coefficient, multiplicity)
+			push!(salc_group, cbc)
+		end
+		if !isempty(salc_group)
+			push!(key_salc_groups, salc_group)
+		end
+	end
+	return key_salc_groups
+end
+
 function BasisSet(
 	structure::Structure,
 	symmetry::Symmetry,
@@ -125,80 +170,14 @@ function BasisSet(
 	end
 	keys_list = sort(collect(keys(classified_coupled_basisdict)))
 	num_keys = length(keys_list)
+	coupled_basislists::Vector{SortedCountingUniqueVector{Basis.CoupledBasis}} =
+		[classified_coupled_basisdict[k] for k in keys_list]
 	# Pre-allocate array to store results for each key (preserving order)
 	# Each key can have multiple SALC groups (one per eigenvector)
 	salc_list_per_key = Vector{Vector{Vector{Basis.CoupledBasis_with_coefficient}}}(undef, num_keys)
 
 	@threads for idx in 1:num_keys
-		key = keys_list[idx]
-		coupled_basislist = classified_coupled_basisdict[key]
-		# display(coupled_basislist)
-		projection_mat =
-			projection_matrix_coupled_basis(coupled_basislist, symmetry)
-		# projection_mat is real symmetric → use Hermitian + eigen! to save memory
-		h_projection = Hermitian(projection_mat)
-		# Free projection_mat memory before eigen decomposition
-		projection_mat = nothing
-		eigenvals, eigenvecs = eigen!(h_projection)
-		eigenvals = real.(round.(eigenvals, digits = 6))
-		eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
-		if !is_proper_eigenvals(eigenvals)
-			@show eigenvals
-			display(coupled_basislist)
-			# error("Critical error: Eigenvalues must be either 0 or 1. index: $key")
-			@warn "Critical error: Eigenvalues must be either 0 or 1. index: $key"
-		end
-		Lf = coupled_basislist[1].Lf
-		submatrix_dim = 2 * Lf + 1
-		nbasis = length(coupled_basislist)
-
-		# Create a list of SALC groups for this key (one per eigenvector)
-		key_salc_groups = Vector{Vector{Basis.CoupledBasis_with_coefficient}}()
-
-		for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
-			eigenvec = eigenvecs[:, idx_eigenval]
-			eigenvec = real.(eigenvec)
-			eigenvec = round.(eigenvec .* (abs.(eigenvec) .≥ 1e-8), digits = 10)
-			eigenvec = eigenvec / norm(eigenvec)
-			# Flip sign to make sum(eigenvec) non-negative for determinism
-			if sum(eigenvec) < 0
-				eigenvec .= -eigenvec
-			end
-
-			# Create a new SALC group for this eigenvector
-			salc_group = Vector{Basis.CoupledBasis_with_coefficient}()
-
-			# Create CoupledBasis_with_coefficient for each basis in coupled_basislist
-			for (idx_basis, cb) in enumerate(coupled_basislist)
-				# Extract coefficients for this basis (Mf-dependent)
-				coeff_start = (idx_basis - 1) * submatrix_dim + 1
-				coeff_end = idx_basis * submatrix_dim
-				coefficient = eigenvec[coeff_start:coeff_end]
-
-				# Skip if coefficient is all zeros (or nearly zero)
-				if isapprox(norm(coefficient), 0.0, atol = 1e-10)
-					continue
-				end
-
-				# Get multiplicity from counts
-				multiplicity = coupled_basislist.counts[cb]
-
-				# Create CoupledBasis_with_coefficient and add to salc_group
-				cbc = Basis.CoupledBasis_with_coefficient(cb, coefficient, multiplicity)
-				push!(salc_group, cbc)
-			end
-
-			# Add this SALC group if it's not empty
-			if !isempty(salc_group)
-				push!(key_salc_groups, salc_group)
-			end
-		end
-
-		# Store the list of SALC groups for this key (preserving order by index)
-		salc_list_per_key[idx] = key_salc_groups
-		# Free large matrices after processing each key
-		h_projection = nothing
-		eigenvecs = nothing
+		salc_list_per_key[idx] = _compute_salc_groups(coupled_basislists[idx], symmetry)
 	end
 
 	# Collect all SALC groups in order

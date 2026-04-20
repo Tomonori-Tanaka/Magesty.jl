@@ -157,7 +157,7 @@ function clear!(sv::SortedVector)
 end
 
 function copy(sv::SortedVector{T}) where T
-	return SortedVector{T}(data = copy(sv.data))
+	return SortedVector{T}(copy(sv.data))
 end
 
 
