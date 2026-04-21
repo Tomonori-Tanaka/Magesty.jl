@@ -368,22 +368,30 @@ function design_matrix_energy_element(
 		# coeff_tensor has shape (d1, d2, ..., dN, Mf_size)
 		# where di = 2*li + 1
 		tensor_result = 0.0
+		last_site = N
+		other_sites = 1:(N-1)
+		other_dims = dims[other_sites]
+		other_site_indices = CartesianIndices(Tuple(other_dims))
+		idx_buf = Vector{Int}(undef, N)
 
 		# Iterate over all Mf values
 		for mf_idx in 1:Mf_size
 			mf_contribution = 0.0
 
-			# Iterate over all combinations of m indices using CartesianIndices
-			# Create indices for first N dimensions
-			for site_idx_tuple in site_indices
-				# Compute product of spherical harmonics
-				product = 1.0
-				for (site_idx, m_idx) in enumerate(site_idx_tuple.I)
-					product *= sh_values[site_idx][m_idx]
+			# Reuse product over first N-1 sites and iterate last-site index separately.
+			for other_tuple in other_site_indices
+				product_other = 1.0
+				for site_idx in other_sites
+					m_idx_other = other_tuple.I[site_idx]
+					idx_buf[site_idx] = m_idx_other
+					product_other *= sh_values[site_idx][m_idx_other]
 				end
-
-				# Access tensor element: coeff_tensor[site_idx_tuple..., mf_idx]
-				mf_contribution += cbc.coeff_tensor[site_idx_tuple.I..., mf_idx] * product
+				for m_idx_last in 1:dims[last_site]
+					idx_buf[last_site] = m_idx_last
+					mf_contribution +=
+						cbc.coeff_tensor[idx_buf..., mf_idx] *
+						(product_other * sh_values[last_site][m_idx_last])
+				end
 			end
 
 			tensor_result += cbc.coefficient[mf_idx] * mf_contribution
@@ -483,7 +491,6 @@ function calc_∇ₑu(
 	result = MVector{3, Float64}(0.0, 0.0, 0.0)
 	N = length(cbc.atoms)
 	dims = [2 * l + 1 for l in cbc.ls]
-	site_indices = CartesianIndices(Tuple(dims))
 	Mf_size = size(cbc.coeff_tensor, N + 1)
 	translated_atoms = Vector{Int}(undef, N)
 	atoms_sorted_buf = Vector{Int}(undef, N)
@@ -541,31 +548,30 @@ function calc_∇ₑu(
 		# coeff_tensor has shape (d1, d2, ..., dN, Mf_size)
 		# where di = 2*li + 1
 		grad_result = MVector{3, Float64}(0.0, 0.0, 0.0)
+		other_sites = [s for s in 1:N if s != atom_site_idx]
+		other_dims = dims[other_sites]
+		other_site_indices = CartesianIndices(Tuple(other_dims))
+		idx_buf = Vector{Int}(undef, N)
 
 		# Iterate over all Mf values
 		for mf_idx in 1:Mf_size
 			mf_grad_contribution = MVector{3, Float64}(0.0, 0.0, 0.0)
 
-			# Iterate over all combinations of m indices using CartesianIndices
-			for site_idx_tuple in site_indices
-				# Compute product of spherical harmonics
-				product = 1.0
-				for (site_idx, m_idx) in enumerate(site_idx_tuple.I)
-					if site_idx == atom_site_idx
-						# Skip this site in the product (will multiply gradient separately)
-						continue
-					end
-					product *= sh_values[site_idx][m_idx]
+			# Reuse product over non-differentiated sites for each m on target site.
+			for other_tuple in other_site_indices
+				product_other = 1.0
+				for (k, site_idx) in enumerate(other_sites)
+					m_idx_other = other_tuple.I[k]
+					idx_buf[site_idx] = m_idx_other
+					product_other *= sh_values[site_idx][m_idx_other]
 				end
 
-				# Multiply by gradient for the target atom site
-				m_idx_atom = site_idx_tuple.I[atom_site_idx]
-				grad_atom = atom_grad_values[m_idx_atom]
-
-				# Access tensor element: coeff_tensor[site_idx_tuple..., mf_idx]
-				coeff_val = cbc.coeff_tensor[site_idx_tuple.I..., mf_idx]
-
-				mf_grad_contribution .+= coeff_val * product .* grad_atom
+				for m_idx_atom in 1:(2*l_atom+1)
+					idx_buf[atom_site_idx] = m_idx_atom
+					grad_atom = atom_grad_values[m_idx_atom]
+					coeff_val = cbc.coeff_tensor[idx_buf..., mf_idx]
+					mf_grad_contribution .+= coeff_val * product_other .* grad_atom
+				end
 			end
 
 			grad_result .+= cbc.coefficient[mf_idx] .* mf_grad_contribution
