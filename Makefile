@@ -24,3 +24,9 @@ bench-sphericart:
 
 test-sphericart:
 	TEST_MODE=sphericart julia --project -e 'using Pkg; Pkg.test()'
+
+bench-optimize-sphericart:
+	TEST_MODE=bench_optimize_sphericart julia --project -e 'using Pkg; Pkg.test()'
+
+bench-optimize-sphericart-fept:
+	TEST_MODE=bench_optimize_sphericart BENCH_EXAMPLE=fept_tetragonal_2x2x2 julia --project -e 'using Pkg; Pkg.test()'

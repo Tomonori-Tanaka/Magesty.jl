@@ -227,6 +227,15 @@ struct Optimizer
 	end
 end
 
+@inline function _atoms_hash_key(atoms_sorted::AbstractVector{Int})::UInt
+	h = UInt(0x9e3779b97f4a7c15)
+	@inbounds for a in atoms_sorted
+		x = reinterpret(UInt, Int64(a))
+		h ⊻= x + UInt(0x9e3779b97f4a7c15) + (h << 6) + (h >> 2)
+	end
+	return h ⊻ UInt(length(atoms_sorted))
+end
+
 function Optimizer(
 	structure::Structure,
 	symmetry::Symmetry,
@@ -339,17 +348,23 @@ function design_matrix_energy_element(
 	Mf_size = size(cbc.coeff_tensor, N+1)
 
 	# cbc.ls is fixed in this function, so de-dup by sorted translated atoms only.
-	searched_pairs = Set{Vector{Int}}()
+	searched_pairs = Set{UInt}()
+	translated_atoms = Vector{Int}(undef, N)
+	atoms_sorted_buf = Vector{Int}(undef, N)
 
 	for itrans in symmetry.symnum_translation
 		# Translate atoms
-		translated_atoms = [symmetry.map_sym[atom, itrans] for atom in cbc.atoms]
+		for site_idx in 1:N
+			translated_atoms[site_idx] = symmetry.map_sym[cbc.atoms[site_idx], itrans]
+		end
 		# Sort atoms for comparison, but keep ls in original order
-		atoms_sorted = sort(translated_atoms)
-		if atoms_sorted in searched_pairs
+		copyto!(atoms_sorted_buf, translated_atoms)
+		sort!(atoms_sorted_buf)
+		atoms_key = _atoms_hash_key(atoms_sorted_buf)
+		if atoms_key in searched_pairs
 			continue
 		end
-		push!(searched_pairs, atoms_sorted)
+		push!(searched_pairs, atoms_key)
 
 
 		# Compute spherical harmonics for each site
@@ -368,22 +383,30 @@ function design_matrix_energy_element(
 		# coeff_tensor has shape (d1, d2, ..., dN, Mf_size)
 		# where di = 2*li + 1
 		tensor_result = 0.0
+		last_site = N
+		other_sites = 1:(N-1)
+		other_dims = dims[other_sites]
+		other_site_indices = CartesianIndices(Tuple(other_dims))
+		idx_buf = Vector{Int}(undef, N)
 
 		# Iterate over all Mf values
 		for mf_idx in 1:Mf_size
 			mf_contribution = 0.0
 
-			# Iterate over all combinations of m indices using CartesianIndices
-			# Create indices for first N dimensions
-			for site_idx_tuple in site_indices
-				# Compute product of spherical harmonics
-				product = 1.0
-				for (site_idx, m_idx) in enumerate(site_idx_tuple.I)
-					product *= sh_values[site_idx][m_idx]
+			# Reuse product over first N-1 sites and iterate last-site index separately.
+			for other_tuple in other_site_indices
+				product_other = 1.0
+				for site_idx in other_sites
+					m_idx_other = other_tuple.I[site_idx]
+					idx_buf[site_idx] = m_idx_other
+					product_other *= sh_values[site_idx][m_idx_other]
 				end
-
-				# Access tensor element: coeff_tensor[site_idx_tuple..., mf_idx]
-				mf_contribution += cbc.coeff_tensor[site_idx_tuple.I..., mf_idx] * product
+				for m_idx_last in 1:dims[last_site]
+					idx_buf[last_site] = m_idx_last
+					mf_contribution +=
+						cbc.coeff_tensor[idx_buf..., mf_idx] *
+						(product_other * sh_values[last_site][m_idx_last])
+				end
 			end
 
 			tensor_result += cbc.coefficient[mf_idx] * mf_contribution
@@ -422,30 +445,40 @@ function build_design_matrix_torque(
 )::Matrix{Float64}
 	num_salcs = length(salc_list)  # Number of key groups
 	num_spinconfigs = length(spinconfig_list)
+	scaling_factors = Vector{Float64}(undef, num_salcs)
+	for (salc_idx, key_group) in enumerate(salc_list)
+		n_C = length(key_group[1].atoms)  # Number of sites in the cluster
+		scaling_factors[salc_idx] = (4*pi)^(n_C/2)  # (√(4π))^{n_C}
+	end
 
 	design_matrix_list = Vector{Matrix{Float64}}(undef, num_spinconfigs)
 
 	@threads for sc_idx in 1:num_spinconfigs
 		spinconfig = spinconfig_list[sc_idx]
 		torque_design_block = zeros(Float64, 3*num_atoms, num_salcs)
+		grad_u_buf = MVector{3, Float64}(0.0, 0.0, 0.0)
 		@inbounds for iatom in 1:num_atoms
 			@views dir_iatom = spinconfig.spin_directions[:, iatom]
+			dir_iatom_svec = SVector{3, Float64}(dir_iatom)
 			@inbounds for (salc_idx, key_group) in enumerate(salc_list)
 				# Sum contributions from all CoupledBasis_with_coefficient in this key group
 				group_grad = MVector{3, Float64}(0.0, 0.0, 0.0)
 				for cbc in key_group
-					grad_u = calc_∇ₑu(
+					calc_∇ₑu!(
+						grad_u_buf,
 						cbc,
 						iatom,
 						spinconfig.spin_directions,
 						symmetry,
 					)
-					group_grad .+= grad_u
+					group_grad .+= grad_u_buf
 				end
-				n_C = length(key_group[1].atoms)  # Number of sites in the cluster
-				scaling_factor = (4*pi)^(n_C/2)  # (√(4π))^{n_C}
-				@views torque_design_block[(3*(iatom-1)+1):(3*iatom), salc_idx] =
-					cross(dir_iatom, Vector{Float64}(group_grad)) * scaling_factor
+				scaling_factor = scaling_factors[salc_idx]
+				torque_vec = cross(dir_iatom_svec, SVector{3, Float64}(group_grad)) * scaling_factor
+				row_base = 3 * (iatom - 1)
+				torque_design_block[row_base + 1, salc_idx] = torque_vec[1]
+				torque_design_block[row_base + 2, salc_idx] = torque_vec[2]
+				torque_design_block[row_base + 3, salc_idx] = torque_vec[3]
 			end
 		end
 		design_matrix_list[sc_idx] = torque_design_block
@@ -474,22 +507,24 @@ with respect to the spin direction of a specific atom.
 # Returns
 - `Vector{Float64}`: Gradient vector (length 3)
 """
-function calc_∇ₑu(
+function calc_∇ₑu!(
+	result::MVector{3, Float64},
 	cbc::Basis.CoupledBasis_with_coefficient,
 	atom::Integer,
 	spin_directions::AbstractMatrix{<:Real},
 	symmetry::Symmetry,
-)::Vector{Float64}
-	result = MVector{3, Float64}(0.0, 0.0, 0.0)
+)
+	result[1] = 0.0
+	result[2] = 0.0
+	result[3] = 0.0
 	N = length(cbc.atoms)
 	dims = [2 * l + 1 for l in cbc.ls]
-	site_indices = CartesianIndices(Tuple(dims))
 	Mf_size = size(cbc.coeff_tensor, N + 1)
 	translated_atoms = Vector{Int}(undef, N)
 	atoms_sorted_buf = Vector{Int}(undef, N)
 
 	# cbc.ls is fixed in this function, so de-dup by sorted translated atoms only.
-	searched_pairs = Set{Vector{Int}}()
+	searched_pairs = Set{UInt}()
 
 	@inbounds for itrans in symmetry.symnum_translation
 		# Translate atoms and identify the differentiated site index.
@@ -504,11 +539,11 @@ function calc_∇ₑu(
 		# Sort buffer for de-dup, preserving translated_atoms order for computation.
 		copyto!(atoms_sorted_buf, translated_atoms)
 		sort!(atoms_sorted_buf)
-		atoms_sorted = copy(atoms_sorted_buf)
-		if atoms_sorted in searched_pairs
+		atoms_key = _atoms_hash_key(atoms_sorted_buf)
+		if atoms_key in searched_pairs
 			continue
 		end
-		push!(searched_pairs, atoms_sorted)
+		push!(searched_pairs, atoms_key)
 
 		if atom_site_idx == 0
 			continue
@@ -541,31 +576,30 @@ function calc_∇ₑu(
 		# coeff_tensor has shape (d1, d2, ..., dN, Mf_size)
 		# where di = 2*li + 1
 		grad_result = MVector{3, Float64}(0.0, 0.0, 0.0)
+		other_sites = [s for s in 1:N if s != atom_site_idx]
+		other_dims = dims[other_sites]
+		other_site_indices = CartesianIndices(Tuple(other_dims))
+		idx_buf = Vector{Int}(undef, N)
 
 		# Iterate over all Mf values
 		for mf_idx in 1:Mf_size
 			mf_grad_contribution = MVector{3, Float64}(0.0, 0.0, 0.0)
 
-			# Iterate over all combinations of m indices using CartesianIndices
-			for site_idx_tuple in site_indices
-				# Compute product of spherical harmonics
-				product = 1.0
-				for (site_idx, m_idx) in enumerate(site_idx_tuple.I)
-					if site_idx == atom_site_idx
-						# Skip this site in the product (will multiply gradient separately)
-						continue
-					end
-					product *= sh_values[site_idx][m_idx]
+			# Reuse product over non-differentiated sites for each m on target site.
+			for other_tuple in other_site_indices
+				product_other = 1.0
+				for (k, site_idx) in enumerate(other_sites)
+					m_idx_other = other_tuple.I[k]
+					idx_buf[site_idx] = m_idx_other
+					product_other *= sh_values[site_idx][m_idx_other]
 				end
 
-				# Multiply by gradient for the target atom site
-				m_idx_atom = site_idx_tuple.I[atom_site_idx]
-				grad_atom = atom_grad_values[m_idx_atom]
-
-				# Access tensor element: coeff_tensor[site_idx_tuple..., mf_idx]
-				coeff_val = cbc.coeff_tensor[site_idx_tuple.I..., mf_idx]
-
-				mf_grad_contribution .+= coeff_val * product .* grad_atom
+				for m_idx_atom in 1:(2*l_atom+1)
+					idx_buf[atom_site_idx] = m_idx_atom
+					grad_atom = atom_grad_values[m_idx_atom]
+					coeff_val = cbc.coeff_tensor[idx_buf..., mf_idx]
+					mf_grad_contribution .+= coeff_val * product_other .* grad_atom
+				end
 			end
 
 			grad_result .+= cbc.coefficient[mf_idx] .* mf_grad_contribution
@@ -574,6 +608,17 @@ function calc_∇ₑu(
 		result .+= grad_result .* cbc.multiplicity
 	end
 
+	return result
+end
+
+function calc_∇ₑu(
+	cbc::Basis.CoupledBasis_with_coefficient,
+	atom::Integer,
+	spin_directions::AbstractMatrix{<:Real},
+	symmetry::Symmetry,
+)::Vector{Float64}
+	result = MVector{3, Float64}(0.0, 0.0, 0.0)
+	calc_∇ₑu!(result, cbc, atom, spin_directions, symmetry)
 	return Vector{Float64}(result)
 end
 
