@@ -6,9 +6,9 @@ Theoretical background for `tools/mfa_analysis.jl`.
 
 ## 1. Spin Hamiltonian
 
-The Magesty SCE model describes pairwise exchange interactions via the full tensorial Hamiltonian
+When the Magesty SCE model is restricted to pairwise exchange interactions (i.e., `[interaction] nbody = 2` and `[interaction.body2] lsum = 2`), the Hamiltonian is written in the following full tensorial form:
 
-$$H = \sum_{i > j} \boldsymbol{S}_i^\top \mathbf{J}_{ij} \, \boldsymbol{S}_j$$
+$$H = \sum_{i < j} \boldsymbol{S}_i^\top \mathbf{J}_{ij} \, \boldsymbol{S}_j$$
 
 where $\mathbf{J}_{ij}$ is the $3 \times 3$ exchange tensor (unit: meV) returned by `convert2tensor`.
 It can be decomposed into three physically distinct contributions:
@@ -24,7 +24,7 @@ $$\mathbf{J}_{ij} = \underbrace{J_{ij}^\text{iso} \mathbf{I}}_{\text{isotropic}}
 The sign convention is $J_{ij}^\text{iso} < 0$ for ferromagnetic coupling.
 
 > **Note on double counting**  
-> `convert2tensor` uses the no-double-counting convention (sum over $i > j$).
+> `convert2tensor` uses the no-double-counting convention (sum over $i < j$).
 > The with-double-counting convention uses $\mathbf{J}_{ij}^\text{(DC)} = \mathbf{J}_{ij}/2$.
 > Both conventions yield the same MFA transition temperature.
 
@@ -83,7 +83,7 @@ $$\boldsymbol{q}_\text{opt} = \underset{\boldsymbol{q}}{\operatorname{argmin}} \
 
 Linearizing the classical-spin (Langevin) self-consistency equation gives
 
-$$k_B T_C = \frac{S^2}{3} \left| \lambda_\text{min}(J(\boldsymbol{q}_\text{opt})) \right|$$
+$$k_B T_C = \frac{S^2}{3} \left| \lambda_\text{min}(\mathcal{J}(\boldsymbol{q}_\text{opt})) \right|$$
 
 - $S$: spin magnitude (classical normalization: $|\boldsymbol{S}| = S$)
 - $k_B = 8.617333 \times 10^{-2}$ meV/K
@@ -92,19 +92,29 @@ $$k_B T_C = \frac{S^2}{3} \left| \lambda_\text{min}(J(\boldsymbol{q}_\text{opt})
 
 ---
 
-## 5. Wavelength
+## 5. Wavevector Units and Wavelength
 
-Let $\{\boldsymbol{a}_i^\text{prim}\}$ be the primitive lattice vectors (Å) and $\boldsymbol{b}_i$ the corresponding reciprocal vectors ($\boldsymbol{b}_i \cdot \boldsymbol{a}_j = \delta_{ij}$, unit Å$^{-1}$).
+Let $\{\boldsymbol{a}_i^\text{prim}\}$ be primitive lattice vectors (Å), and $\boldsymbol{b}_i$ be reciprocal vectors with
+$\boldsymbol{b}_i \cdot \boldsymbol{a}_j = \delta_{ij}$ (unit Å$^{-1}$).
 
-The Cartesian representation of $\boldsymbol{q}_\text{opt}$ (unit Å$^{-1}$) is
+First compute
 
-$$\boldsymbol{q}_\text{cart} = \sum_i q_i^\text{prim} \, \boldsymbol{b}_i$$
+$$\boldsymbol{q}_\text{cart} = \sum_i q_i^\text{prim} \, \boldsymbol{b}_i \quad (\text{unit: } 1/\text{Å})$$
 
-and the spiral wavelength (Å) is
+Then define the angular wavevector
 
-$$\lambda = \frac{1}{|\boldsymbol{q}_\text{cart}|}$$
+$$\boldsymbol{k}_\text{cart} = 2\pi \, \boldsymbol{q}_\text{cart} \quad (\text{unit: rad/Å})$$
 
-For $|\boldsymbol{q}| = 0$ (ferromagnetic), the wavelength is infinite.
+The script prints:
+
+- `Ordering vector |q| (Cartesian)`: $|\boldsymbol{q}_\text{cart}|$ reported with unit $2\pi/\text{Å}$ (numerically $|\boldsymbol{k}_\text{cart}|/(2\pi)$),
+- `Angular wavevector |k|`: $|\boldsymbol{k}_\text{cart}|$ in rad/Å.
+
+The wavelength is
+
+$$\lambda = \frac{2\pi}{|\boldsymbol{k}_\text{cart}|} = \frac{1}{|\boldsymbol{q}_\text{cart}|}$$
+
+For $|\boldsymbol{q}|=0$ (ferromagnetic), $\lambda = \infty$.
 
 ---
 
@@ -133,6 +143,6 @@ julia --project=. tools/mfa_analysis.jl \
 
 | Option | Description | Default |
 |---|---|---|
-| `--xml` / `-x` | Path to `jphi.xml` or `scecoeffs.xml` | (required) |
-| `--nk` / `-n` | Number of $q$-points per reciprocal direction | 20 |
-| `--spin` / `-s` | Spin magnitude $S$ (classical spin) | 1.0 |
+| `--xml` / `-x` | Path to an XML file containing SCE model information | (required) |
+| `--nk` / `-n` | Number of $q$-points per reciprocal direction (positive integer) | 20 |
+| `--spin` / `-s` | Spin magnitude $S$ (if omitted: classical-spin estimate; if specified: quantum-spin estimate with $S(S+1)$) | omitted |
