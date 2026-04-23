@@ -215,24 +215,27 @@ function mfa_analysis(xml_path::String; nk::Int = 20, spin::Union{Float64, Nothi
     q_prim_best = q_best_local[tid_best]
     eigs_best = eigs_best_local[tid_best]
 
-    # Compute wavelength from q in Cartesian reciprocal space (1/Å)
+    # Compute angular wavevector from q in Cartesian reciprocal space.
     # A_prim_cart: columns = primitive lattice vectors in Å
     # B_prim = inv(A_prim_cart): rows = b_i reciprocal vectors (b_i · a_j = δ_ij, 1/Å)
-    # q_cart = B_prim' * q_prim_best  (1/Å)
-    # wavelength = 1 / |q_cart|  (Å)
+    # q_cart = B_prim' * q_prim_best  (1/Å, cycle wavevector)
+    # k_cart = 2π q_cart              (2π/Å, angular wavevector)
+    # wavelength = 2π / |k_cart|      (Å)
     A_prim_cart = Matrix(structure.supercell.lattice_vectors) * A_prim
     B_prim = inv(A_prim_cart)
     q_cart = B_prim' * q_prim_best
-    q_norm = norm(q_cart)
+    k_cart = 2π .* q_cart
+    k_norm = norm(k_cart)
 
     println("\n=== Mean-Field Analysis Results ===")
     @printf("Optimal ordering vector q (primitive reciprocal frac): [%.4f, %.4f, %.4f]\n",
         q_prim_best...)
-    @printf("Ordering vector |q| (Cartesian):  %.6f Å⁻¹\n", q_norm)
-    if q_norm < 1e-10
+    @printf("Ordering vector |q| (Cartesian):  %.6f 2π/Å\n", k_norm / (2π))
+    @printf("Angular wavevector |k|:          %.6f rad/Å\n", k_norm)
+    if k_norm < 1e-10
         println("Wavelength: ∞  (ferromagnetic, q = 0)")
     else
-        wavelength = 1.0 / q_norm
+        wavelength = 2π / k_norm
         a1_norm = norm(A_prim_cart[:, 1])
         @printf("Wavelength:   %.4f Å  =  %.4f a_prim\n", wavelength, wavelength / a1_norm)
     end
