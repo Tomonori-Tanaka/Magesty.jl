@@ -5,10 +5,57 @@
 using ArgParse
 using LinearAlgebra
 using Printf
+using Base.Threads
 
 using Magesty
 include("convert2tensor.jl")
 using .ExchangeTensor
+
+"""
+    PairData
+
+Precomputed quantities for a single (μ, atom_j) interaction pair.
+"""
+struct PairData
+    μ::Int                   # sublattice index of the primitive-cell source atom
+    ν::Int                   # sublattice index of atom_j
+    R::NTuple{3, Float64}    # minimum-image displacement (supercell fractional)
+    tensor::Matrix{Float64}  # 3×3 exchange tensor (meV)
+end
+
+"""
+    precompute_pairs(symmetry, structure, pre) -> Vector{PairData}
+
+Gather all (μ, atom_j) pairs with their displacements and exchange tensors once.
+Zero tensors (no interaction) are skipped.
+"""
+function precompute_pairs(
+    symmetry,
+    structure,
+    pre::ExchangeTensor.PrecomputedXMLData,
+)::Vector{PairData}
+    atoms_in_prim = symmetry.atoms_in_prim
+    x_frac = structure.supercell.x_frac
+    num_atoms = structure.supercell.num_atoms
+    pairs = PairData[]
+
+    for (μ, prim_μ) in enumerate(atoms_in_prim)
+        for atom_j in 1:num_atoms
+            atom_j == prim_μ && continue
+            ν = symmetry.map_s2p[atom_j].atom
+
+            R = x_frac[:, atom_j] .- x_frac[:, prim_μ]
+            R .= R .- round.(R)
+
+            tensor = ExchangeTensor.convert2tensor_fast(symmetry, prim_μ, atom_j, pre)
+            jij = Matrix(tensor.jij_tensor)
+            iszero(jij) && continue  # skip pairs with no interaction
+
+            push!(pairs, PairData(μ, ν, (R[1], R[2], R[3]), jij))
+        end
+    end
+    return pairs
+end
 
 """
     prim_lattice_in_sc_frac(symmetry) -> Matrix{Float64}
@@ -42,51 +89,33 @@ function prim_lattice_in_sc_frac(symmetry)::Matrix{Float64}
 end
 
 """
-    build_jq_matrix(q_sc, symmetry, structure, pre) -> Matrix{ComplexF64}
+    build_jq_matrix!(J_q, q_sc, pairs) -> J_q
 
-Construct the Fourier-transformed exchange matrix J(q) at wavevector `q_sc`
-given in supercell fractional reciprocal coordinates.
+In-place construction of the Fourier-transformed exchange matrix J(q) at
+wavevector `q_sc` (supercell fractional reciprocal coordinates).
 
 J(q) is a (3 n_sub × 3 n_sub) block matrix.  Block (μ, ν) is:
 
     J_μν(q) = Σ_{atom_j ∈ sublattice ν} J(prim_μ, atom_j) exp(2πi q·R_{μj})
 
-where R_{μj} is the minimum-image displacement (supercell fractional coords)
-from the primitive-cell representative of sublattice μ to atom_j, and
-J(prim_μ, atom_j) is the 3×3 exchange tensor in meV.
+`pairs` must be precomputed via `precompute_pairs`.
 """
-function build_jq_matrix(
-    q_sc::AbstractVector{<:Real},
-    symmetry,
-    structure,
-    pre::ExchangeTensor.PrecomputedXMLData,
-)::Matrix{ComplexF64}
-    atoms_in_prim = symmetry.atoms_in_prim
-    n_sub = length(atoms_in_prim)
-    x_frac = structure.supercell.x_frac
-    num_atoms = structure.supercell.num_atoms
-
-    J_q = zeros(ComplexF64, 3n_sub, 3n_sub)
-
-    for (μ, prim_μ) in enumerate(atoms_in_prim)
-        rows = (3(μ-1)+1):(3μ)
-        for atom_j in 1:num_atoms
-            atom_j == prim_μ && continue  # skip on-site (R=0, same atom)
-
-            # Sublattice index of atom_j (index into atoms_in_prim, 1-based)
-            ν = symmetry.map_s2p[atom_j].atom
-            cols = (3(ν-1)+1):(3ν)
-
-            # Minimum-image displacement in supercell fractional coordinates
-            R = x_frac[:, atom_j] .- x_frac[:, prim_μ]
-            R .= R .- round.(R)
-
-            phase = exp(2π * im * dot(q_sc, R))
-            tensor = ExchangeTensor.convert2tensor_fast(symmetry, prim_μ, atom_j, pre)
-            J_q[rows, cols] .+= tensor.jij_tensor .* phase
+function build_jq_matrix!(
+    J_q::Matrix{ComplexF64},
+    q_sc::Union{NTuple{3, <:Real}, AbstractVector{<:Real}},
+    pairs::Vector{PairData},
+)
+    fill!(J_q, zero(ComplexF64))
+    @inbounds for p in pairs
+        # cispi(x) = exp(iπx), so cispi(2 q·R) = exp(2πi q·R).
+        phase = cispi(2 * (q_sc[1] * p.R[1] + q_sc[2] * p.R[2] + q_sc[3] * p.R[3]))
+        row0 = 3 * (p.μ - 1)
+        col0 = 3 * (p.ν - 1)
+        T = p.tensor
+        for b in 1:3, a in 1:3
+            J_q[row0 + a, col0 + b] += T[a, b] * phase
         end
     end
-
     return J_q
 end
 
@@ -122,32 +151,68 @@ function mfa_analysis(xml_path::String; nk::Int = 20, spin::Union{Float64, Nothi
     for col in eachcol(A_prim)
         @printf("  [%+.4f  %+.4f  %+.4f]\n", col...)
     end
-    @printf("Scanning %d^3 = %d q-points in the primitive BZ...\n", nk, nk^3)
 
-    # Scan q_frac_prim ∈ [0, 1)^3, convert to supercell fractional for the phase
+    # Precompute all (μ, ν, R, tensor) pairs once (q-independent part of J(q)).
+    pairs = precompute_pairs(symmetry, structure, pre)
+    @printf("Precomputed %d non-zero interaction pairs.\n", length(pairs))
+    @printf("Scanning %d^3 = %d q-points in the primitive BZ (threads = %d)...\n",
+        nk, nk^3, nthreads())
+
+    # Scan q_frac_prim ∈ [0, 1)^3, convert to supercell fractional for the phase.
     # Convention in Magesty: H = +Σ J_ij S_i·S_j with J < 0 for ferromagnetic coupling.
-    # The MFA ground state minimizes E(q) ∝ λ_min(J(q)), so we seek the q that gives
-    # the most negative minimum eigenvalue of J(q).
-    grid = range(0.0, 1.0, length = nk + 1)[1:nk]
-    λ_min = +Inf
-    q_prim_best = zeros(3)
-    eigs_best = Float64[]
+    # The MFA ground state minimizes E(q) ∝ λ_min(J(q)).
+    grid = collect(range(0.0, 1.0, length = nk + 1)[1:nk])
+    nq = nk^3
 
-    for qx in grid, qy in grid, qz in grid
-        q_prim = [qx, qy, qz]
-        q_sc = A_prim * q_prim
+    # Partition q-indices across a fixed number of tasks with per-task buffers.
+    dim = 3n_sub
+    ntasks = nthreads()
+    λ_min_local = fill(+Inf, ntasks)
+    q_best_local = [zeros(3) for _ in 1:ntasks]
+    eigs_best_local = [Float64[] for _ in 1:ntasks]
 
-        J_q = build_jq_matrix(q_sc, symmetry, structure, pre)
-        J_q_herm = Hermitian((J_q + J_q') / 2)
-        eigs = real(eigvals(J_q_herm))
-        λ = minimum(eigs)
-
-        if λ < λ_min
-            λ_min = λ
-            q_prim_best = q_prim
-            eigs_best = sort(eigs)
+    chunks = [round(Int, nq * i / ntasks) for i in 0:ntasks]  # chunks[t]+1 … chunks[t+1]
+    tasks = Vector{Task}(undef, ntasks)
+    for t in 1:ntasks
+        tasks[t] = @spawn begin
+            J_q = Matrix{ComplexF64}(undef, dim, dim)
+            H   = Matrix{ComplexF64}(undef, dim, dim)
+            local_λ = +Inf
+            local_q = zeros(3)
+            local_eigs = Float64[]
+            for idx in (chunks[t] + 1):chunks[t + 1]
+                ix = ((idx - 1) % nk) + 1
+                iy = (((idx - 1) ÷ nk) % nk) + 1
+                iz = ((idx - 1) ÷ (nk * nk)) + 1
+                q_prim = (grid[ix], grid[iy], grid[iz])
+                q_sc = (
+                    A_prim[1, 1] * q_prim[1] + A_prim[1, 2] * q_prim[2] + A_prim[1, 3] * q_prim[3],
+                    A_prim[2, 1] * q_prim[1] + A_prim[2, 2] * q_prim[2] + A_prim[2, 3] * q_prim[3],
+                    A_prim[3, 1] * q_prim[1] + A_prim[3, 2] * q_prim[2] + A_prim[3, 3] * q_prim[3],
+                )
+                build_jq_matrix!(J_q, q_sc, pairs)
+                @inbounds for j in 1:dim, i in 1:dim
+                    H[i, j] = (J_q[i, j] + conj(J_q[j, i])) / 2
+                end
+                eigs = eigvals!(Hermitian(H))
+                λ = minimum(eigs)
+                if λ < local_λ
+                    local_λ = λ
+                    local_q = [q_prim[1], q_prim[2], q_prim[3]]
+                    local_eigs = sort(eigs)
+                end
+            end
+            (local_λ, local_q, local_eigs)
         end
     end
+    for t in 1:ntasks
+        λ_min_local[t], q_best_local[t], eigs_best_local[t] = fetch(tasks[t])
+    end
+
+    tid_best = argmin(λ_min_local)
+    λ_min = λ_min_local[tid_best]
+    q_prim_best = q_best_local[tid_best]
+    eigs_best = eigs_best_local[tid_best]
 
     # Compute wavelength from q in Cartesian reciprocal space (1/Å)
     # A_prim_cart: columns = primitive lattice vectors in Å
