@@ -12,7 +12,12 @@
       "Bash(BENCH_LMAX=3 BENCH_NPOINTS=20 BENCH_SAMPLES=5 BENCH_EVALS=2 TEST_MODE=bench_sphericart julia --project -e 'using Pkg; Pkg.test\\(\\)')",
       "Bash(make test-sphericart *)",
       "Bash(make bench-optimize-sphericart *)",
-      "Bash(make bench-optimize-sphericart-fept *)"
+      "Bash(make bench-optimize-sphericart-fept *)",
+      "Bash(julia --project=. tools/mfa_analysis.jl -x test/examples/febcc_2x2x2_pm/scecoeffs.xml --nk 10 --spin 2.0)",
+      "Bash(julia --project=. tools/mfa_analysis.jl -x test/examples/febcc_2x2x2_pm/scecoeffs.xml --nk 10 --spin 1.0)",
+      "Bash(julia --project=. tools/mfa_analysis.jl -x test/examples/febcc_2x2x2_pm/scecoeffs.xml --nk 10)",
+      "Bash(julia --project=. tools/mfa_analysis.jl -x test/examples/febcc_2x2x2_pm/scecoeffs.xml --nk 8)",
+      "Bash(julia --project=. tools/mfa_analysis.jl -x test/examples/febcc_2x2x2_pm/scecoeffs.xml --nk 8 --spin 2.0)"
     ]
   }
 }
