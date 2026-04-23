@@ -1,6 +1,6 @@
 # Tool for mean-field analysis of SCE models.
 # Reads jphi.xml / scecoeffs.xml, Fourier-transforms exchange interactions J(q),
-# and finds the ordering wave vector with minimum MFA energy (= maximum eigenvalue
+# and finds the ordering wave vector with minimum MFA energy (= minimum eigenvalue
 # of J(q)).
 using ArgParse
 using LinearAlgebra
@@ -120,7 +120,7 @@ function build_jq_matrix!(
 end
 
 """
-    mfa_analysis(xml_path; nk, spin) -> (q_opt, λ_max, eigenvalues)
+    mfa_analysis(xml_path; nk, spin) -> (q_opt, λ_min, eigenvalues)
 
 Scan `nk^3` q-points uniformly over the primitive cell first Brillouin zone
 and return the ordering wave vector that minimizes the smallest eigenvalue of
@@ -137,6 +137,7 @@ Returns `(q_opt_prim, λ_min, eigenvalues_at_qopt)` where `q_opt_prim` is in
 primitive cell fractional reciprocal coordinates.
 """
 function mfa_analysis(xml_path::String; nk::Int = 20, spin::Union{Float64, Nothing} = nothing)
+    nk > 0 || throw(ArgumentError("nk must be a positive integer, got $nk"))
     println("Loading from: $xml_path")
     structure = Magesty.Structure(xml_path, verbosity = false)
     symmetry = Magesty.Symmetry(structure, 1e-5, verbosity = false)
@@ -261,7 +262,7 @@ function main()
             arg_type = String
             required = true
         "--nk", "-n"
-            help = "Number of q-points per reciprocal direction"
+            help = "Number of q-points per reciprocal direction (positive integer)"
             arg_type = Int
             default = 20
         "--spin", "-s"
