@@ -23,6 +23,7 @@ Fields
 - `iconst`        : I_CONSTRAINED_M (or ICONST), or `nothing`
 - `lambda`        : LAMBDA (magnetic penalty), or `nothing`
 - `rwigs`         : RWIGS vector (one value per species), or `nothing`
+- `lsorbit`       : LSORBIT flag (true if SOC is on), or `nothing` if absent in vasprun.xml
 - `m_constr`      : 3×N constraint direction matrix, or `nothing`
 - `lattice`       : 3×3, columns = lattice vectors (Å)
 - `species`            : element symbol per atom, length N
@@ -42,6 +43,7 @@ struct VaspRunData
     iconst::Union{Int, Nothing}
     lambda::Union{Float64, Nothing}
     rwigs::Union{Vector{Float64}, Nothing}
+    lsorbit::Union{Bool, Nothing}
     m_constr::Union{Matrix{Float64}, Nothing}  # 3×N
     lattice::Matrix{Float64}                   # 3×3, columns = lattice vectors
     species::Vector{String}
@@ -88,6 +90,10 @@ function parse_vasprun(filepath::AbstractString)::VaspRunData
     iconst       = something(_incar_scalar(incar_node, "I_CONSTRAINED_M", Int),
                              _incar_scalar(incar_node, "ICONST", Int))
     rwigs        = _incar_vector(incar_node, "RWIGS")
+    # LSORBIT: <incar> → <parameters> → VASP default (false)
+    lsorbit      = something(_incar_logical(incar_node, "LSORBIT"),
+                             _parameters_logical(doc, "LSORBIT"),
+                             false)
     m_constr_flat = _incar_vector(incar_node, "M_CONSTR")
 
     kpoints_mesh      = _read_kpoints_mesh(doc)
@@ -110,7 +116,7 @@ function parse_vasprun(filepath::AbstractString)::VaspRunData
     end
 
     return VaspRunData(
-        version, encut, kpoints_mesh, iconst, lambda, rwigs, m_constr,
+        version, encut, kpoints_mesh, iconst, lambda, rwigs, lsorbit, m_constr,
         lattice, species, atomtype_per_atom, positions_frac, forces, stress,
         energy_free, energy_zero, num_atoms, [true, true, true],
     )
@@ -131,6 +137,37 @@ function _incar_scalar(incar_node, name::AbstractString, ::Type{T}) where {T}
     catch
         return nothing
     end
+end
+
+"""
+    _incar_logical(incar_node, name) -> Union{Bool, Nothing}
+
+Read a logical-typed INCAR tag from vasprun.xml.  VASP stores logical values as
+" T " or " F " inside `<i type="logical" name="...">`.
+"""
+function _incar_logical(incar_node, name::AbstractString)::Union{Bool, Nothing}
+    incar_node === nothing && return nothing
+    node = findfirst("i[@name='$(name)']", incar_node)
+    return _parse_logical_node(node)
+end
+
+"""
+    _parameters_logical(doc, name) -> Union{Bool, Nothing}
+
+Look up a logical tag anywhere under `<parameters>` (used as a fallback when
+the tag is not explicitly set in INCAR).
+"""
+function _parameters_logical(doc, name::AbstractString)::Union{Bool, Nothing}
+    node = findfirst("//parameters//i[@name='$(name)']", doc)
+    return _parse_logical_node(node)
+end
+
+function _parse_logical_node(node)::Union{Bool, Nothing}
+    node === nothing && return nothing
+    txt = strip(nodecontent(node))
+    isempty(txt) && return nothing
+    c = uppercase(string(txt[1]))
+    return c == "T" ? true : (c == "F" ? false : nothing)
 end
 
 function _incar_vector(incar_node, name::AbstractString)::Union{Vector{Float64}, Nothing}

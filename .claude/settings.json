@@ -20,7 +20,9 @@
       "Bash(julia --project=. tools/mfa_analysis.jl -x test/examples/febcc_2x2x2_pm/scecoeffs.xml --nk 8 --spin 2.0)",
       "Bash(julia --project=. -t 4 tools/mfa_analysis.jl -x test/examples/febcc_2x2x2_pm/scecoeffs.xml --nk 20)",
       "Bash(time julia *)",
-      "Bash(julia --project=. -t 1 -e ' *)"
+      "Bash(julia --project=. -t 1 -e ' *)",
+      "Bash(julia --project=. tools/vasp/vasp2extxyz.jl -v tools/test/fixtures/FeRh/vasprun.xml)",
+      "Bash(julia --project=. tools/vasp/vasp2extxyz.jl -v tools/test/fixtures/IrMn3/vasprun.xml)"
     ]
   }
 }
