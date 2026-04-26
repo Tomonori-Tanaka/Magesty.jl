@@ -21,7 +21,6 @@ using Printf
 
 function build_vasp_comment(d::VaspRunData)::String
     parts = String[]
-    !isempty(d.version)        && push!(parts, "VASP$(d.version)")
     d.encut        !== nothing && push!(parts, "ENCUT=$(Int(round(d.encut)))")
     d.kpoints_mesh !== nothing && push!(parts, "KPOINTS=$(d.kpoints_mesh)")
     d.iconst       !== nothing && push!(parts, "ICONST=$(d.iconst)")
@@ -109,6 +108,9 @@ function main()
         energy_free   = vd.energy_free,
         energy_zero   = vd.energy_zero,
         stress        = vd.stress,
+        soc           = vd.lsorbit,
+        code          = "VASP",
+        version       = isempty(vd.version) ? nothing : vd.version,
         extra_per_atom = extra_per_atom,
         comment       = build_vasp_comment(vd),
     )

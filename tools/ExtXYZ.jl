@@ -24,6 +24,9 @@ Fields
 - `energy_free`   : free energy (eV), or `nothing`
 - `energy_zero`   : sigma→0 energy (eV), or `nothing`
 - `stress`        : 3×3 stress tensor (eV/Å³), or `nothing`
+- `soc`           : spin-orbit coupling flag (true/false), or `nothing`
+- `code`          : DFT code name (e.g. "VASP", "QE"), or `nothing`
+- `version`       : DFT code version string, or `nothing`
 - `extra_per_atom`: ordered list of additional per-atom real properties as (name => matrix) pairs.
                     Each matrix is `ncols×N`; ncols=1 for scalars, ncols=3 for vectors.
                     The Properties descriptor becomes `name:R:ncols` automatically.
@@ -39,6 +42,9 @@ struct AtomFrame
     energy_free::Union{Float64, Nothing}
     energy_zero::Union{Float64, Nothing}
     stress::Union{Matrix{Float64}, Nothing}
+    soc::Union{Bool, Nothing}
+    code::Union{String, Nothing}
+    version::Union{String, Nothing}
     extra_per_atom::Vector{Pair{String, Matrix{Float64}}}
     comment::String
 end
@@ -53,12 +59,16 @@ function AtomFrame(;
     energy_free::Union{Float64, Nothing} = nothing,
     energy_zero::Union{Float64, Nothing} = nothing,
     stress::Union{Matrix{Float64}, Nothing} = nothing,
+    soc::Union{Bool, Nothing} = nothing,
+    code::Union{String, Nothing} = nothing,
+    version::Union{String, Nothing} = nothing,
     extra_per_atom::Vector{Pair{String, Matrix{Float64}}} = Pair{String, Matrix{Float64}}[],
     comment::String = "",
 )
     return AtomFrame(
         num_atoms, lattice, pbc, species, positions,
-        forces, energy_free, energy_zero, stress, extra_per_atom, comment,
+        forces, energy_free, energy_zero, stress, soc,
+        code, version, extra_per_atom, comment,
     )
 end
 
@@ -120,8 +130,11 @@ function _header_line(frame::AtomFrame)::String
         "pbc=\"$(pbc_str)\"",
     ]
 
+    frame.code        !== nothing && push!(parts, "code=$(_quote_if_needed(frame.code))")
+    frame.version     !== nothing && push!(parts, "version=$(_quote_if_needed(frame.version))")
     frame.energy_free !== nothing && push!(parts, @sprintf("energy_free=%.10f", frame.energy_free))
     frame.energy_zero !== nothing && push!(parts, @sprintf("energy_zero=%.10f", frame.energy_zero))
+    frame.soc !== nothing         && push!(parts, "soc=$(frame.soc ? "T" : "F")")
 
     if frame.stress !== nothing
         S = frame.stress
@@ -134,6 +147,11 @@ function _header_line(frame::AtomFrame)::String
     !isempty(frame.comment) && push!(parts, "comment=\"$(frame.comment)\"")
 
     return join(parts, " ")
+end
+
+# Quote string values that contain whitespace; leave bare strings unquoted.
+function _quote_if_needed(s::AbstractString)::String
+    return occursin(r"\s", s) ? "\"$(s)\"" : String(s)
 end
 
 end # module ExtXYZWriter
