@@ -5,7 +5,7 @@
 *_list.txt
 CLAUDE.md
 *.ai
-.claude/*
+.claude/
 
 tools/personal/
 /test/develop_tmp/*
