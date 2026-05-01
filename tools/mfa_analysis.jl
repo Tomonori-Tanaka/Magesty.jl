@@ -120,6 +120,86 @@ function build_jq_matrix!(
 end
 
 """
+    compute_lambda_grad(q_prim, A_prim, pairs, n_sub) -> (λ_min, grad, eigs)
+
+Compute the minimum eigenvalue of J(q) and its gradient w.r.t. `q_prim`
+(primitive reciprocal fractional coordinates) using the Hellmann-Feynman theorem:
+
+    ∂λ_min/∂q_sc_k = Re[v† (∂J/∂q_sc_k) v],   ∂J/∂q_sc_k = 2πi R_k J(q)
+
+with chain rule ∂λ/∂q_prim = A_prim' * ∂λ/∂q_sc.
+"""
+function compute_lambda_grad(
+    q_prim::AbstractVector{<:Real},
+    A_prim::Matrix{Float64},
+    pairs::Vector{PairData},
+    n_sub::Int,
+)
+    dim = 3n_sub
+    q_sc = A_prim * collect(Float64, q_prim)
+
+    J_q = zeros(ComplexF64, dim, dim)
+    dJ  = [zeros(ComplexF64, dim, dim) for _ in 1:3]   # ∂J/∂q_sc_k
+
+    for p in pairs
+        phase = cispi(2 * (q_sc[1]*p.R[1] + q_sc[2]*p.R[2] + q_sc[3]*p.R[3]))
+        row0 = 3*(p.μ - 1); col0 = 3*(p.ν - 1)
+        for b in 1:3, a in 1:3
+            val = p.tensor[a, b] * phase
+            J_q[row0+a, col0+b] += val
+            dJ[1][row0+a, col0+b] += val * (2π * im * p.R[1])
+            dJ[2][row0+a, col0+b] += val * (2π * im * p.R[2])
+            dJ[3][row0+a, col0+b] += val * (2π * im * p.R[3])
+        end
+    end
+
+    H = Hermitian((J_q + J_q') / 2)
+    F = eigen(H)
+    eigs = real.(F.values)
+    idx  = argmin(eigs)
+    λ_min = eigs[idx]
+    v = F.vectors[:, idx]
+
+    # ∂λ/∂q_sc_k = Re[v† (∂J(q)/∂q_sc_k) v]
+    grad_sc = [real(dot(v, dJ[k] * v)) for k in 1:3]
+    grad    = A_prim' * grad_sc
+
+    return λ_min, grad, sort(eigs)
+end
+
+"""
+    refine_minimum(q0, A_prim, pairs, n_sub; tol, max_iter) -> (q_opt, λ_min, eigs)
+
+Refine the ordering wavevector starting from `q0` using steepest descent
+with Armijo backtracking line search.
+"""
+function refine_minimum(
+    q0::Vector{Float64},
+    A_prim::Matrix{Float64},
+    pairs::Vector{PairData},
+    n_sub::Int;
+    tol::Float64   = 1e-8,
+    max_iter::Int  = 500,
+)
+    q = copy(q0)
+    for _ in 1:max_iter
+        λ, grad, _ = compute_lambda_grad(q, A_prim, pairs, n_sub)
+        gnorm = norm(grad)
+        gnorm < tol && break
+
+        α = 1.0
+        for _ in 1:60
+            λ_try, _, _ = compute_lambda_grad(q .- α .* grad, A_prim, pairs, n_sub)
+            λ_try ≤ λ - 1e-4 * α * gnorm^2 && break
+            α *= 0.5
+        end
+        q .-= α .* grad
+    end
+    λ_final, _, eigs = compute_lambda_grad(q, A_prim, pairs, n_sub)
+    return q, λ_final, eigs
+end
+
+"""
     mfa_analysis(xml_path; nk, spin) -> (q_opt, λ_min, eigenvalues)
 
 Scan `nk^3` q-points uniformly over the primitive cell first Brillouin zone
@@ -136,7 +216,7 @@ Arguments:
 Returns `(q_opt_prim, λ_min, eigenvalues_at_qopt)` where `q_opt_prim` is in
 primitive cell fractional reciprocal coordinates.
 """
-function mfa_analysis(xml_path::String; nk::Int = 20, spin::Union{Float64, Nothing} = nothing)
+function mfa_analysis(xml_path::String; nk::Int = 20, spin::Union{Float64, Nothing} = nothing, refine::Bool = true)
     nk > 0 || throw(ArgumentError("nk must be a positive integer, got $nk"))
     println("Loading from: $xml_path")
     structure = Magesty.Structure(xml_path, verbosity = false)
@@ -215,6 +295,12 @@ function mfa_analysis(xml_path::String; nk::Int = 20, spin::Union{Float64, Nothi
     q_prim_best = q_best_local[tid_best]
     eigs_best = eigs_best_local[tid_best]
 
+    if refine
+        println("Refining minimum with gradient descent (Hellmann-Feynman)...")
+        q_prim_best, λ_min, eigs_best = refine_minimum(q_prim_best, A_prim, pairs, n_sub)
+        @printf("Refined q (primitive reciprocal frac): [%.6f, %.6f, %.6f]\n", q_prim_best...)
+    end
+
     # Compute angular wavevector from q in Cartesian reciprocal space.
     # A_prim_cart: columns = primitive lattice vectors in Å
     # B_prim = inv(A_prim_cart): rows = b_i reciprocal vectors (b_i · a_j = δ_ij, 1/Å)
@@ -272,9 +358,12 @@ function main()
             help = "Spin magnitude S. If omitted: classical spin (Tc ∝ S²/3, S=1). If given: quantum spin (Tc ∝ S(S+1)/3)."
             arg_type = Float64
             default = nothing
+        "--no-refine"
+            help = "Skip gradient-descent refinement after grid search."
+            action = :store_true
     end
     args = parse_args(s)
-    mfa_analysis(args["xml"], nk = args["nk"], spin = args["spin"])
+    mfa_analysis(args["xml"], nk = args["nk"], spin = args["spin"], refine = !args["no-refine"])
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
