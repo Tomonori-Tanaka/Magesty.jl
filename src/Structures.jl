@@ -404,11 +404,9 @@ function calc_exist_image(is_periodic::SVector{3, Bool})::Vector{Bool}
 				end
 				cell += 1
 
-				if (
-					(abs(offset[1]) == 1 && !is_periodic[1])
-					|| (abs(offset[2]) == 1 && !is_periodic[2])
-					|| (abs(offset[3]) == 1 && !is_periodic[3])
-				)
+				if (abs(offset[1]) == 1 && !is_periodic[1]) ||
+					(abs(offset[2]) == 1 && !is_periodic[2]) ||
+					(abs(offset[3]) == 1 && !is_periodic[3])
 					exist_image[cell] = false
 				end
 			end
