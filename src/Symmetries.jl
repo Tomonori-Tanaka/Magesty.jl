@@ -172,7 +172,7 @@ struct Symmetry
 		map_s2p = construct_map_s2p(cell, map_p2s, nat_prim, ntran)
 
 		# collect atom indices in primitive cell from map_p2s
-		atoms_in_prim = [map_p2s[i, 1] for i in 1:nat_prim]
+		atoms_in_prim = [map_p2s[i, 1] for i = 1:nat_prim]
 		atoms_in_prim = sort(atoms_in_prim)
 
 		if verbosity
@@ -211,7 +211,7 @@ end
 
 function construct_symnum_translation(spglib_data::Spglib.Dataset, tol::Real)::Vector{Int}
 	symnum_translation = Int[]
-	for i in 1:spglib_data.n_operations
+	for i = 1:spglib_data.n_operations
 		if isapprox(spglib_data.rotations[i], I, atol = tol)
 			append!(symnum_translation, i)
 		end
@@ -226,7 +226,7 @@ function construct_symdata(
 	cell::Structures.Cell,
 )::Vector{SymmetryOperation}
 	symdata = Vector{SymmetryOperation}(undef, spglib_data.n_operations)
-	for i in 1:spglib_data.n_operations
+	for i = 1:spglib_data.n_operations
 		rotation_cart =
 			cell.lattice_vectors * spglib_data.rotations[i] * cell.reciprocal_vectors
 
@@ -255,13 +255,13 @@ function construct_map_sym(
 	map_sym = zeros(Int, structure.supercell.num_atoms, Int(spglib_data.n_operations))
 
 	# Process symmetry operations in parallel
-	@threads for isym in 1:spglib_data.n_operations
+	@threads for isym = 1:spglib_data.n_operations
 		# Create thread-local storage to avoid memory conflicts
 		local_map = zeros(Int, structure.supercell.num_atoms)
 		local_x_new = MVector{3, Float64}(undef)
 		local_tmp = MVector{3, Float64}(undef)
 
-		for itype in 1:natomtypes
+		for itype = 1:natomtypes
 			for iat in structure.atomtype_group[itype]
 				# Apply rotation and translation
 				local_x_new .=
@@ -322,11 +322,11 @@ function construct_map_sym_inv(map_sym::AbstractMatrix{<:Integer})::Matrix{Int}
 	map_sym_inv = zeros(Int, num_atoms, nsym)
 
 	# Process each symmetry operation
-	for isym in 1:nsym
+	for isym = 1:nsym
 		# For each target atom i, find the source atom j such that map_sym[j, isym] == i
-		for i in 1:num_atoms
+		for i = 1:num_atoms
 			found = false
-			for j in 1:num_atoms
+			for j = 1:num_atoms
 				if map_sym[j, isym] == i
 					if found
 						error(
@@ -377,11 +377,11 @@ function construct_map_p2s(
 	is_checked = fill(false, cell.num_atoms)
 
 	jat = 1
-	for iat in 1:cell.num_atoms
+	for iat = 1:cell.num_atoms
 		if is_checked[iat]
 			continue
 		end
-		for i in 1:ntran
+		for i = 1:ntran
 			atomnum_translated = map_sym[iat, symnum_translation[i]]
 			map_p2s[jat, i] = atomnum_translated
 			is_checked[atomnum_translated] = true
@@ -419,8 +419,8 @@ function construct_map_s2p(
 )::Vector{Maps}
 	map_s2p = Vector{Maps}(undef, cell.num_atoms)
 	initialized = falses(size(map_s2p))
-	for iat in 1:nat_prim
-		for itran in 1:ntran
+	for iat = 1:nat_prim
+		for itran = 1:ntran
 			atomnum_translated = map_p2s[iat, itran]
 			map_s2p[atomnum_translated] = Maps(iat, itran)
 			initialized[atomnum_translated] = true

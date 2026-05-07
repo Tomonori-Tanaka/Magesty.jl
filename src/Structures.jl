@@ -338,7 +338,7 @@ function calc_x_images(
 				end
 				cell += 1
 
-				for iat in 1:num_atoms
+				for iat = 1:num_atoms
 					# Use static vector for temporary calculations
 					x_image_tmp[1] = x_frac[1, iat] + convert(Float64, i)
 					x_image_tmp[2] = x_frac[2, iat] + convert(Float64, j)
@@ -446,7 +446,7 @@ function print_structure_stdout(cell::Cell, kd_name::AbstractVector{<:AbstractSt
 	end
 	println("")
 	println("Atomic positions in fractional basis:")
-	for i in 1:cell.num_atoms
+	for i = 1:cell.num_atoms
 		println(
 			@sprintf("  %*d: %12.8e   %12.8e   %12.8e   %*d",
 				length(string(cell.num_atoms)), i,
