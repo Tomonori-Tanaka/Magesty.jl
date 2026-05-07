@@ -207,9 +207,9 @@ function set_mindist_pairs(
 	distance_all = Matrix{Vector{DistInfo}}(undef, num_atoms, num_atoms)
 	initialized = falses(size(distance_all))
 
-	@inbounds for i in 1:num_atoms, j in 1:num_atoms
+	@inbounds for i = 1:num_atoms, j = 1:num_atoms
 		distinfo_list = Vector{DistInfo}()
-		for cell_index in 1:NUM_VIRTUAL_CELLS
+		for cell_index = 1:NUM_VIRTUAL_CELLS
 			cell_exists[cell_index] || continue
 
 			distance = norm(cartesian_coords[:, i, 1] - cartesian_coords[:, j, cell_index])
@@ -226,7 +226,7 @@ function set_mindist_pairs(
 	min_distance_pairs = Matrix{Vector{DistInfo}}(undef, num_atoms, num_atoms)
 	initialized = falses(size(min_distance_pairs))
 
-	@inbounds for i in 1:num_atoms, j in 1:num_atoms
+	@inbounds for i = 1:num_atoms, j = 1:num_atoms
 		dist_vec_tmp = Vector{DistInfo}()
 		min_dist = distance_all[i, j][1].distance
 		for distinfo in distance_all[i, j]
@@ -342,7 +342,7 @@ function generate_clusters(
 		for prim_atom_sc in symmetry.atoms_in_prim
 			prim_atom_type = structure.supercell.kd_int_list[prim_atom_sc]
 			interaction_cutoff_dict[body][prim_atom_sc] = SortedVector{AtomCell}()
-			for other_atom_sc in 1:structure.supercell.num_atoms
+			for other_atom_sc = 1:structure.supercell.num_atoms
 				if prim_atom_sc == other_atom_sc
 					;
 					continue;
