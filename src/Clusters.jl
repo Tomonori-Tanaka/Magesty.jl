@@ -269,7 +269,7 @@ function is_within_cutoff(
 	for comb::Vector{AtomCell} in collect(combinations(atomcell_list, 2))
 		rc = cutoff_radii[body, kd_int_list[comb[1].atom], kd_int_list[comb[2].atom]]
 		distance = distance_atomcells(comb[1], comb[2], x_image_cart)
-		if (rc < 0.0 || distance ≤ rc)
+		if rc < 0.0 || distance ≤ rc
 			if min_distance_pairs[comb[1].atom, comb[2].atom][1].distance + 0.00001 > distance
 				continue
 			else
@@ -393,16 +393,14 @@ function generate_clusters(
 				collect(combinations(interactiong_atoms, body - 1))
 				atom_cell_list_all = vcat([prim_atom_ac], atom_combination)
 				atom_list_all = [atom_cell.atom for atom_cell in atom_cell_list_all]
-				if (
-					is_within_cutoff(
-						atom_cell_list_all,
-						structure.supercell.kd_int_list,
-						cutoff_radii,
-						body,
-						structure.x_image_cart,
-						min_distance_pairs,
-					) && (length(atom_list_all) == length(unique(atom_list_all)))
-				)
+				if is_within_cutoff(
+					atom_cell_list_all,
+					structure.supercell.kd_int_list,
+					cutoff_radii,
+					body,
+					structure.x_image_cart,
+					min_distance_pairs,
+				) && length(atom_list_all) == length(unique(atom_list_all))
 					sorted_vector = SortedVector(atom_combination)
 					push!(interaction_clusters[body][prim_atom_sc], sorted_vector)
 				end
