@@ -216,7 +216,7 @@ Arguments:
 Returns `(q_opt_prim, λ_min, eigenvalues_at_qopt)` where `q_opt_prim` is in
 primitive cell fractional reciprocal coordinates.
 """
-function mfa_analysis(xml_path::String; nk::Int = 20, spin::Union{Float64, Nothing} = nothing, refine::Bool = true)
+function mfa_analysis(xml_path::String; nk::Int = 20, spin::Union{Float64, Nothing} = nothing, refine::Bool = true, eigvec_indices::Union{Vector{Int}, Nothing} = nothing)
     nk > 0 || throw(ArgumentError("nk must be a positive integer, got $nk"))
     println("Loading from: $xml_path")
     structure = Magesty.Structure(xml_path, verbosity = false)
@@ -340,6 +340,35 @@ function mfa_analysis(xml_path::String; nk::Int = 20, spin::Union{Float64, Nothi
         @printf("  λ_%d = %+.4f meV\n", i, ev)
     end
 
+    if !isnothing(eigvec_indices)
+        n_eigs = 3n_sub
+        q_sc = A_prim * q_prim_best
+        J_q  = zeros(ComplexF64, n_eigs, n_eigs)
+        build_jq_matrix!(J_q, q_sc, pairs)
+        F    = eigen(Hermitian((J_q + J_q') / 2))
+        order = sortperm(real.(F.values))
+
+        for eigvec_index in eigvec_indices
+            idx = clamp(eigvec_index, 1, n_eigs)
+            idx != eigvec_index &&
+                @printf("Warning: eigvec_index=%d out of range [1, %d]; using %d.\n", eigvec_index, n_eigs, idx)
+
+            λ_n = real(F.values[order[idx]])
+            v   = F.vectors[:, order[idx]]
+
+            @printf("\n=== Spin configuration (eigenvector %d, λ = %+.4f meV) ===\n", idx, λ_n)
+            println("  sublattice μ |  Re[vx]   Re[vy]   Re[vz]  |  Im[vx]   Im[vy]   Im[vz]  | |v_μ|")
+            for μ in 1:n_sub
+                s = 3(μ - 1) + 1
+                vμ = v[s:s+2]
+                mag = norm(vμ)
+                @printf("  μ = %2d       | %+.4f  %+.4f  %+.4f  | %+.4f  %+.4f  %+.4f  | %.4f\n",
+                    μ, real(vμ[1]), real(vμ[2]), real(vμ[3]),
+                       imag(vμ[1]), imag(vμ[2]), imag(vμ[3]), mag)
+            end
+        end
+    end
+
     return q_prim_best, λ_min, eigs_best
 end
 
@@ -361,9 +390,18 @@ function main()
         "--no-refine"
             help = "Skip gradient-descent refinement after grid search."
             action = :store_true
+        "--eigvec", "-e"
+            help = "Comma-separated list of eigenvector indices to print (e.g. 1,2,3). 1 = minimum eigenvalue, 2 = second smallest, ..."
+            arg_type = String
+            default = nothing
     end
     args = parse_args(s)
-    mfa_analysis(args["xml"], nk = args["nk"], spin = args["spin"], refine = !args["no-refine"])
+    eigvec_indices = if isnothing(args["eigvec"])
+        nothing
+    else
+        [parse(Int, strip(s)) for s in split(args["eigvec"], ",")]
+    end
+    mfa_analysis(args["xml"], nk = args["nk"], spin = args["spin"], refine = !args["no-refine"], eigvec_indices = eigvec_indices)
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
