@@ -89,3 +89,21 @@
 **所感**: 単独効果は微小。総アロケーション量は `calc_∇ₑu!` の内部割り当て (#2) が支配的なため、#6 の vcat 廃止だけでは数値が動かない。ただし以下の点で価値あり:
 - 中間 `Vector{Matrix}` と最終 `vcat` の中間コピーを廃止（構造的にクリーン）
 - #2 (calc_∇ₑu! のバッファ前確保) を入れた後に、相対的な寄与が見える可能性
+
+---
+
+## #5: `construct_map_sym` の SVector 化
+
+**修正対象**: `src/Symmetries.jl` `construct_map_sym`
+
+`@threads` ループ内の `rotation*x_frac[:, iat]` / `x_frac[:, jat] - local_x_new` / `abs.(diff) .% 1.0` を SVector ベースに置換。`MVector{3}` スクラッチ (`local_x_new`, `local_tmp`) を撤去し、回転行列・並進ベクトルも `SMatrix` / `SVector` で 1 度確保。距離判定を二乗距離ベースにして `norm` の `sqrt` も省略。
+
+### Before / After (`Magesty.System(input)`, fege)
+
+| Metric | Before | After | Δ |
+|---|---|---|---|
+| Time median | 152.4 ms | 153.6 ms | +0.8 % (noise) |
+| Memory | 716.1 MiB | 708.1 MiB | -1.1 % |
+| Allocs | 17,162,253 | 16,953,261 | **-209k** |
+
+**所感**: `construct_map_sym` は System 構築 1 回限りの呼び出しで、System 全体に占める割合は小さいため目立たないが、内側ループのヒープ割り当てを完全に消した（SVector がスタックに乗る）。allocs -209k はそのまま GC 負荷低減として効く。

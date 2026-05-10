@@ -258,26 +258,37 @@ function construct_map_sym(
 	@threads for isym = 1:spglib_data.n_operations
 		# Create thread-local storage to avoid memory conflicts
 		local_map = zeros(Int, structure.supercell.num_atoms)
-		local_x_new = MVector{3, Float64}(undef)
-		local_tmp = MVector{3, Float64}(undef)
+		# Convert per-symop quantities to SMatrix/SVector once so the inner loop
+		# stays on the stack (no heap allocations from rotation*x_frac or slicing).
+		rot = SMatrix{3, 3, Float64}(spglib_data.rotations[isym])
+		trans = SVector{3, Float64}(spglib_data.translations[isym])
+		tol2 = tol * tol
 
-		for itype = 1:natomtypes
+		@inbounds for itype = 1:natomtypes
 			for iat in structure.atomtype_group[itype]
-				# Apply rotation and translation
-				local_x_new .=
-					spglib_data.rotations[isym] * structure.supercell.x_frac[:, iat] +
-					spglib_data.translations[isym]
+				x_iat = SVector{3, Float64}(
+					structure.supercell.x_frac[1, iat],
+					structure.supercell.x_frac[2, iat],
+					structure.supercell.x_frac[3, iat],
+				)
+				x_new = rot * x_iat + trans
 
 				for jat in structure.atomtype_group[itype]
-					# Calculate periodic distance in fractional coordinates
-					diff = structure.supercell.x_frac[:, jat] - local_x_new
-					local_tmp .= abs.(diff) .% 1.0
-					# Take minimum distance considering periodic boundary
-					for (i, val) in enumerate(local_tmp)
-						local_tmp[i] = min(val, 1 - val)
+					x_jat = SVector{3, Float64}(
+						structure.supercell.x_frac[1, jat],
+						structure.supercell.x_frac[2, jat],
+						structure.supercell.x_frac[3, jat],
+					)
+					diff_v = x_jat - x_new
+					# Wrap into fractional cell and take periodic-image distance squared.
+					d2 = 0.0
+					for k in 1:3
+						v = abs(diff_v[k]) % 1.0
+						v = min(v, 1.0 - v)
+						d2 += v * v
 					end
 
-					if norm(local_tmp) < tol
+					if d2 < tol2
 						local_map[iat] = jat
 						break
 					end
