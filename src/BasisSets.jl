@@ -741,18 +741,23 @@ function projection_matrix_coupled_basis(
 	nbasis = length(coupled_basislist)
 	full_matrix_dim = nbasis * submatrix_dim
 
+	# Precompute Wigner D matrices Δl(Lf, …) once per symmetry op. base_rot_mat depends
+	# only on (Lf, symop), not on time_rev_sym or the basis indices, so the loop body
+	# was previously recomputing the same matrix 2*nbasis times per (n, time_rev_sym).
+	base_rot_mats = Vector{Matrix{Float64}}(undef, length(symmetry.symdata))
+	for (n, symop) in enumerate(symmetry.symdata)
+		rotmat = symop.is_proper ? symop.rotation_cart : -1 * symop.rotation_cart
+		α, β, γ = rotmat2euler(rotmat)
+		base_rot_mats[n] = Δl(Lf, α, β, γ)
+	end
+
 	projection_mat = zeros(Float64, full_matrix_dim, full_matrix_dim)
 	# Reuse a single scratch buffer across all symmetry iterations to avoid
 	# `2*nsym` heap allocations of `full_matrix_dim^2` Float64 matrices.
 	temp_projection_mat = zeros(Float64, full_matrix_dim, full_matrix_dim)
 	for (n, symop) in enumerate(symmetry.symdata), time_rev_sym in [false, true]
 		fill!(temp_projection_mat, 0.0)
-		# Calculate rotation matrix
-		is_proper = symop.is_proper
-		rotmat = is_proper ? symop.rotation_cart : -1 * symop.rotation_cart
-		# Lf is common within this coupled_basislist, so compute Δl only once per symmetry op.
-		α, β, γ = rotmat2euler(rotmat)
-		base_rot_mat = Δl(Lf, α, β, γ)
+		base_rot_mat = base_rot_mats[n]
 
 		for (i, cb1) in enumerate(coupled_basislist)
 			atoms_shifted_list = [symmetry.map_sym[atom, n] for atom in cb1.atoms]
