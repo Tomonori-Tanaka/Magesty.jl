@@ -155,3 +155,39 @@
 | Allocs | 240,384,047 | 206,804,527 | **-33.6M** |
 
 **所感**: torque 側の comprehension が支配的なアロケーション源だったため大幅改善。energy 側は元から `1:(N-1)` の UnitRange を使っており影響は限定的だが、`dims[other_sites]` Vector 確保と `idx_buf` の per-iter 確保が消えて 1.3M allocs 削減。fege の integration test 全体時間が 65s → 52s に短縮。
+
+---
+
+## #1/#2: SH バッファの cache 引数化（**スキップ**）
+
+**修正対象（試行）**: `src/Optimize.jl` `design_matrix_energy_element`, `calc_∇ₑu!`, `build_design_matrix_energy`, `build_design_matrix_torque`
+
+design_note 通り `mutable struct SHCache` を導入し、`build_design_matrix_*` で per-thread キャッシュを構築 → calc 関数に渡す形を試した。
+
+### 試行内容
+- `SHCache` 型（`sh_values::Vector{Vector{Float64}}` + `atom_grad_values`）を定義
+- `ensure_capacity!` で逐次 grow
+- 関数シグネチャに `cache::SHCache = SHCache()` を追加（位置引数）
+- `build_design_matrix_torque` で `caches = [SHCache() for _ in 1:Threads.maxthreadid()]` を確保し、`Threads.threadid()` でインデックス
+
+### 結果（fege 20 spinconfigs、3 構成比較）
+
+| 構成 | Time | Memory | Allocs |
+|---|---|---|---|
+| キャッシュ無し (#3 baseline) | 1.401 s | 5.73 GiB | 206.8M |
+| SVector キャッシュ (`Vector{SVector{3,Float64}}`) | 1.340 s (**-4.4%**) | 6.53 GiB (**+14%**) | 217.7M (+5.3%) |
+| Vector キャッシュ (`Vector{Vector{Float64}}`) | 1.491 s (+6.4%) | 5.57 GiB (-3%) | 202.7M (-2%) |
+
+### スキップ判断
+- **トレードオフが対立**: 時間 ↔ メモリでどちらか一方を犠牲にする形になり、決定的に勝つ構成がない
+- BenchmarkTools 実測ノイズも ±5% 程度あり、時間差が有意かグレーゾーン
+- API 変更（cache 引数追加）のコストに見合う改善が得られない
+- `calc_∇ₑu!` は `atom_site_idx == 0` で多くが早期 return するため、cache を渡してもバッファ確保の節約効果が薄い
+- 単純な hoisting 試行は早期 return パターンと相性が悪く悪化（事前に検証済み）
+
+### 教訓
+- 早期 return が支配的な関数では、関数冒頭の eager allocation は害になる
+- mutable struct field アクセスと local Vector アクセスでメモリ計上が異なる挙動を示すケースがあり、ベンチで素直な結果が出ない
+- `Vector{SVector{N,T}}` は要素が bitstype でも、確保サイズが OLD `Vector{Vector{Float64}}` より大きくなり全体メモリを押し上げる場合がある
+
+#3 (idx_buf/other_sites の hoist) で既に大半のアロケーションは削減済み（torque -33.6M）なので、ここで打ち切って次の項目へ。
