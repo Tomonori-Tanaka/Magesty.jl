@@ -217,3 +217,51 @@ design_note 通り `mutable struct SHCache` を導入し、`build_design_matrix_
 | Allocs | 8,757,988 | 8,533,840 | **-224k** |
 
 **所感**: 時間影響はないが、内側ループの隠れアロケーションを除去。コードもシンプル化（comprehension → 明示的ループ + `@inbounds`）。`cb1.atoms` を `SVector{N,Int}` 化すれば map で zero-alloc にできるが Basis 型の構造変更が必要なので深追いせず。
+
+---
+
+# 第二弾改善
+
+第一弾マージ後に再度プロファイラで現状調査。残るホットスポットは:
+- `coeff_tensor[idx_buf..., mf_idx]` の splat (energy line 410, torque line 620)
+- `mf_grad_contribution .+= coeff_val * product_other .* grad_atom` (torque line 621)
+- `build_design_matrix_energy` が単スレッド (utilization 50%)
+
+## A: coeff_tensor の線形インデックス化（**スキップ**）
+
+**修正対象（試行）**: `src/Optimize.jl` `design_matrix_energy_element`, `calc_∇ₑu!`
+
+`idx_buf...` splat を strides 計算ベースの線形インデックスに置換。Vector 静的型でない splat は実行時 vararg を生成しヒープに確保するためプロファイル上は最大ホットスポットだった。
+
+### 結果（fege 20 spinconfigs、10 trials @time）
+
+| 関数 | Before | After | Δ |
+|---|---|---|---|
+| `build_design_matrix_energy` 時間 | 2.13 s | 2.16 s | +1 % |
+| `build_design_matrix_energy` allocs | 90.6M | 72.5M | **-20 %** |
+| `build_design_matrix_energy` メモリ | 1.77 GiB | 1.23 GiB | **-30 %** |
+| `build_design_matrix_torque` 時間 | 1.36 s | 1.82 s | **+34 %** |
+| `build_design_matrix_torque` allocs | 206.8M | 170.6M | -17.5 % |
+| `build_design_matrix_torque` メモリ | 5.73 GiB | 4.65 GiB | -19 % |
+
+**スキップ判断**: torque で時間 +34% の明確な regression。allocs/メモリは改善するが、Julia の splat dispatch が小規模 N (=2) で十分高速化されており、手書き strides の方が遅い結果に。コンパイラ最適化の余地は探ったが、`@inbounds` 追加・`strides_buf[last_site]` の hoist 等いずれも効果なし。リバート。
+
+教訓: プロファイラの sample count は時間ではなくサンプリング頻度であり、低レベル splat はサンプル多くてもトータルでは早い場合がある。
+
+## B: `build_design_matrix_energy` の `@threads` 並列化
+
+**修正対象**: `src/Optimize.jl:300`
+
+プロファイル utilization 50% (4 スレッド環境で実質 1 スレッド) を解消。`for i = 1:num_salcs` を `@threads` 化、各スレッドは disjoint な列 `design_matrix[:, i+1]` に書き込み。
+
+### Before / After (`build_design_matrix_energy`, fege 20 spinconfigs、10 trials @time)
+
+| Metric | Before | After | Δ |
+|---|---|---|---|
+| Time median | 2.13 s | **0.54 s** | **-75 %** (約 4x speedup) |
+| Memory | 1.77 GiB | 1.77 GiB | 0 |
+| Allocs | 90.63M | 90.63M | 0 |
+
+FeGe integration test: **1m20.8s → 56.9s (-30%)**。
+
+**所感**: 単純な並列化だが効果絶大。energy 側は既に hot spot は計算量で支配されていたため、4 スレッドでほぼ理想的にスケール。
