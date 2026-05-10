@@ -352,6 +352,14 @@ function design_matrix_energy_element(
 	translated_atoms = Vector{Int}(undef, N)
 	atoms_sorted_buf = Vector{Int}(undef, N)
 
+	# These quantities depend only on cbc.ls (constant within the call), so hoist
+	# them out of the translation loop instead of rebuilding per `itrans`.
+	last_site = N
+	other_sites = 1:(N-1)
+	other_dims = dims[other_sites]
+	other_site_indices = CartesianIndices(Tuple(other_dims))
+	idx_buf = Vector{Int}(undef, N)
+
 	@inbounds for itrans in symmetry.symnum_translation
 		# Translate atoms
 		for site_idx in 1:N
@@ -383,11 +391,6 @@ function design_matrix_energy_element(
 		# coeff_tensor has shape (d1, d2, ..., dN, Mf_size)
 		# where di = 2*li + 1
 		tensor_result = 0.0
-		last_site = N
-		other_sites = 1:(N-1)
-		other_dims = dims[other_sites]
-		other_site_indices = CartesianIndices(Tuple(other_dims))
-		idx_buf = Vector{Int}(undef, N)
 
 		# Iterate over all Mf values
 		for mf_idx in 1:Mf_size
@@ -526,6 +529,13 @@ function calc_∇ₑu!(
 	translated_atoms = Vector{Int}(undef, N)
 	atoms_sorted_buf = Vector{Int}(undef, N)
 
+	# Hoist scratch buffers out of the translation loop. `other_sites_buf` and
+	# `other_dims_buf` get refilled per iteration based on `atom_site_idx`, but
+	# the storage is allocated once up front.
+	idx_buf = Vector{Int}(undef, N)
+	other_sites_buf = Vector{Int}(undef, N - 1)
+	other_dims_buf = Vector{Int}(undef, N - 1)
+
 	# cbc.ls is fixed in this function, so de-dup by sorted translated atoms only.
 	searched_pairs = Set{UInt}()
 
@@ -579,10 +589,16 @@ function calc_∇ₑu!(
 		# coeff_tensor has shape (d1, d2, ..., dN, Mf_size)
 		# where di = 2*li + 1
 		grad_result = MVector{3, Float64}(0.0, 0.0, 0.0)
-		other_sites = [s for s in 1:N if s != atom_site_idx]
-		other_dims = dims[other_sites]
-		other_site_indices = CartesianIndices(Tuple(other_dims))
-		idx_buf = Vector{Int}(undef, N)
+		# Refill the other_sites/other_dims buffers for this `atom_site_idx`.
+		ki = 0
+		for s in 1:N
+			if s != atom_site_idx
+				ki += 1
+				other_sites_buf[ki] = s
+				other_dims_buf[ki] = dims[s]
+			end
+		end
+		other_site_indices = CartesianIndices(Tuple(other_dims_buf))
 
 		# Iterate over all Mf values
 		for mf_idx in 1:Mf_size
@@ -591,7 +607,8 @@ function calc_∇ₑu!(
 			# Reuse product over non-differentiated sites for each m on target site.
 			for other_tuple in other_site_indices
 				product_other = 1.0
-				for (k, site_idx) in enumerate(other_sites)
+				for k in 1:(N-1)
+					site_idx = other_sites_buf[k]
 					m_idx_other = other_tuple.I[k]
 					idx_buf[site_idx] = m_idx_other
 					product_other *= sh_values[site_idx][m_idx_other]
