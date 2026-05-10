@@ -3,9 +3,9 @@
 **/.DS_Store
 .DS_Store
 *_list.txt
-CLAUDE.md
 *.ai
-.claude/
+.claude/settings.json
+.claude/settings.local.json
 
 tools/personal/
 /test/develop_tmp/*
