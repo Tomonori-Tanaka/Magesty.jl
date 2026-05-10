@@ -107,3 +107,21 @@
 | Allocs | 17,162,253 | 16,953,261 | **-209k** |
 
 **所感**: `construct_map_sym` は System 構築 1 回限りの呼び出しで、System 全体に占める割合は小さいため目立たないが、内側ループのヒープ割り当てを完全に消した（SVector がスタックに乗る）。allocs -209k はそのまま GC 負荷低減として効く。
+
+---
+
+## #11: `design_matrix_energy_element` の `@inbounds` 補完
+
+**修正対象**: `src/Optimize.jl` `design_matrix_energy_element`
+
+`calc_∇ₑu!` の `for itrans` には既に `@inbounds` が付いていたが、エネルギー側 `design_matrix_energy_element` の `for itrans in symmetry.symnum_translation` (line 355) に欠けていた。これを `@inbounds for itrans` に変更し、ループ全体（map_sym indexing、`cbc.ls[]`、`sh_values[][]`、`coeff_tensor[idx_buf..., mf_idx]` など）の境界チェックを抑制。
+
+### Before / After (`build_design_matrix_energy`, fege 20 spinconfigs)
+
+| Metric | Before | After | Δ |
+|---|---|---|---|
+| Time median | 1.483 s | **1.458 s** | **-1.7 %** |
+| Memory | 1.81 GiB | 1.81 GiB | 0 % |
+| Allocs | 91,976,323 | 91,976,323 | 0 |
+
+**所感**: 境界チェック除去のみなので allocs は不変。1.7% の高速化はそのまま CPU 命令削減効果。残りの allocations 削減は #1 が必要。
