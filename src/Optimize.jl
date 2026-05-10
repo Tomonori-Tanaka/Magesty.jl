@@ -352,7 +352,15 @@ function design_matrix_energy_element(
 	translated_atoms = Vector{Int}(undef, N)
 	atoms_sorted_buf = Vector{Int}(undef, N)
 
-	for itrans in symmetry.symnum_translation
+	# These quantities depend only on cbc.ls (constant within the call), so hoist
+	# them out of the translation loop instead of rebuilding per `itrans`.
+	last_site = N
+	other_sites = 1:(N-1)
+	other_dims = dims[other_sites]
+	other_site_indices = CartesianIndices(Tuple(other_dims))
+	idx_buf = Vector{Int}(undef, N)
+
+	@inbounds for itrans in symmetry.symnum_translation
 		# Translate atoms
 		for site_idx in 1:N
 			translated_atoms[site_idx] = symmetry.map_sym[cbc.atoms[site_idx], itrans]
@@ -383,11 +391,6 @@ function design_matrix_energy_element(
 		# coeff_tensor has shape (d1, d2, ..., dN, Mf_size)
 		# where di = 2*li + 1
 		tensor_result = 0.0
-		last_site = N
-		other_sites = 1:(N-1)
-		other_dims = dims[other_sites]
-		other_site_indices = CartesianIndices(Tuple(other_dims))
-		idx_buf = Vector{Int}(undef, N)
 
 		# Iterate over all Mf values
 		for mf_idx in 1:Mf_size
@@ -451,11 +454,15 @@ function build_design_matrix_torque(
 		scaling_factors[salc_idx] = (4*pi)^(n_C/2)  # (√(4π))^{n_C}
 	end
 
-	design_matrix_list = Vector{Matrix{Float64}}(undef, num_spinconfigs)
+	# Preallocate the full design matrix and let each thread write into its
+	# disjoint row block (sc_idx → rows [block_size*(sc_idx-1)+1 : block_size*sc_idx]).
+	# Avoids per-thread block allocation and the final vcat copy.
+	block_size = 3 * num_atoms
+	design_matrix = Matrix{Float64}(undef, num_spinconfigs * block_size, num_salcs)
 
 	@threads for sc_idx in 1:num_spinconfigs
 		spinconfig = spinconfig_list[sc_idx]
-		torque_design_block = zeros(Float64, 3*num_atoms, num_salcs)
+		row_offset = block_size * (sc_idx - 1)
 		grad_u_buf = MVector{3, Float64}(0.0, 0.0, 0.0)
 		@inbounds for iatom in 1:num_atoms
 			@views dir_iatom = spinconfig.spin_directions[:, iatom]
@@ -475,16 +482,15 @@ function build_design_matrix_torque(
 				end
 				scaling_factor = scaling_factors[salc_idx]
 				torque_vec = cross(dir_iatom_svec, SVector{3, Float64}(group_grad)) * scaling_factor
-				row_base = 3 * (iatom - 1)
-				torque_design_block[row_base + 1, salc_idx] = torque_vec[1]
-				torque_design_block[row_base + 2, salc_idx] = torque_vec[2]
-				torque_design_block[row_base + 3, salc_idx] = torque_vec[3]
+				row_base = row_offset + 3 * (iatom - 1)
+				design_matrix[row_base + 1, salc_idx] = torque_vec[1]
+				design_matrix[row_base + 2, salc_idx] = torque_vec[2]
+				design_matrix[row_base + 3, salc_idx] = torque_vec[3]
 			end
 		end
-		design_matrix_list[sc_idx] = torque_design_block
 	end
 
-	return vcat(design_matrix_list...)
+	return design_matrix
 end
 
 
@@ -522,6 +528,13 @@ function calc_∇ₑu!(
 	Mf_size = size(cbc.coeff_tensor, N + 1)
 	translated_atoms = Vector{Int}(undef, N)
 	atoms_sorted_buf = Vector{Int}(undef, N)
+
+	# Hoist scratch buffers out of the translation loop. `other_sites_buf` and
+	# `other_dims_buf` get refilled per iteration based on `atom_site_idx`, but
+	# the storage is allocated once up front.
+	idx_buf = Vector{Int}(undef, N)
+	other_sites_buf = Vector{Int}(undef, N - 1)
+	other_dims_buf = Vector{Int}(undef, N - 1)
 
 	# cbc.ls is fixed in this function, so de-dup by sorted translated atoms only.
 	searched_pairs = Set{UInt}()
@@ -576,10 +589,16 @@ function calc_∇ₑu!(
 		# coeff_tensor has shape (d1, d2, ..., dN, Mf_size)
 		# where di = 2*li + 1
 		grad_result = MVector{3, Float64}(0.0, 0.0, 0.0)
-		other_sites = [s for s in 1:N if s != atom_site_idx]
-		other_dims = dims[other_sites]
-		other_site_indices = CartesianIndices(Tuple(other_dims))
-		idx_buf = Vector{Int}(undef, N)
+		# Refill the other_sites/other_dims buffers for this `atom_site_idx`.
+		ki = 0
+		for s in 1:N
+			if s != atom_site_idx
+				ki += 1
+				other_sites_buf[ki] = s
+				other_dims_buf[ki] = dims[s]
+			end
+		end
+		other_site_indices = CartesianIndices(Tuple(other_dims_buf))
 
 		# Iterate over all Mf values
 		for mf_idx in 1:Mf_size
@@ -588,7 +607,8 @@ function calc_∇ₑu!(
 			# Reuse product over non-differentiated sites for each m on target site.
 			for other_tuple in other_site_indices
 				product_other = 1.0
-				for (k, site_idx) in enumerate(other_sites)
+				for k in 1:(N-1)
+					site_idx = other_sites_buf[k]
 					m_idx_other = other_tuple.I[k]
 					idx_buf[site_idx] = m_idx_other
 					product_other *= sh_values[site_idx][m_idx_other]

@@ -741,18 +741,31 @@ function projection_matrix_coupled_basis(
 	nbasis = length(coupled_basislist)
 	full_matrix_dim = nbasis * submatrix_dim
 
-	projection_mat = zeros(Float64, full_matrix_dim, full_matrix_dim)
-	for (n, symop) in enumerate(symmetry.symdata), time_rev_sym in [false, true]
-		# Calculate rotation matrix
-		is_proper = symop.is_proper
-		rotmat = is_proper ? symop.rotation_cart : -1 * symop.rotation_cart
-		# Lf is common within this coupled_basislist, so compute Δl only once per symmetry op.
+	# Precompute Wigner D matrices Δl(Lf, …) once per symmetry op. base_rot_mat depends
+	# only on (Lf, symop), not on time_rev_sym or the basis indices, so the loop body
+	# was previously recomputing the same matrix 2*nbasis times per (n, time_rev_sym).
+	base_rot_mats = Vector{Matrix{Float64}}(undef, length(symmetry.symdata))
+	for (n, symop) in enumerate(symmetry.symdata)
+		rotmat = symop.is_proper ? symop.rotation_cart : -1 * symop.rotation_cart
 		α, β, γ = rotmat2euler(rotmat)
-		base_rot_mat = Δl(Lf, α, β, γ)
+		base_rot_mats[n] = Δl(Lf, α, β, γ)
+	end
 
-		temp_projection_mat = zeros(Float64, full_matrix_dim, full_matrix_dim)
+	projection_mat = zeros(Float64, full_matrix_dim, full_matrix_dim)
+	# Reuse a single scratch buffer across all symmetry iterations to avoid
+	# `2*nsym` heap allocations of `full_matrix_dim^2` Float64 matrices.
+	temp_projection_mat = zeros(Float64, full_matrix_dim, full_matrix_dim)
+	# All cbs in this list share the same cluster size, so allocate once and refill.
+	N_atoms = length(coupled_basislist[1].atoms)
+	atoms_shifted_list = Vector{Int}(undef, N_atoms)
+	for (n, symop) in enumerate(symmetry.symdata), time_rev_sym in [false, true]
+		fill!(temp_projection_mat, 0.0)
+		base_rot_mat = base_rot_mats[n]
+
 		for (i, cb1) in enumerate(coupled_basislist)
-			atoms_shifted_list = [symmetry.map_sym[atom, n] for atom in cb1.atoms]
+			@inbounds for k in 1:N_atoms
+				atoms_shifted_list[k] = symmetry.map_sym[cb1.atoms[k], n]
+			end
 			primitive_atoms = find_translation_atoms(atoms_shifted_list, cluster_atoms, symmetry)
 			reordered_cb = reorder_atoms(cb1, primitive_atoms)
 			multiplier = time_rev_sym ? (-1)^sum(reordered_cb.ls) : 1
@@ -774,8 +787,8 @@ function projection_matrix_coupled_basis(
 			error("Projection matrix is not unitary. symmetry operation index: $n")
 		end
 
-		# Accumulate the projection matrix
-		projection_mat += temp_projection_mat
+		# Accumulate the projection matrix in place.
+		projection_mat .+= temp_projection_mat
 	end
 
 	# Average over all symmetry operations (2 for time reversal)
