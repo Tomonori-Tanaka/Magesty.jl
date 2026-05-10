@@ -755,12 +755,17 @@ function projection_matrix_coupled_basis(
 	# Reuse a single scratch buffer across all symmetry iterations to avoid
 	# `2*nsym` heap allocations of `full_matrix_dim^2` Float64 matrices.
 	temp_projection_mat = zeros(Float64, full_matrix_dim, full_matrix_dim)
+	# All cbs in this list share the same cluster size, so allocate once and refill.
+	N_atoms = length(coupled_basislist[1].atoms)
+	atoms_shifted_list = Vector{Int}(undef, N_atoms)
 	for (n, symop) in enumerate(symmetry.symdata), time_rev_sym in [false, true]
 		fill!(temp_projection_mat, 0.0)
 		base_rot_mat = base_rot_mats[n]
 
 		for (i, cb1) in enumerate(coupled_basislist)
-			atoms_shifted_list = [symmetry.map_sym[atom, n] for atom in cb1.atoms]
+			@inbounds for k in 1:N_atoms
+				atoms_shifted_list[k] = symmetry.map_sym[cb1.atoms[k], n]
+			end
 			primitive_atoms = find_translation_atoms(atoms_shifted_list, cluster_atoms, symmetry)
 			reordered_cb = reorder_atoms(cb1, primitive_atoms)
 			multiplier = time_rev_sym ? (-1)^sum(reordered_cb.ls) : 1
