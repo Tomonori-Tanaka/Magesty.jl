@@ -191,3 +191,29 @@ design_note 通り `mutable struct SHCache` を導入し、`build_design_matrix_
 - `Vector{SVector{N,T}}` は要素が bitstype でも、確保サイズが OLD `Vector{Vector{Float64}}` より大きくなり全体メモリを押し上げる場合がある
 
 #3 (idx_buf/other_sites の hoist) で既に大半のアロケーションは削減済み（torque -33.6M）なので、ここで打ち切って次の項目へ。
+
+---
+
+## #10: `atoms_shifted_list` comprehension 撤去
+
+**修正対象**: `src/BasisSets.jl` `projection_matrix_coupled_basis`
+
+ループ内側 `atoms_shifted_list = [symmetry.map_sym[atom, n] for atom in cb1.atoms]` の comprehension が (n, time_rev) × cb1 の組合せ分（fege で約 200 × 192 ≈ 38k）走り、毎回 Vector を確保していた。`coupled_basislist` 内の全 cb は同じクラスタサイズなので、関数冒頭で `atoms_shifted_list = Vector{Int}(undef, N_atoms)` を 1 度確保し、`@inbounds` で in-place 書き込みに変更。
+
+### Before / After (`projection_matrix_coupled_basis`)
+
+| Metric | Before | After | Δ |
+|---|---|---|---|
+| Time median | 61.6 ms | 62.0 ms | ±0 (noise) |
+| Memory | 76.74 MiB | 73.75 MiB | -3.9 % |
+| Allocs | 1,968,762 | 1,890,428 | **-78k** |
+
+### Before / After (`BasisSet` constructor)
+
+| Metric | Before | After | Δ |
+|---|---|---|---|
+| Time median | 89.9 ms | 92.0 ms | +2 % (noise) |
+| Memory | 380.71 MiB | 372.16 MiB | -2.2 % |
+| Allocs | 8,757,988 | 8,533,840 | **-224k** |
+
+**所感**: 時間影響はないが、内側ループの隠れアロケーションを除去。コードもシンプル化（comprehension → 明示的ループ + `@inbounds`）。`cb1.atoms` を `SVector{N,Int}` 化すれば map で zero-alloc にできるが Basis 型の構造変更が必要なので深追いせず。
