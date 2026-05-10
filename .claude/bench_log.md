@@ -125,3 +125,33 @@
 | Allocs | 91,976,323 | 91,976,323 | 0 |
 
 **所感**: 境界チェック除去のみなので allocs は不変。1.7% の高速化はそのまま CPU 命令削減効果。残りの allocations 削減は #1 が必要。
+
+---
+
+## #3: `idx_buf` / `other_sites` / `other_dims` の hoist + comprehension 撤去
+
+**修正対象**: `src/Optimize.jl` `design_matrix_energy_element`, `calc_∇ₑu!`
+
+両関数の `for itrans` ループ内で毎回再構築されていた以下のバッファをループ外へ hoist:
+- `idx_buf::Vector{Int}` （N 要素、書き換えのみ）
+- `other_sites_buf::Vector{Int}` / `other_dims_buf::Vector{Int}` （N-1 要素）
+
+特に `calc_∇ₑu!` の `other_sites = [s for s in 1:N if s != atom_site_idx]` は comprehension で毎回 Vector 確保していたが、`atom_site_idx` 単純比較ループに置換し、事前確保バッファに書き込む形へ。`design_matrix_energy_element` 側は `atom_site_idx` 依存ではないので関数冒頭で 1 度確保するだけ。
+
+### Before / After (`build_design_matrix_energy`, fege 20 spinconfigs)
+
+| Metric | Before | After | Δ |
+|---|---|---|---|
+| Time median | 1.529 s | **1.436 s** | **-6.1 %** |
+| Memory | 1.81 GiB | 1.77 GiB | -2.2 % |
+| Allocs | 91,976,323 | 90,631,363 | **-1.34M** |
+
+### Before / After (`build_design_matrix_torque`, fege 20 spinconfigs)
+
+| Metric | Before | After | Δ |
+|---|---|---|---|
+| Time median | 1.765 s | **1.262 s** | **-28.5 %** |
+| Memory | 6.45 GiB | 5.73 GiB | **-11.2 %** |
+| Allocs | 240,384,047 | 206,804,527 | **-33.6M** |
+
+**所感**: torque 側の comprehension が支配的なアロケーション源だったため大幅改善。energy 側は元から `1:(N-1)` の UnitRange を使っており影響は限定的だが、`dims[other_sites]` Vector 確保と `idx_buf` の per-iter 確保が消えて 1.3M allocs 削減。fege の integration test 全体時間が 65s → 52s に短縮。
