@@ -742,7 +742,11 @@ function projection_matrix_coupled_basis(
 	full_matrix_dim = nbasis * submatrix_dim
 
 	projection_mat = zeros(Float64, full_matrix_dim, full_matrix_dim)
+	# Reuse a single scratch buffer across all symmetry iterations to avoid
+	# `2*nsym` heap allocations of `full_matrix_dim^2` Float64 matrices.
+	temp_projection_mat = zeros(Float64, full_matrix_dim, full_matrix_dim)
 	for (n, symop) in enumerate(symmetry.symdata), time_rev_sym in [false, true]
+		fill!(temp_projection_mat, 0.0)
 		# Calculate rotation matrix
 		is_proper = symop.is_proper
 		rotmat = is_proper ? symop.rotation_cart : -1 * symop.rotation_cart
@@ -750,7 +754,6 @@ function projection_matrix_coupled_basis(
 		α, β, γ = rotmat2euler(rotmat)
 		base_rot_mat = Δl(Lf, α, β, γ)
 
-		temp_projection_mat = zeros(Float64, full_matrix_dim, full_matrix_dim)
 		for (i, cb1) in enumerate(coupled_basislist)
 			atoms_shifted_list = [symmetry.map_sym[atom, n] for atom in cb1.atoms]
 			primitive_atoms = find_translation_atoms(atoms_shifted_list, cluster_atoms, symmetry)
@@ -774,8 +777,8 @@ function projection_matrix_coupled_basis(
 			error("Projection matrix is not unitary. symmetry operation index: $n")
 		end
 
-		# Accumulate the projection matrix
-		projection_mat += temp_projection_mat
+		# Accumulate the projection matrix in place.
+		projection_mat .+= temp_projection_mat
 	end
 
 	# Average over all symmetry operations (2 for time reversal)
