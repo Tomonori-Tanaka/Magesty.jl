@@ -451,11 +451,15 @@ function build_design_matrix_torque(
 		scaling_factors[salc_idx] = (4*pi)^(n_C/2)  # (√(4π))^{n_C}
 	end
 
-	design_matrix_list = Vector{Matrix{Float64}}(undef, num_spinconfigs)
+	# Preallocate the full design matrix and let each thread write into its
+	# disjoint row block (sc_idx → rows [block_size*(sc_idx-1)+1 : block_size*sc_idx]).
+	# Avoids per-thread block allocation and the final vcat copy.
+	block_size = 3 * num_atoms
+	design_matrix = Matrix{Float64}(undef, num_spinconfigs * block_size, num_salcs)
 
 	@threads for sc_idx in 1:num_spinconfigs
 		spinconfig = spinconfig_list[sc_idx]
-		torque_design_block = zeros(Float64, 3*num_atoms, num_salcs)
+		row_offset = block_size * (sc_idx - 1)
 		grad_u_buf = MVector{3, Float64}(0.0, 0.0, 0.0)
 		@inbounds for iatom in 1:num_atoms
 			@views dir_iatom = spinconfig.spin_directions[:, iatom]
@@ -475,16 +479,15 @@ function build_design_matrix_torque(
 				end
 				scaling_factor = scaling_factors[salc_idx]
 				torque_vec = cross(dir_iatom_svec, SVector{3, Float64}(group_grad)) * scaling_factor
-				row_base = 3 * (iatom - 1)
-				torque_design_block[row_base + 1, salc_idx] = torque_vec[1]
-				torque_design_block[row_base + 2, salc_idx] = torque_vec[2]
-				torque_design_block[row_base + 3, salc_idx] = torque_vec[3]
+				row_base = row_offset + 3 * (iatom - 1)
+				design_matrix[row_base + 1, salc_idx] = torque_vec[1]
+				design_matrix[row_base + 2, salc_idx] = torque_vec[2]
+				design_matrix[row_base + 3, salc_idx] = torque_vec[3]
 			end
 		end
-		design_matrix_list[sc_idx] = torque_design_block
 	end
 
-	return vcat(design_matrix_list...)
+	return design_matrix
 end
 
 

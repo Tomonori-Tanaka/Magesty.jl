@@ -69,3 +69,23 @@
 | Allocs | 11,825,848 | **8,757,988** | **-26 %** |
 
 **所感**: 単発の `projection_matrix_coupled_basis` 計測ではほぼ差が出ないが、`_compute_salc_groups` が key group 単位で多数呼ばれ、その内部で Δl の重複計算が積み上がっていたため、BasisSet 全体では -40% 時間短縮と allocations -3M 規模の改善。`Δl` 内部で行列確保しているのが主因と推察。
+
+---
+
+## #6: `build_design_matrix_torque` の preallocation 化
+
+**修正対象**: `src/Optimize.jl` `build_design_matrix_torque`
+
+`design_matrix_list = Vector{Matrix{Float64}}(undef, num_spinconfigs)` に各スレッドのブロック行列を入れて最後に `vcat(...)` していた。これを `Matrix{Float64}(undef, num_spinconfigs * 3 * num_atoms, num_salcs)` で 1 度確保し、各スレッドが `sc_idx` の disjoint な行レンジに直接書き込む形に変更。
+
+### Before / After (`build_design_matrix_torque`, fege 20 spinconfigs)
+
+| Metric | Before | After | Δ |
+|---|---|---|---|
+| Time median | 1.798 s | 1.822 s | +1 % (noise) |
+| Memory | 6.46 GiB | 6.45 GiB | -0.15 % |
+| Allocs | 240,384,112 | 240,384,047 | -65 allocs |
+
+**所感**: 単独効果は微小。総アロケーション量は `calc_∇ₑu!` の内部割り当て (#2) が支配的なため、#6 の vcat 廃止だけでは数値が動かない。ただし以下の点で価値あり:
+- 中間 `Vector{Matrix}` と最終 `vcat` の中間コピーを廃止（構造的にクリーン）
+- #2 (calc_∇ₑu! のバッファ前確保) を入れた後に、相対的な寄与が見える可能性
