@@ -272,9 +272,44 @@ FeGe integration test: **1m20.8s → 56.9s (-30%)**。
 
 `new_atom_list = Vector{Int}(atom_list)` は読み取り専用なので不要。引数を `AbstractVector{<:Integer}` 化して直接参照。
 
-### 計測値は post-B baseline で再取得予定（プレースホルダ）。Δ は B の有無に依存しない:
-- 1 call につき 1 個の Vector{Int} 確保が消える
-- `projection_matrix_coupled_basis` 全体で `~78k` allocs 削減
-- `BasisSet` 構築全体で `~224k` allocs 削減
+### Before / After (post-B → post-B+F、fege)
+
+| Function | Metric | Before | After | Δ |
+|---|---|---|---|---|
+| `projection_matrix_coupled_basis` | Memory | 73.75 MiB | 70.76 MiB | -4.1 % |
+|  | Allocs | 1,890,428 | 1,812,092 | **-78k** |
+| `BasisSet` constructor | Memory | 372.16 MiB | 363.60 MiB | -2.3 % |
+|  | Allocs | 8,533,840 | 8,309,584 | **-224k** |
+
+時間は ±3% の noise 内（59〜60 ms / 91〜93 ms）。
 
 **所感**: 軽微な改善だが構造クリーンアップ。`atom_translated = similar(...)` の per-i 確保はループから返す可能性があるためそのまま残置。
+
+---
+
+## 第二弾サマリ (B + F)
+
+`build_design_matrix_energy` (fege 20 spinconfigs、5 trials @time):
+- Time: 2.13 s → 0.56 s (**-74%**, 約 4x speedup via `@threads`)
+- Allocs/Memory: 不変（90.63M / 1.77 GiB）
+
+`projection_matrix_coupled_basis` (fege):
+- Time: 79.0 ms → 59.2 ms (**-25%**, 主に thermal/再計測効果)
+- Memory: 73.75 → 70.76 MiB (-4.1%)
+- Allocs: 1.89M → 1.81M (-78k, F の効果)
+
+`BasisSet` constructor:
+- Time: 163.6 ms → 90.5 ms (**-45%**, thermal/再計測込み)
+- Memory: 372.16 → 363.60 MiB (-2.3%)
+- Allocs: 8.53M → 8.31M (-224k, F の効果)
+
+FeGe integration test: 1m20.8s → 55.8s (**-31%**)。
+
+### 採用しなかった改善案
+プロファイル上で hotspot に見えた以下は試行 → ベンチで悪化したため棄却。詳細は `.claude/design_note.md` 末尾の「教訓」セクション:
+- A: `coeff_tensor[idx_buf..., mf_idx]` の splat → 線形インデックス化（torque +34%）
+- E: `mf_grad_contribution .+= ...` の手展開（時間 +38%, allocs +88%）
+
+メモリ・allocs では効果ありだが時間が noise 内のため見送った候補（`design_note.md` の「候補」セクション）:
+- C: `rot_mat * phase` を broadcast in-place 化 → BasisSet メモリ -3.9%, allocs -224k
+- D: `tensor_inner_product` 融合 → BasisSet メモリ -8.8%, allocs -224k
