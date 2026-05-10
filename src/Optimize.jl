@@ -352,7 +352,7 @@ function design_matrix_energy_element(
 	translated_atoms = Vector{Int}(undef, N)
 	atoms_sorted_buf = Vector{Int}(undef, N)
 
-	for itrans in symmetry.symnum_translation
+	@inbounds for itrans in symmetry.symnum_translation
 		# Translate atoms
 		for site_idx in 1:N
 			translated_atoms[site_idx] = symmetry.map_sym[cbc.atoms[site_idx], itrans]
