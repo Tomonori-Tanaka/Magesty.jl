@@ -297,7 +297,8 @@ function build_design_matrix_energy(
 	# set first column to 1 (reference_energy term)
 	design_matrix[:, 1] .= 1.0
 
-	for i = 1:num_salcs
+	# Parallel over key-group columns; each thread writes to a disjoint column.
+	@threads for i = 1:num_salcs
 		key_group::Vector{Basis.CoupledBasis_with_coefficient} = salc_list[i]
 		n_C = length(key_group[1].atoms)  # Number of sites in the cluster
 		scaling_factor = (4*pi)^(n_C/2)  # (√(4π))^{n_C}

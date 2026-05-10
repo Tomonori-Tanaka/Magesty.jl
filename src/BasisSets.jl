@@ -663,27 +663,27 @@ coupled basis.
 - `ErrorException`: If no folding matches any cluster in `cluster_atoms`
 """
 function find_translation_atoms(
-	atom_list::Vector{<:Integer},
+	atom_list::AbstractVector{<:Integer},
 	cluster_atoms::Set{Vector{Int}},
 	symmetry::Symmetry,
 )::Vector{Int}
-	new_atom_list = Vector{Int}(atom_list)
+	# Read-only over atom_list, so skip the upfront defensive copy.
 	atoms_in_prim = symmetry.atoms_in_prim
 	map_s2p = symmetry.map_s2p
 	symnum_translation = symmetry.symnum_translation
 	map_sym_inv = symmetry.map_sym_inv
 
-	p_target = sortperm(new_atom_list)
+	p_target = sortperm(atom_list)
 	fallback_candidate::Union{Nothing, Vector{Int}} = nothing
 
 	# Same reference-site recipe as `operate_symop`; collect all folds that hit `cluster_atoms`.
-	for i in eachindex(new_atom_list)
-		ref_atom = new_atom_list[i]
+	for i in eachindex(atom_list)
+		ref_atom = atom_list[i]
 		ref_atom_in_prim = atoms_in_prim[map_s2p[ref_atom].atom]
 		corresponding_translation = symnum_translation[map_s2p[ref_atom].translation]
-		atom_translated = similar(new_atom_list)
+		atom_translated = Vector{Int}(undef, length(atom_list))
 		atom_translated[i] = ref_atom_in_prim
-		for (n, new_atom) in enumerate(new_atom_list)
+		for (n, new_atom) in enumerate(atom_list)
 			if n == i
 				continue
 			end
