@@ -265,3 +265,16 @@ design_note 通り `mutable struct SHCache` を導入し、`build_design_matrix_
 FeGe integration test: **1m20.8s → 56.9s (-30%)**。
 
 **所感**: 単純な並列化だが効果絶大。energy 側は既に hot spot は計算量で支配されていたため、4 スレッドでほぼ理想的にスケール。
+
+## F: `find_translation_atoms` の冗長コピー削除
+
+**修正対象**: `src/BasisSets.jl:678`
+
+`new_atom_list = Vector{Int}(atom_list)` は読み取り専用なので不要。引数を `AbstractVector{<:Integer}` 化して直接参照。
+
+### 計測値は post-B baseline で再取得予定（プレースホルダ）。Δ は B の有無に依存しない:
+- 1 call につき 1 個の Vector{Int} 確保が消える
+- `projection_matrix_coupled_basis` 全体で `~78k` allocs 削減
+- `BasisSet` 構築全体で `~224k` allocs 削減
+
+**所感**: 軽微な改善だが構造クリーンアップ。`atom_translated = similar(...)` の per-i 確保はループから返す可能性があるためそのまま残置。
