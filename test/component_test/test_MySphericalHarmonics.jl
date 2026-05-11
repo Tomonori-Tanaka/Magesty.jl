@@ -3,8 +3,9 @@ using LinearAlgebra
 using LegendrePolynomials
 
 using ..MySphericalHarmonics
-using ..MySphericalHarmonics: P̄ₗₘ, dP̄ₗₘ, Yₗₘ, ∂Yₗₘ_∂r̂x, ∂Yₗₘ_∂r̂y, ∂Yₗₘ_∂r̂z, yₗₘ,
-	∂Zₗₘ_∂r̂x, ∂Zₗₘ_∂r̂y, ∂Zₗₘ_∂r̂z, zzₗₘ, ∂Zₗₘ_∂x, ∂Zₗₘ_∂y, ∂Zₗₘ_∂z
+using ..MySphericalHarmonics: P̄ₗₘ, dP̄ₗₘ, dP̄ₗₘ_unsafe, Yₗₘ, ∂Yₗₘ_∂r̂x, ∂Yₗₘ_∂r̂y, ∂Yₗₘ_∂r̂z, yₗₘ,
+	∂Zₗₘ_∂r̂x, ∂Zₗₘ_∂r̂y, ∂Zₗₘ_∂r̂z, zzₗₘ, ∂Zₗₘ_∂x, ∂Zₗₘ_∂y, ∂Zₗₘ_∂z,
+	Zₗₘ_unsafe, ∂ᵢZlm_unsafe
 
 @testset "Legendre polynomials" begin
 	# (l, m, r̂z)
@@ -1086,5 +1087,52 @@ end
 			∂Zₗₘ_∂z(2, 2, [0, 1 / √2, -1 / √2]),
 			-√(15 / 4π) * (1 / √2) * (1 / 2),
 		)
+	end
+
+	# Buffered overloads must produce numerically identical results to the
+	# unbuffered hot-path methods across all (l, m) and a variety of directions.
+	@testset "buffered overloads ↔ unbuffered equivalence" begin
+		max_l = 8
+		buf = Vector{Float64}(undef, max_l + 2)
+		uvecs = [
+			[1.0, 0.0, 0.0],
+			[0.0, 1.0, 0.0],
+			[0.0, 0.0, 1.0],
+			[0.0, 0.0, -1.0],
+			[1 / √3, 1 / √3, 1 / √3],
+			[1 / √3, -1 / √3, 1 / √3],
+			[-1 / √2, 0.0, 1 / √2],
+			[0.3, 0.4, √(1 - 0.25)],
+			normalize([0.7, -0.2, 0.6]),
+		]
+		@testset "P̄ₗₘ buffered" begin
+			for l in 0:max_l, m in -l:l, u in uvecs
+				@test P̄ₗₘ(l, m, u[3], buf) === P̄ₗₘ(l, m, u[3])
+				@test P̄ₗₘ(l, m, u, buf) === P̄ₗₘ(l, m, u)
+			end
+		end
+		@testset "dP̄ₗₘ_unsafe buffered" begin
+			for l in 0:max_l, m in -l:l, u in uvecs
+				@test dP̄ₗₘ_unsafe(l, m, u[3], buf) === dP̄ₗₘ_unsafe(l, m, u[3])
+			end
+		end
+		@testset "Zₗₘ_unsafe buffered" begin
+			for l in 0:max_l, m in -l:l, u in uvecs
+				@test Zₗₘ_unsafe(l, m, u, buf) === Zₗₘ_unsafe(l, m, u)
+			end
+		end
+		@testset "∂ᵢZlm_unsafe buffered" begin
+			for l in 0:max_l, m in -l:l, u in uvecs
+				@test ∂ᵢZlm_unsafe(l, m, u, buf) === ∂ᵢZlm_unsafe(l, m, u)
+			end
+		end
+		@testset "no allocation in buffered hot path" begin
+			# Warm up to ensure compilation.
+			u = uvecs[end]
+			Zₗₘ_unsafe(4, 2, u, buf)
+			∂ᵢZlm_unsafe(4, 2, u, buf)
+			@test (@allocated Zₗₘ_unsafe(4, 2, u, buf)) == 0
+			@test (@allocated ∂ᵢZlm_unsafe(4, 2, u, buf)) == 0
+		end
 	end
 end
