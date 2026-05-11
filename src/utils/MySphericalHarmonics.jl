@@ -82,6 +82,17 @@ function P̄ₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float6
 	return P̄ₗₘ(l, m, uvec[3])
 end
 
+# Buffered overload — see [`Zₗₘ_unsafe`](@ref) buffered method for required buffer size.
+function P̄ₗₘ(l::Integer, m::Integer, r̂z::Real, buf::AbstractVector{Float64})::Float64
+	am = abs(m)
+	return _parity(m) * _plm_norm(l, am) * dnPl(r̂z, l, am, buf)
+end
+
+function P̄ₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real},
+		buf::AbstractVector{Float64})::Float64
+	return P̄ₗₘ(l, m, uvec[3], buf)
+end
+
 """
 	dP̄ₗₘ_unsafe(l::Integer, m::Integer, r̂z::Real) -> Float64
 
@@ -91,6 +102,13 @@ Derivative ``\\mathrm{d}\\bar{P}_{\\ell m}/\\mathrm{d}\\hat{r}_z`` with **no** v
 function dP̄ₗₘ_unsafe(l::Integer, m::Integer, r̂z::Real)::Float64
 	am = abs(m)
 	return _parity(m) * _plm_norm(l, am) * dnPl(r̂z, l, am + 1)
+end
+
+# Buffered overload — `buf` must satisfy `length(buf) >= l - |m|`.
+function dP̄ₗₘ_unsafe(l::Integer, m::Integer, r̂z::Real,
+		buf::AbstractVector{Float64})::Float64
+	am = abs(m)
+	return _parity(m) * _plm_norm(l, am) * dnPl(r̂z, l, am + 1, buf)
 end
 
 """
@@ -415,6 +433,27 @@ function Zₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::F
 end
 
 """
+	Zₗₘ_unsafe(l, m, uvec, buf::AbstractVector{Float64}) -> Float64
+
+Buffered variant of [`Zₗₘ_unsafe`](@ref) that reuses `buf` as the cache for
+`LegendrePolynomials.dnPl`, eliminating the per-call heap allocation. `buf` must
+satisfy `length(buf) >= l - |m| + 1`; allocating `Vector{Float64}(undef, max_l + 1)`
+once per thread covers all `(l, m)` with `l ≤ max_l`. Numerical result is identical
+to the unbuffered method.
+"""
+function Zₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real},
+		buf::AbstractVector{Float64})::Float64
+	m == 0 && return P̄ₗₘ(l, 0, uvec[3], buf)
+
+	n = abs(m)
+	plm = P̄ₗₘ(l, n, uvec[3], buf)
+	c = _parity(n) * √2 * plm
+	z_pow = ComplexF64(uvec[1], uvec[2])^n
+
+	return m > 0 ? c * real(z_pow) : c * imag(z_pow)
+end
+
+"""
 	∂Zₗₘ_∂r̂x_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
 Same as [`∂Zₗₘ_∂r̂x`](@ref) without validating `l`, `m`, or `uvec`.
@@ -645,6 +684,43 @@ function ∂ᵢZlm_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}):
 	end
 
 	# zzₗₘ = r̂ ⋅ ∂r̂Z  (computed once, used three times)
+	zz = x * dZx + y * dZy + z * dZz
+	return SVector{3,Float64}(dZx - x * zz, dZy - y * zz, dZz - z * zz)
+end
+
+"""
+	∂ᵢZlm_unsafe(l, m, uvec, buf::AbstractVector{Float64}) -> SVector{3,Float64}
+
+Buffered variant of [`∂ᵢZlm_unsafe`](@ref). `buf` is reused as the cache for both
+the `P̄ₗₘ` and `dP̄ₗₘ_unsafe` calls (each call overwrites `buf` independently;
+result is read before the next call). `buf` must satisfy `length(buf) >= l - |m| + 1`;
+`Vector{Float64}(undef, max_l + 1)` per thread covers all `(l, m)` with `l ≤ max_l`.
+"""
+function ∂ᵢZlm_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real},
+		buf::AbstractVector{Float64})::SVector{3,Float64}
+	x, y, z = uvec[1], uvec[2], uvec[3]
+	n = abs(m)
+	plm  = P̄ₗₘ(l, n, z, buf)
+	dplm = dP̄ₗₘ_unsafe(l, n, z, buf)
+
+	if m == 0
+		zz = z * dplm
+		return SVector{3,Float64}(-x * zz, -y * zz, dplm - z * zz)
+	end
+
+	c = _parity(n) * √2
+	z_xy     = ComplexF64(x, y)
+	z_pow_n  = z_xy^n
+	z_pow_n1 = z_xy^(n - 1)
+	rn  = real(z_pow_n);  in_  = imag(z_pow_n)
+	rn1 = real(z_pow_n1); in1  = imag(z_pow_n1)
+
+	dZx, dZy, dZz = if m > 0
+		(c * n * plm * rn1, -c * n * plm * in1, c * dplm * rn)
+	else
+		(c * n * plm * in1,  c * n * plm * rn1, c * dplm * in_)
+	end
+
 	zz = x * dZx + y * dZy + z * dZz
 	return SVector{3,Float64}(dZx - x * zz, dZy - y * zz, dZz - z * zz)
 end
