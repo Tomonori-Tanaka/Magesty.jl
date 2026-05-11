@@ -6,6 +6,34 @@
 
 ## 未着手の改善案
 
+### 🔴 候補F: `∂ᵢZlm_unsafe` での `P̄ₗₘ`/`dP̄ₗₘ` 統合計算（着手中）
+
+**対象**: `src/utils/MySphericalHarmonics.jl` `∂ᵢZlm_unsafe(l, m, uvec, buf)`
+
+**現状**: 候補E で alloc は解消したが、`∂ᵢZlm_unsafe` は `P̄ₗₘ(l, n, z, buf)` と
+`dP̄ₗₘ_unsafe(l, n, z, buf)` を続けて呼ぶため、内部の `dnPl(x, l, n)` と
+`dnPl(x, l, n+1)` がほぼ同じ Legendre キャッシュを 2 回構築している
+（`_unsafednPl!` は毎回 `collectPl!` + `n` 段の漸化式を実行）。
+
+**提案**: `LegendrePolynomials._unsafednPl!` を 1 回だけ呼んで am 階導関数の
+キャッシュを作り、続けて漸化式を 1 ステップだけ手動で進めて (am+1) 階導関数も
+取り出す内部ヘルパ `_legendre_pair_unsafe!(buf, x, l, am) -> (P_am_l, P_am1_l)` を追加。
+`∂ᵢZlm_unsafe(l, m, uvec, buf)` 内でこれを呼び、`plm` と `dplm` を 1 回の
+キャッシュ構築で得る。
+
+**期待効果**:
+- Legendre 部分が約 1.7〜2×
+- `∂ᵢZlm_unsafe` 全体で **1.3〜1.5×**
+
+**実装規模**: 中。`LegendrePolynomials` の内部関数 `_unsafednPl!` と `dPl_recursion`
+（いずれも非エクスポート）を直接呼ぶため、上流の API 変更に対する追従が必要。
+等価性テストで担保する。数値結果は不変。
+
+**注意**:
+- `_unsafednPl!` は cache を破壊的に書き換える。漸化式の 1 ステップ追加分は
+  既存 `_unsafednPl!` の内部実装と整合させる
+- buffer サイズ要件は変わらず `length(buf) >= l - |m| + 1`
+
 ### 🔴 候補E: `Zₗₘ_unsafe` のバッファ事前確保（Magesty.jl 側、最大の改善余地）
 
 **対象**: `src/utils/MySphericalHarmonics.jl` `P̄ₗₘ`, `dP̄ₗₘ_unsafe`, `Zₗₘ_unsafe`, `∂ᵢZlm_unsafe`

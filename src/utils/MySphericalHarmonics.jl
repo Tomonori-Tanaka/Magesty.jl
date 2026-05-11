@@ -31,6 +31,53 @@ export ∂Zₗₘ_∂x_unsafe, ∂Zₗₘ_∂y_unsafe, ∂Zₗₘ_∂z_unsafe, d
 # Fast integer parity: (-1)^n without float exponentiation
 @inline _parity(n::Integer) = isodd(n) ? -1 : 1
 
+# Combined cache fill for dnPl(x, l, am) and dnPl(x, l, am + 1).
+#
+# Two separate `dnPl` calls would each rebuild the Legendre cache via
+# `collectPl!` + an am-step / (am+1)-step recurrence. Here we run
+# `_unsafednPl!` once with derivative order `am`, snapshot the value at
+# index `l - am + 1`, then advance the recurrence one extra step (`ni = am + 1`)
+# in-place to recover the (am+1)-th derivative at `l`, stored at index `l - am`.
+#
+# `buf` must satisfy `length(buf) >= l - am + 1`. Uses non-exported
+# `LegendrePolynomials._unsafednPl!` and `LegendrePolynomials.dPl_recursion`;
+# upstream changes to those internals require updating this helper.
+@inline function _legendre_pair_unsafe!(buf::AbstractVector{Float64},
+		x::Real, l::Integer, am::Integer)::Tuple{Float64,Float64}
+	# dnPl(x, l, n) = 0 when n > l.
+	am > l && return (0.0, 0.0)
+
+	LegendrePolynomials._unsafednPl!(buf, x, l, am)
+	plm_raw = @inbounds buf[l - am + 1]
+	am == l && return (plm_raw, 0.0)
+
+	# One extra recurrence step: ni = am + 1.
+	ni = am + 1
+	@inbounds begin
+		P_nim1_nim1 = buf[1]
+		P_ni_ni = LegendrePolynomials.dPl_recursion(
+			Float64, ni, ni, nothing, P_nim1_nim1, nothing, x)
+		buf[1] = P_ni_ni
+		l == ni && return (plm_raw, P_ni_ni)
+
+		P_nim1_ni = buf[2]
+		P_ni_nip1 = LegendrePolynomials.dPl_recursion(
+			Float64, ni + 1, ni, P_ni_ni, P_nim1_ni, nothing, x)
+		buf[2] = P_ni_nip1
+		l == ni + 1 && return (plm_raw, P_ni_nip1)
+
+		for li in (ni + 2):l
+			P_ni_lim2 = buf[li - ni - 1]
+			P_ni_lim1 = buf[li - ni]
+			P_nim1_lim1 = buf[li - ni + 1]
+			P_ni_li = LegendrePolynomials.dPl_recursion(
+				Float64, li, ni, P_ni_lim1, P_nim1_lim1, P_ni_lim2, x)
+			buf[li - ni + 1] = P_ni_li
+		end
+		return (plm_raw, buf[l - am])
+	end
+end
+
 # Compute sqrt((2l+1)/(4π) * (l-m)!/(l+m)!) avoiding large factorial intermediates.
 # Uses (l+m)!/(l-m)! = (l-m+1)*(l-m+2)*...*(l+m) to stay in Float64 throughout.
 @inline function _plm_norm(l::Int, m::Int)::Float64
@@ -700,8 +747,11 @@ function ∂ᵢZlm_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real},
 		buf::AbstractVector{Float64})::SVector{3,Float64}
 	x, y, z = uvec[1], uvec[2], uvec[3]
 	n = abs(m)
-	plm  = P̄ₗₘ(l, n, z, buf)
-	dplm = dP̄ₗₘ_unsafe(l, n, z, buf)
+	# Single cache build covers both raw Legendre values.
+	plm_raw, dplm_raw = _legendre_pair_unsafe!(buf, z, l, n)
+	norm = _plm_norm(l, n)
+	plm  = _parity(n) * norm * plm_raw
+	dplm = _parity(n) * norm * dplm_raw
 
 	if m == 0
 		zz = z * dplm
