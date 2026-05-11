@@ -1,6 +1,6 @@
 # Bench Log
 
-`design_note.md` の改善案を実装する際の前後ベンチマーク記録。
+`DESIGN_NOTES.md` の改善案を実装する際の前後ベンチマーク記録。
 
 ## 計測環境
 
@@ -306,10 +306,10 @@ FeGe integration test: **1m20.8s → 56.9s (-30%)**。
 FeGe integration test: 1m20.8s → 55.8s (**-31%**)。
 
 ### 採用しなかった改善案
-プロファイル上で hotspot に見えた以下は試行 → ベンチで悪化したため棄却。詳細は `.claude/design_note.md` 末尾の「教訓」セクション:
+プロファイル上で hotspot に見えた以下は試行 → ベンチで悪化したため棄却。詳細は `DESIGN_NOTES.md` 末尾の「教訓」セクション:
 - A: `coeff_tensor[idx_buf..., mf_idx]` の splat → 線形インデックス化（torque +34%）
 - E: `mf_grad_contribution .+= ...` の手展開（時間 +38%, allocs +88%）
 
-メモリ・allocs では効果ありだが時間が noise 内のため見送った候補（`design_note.md` の「候補」セクション）:
+メモリ・allocs では効果ありだが時間が noise 内のため見送った候補（`DESIGN_NOTES.md` の「候補」セクション）:
 - C: `rot_mat * phase` を broadcast in-place 化 → BasisSet メモリ -3.9%, allocs -224k
 - D: `tensor_inner_product` 融合 → BasisSet メモリ -8.8%, allocs -224k
