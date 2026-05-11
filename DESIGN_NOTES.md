@@ -6,6 +6,37 @@
 
 ## 未着手の改善案
 
+### 🔴 候補E: `Zₗₘ_unsafe` のバッファ事前確保（Magesty.jl 側、最大の改善余地）
+
+**対象**: `src/utils/MySphericalHarmonics.jl` `P̄ₗₘ`, `dP̄ₗₘ_unsafe`, `Zₗₘ_unsafe`, `∂ᵢZlm_unsafe`
+
+**現状**: `_update_atom_zlm_cache!`（SpinClusterMC 側 sweep の 43%）の主要コストは
+`LegendrePolynomials.dnPl(x, l, n)` が毎回 `zeros(Float64, l-n+1)` をヒープに確保していること。
+1 sweep あたり 1024 回・29.7 KB のアロケーションが発生し、GC 圧の主因にもなっている。
+
+**提案**: `LegendrePolynomials.dnPl` には事前確保バッファを受け取る `dnPl(x, l, n, A)` 版がある。
+これを利用して以下の buffered API を追加する（既存 API は据え置き）:
+
+- `P̄ₗₘ(l, m, r̂z, buf)` — `dnPl(x, l, |m|, buf)` を経由
+- `dP̄ₗₘ_unsafe(l, m, r̂z, buf)` — `dnPl(x, l, |m|+1, buf)` を経由
+- `Zₗₘ_unsafe(l, m, uvec, buf)` — 上記を経由
+- `∂ᵢZlm_unsafe(l, m, uvec, buf)` — 上記を経由
+
+呼び出し側（SpinClusterMC）は per-thread `Vector{Float64}(undef, max_l + 2)` を確保して渡す。
+
+**期待効果**:
+- `dnPl` 単体で 5.3×（16 ns → 3 ns）
+- `_update_atom_zlm_cache!` で 2〜3× 高速化
+- sweep 全体で **1.3〜1.5×**（57.9 μs → 約 40 μs）
+- GC オーバーヘッド（5.1%）も同時に解消
+
+**実装規模**: 中。数値結果は不変であるべき（等価性テストで担保）。
+
+**注意**:
+- buffer サイズ不足は `BoundsError`／無音破壊の原因になりうる。サイズ要件は `length(buf) >= l - |m| + 1`（dP̄ 側は `l - |m|`）。`max_l + 2` を確保し、`@boundscheck` で守るか先頭で 1 度 `@assert` する
+- 並列化された呼び出し箇所では必ず per-thread buffer（共有すると race）
+- 呼び出し側（SpinClusterMC）の修正は本リポジトリ側で別途実施
+
 ### 🟡 SH バッファの cache 引数化（旧 #1/#2）
 
 **対象**: `src/Optimize.jl` `design_matrix_energy_element`, `calc_∇ₑu!`
