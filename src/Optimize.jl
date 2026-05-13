@@ -24,6 +24,20 @@ using ..SpinConfigs
 export Optimizer, SCEModel, fit_sce_model, predict_energy, AbstractEstimator, OLS, Ridge
 
 """
+	_cluster_scaling(n_sites::Integer) -> Float64
+
+Return the SCE basis normalization factor `(4π)^(n_sites/2)` for an
+`n_sites`-body cluster contribution. The factor compensates the
+`1/√(4π)` carried by each per-site tesseral harmonic so that fitted
+coefficients `Jφ` are in the input energy unit (typically eV).
+
+See the Magesty.jl technical notes for the derivation. This helper is
+internal; callers in this module and `EnergyTorque` invoke it directly
+as `_cluster_scaling(n_C)` to keep the scaling convention in one place.
+"""
+@inline _cluster_scaling(n_sites::Integer)::Float64 = (4π)^(n_sites / 2)
+
+"""
 	AbstractEstimator
 
 Abstract type for SCE coefficient estimation methods.
@@ -360,7 +374,7 @@ function build_design_matrix_energy(
 	@threads for i = 1:num_salcs
 		key_group::Vector{Basis.CoupledBasis_with_coefficient} = salc_list[i]
 		n_C = length(key_group[1].atoms)  # Number of sites in the cluster
-		scaling_factor = (4*pi)^(n_C/2)  # (√(4π))^{n_C}
+		scaling_factor = _cluster_scaling(n_C)
 		@inbounds for j in 1:num_spinconfigs
 			# Sum contributions from all CoupledBasis_with_coefficient in this key group
 			group_value = 0.0
@@ -511,7 +525,7 @@ function build_design_matrix_torque(
 	scaling_factors = Vector{Float64}(undef, num_salcs)
 	for (salc_idx, key_group) in enumerate(salc_list)
 		n_C = length(key_group[1].atoms)  # Number of sites in the cluster
-		scaling_factors[salc_idx] = (4*pi)^(n_C/2)  # (√(4π))^{n_C}
+		scaling_factors[salc_idx] = _cluster_scaling(n_C)
 	end
 
 	# Preallocate the full design matrix and let each thread write into its
@@ -884,7 +898,7 @@ function predict_energy(
 	for i = 1:num_salcs
 		key_group = salc_list[i]
 		n_C = length(key_group[1].atoms)
-		scaling_factor = (4π)^(n_C / 2)
+		scaling_factor = _cluster_scaling(n_C)
 		group_value = 0.0
 		for cbc in key_group
 			group_value += design_matrix_energy_element(cbc, spin_directions, model.symmetry)

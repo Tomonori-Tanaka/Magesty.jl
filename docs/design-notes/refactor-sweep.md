@@ -1,6 +1,6 @@
 # リファクタリング候補スイープ R1-R11
 
-**Status**: 進行中（2026-05-13 開始、R1 / R2 / R3 / R4 / R7 完了）
+**Status**: ほぼ完了（2026-05-13 開始、2026-05-14 完了）。R1-R7, R9, R10, R11 完了。R8 は Plan B (重複集約) 完了、Plan C (バグ修正) は `replace-sorted-container.md` の DataStructures.jl 置き換え案で吸収予定のため保留。
 
 **目的**: `src/` 全体（~9.4k 行）を対象に「構造的に整理すべき」候補を洗い出した結果。Optimize.jl は `estimator-dispatch.md` で個別カバー済みなので、本ファイルでは触れない。
 
@@ -189,13 +189,29 @@ L554 に「Remove this exceptional handling when the bug is fixed in the project
 
 ### R11. `EnergyTorque.jl` の `(4π)^(n_C/2)` スケーリングの重複と物理意味未注釈
 
-**対象**: `src/utils/EnergyTorque.jl` `calc_energy`（L59 付近）, `calc_torque`（L134 付近）, および `src/Optimize.jl` `build_design_matrix_energy` / `build_design_matrix_torque` 内の同様の式
+**Status**: **完了** (2026-05-14). branch なし → main に直接 fast-forward 予定。
 
-物理由来（technical_notes 参照）の docstring が欠落しているうえ、3 箇所以上に同じ式が散らばっている。スケーリングの規約が変わったら全箇所同期が必要だが、現状は静かに drift しうる。
+**対象**: `src/utils/EnergyTorque.jl` `calc_energy` / `calc_torque`, `src/Optimize.jl` `build_design_matrix_energy` / `build_design_matrix_torque` / `predict_energy`
 
-**改善案**: 定数または `_sce_scaling_factor(n_C)` helper として 1 箇所に集約し、由来（[Magesty.jl technical notes](https://Tomonori-Tanaka.github.io/Magesty.jl/technical_notes/)）を docstring に明記。
+**実態確認結果**: `(4π)^(n_C/2)` の式が 5 箇所に散在 (`Optimize.jl` の L363 / L514 / L887、`EnergyTorque.jl` の L59 / L134)。リテラルも `4*pi` と `4π` が混在。物理由来 (技術ノート参照) の docstring はどこにも書かれていない。SCE 基底関数の `1/√(4π)` 正規化を打ち消すための係数であることが caller では一切わからない状態。
 
-**連動箇所**: CLAUDE.md「連動箇所」セクションに追加する候補。
+**参考**: `SpinClusterMC.jl` (`src/JPhiMagestyCarlo.jl:141-144`) では既に `@inline _cluster_scaling(n_sites::Integer)::Float64 = (4 * pi)^(n_sites / 2)` として private helper に集約済み。同じパターンを Magesty 側にも適用。
+
+**実装** (Plan B: helper 抽出のみ、式不変):
+1. `Optimize.jl` の冒頭付近に private helper を追加:
+   ```julia
+   @inline _cluster_scaling(n_sites::Integer)::Float64 = (4π)^(n_sites / 2)
+   ```
+   docstring に物理由来 (技術ノート参照) を明記。export しない。
+2. 5 箇所すべてを `_cluster_scaling(n_C)` 呼び出しに置換。`EnergyTorque.jl` 側は `Optimize._cluster_scaling(n_C)` で参照 (既存の `using ..Optimize` で十分)。
+3. 散在していた `# (√(4π))^{n_C}` コメントは helper の docstring に集約されるため削除。
+
+**数値結果**: 完全に identical (式不変、Float64 で `4*pi` も `4π` も同じ値)。integration tests (energy / torque を baseline と比較) で確認。
+
+**スコープ外 (将来の整理候補)**:
+- `EnergyTorque.calc_energy` ≈ `Optimize.predict_energy`、`EnergyTorque.calc_torque` と `Optimize.build_design_matrix_torque` の構造重複は本 R11 では触らない。`sce-public-api.md` の predict 系 API 整理と整合させて対応 (`EnergyTorque.jl` を deprecate or 統合)。
+
+**連動箇所**: 物理規約は不変。CLAUDE.md「連動箇所」セクションに「`_cluster_scaling` の規約は技術ノートと整合」項目を追加する候補だが、helper 化により drift リスクは大幅減 (5 箇所 → 1 箇所)。テスト: `test-unit` 6203/6203、`test-integration` 155/155、`test-jet`、`test-aqua` 全パス。
 
 ## 🟢 低優先度（参照のみ）
 
