@@ -313,3 +313,21 @@ FeGe integration test: 1m20.8s → 55.8s (**-31%**)。
 メモリ・allocs では効果ありだが時間が noise 内のため見送った候補（`DESIGN_NOTES.md` の「候補」セクション）:
 - C: `rot_mat * phase` を broadcast in-place 化 → BasisSet メモリ -3.9%, allocs -224k
 - D: `tensor_inner_product` 融合 → BasisSet メモリ -8.8%, allocs -224k
+
+---
+
+## estimator-dispatch refactor — baseline (2026-05-13)
+
+**Branch**: `refactor/estimator-dispatch` HEAD = `5efbf1b` (spec-only commit on top of `main` 9ba9e65, no source changes yet)
+
+**Target**: `fit_sce_model` end-to-end on `test/examples/fept_tetragonal_2x2x2/input.toml`
+**Script**: `julia --project test/benchmark_optimize.jl --input test/examples/fept_tetragonal_2x2x2/input.toml --with-fit --samples 5`
+**Spinconfigs**: 30, salc key groups: 31, num atoms: 16.
+
+| Section | Median | Mean ± σ | Memory | Allocs |
+|---|---|---|---|---|
+| `calc_∇ₑu`                            | 4.625 μs   | 8.167 μs ± 6.315 μs   | 6.97 KiB  | 236        |
+| `build_design_matrix_torque` (1 cfg)  | 6.150 ms   | 6.161 ms ± 31.309 μs  | 8.37 MiB  | 318,911    |
+| **`fit_sce_model` (full dataset)**    | **266.811 ms** | 266.556 ms ± 2.099 ms | 348.87 MiB | 14,331,864 |
+
+Tag this baseline as `pre-estimator-dispatch`. Re-run after M6 with the same script and compare `fit_sce_model` median (the two helper sections are orthogonal to the refactor and just sanity checks).
