@@ -1012,6 +1012,42 @@ function extract_j0_jphi(
 end
 
 """
+	solve_coefficients(estimator::AbstractEstimator, X, y; bias_col=1)
+	    -> Vector{Float64}
+
+Solve the augmented linear system `(X, y)` for the coefficient vector.
+The element at index `bias_col` is the bias (j0) and MUST be excluded
+from any regularization penalty by the estimator's method.
+
+Each `AbstractEstimator` subtype defines exactly one method of this
+function. Unknown estimator types raise `MethodError`.
+"""
+function solve_coefficients end
+
+function solve_coefficients(
+	::OLS,
+	X::AbstractMatrix{<:Real},
+	y::AbstractVector{<:Real};
+	bias_col::Int = 1,
+)
+	return X \ y
+end
+
+function solve_coefficients(
+	e::ElasticNet,
+	X::AbstractMatrix{<:Real},
+	y::AbstractVector{<:Real};
+	bias_col::Int = 1,
+)
+	if e.lambda ≈ 0.0
+		return X \ y
+	end
+	lambda_vec = fill(e.lambda, size(X, 2))
+	lambda_vec[bias_col] = 0.0  # exclude bias term from regularization
+	return ridge(X, y, lambda_vec; bias = false)
+end
+
+"""
 	elastic_net_regression(design_matrix_energy, design_matrix_torque, observed_energy_list, observed_torque_list, alpha, lambda, weight)
 
 Solve a combined regression for energy and torque using ridge (elastic net with alpha=0) regularization.
@@ -1048,18 +1084,11 @@ function elastic_net_regression(
 		observed_torque_list,
 		weight,
 	)
-
-	# Elastic net regression solution
-	lambda_vec = fill(lambda, size(X, 2))
-	lambda_vec[bias_col] = 0.0  # exclude bias term from regularization
-	j_values = begin
-		if lambda ≈ 0.0
-			X \ y
-		else
-			ridge(X, y, lambda_vec; bias = false)
-		end
-	end
-
+	j_values = solve_coefficients(
+		ElasticNet(alpha, lambda),
+		X, y;
+		bias_col = bias_col,
+	)
 	return extract_j0_jphi(j_values, design_matrix_energy, observed_energy_list)
 end
 
