@@ -215,30 +215,29 @@ function BasisSet(
 		push!(ls_combinations_set, cb.ls)
 	end
 
-	# Extract angular momentum coupling results from cache
+	# Extract angular momentum coupling results from cache.
+	# The cache key encodes the isotropy flag, so look it up with the same
+	# isotropy value that drove the basis construction above. When
+	# `isotropy=true`, the cached `bases_by_L` only contains `Lf == 0`, so
+	# the resulting `angular_momentum_couplings` is naturally restricted to
+	# the isotropic (scalar) sector.
 	for ls_vec in ls_combinations_set
-		# Check cache for this ls combination (try both isotropy options)
-		# Cache key uses original ls order (not sorted)
-		for isotropy_flag in [false, true]
-			cache_key = (ls_vec, :none, isotropy_flag)
-			if haskey(Basis._angular_momentum_cache, cache_key)
-				bases_by_L, paths_by_L = Basis._angular_momentum_cache[cache_key]
-				for Lf in sort(collect(keys(bases_by_L)))
-					tensors = bases_by_L[Lf]
-					Lseqs = paths_by_L[Lf]
-					for (tensor, Lseq) in zip(tensors, Lseqs)
-						push!(
-							angular_momentum_couplings,
-							Basis.AngularMomentumCouplingResult(
-								ls_vec,  # Use original ls order
-								Lseq,
-								Lf,
-								copy(tensor),  # Make a copy to avoid reference issues
-							),
-						)
-					end
-				end
-				break  # Found in cache, no need to check other isotropy flag
+		cache_key = (ls_vec, :none, isotropy)
+		haskey(Basis._angular_momentum_cache, cache_key) || continue
+		bases_by_L, paths_by_L = Basis._angular_momentum_cache[cache_key]
+		for Lf in sort(collect(keys(bases_by_L)))
+			tensors = bases_by_L[Lf]
+			Lseqs = paths_by_L[Lf]
+			for (tensor, Lseq) in zip(tensors, Lseqs)
+				push!(
+					angular_momentum_couplings,
+					Basis.AngularMomentumCouplingResult(
+						ls_vec,
+						Lseq,
+						Lf,
+						copy(tensor),
+					),
+				)
 			end
 		end
 	end
