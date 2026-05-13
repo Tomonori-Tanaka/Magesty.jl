@@ -183,5 +183,6 @@ spinconfigs = read_embset("new_EMBSET.dat")
 estimator   = Ridge(lambda = 1e-3)
 optimizer   = fit_sce_model(system, spinconfigs, estimator, 0.5)
 
-write_xml(system.structure, system.symmetry, system.basisset, optimizer, "new_results.xml")
+sclus = SpinCluster(system.structure, system.symmetry, system.cluster, system.basisset, optimizer)
+write_xml(sclus, "new_results.xml")
 ```
