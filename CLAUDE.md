@@ -158,6 +158,7 @@ spec を作らなくてよいもの:
 - 実装後は `test-runner` エージェントでテストを実行・診断する（`.claude/agents/test-runner.md`）。
 - コミット前は `code-reviewer` エージェントで変更差分をレビューする（`.claude/agents/code-reviewer.md`）。
 - 性能調査時は `profiler` エージェントを使う（`.claude/agents/profiler.md`）。
+- user から commit / push の明示指示を受けた後は `git-helper` エージェントを呼ぶ（`.claude/agents/git-helper.md`）。Conventional Commits 起草・ASCII 検査・`Write` + `git commit -F file` 経由のコミット適用・BREAKING CHANGE 自動検出までを一括で行う。heredoc 事故を避けるため、メインエージェントが直接 `git commit -m` を実行しない方針。
 
 ### 提案してから実装する
 
