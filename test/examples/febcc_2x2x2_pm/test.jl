@@ -144,13 +144,12 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 
 		# Run regression and check recovery
 		for weight in [0.0, 0.5, 1.0]
-			j0_hat, jphi_hat = Optimize.elastic_net_regression(
+			j0_hat, jphi_hat = Optimize._fit_sce_model_internal(
 				design_E,
 				design_T,
 				observed_energy_list,
 				observed_torque_list,
-				0.0,
-				0.0,
+				Optimize.OLS(),
 				weight,
 			)
 

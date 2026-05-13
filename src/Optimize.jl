@@ -834,27 +834,15 @@ function _fit_sce_model_internal(
 	estimator::AbstractEstimator,
 	weight::Real,
 )
-	if estimator isa OLS
-		return fit_sce_model_ols(
-			design_matrix_energy,
-			design_matrix_torque,
-			observed_energy_list,
-			observed_torque_list,
-			weight,
-		)
-	elseif estimator isa ElasticNet
-		return fit_sce_model_elastic_net(
-			design_matrix_energy,
-			design_matrix_torque,
-			observed_energy_list,
-			observed_torque_list,
-			estimator.alpha,
-			estimator.lambda,
-			weight,
-		)
-	else
-		throw(ArgumentError("Unsupported estimator type: $(typeof(estimator))"))
-	end
+	X, y, bias_col = assemble_weighted_problem(
+		design_matrix_energy,
+		design_matrix_torque,
+		observed_energy_list,
+		observed_torque_list,
+		weight,
+	)
+	j_values = solve_coefficients(estimator, X, y; bias_col = bias_col)
+	return extract_j0_jphi(j_values, design_matrix_energy, observed_energy_list)
 end
 
 """
@@ -875,13 +863,12 @@ function fit_sce_model_ols(
 	observed_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
 	weight::Real,
 )
-	return fit_sce_model_elastic_net(
+	return _fit_sce_model_internal(
 		design_matrix_energy,
 		design_matrix_torque,
 		observed_energy_list,
 		observed_torque_list,
-		0.0,  # alpha
-		0.0,  # lambda (no regularization)
+		OLS(),
 		weight,
 	)
 end
@@ -903,13 +890,12 @@ function fit_sce_model_elastic_net(
 	lambda::Real,
 	weight::Real,
 )
-	return elastic_net_regression(
+	return _fit_sce_model_internal(
 		design_matrix_energy,
 		design_matrix_torque,
 		observed_energy_list,
 		observed_torque_list,
-		alpha,
-		lambda,
+		ElasticNet(alpha, lambda),
 		weight,
 	)
 end
@@ -1046,52 +1032,6 @@ function solve_coefficients(
 	lambda_vec[bias_col] = 0.0  # exclude bias term from regularization
 	return ridge(X, y, lambda_vec; bias = false)
 end
-
-"""
-	elastic_net_regression(design_matrix_energy, design_matrix_torque, observed_energy_list, observed_torque_list, alpha, lambda, weight)
-
-Solve a combined regression for energy and torque using ridge (elastic net with alpha=0) regularization.
-
-# Description
-- Scales energy/torque parts by √weight and concatenates them into one system.
-- Excludes the bias term from regularization.
-
-# Arguments
-- `design_matrix_energy`: Energy design matrix (bias column included)
-- `design_matrix_torque`: Torque design matrix (no bias column)
-- `observed_energy_list`: Observed energies
-- `observed_torque_list`: Observed torques as 3×num_atoms matrices per configuration
-- `alpha`: Unused (kept for API compatibility)
-- `lambda`: Regularization strength
-- `weight`: Trade-off between energy (1-weight) and torque (weight)
-
-# Returns
-- `(j0::Float64, jphi::Vector{Float64})`: Bias and coefficients
-"""
-function elastic_net_regression(
-	design_matrix_energy::AbstractMatrix{<:Real},
-	design_matrix_torque::AbstractMatrix{<:Real},
-	observed_energy_list::AbstractVector{<:Real},
-	observed_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
-	alpha::Real,
-	lambda::Real,
-	weight::Real,
-)
-	X, y, bias_col = assemble_weighted_problem(
-		design_matrix_energy,
-		design_matrix_torque,
-		observed_energy_list,
-		observed_torque_list,
-		weight,
-	)
-	j_values = solve_coefficients(
-		ElasticNet(alpha, lambda),
-		X, y;
-		bias_col = bias_col,
-	)
-	return extract_j0_jphi(j_values, design_matrix_energy, observed_energy_list)
-end
-
 
 function calc_rmse(list1::AbstractVector{<:Real}, list2::AbstractVector{<:Real})::Float64
 	# Calculate the Root Mean Square Error (RMSE) between two lists
