@@ -219,7 +219,7 @@ L554 に「Remove this exceptional handling when the bug is fixed in the project
 - **`SpinConfigs.show`（L175–197）と `Clusters.print_cluster_stdout`（L506–566）**: 出力フォーマットの統一余地。`PrettyTables.jl` 検討の余地もあるが新規依存追加なので保留。
 - **`AtomCells.jl` `AtomCell`**: ~~`AtomicIndices.jl` `SHSiteIndex` と `isless`/`==`/`hash` の実装パターンが重複~~ **解消** (2026-05-14). `SHSiteIndex` は AtomicIndices モジュール削除で消滅。残った `AtomCell` 単体については NamedTuple 化を検討したが、nominal type としての価値・公開 API 互換・コンストラクタ構文 (`AtomCell(1, 2)` vs `AtomCell((1, 2))`) を理由に struct 維持。Call site で未使用だった `NTuple{2, Integer}` との相互比較メソッド 4 個 (`isless` × 2, `==` × 2) を dead code として削除し 35 -> 32 行に。
 - **`common/version.jl`**: ~~hardcoded version 文字列。Project.toml から動的取得する仕組みの検討余地。~~ **完了** (commit `95269de`, 2026-05-13). `pkgversion(@__MODULE__)` で Project.toml から動的取得する形に変更。bump 時の編集箇所は Project.toml の 1 行のみ。`test/component_test/test_Version.jl` で drift を検証。
-- **`Magesty.jl` `print_header`（L743–757）**: version / Julia info / threads / timestamp の 4 責務。verbose ロギングを整備する際に分割。
+- **`Magesty.jl` `print_header`** ~~（L743–757）: version / Julia info / threads / timestamp の 4 責務。verbose ロギングを整備する際に分割。~~ **完了** (2026-05-14). 関数分割ではなく Julia 慣習 (`Base.versioninfo()` パターン) に合わせて再設計: `Magesty.versioninfo(io = stdout)` を新設し plain text で Magesty / Julia の version のみを返す。バナー枠・threads count・timestamp は副作用情報として廃止。5 エントリポイント (`System` / `build_sce_basis_from_xml` / `SpinCluster` x 3) からの自動呼び出しを削除し、ライブラリ呼び出し時の副作用をなくした。`using Dates` も連動削除。`versioninfo` は qualified access (`Magesty.versioninfo()`) で提供、`Base.versioninfo` との衝突回避のため export しない。
 
 ## Optimize.jl 関連項目（クロスリファレンス）
 

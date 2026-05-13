@@ -34,7 +34,6 @@ module Magesty
 
 using Printf
 using TOML
-using Dates
 
 include("common/version.jl")
 using .Version
@@ -142,9 +141,6 @@ system = System("config.toml")
 ```
 """
 function System(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)
-	if verbosity
-		print_header()
-	end
 	config::Config4System = Config4System(input_dict)
 	structure, symmetry, cluster = _build_structure_skeleton(config; verbosity = verbosity)
 	basisset::BasisSet = BasisSet(structure, symmetry, cluster, config, verbosity = verbosity)
@@ -230,10 +226,6 @@ function build_sce_basis_from_xml(
 	xml_file::AbstractString;
 	verbosity::Bool = true,
 )::System
-	if verbosity
-		print_header()
-	end
-
 	config::Config4System = Config4System(input_dict)
 	structure, symmetry, cluster = _build_structure_skeleton(config; verbosity = verbosity)
 
@@ -304,10 +296,6 @@ spin_cluster = SpinCluster(system)
 ```
 """
 function SpinCluster(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)
-	if verbosity
-		print_header()
-	end
-
 	config_system::Config4System = Config4System(input_dict)
 	structure, symmetry, cluster = _build_structure_skeleton(config_system; verbosity = verbosity)
 	basisset::BasisSet =
@@ -366,9 +354,6 @@ function SpinCluster(
 	;
 	verbosity::Bool = true,
 )
-	if verbosity
-		print_header()
-	end
 	config::Config4Optimize = Config4Optimize(input_dict)
 	optimize =
 		Optimizer(system.structure, system.symmetry, system.basisset, config, verbosity = verbosity)
@@ -421,9 +406,6 @@ function SpinCluster(
 	;
 	verbosity::Bool = true,
 )
-	if verbosity
-		print_header()
-	end
 	config::Config4Optimize = Config4Optimize(input_dict)
 	optimize = Optimizer(
 		system.structure,
@@ -824,20 +806,23 @@ function install_tools(; bindir::AbstractString = joinpath(homedir(), ".julia", 
     println("  export PATH=\"\$HOME/.julia/bin:\$PATH\"")
 end
 
-function print_header()
-	println(
-		"""
-		+-----------------------------------+
-				  Magesty v$(Version.version_string())      
-		+-----------------------------------+
+"""
+	versioninfo(io::IO = stdout)
 
-		Julia version: $(VERSION)
+Print the Magesty version and the active Julia version to `io`, following
+the same minimal style as `Base.versioninfo()`. Useful for recording the
+runtime context in scripts and notebooks.
 
-		Number of threads: $(Threads.nthreads())
-
-		Job started at $(now())
-
-		""")
+# Examples
+```julia
+julia> Magesty.versioninfo()
+Magesty Version 0.1.0
+Julia Version 1.11.0
+```
+"""
+function versioninfo(io::IO = stdout)
+	println(io, "Magesty Version ", Version.version_string())
+	println(io, "Julia Version ", VERSION)
 end
 
 end # module Magesty
