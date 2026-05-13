@@ -475,37 +475,35 @@ function calc_torque(spincluster::SpinCluster, spin_config::AbstractMatrix{<:Rea
 end
 
 """
-	write_xml(structure::Structure, symmetry::Symmetry, basis_set::BasisSet, optimize::Optimizer, filename::AbstractString="jphi.xml"; write_jphi::Bool=true)
 	write_xml(sc::SpinCluster, filename::AbstractString="jphi.xml"; write_jphi::Bool=true)
 
-Write the structure, symmetry, basis set, and optimization results to an XML file in SCE format.
+Write the structure, symmetry, basis set, and fitted SCE coefficients
+held by a `SpinCluster` to an XML file in SCE format.
 
 # Arguments
-- `structure::Structure`: Crystal structure information
-- `symmetry::Symmetry`: Symmetry operations information
-- `basis_set::BasisSet`: Basis set information
-- `optimize::Optimizer`: Optimization results
-- `sc::SpinCluster`: Spin cluster object containing structure, symmetry, basis set, and optimization results
+- `sc::SpinCluster`: Spin cluster (structure + symmetry + basis set + optimizer)
 - `filename::AbstractString="jphi.xml"`: Output XML file name
-- `write_jphi::Bool=true`: Whether to write the J_ij parameters
+- `write_jphi::Bool=true`: Whether to embed the J_ij parameters
+  (set to `false` to write only the structure/symmetry/basis section)
 
 # Examples
 ```julia
-# Using individual components
-write_xml(structure, symmetry, basis_set, optimizer)
-write_xml(structure, symmetry, basis_set, optimizer, "output.xml", write_jphi=false)
-
-# Using SpinCluster object
 write_xml(spin_cluster)
 write_xml(spin_cluster, "output.xml", write_jphi=false)
 ```
+
+To export a `System` (no fitted coefficients), use the
+`write_xml(::System, ...)` overload instead. To export from
+standalone components (`structure`, `symmetry`, `basis_set`,
+`optimizer`), wrap them with `SpinCluster(structure, symmetry,
+cluster, basis_set, optimizer)` first.
 """
 function write_xml(
 	sc::SpinCluster,
 	filename::AbstractString = "jphi.xml";
 	write_jphi::Bool = true,
 )
-	write_xml(
+	XMLIO.write_xml(
 		sc.structure,
 		sc.symmetry,
 		sc.basisset,
@@ -536,23 +534,6 @@ function write_xml(
 	filename::AbstractString = "jphi.xml",
 )
 	XMLIO.write_xml(system.structure, system.symmetry, system.basisset, filename)
-end
-function write_xml(
-	structure::Structure,
-	symmetry::Symmetry,
-	basis_set::BasisSet,
-	optimize::Optimizer,
-	filename::AbstractString = "jphi.xml";
-	write_jphi::Bool = true,
-)
-	XMLIO.write_xml(
-		structure,
-		symmetry,
-		basis_set,
-		optimize,
-		filename;
-		write_jphi = write_jphi,
-	)
 end
 
 """
