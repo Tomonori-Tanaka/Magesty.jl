@@ -331,3 +331,29 @@ FeGe integration test: 1m20.8s → 55.8s (**-31%**)。
 | **`fit_sce_model` (full dataset)**    | **266.811 ms** | 266.556 ms ± 2.099 ms | 348.87 MiB | 14,331,864 |
 
 Tag this baseline as `pre-estimator-dispatch`. Re-run after M6 with the same script and compare `fit_sce_model` median (the two helper sections are orthogonal to the refactor and just sanity checks).
+
+## estimator-dispatch refactor — post-M6 (2026-05-13)
+
+**Branch**: `refactor/estimator-dispatch` HEAD = `9ef0aa7` (M0–M5 applied).
+
+**Script**: same as baseline, but **`--samples 20`** to reduce variance.
+
+The samples=5 baseline above showed σ ≈ 0.8% of the mean inside one
+run, but inter-run variation on this laptop is noticeably larger, so a
+single 5-sample trial is not a reliable anchor. I re-ran the
+pre-refactor baseline at samples=20 on commit `6ab646e` so the
+comparison is apples-to-apples.
+
+| `fit_sce_model` (samples=20) | Pre (`6ab646e`) | Post (`9ef0aa7`) |
+|---|---|---|
+| Time median            | 242.456 ms          | **240.023 ms**          |
+| Time mean ± σ          | 242.250 ± 2.248 ms  | 240.288 ± 3.002 ms      |
+| Memory                 | 348.87 MiB          | 348.87 MiB              |
+| Allocs                 | 14,331,864          | 14,331,861              |
+
+Within ±1% — no regression. The dispatch refactor pays no measurable
+cost on the integration-style fit workload.
+
+> Caveat: an earlier 5-sample post-refactor run on the same machine
+> hit 278 ms median due to background system load. Drawing conclusions
+> from 5-sample trials when σ matters is a trap — keep samples ≥ 20.
