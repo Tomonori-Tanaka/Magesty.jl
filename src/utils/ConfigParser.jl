@@ -3,51 +3,12 @@ using OffsetArrays
 
 export Config4System, Config4Optimize
 
-struct ValidationRule
-	field::Symbol
-	validator::Function
-	error_message::Union{String, Function}
-end
-
 # Default values for system configuration
 const DEFAULT_VALUES_SYSTEM = Dict{Symbol, Any}(
 	:is_periodic => [true, true, true],
 	:tolerance_sym => 1e-3,
 	:isotropy => false,
 )
-
-# Validation rules for system configuration
-const VALIDATION_RULES_SYSTEM = [
-	# Required parameters
-	ValidationRule(:name, x -> !isempty(x), "Structure name cannot be empty"),
-	ValidationRule(
-		:num_atoms,
-		x -> x > 0,
-		x -> "Number of atoms must be positive, got $(x)",
-	),
-	ValidationRule(:kd_name, x -> !isempty(x), "Chemical species list cannot be empty"),
-	ValidationRule(:nbody, x -> x > 0, x -> "nbody must be positive, got $(x)"),
-	ValidationRule(
-		:lattice_vectors,
-		x -> size(x) == (3, 3),
-		x -> "Lattice vectors must be a 3x3 matrix, got $(size(x))",
-	),
-	ValidationRule(
-		:kd_int_list,
-		x -> x isa Vector{Int},
-		"kd_int_list must be a vector of integers",
-	),
-	ValidationRule(
-		:is_periodic,
-		x -> length(x) == 3,
-		"Periodicity must be specified for all three directions",
-	),
-	ValidationRule(
-		:tolerance_sym,
-		x -> x > 0,
-		x -> "Symmetry tolerance must be positive, got $(x)",
-	),
-]
 
 """
 	Config4System
@@ -104,17 +65,7 @@ struct Config4System
 	- `ArgumentError`: If required parameters are missing or invalid
 	"""
 	function Config4System(input_dict::AbstractDict{<:AbstractString, Any})
-		# Check required sections
-		required_sections = ["general", "symmetry", "interaction", "structure"]
-		for section in required_sections
-			if !haskey(input_dict, section)
-				throw(
-					ArgumentError(
-						"Required section \"$section\" is missing in the input dictionary.",
-					),
-				)
-			end
-		end
+		_check_required_sections(input_dict, REQUIRED_SECTIONS_SYSTEM)
 
 		# Parse general parameters
 		general_dict = input_dict["general"]
@@ -136,16 +87,11 @@ struct Config4System
 		# Parse interaction parameters
 		interaction_dict = input_dict["interaction"]
 		nbody = interaction_dict["nbody"]::Int
-		if nbody < 1
-			throw(ArgumentError("nbody must be positive, got $(nbody)"))
-		end
 		body1_lmax::Vector{Int} =
 			parse_interaction_body1(interaction_dict, kd_name)
 
 		bodyn_lsum::OffsetArray{Int, 1}, bodyn_cutoff::OffsetArray{Float64, 3} =
 			parse_interaction_bodyn(interaction_dict, kd_name, nbody)
-		# lmax = parse_lmax(interaction_dict["lmax"], kd_name, nbody)
-		# cutoff_radii = parse_cutoff(interaction_dict["cutoff"], kd_name, nbody)
 
 		# Parse structure parameters
 		structure_dict = input_dict["structure"]
@@ -155,7 +101,6 @@ struct Config4System
 		positions = [Float64.(vec) for vec in positions_any]
 		x_fractional = parse_position(positions, num_atoms)
 
-		# Validate parameters
 		params = (
 			# required parameters
 			name = name,
@@ -173,8 +118,7 @@ struct Config4System
 			tolerance_sym = tolerance_sym,
 			isotropy = isotropy,
 		)
-
-
+		validate_system_parameters(params)
 		return new(params...)
 	end
 end
@@ -335,26 +279,6 @@ const DEFAULT_VALUES_OPTIMIZE = Dict{Symbol, Any}(
 	:lambda => 0.0, # 0 means no regularization
 )
 
-# Validation rules for optimization parameters
-const VALIDATION_RULES_OPTIMIZE = [
-	ValidationRule(:datafile, x -> !isempty(x), "Data file path cannot be empty"),
-	ValidationRule(:ndata, x -> x isa Int, x -> "ndata must be an integer, got $(x)"),
-	ValidationRule(
-		:weight,
-		x -> 0 <= x <= 1,
-		x -> "weight must be between 0 and 1, got $(x)",
-	),
-	ValidationRule(
-		:alpha,
-		x -> 0.0 <= x <= 1.0,
-		x -> "alpha must be between 0 and 1, got $(x)",
-	),
-	ValidationRule(
-		:lambda,
-		x -> x isa Real && x >= 0.0,
-		x -> "lambda must be a non-negative real number, got $(x)",
-	),
-]
 """
 	Config4Optimize
 
@@ -392,17 +316,7 @@ struct Config4Optimize
 	- `ArgumentError`: If required parameters are missing or invalid
 	"""
 	function Config4Optimize(input_dict::AbstractDict{<:AbstractString, Any})
-		# Check required sections
-		required_sections = ["regression"]
-		for section in required_sections
-			if !haskey(input_dict, section)
-				throw(
-					ArgumentError(
-						"Required section \"$section\" is missing in the input dictionary.",
-					),
-				)
-			end
-		end
+		_check_required_sections(input_dict, REQUIRED_SECTIONS_OPTIMIZE)
 
 		datafile = input_dict["regression"]["datafile"]::String
 		ndata = get(input_dict["regression"], "ndata", DEFAULT_VALUES_OPTIMIZE[:ndata])::Int
@@ -441,14 +355,55 @@ struct Config4Optimize
 	end
 end
 
+function validate_system_parameters(params::NamedTuple)::Nothing
+	isempty(params.name) &&
+		throw(ArgumentError("Structure name cannot be empty"))
+	params.num_atoms > 0 ||
+		throw(ArgumentError("Number of atoms must be positive, got $(params.num_atoms)"))
+	isempty(params.kd_name) &&
+		throw(ArgumentError("Chemical species list cannot be empty"))
+	params.nbody > 0 ||
+		throw(ArgumentError("nbody must be positive, got $(params.nbody)"))
+	size(params.lattice_vectors) == (3, 3) ||
+		throw(ArgumentError("Lattice vectors must be a 3x3 matrix, got $(size(params.lattice_vectors))"))
+	params.kd_int_list isa Vector{Int} ||
+		throw(ArgumentError("kd_int_list must be a vector of integers"))
+	length(params.is_periodic) == 3 ||
+		throw(ArgumentError("Periodicity must be specified for all three directions"))
+	params.tolerance_sym > 0 ||
+		throw(ArgumentError("Symmetry tolerance must be positive, got $(params.tolerance_sym)"))
+	return nothing
+end
+
 function validate_optimize_parameters(params::NamedTuple)::Nothing
-	for rule in VALIDATION_RULES_OPTIMIZE
-		value = getfield(params, rule.field)
-		if !rule.validator(value)
-			error_message =
-				rule.error_message isa Function ? rule.error_message(value) :
-				rule.error_message
-			throw(ArgumentError(error_message))
+	isempty(params.datafile) &&
+		throw(ArgumentError("Data file path cannot be empty"))
+	params.ndata isa Int ||
+		throw(ArgumentError("ndata must be an integer, got $(params.ndata)"))
+	0 <= params.weight <= 1 ||
+		throw(ArgumentError("weight must be between 0 and 1, got $(params.weight)"))
+	0.0 <= params.alpha <= 1.0 ||
+		throw(ArgumentError("alpha must be between 0 and 1, got $(params.alpha)"))
+	(params.lambda isa Real && params.lambda >= 0.0) ||
+		throw(ArgumentError("lambda must be a non-negative real number, got $(params.lambda)"))
+	return nothing
+end
+
+# Required top-level TOML sections for each Config type.
+const REQUIRED_SECTIONS_SYSTEM = ["general", "symmetry", "interaction", "structure"]
+const REQUIRED_SECTIONS_OPTIMIZE = ["regression"]
+
+function _check_required_sections(
+	input_dict::AbstractDict{<:AbstractString, Any},
+	sections::AbstractVector{<:AbstractString},
+)::Nothing
+	for section in sections
+		if !haskey(input_dict, section)
+			throw(
+				ArgumentError(
+					"Required section \"$section\" is missing in the input dictionary.",
+				),
+			)
 		end
 	end
 	return nothing

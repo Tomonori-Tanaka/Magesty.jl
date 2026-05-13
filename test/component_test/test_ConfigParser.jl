@@ -61,15 +61,19 @@ using Test
 		delete!(invalid_dict, "general")
 		@test_throws ArgumentError Config4System(invalid_dict)
 
-		# Empty name is currently allowed (no validation in constructor)
-		invalid_dict = copy(input_dict)
+		# Empty name is rejected by VALIDATION_RULES_SYSTEM[:name]
+		invalid_dict = deepcopy(input_dict)
 		invalid_dict["general"]["name"] = ""
-		config_empty = Config4System(invalid_dict)
-		@test config_empty.name == ""
+		@test_throws ArgumentError Config4System(invalid_dict)
 
 		# Test invalid number of atoms
 		invalid_dict = copy(input_dict)
 		invalid_dict["general"]["nat"] = 0
+		@test_throws ArgumentError Config4System(invalid_dict)
+
+		# Test invalid nbody — caught by validate_system_parameters via VALIDATION_RULES_SYSTEM
+		invalid_dict = deepcopy(input_dict)
+		invalid_dict["interaction"]["nbody"] = 0
 		@test_throws ArgumentError Config4System(invalid_dict)
 	end
 
