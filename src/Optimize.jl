@@ -58,12 +58,7 @@ end
 
 Ridge(; lambda::Real = 0.0) = Ridge(Float64(lambda))
 
-# Build the default estimator for the Optimizer outer constructor.
-# `alpha` is accepted for backward compatibility with the historical
-# `ElasticNet(alpha, lambda)` API but has never had any effect on the
-# solver; non-zero values trigger a one-time deprecation warning and are
-# then dropped. New code should pass `estimator = Ridge(lambda = ...)`
-# explicitly.
+# `alpha` is a deprecated remnant of the old ElasticNet(alpha, lambda) API.
 function _default_estimator(alpha::Real, lambda::Real)
 	if alpha != 0.0
 		@warn "alpha is deprecated and has no effect; pass `estimator = Ridge(lambda = ...)` explicitly" maxlog = 1
@@ -99,6 +94,52 @@ struct SCEModel
 	num_atoms::Int
 end
 
+"""
+	Optimizer
+
+Container for a fitted SCE problem: the design matrices, the fitted
+`(j0, jphi)`, basic metrics, and the per-configuration predictions.
+
+The outer constructor builds the design matrices from the supplied
+`structure`/`symmetry`/`basisset`, runs the regression via
+`fit_sce_model_*` helpers, and computes RMSE / R² statistics for both
+energy and torque blocks.
+
+# Fields
+- `spinconfig_list::Vector{SpinConfig}`: Training spin configurations.
+- `reference_energy::Float64`: Bias term `j0` (eV).
+- `SCE::Vector{Float64}`: SCE coefficients `jphi`.
+- `metrics::Dict{Symbol, Any}`: RMSE / R² for energy and torque.
+- `predicted_energy_list::Vector{Float64}`: Per-config predicted energy.
+- `predicted_torque_list::Vector{Matrix{Float64}}`: Per-config `3×n_atoms` predicted torque.
+- `design_matrix_energy::Matrix{Float64}`: Energy design matrix.
+- `design_matrix_torque::Matrix{Float64}`: Flattened torque design matrix.
+
+# Constructor
+
+    Optimizer(structure, symmetry, basisset, alpha, lambda, weight,
+              spinconfig_list; verbosity=true, estimator=...)
+
+# Arguments
+- `structure::Structure`, `symmetry::Symmetry`, `basisset::BasisSet`:
+  problem context used to build the design matrices.
+- `alpha::Real`: Deprecated and ignored; kept only to preserve the
+  legacy positional signature. A non-zero value emits a one-shot
+  `@warn` and is then dropped.
+- `lambda::Real`: L2 regularization strength used when `estimator` is
+  not passed explicitly (the default `estimator` is
+  `Ridge(lambda=lambda)`).
+- `weight::Real`: Trade-off between energy `(1 - weight)` and torque
+  `weight`.
+- `spinconfig_list`: Training configurations.
+
+# Keyword arguments
+- `verbosity::Bool = true`: Print progress to stdout.
+- `estimator::AbstractEstimator`: Regression method. Defaults to
+  `Ridge(lambda=lambda)` via `_default_estimator(alpha, lambda)`. When
+  passed explicitly, the positional `alpha` and `lambda` arguments are
+  ignored — `alpha` is consulted only to emit the deprecation warning.
+"""
 struct Optimizer
 	spinconfig_list::Vector{SpinConfig}
 	reference_energy::Float64
@@ -1036,6 +1077,14 @@ function solve_coefficients(
 	return X \ y
 end
 
+"""
+	solve_coefficients(estimator::Ridge, X, y; bias_col=1) -> Vector{Float64}
+
+L2-regularized solve. Uses `MultivariateStats.ridge` with a per-column
+penalty vector that zeros out the bias column at `bias_col`. When
+`estimator.lambda ≈ 0` falls back to `X \\ y` to avoid building the
+penalty vector for an effectively unregularized problem.
+"""
 function solve_coefficients(
 	e::Ridge,
 	X::AbstractMatrix{<:Real},
