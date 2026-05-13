@@ -915,6 +915,103 @@ function fit_sce_model_elastic_net(
 end
 
 """
+	assemble_weighted_problem(design_matrix_energy, design_matrix_torque,
+	                          observed_energy_list, observed_torque_list, weight)
+	    -> (X::Matrix{Float64}, y::Vector{Float64}, bias_col::Int)
+
+Build the augmented `(X, y)` linear system that all estimators solve.
+
+Energy rows are scaled by `√(1 - weight)`, torque rows (after flattening)
+by `√weight`. The bias column of the energy block is reset to `1.0`
+after scaling so that the bias coefficient is not absorbed into the
+weight factor. A zero column is prepended to the torque block so the
+two blocks share `bias_col = 1`.
+
+# Arguments
+- `design_matrix_energy`: Energy design matrix (bias column at column 1).
+- `design_matrix_torque`: Torque design matrix (no bias column).
+- `observed_energy_list`: Observed energies.
+- `observed_torque_list`: Observed torques as `3×n_atoms` matrices per config.
+- `weight`: Trade-off; energy weight = `1 - weight`, torque weight = `weight`.
+
+# Returns
+- `X`: Augmented design matrix (energy rows stacked above flattened torque rows).
+- `y`: Augmented observation vector.
+- `bias_col`: Column index of the bias term (always `1`).
+"""
+function assemble_weighted_problem(
+	design_matrix_energy::AbstractMatrix{<:Real},
+	design_matrix_torque::AbstractMatrix{<:Real},
+	observed_energy_list::AbstractVector{<:Real},
+	observed_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
+	weight::Real,
+)
+	# weight parameters
+	w_e = 1 - weight
+	w_m = weight
+
+	# Flatten observed torque
+	observed_torque_flattened = vcat(vec.(observed_torque_list)...)
+
+	# Normalize the design matrices by √weight
+	normalized_design_matrix_energy =
+		design_matrix_energy .* sqrt(w_e)
+	normalized_design_matrix_energy[:, 1] .= 1.0
+	normalized_design_matrix_torque =
+		design_matrix_torque .* sqrt(w_m)
+
+	# Also normalise the observed vectors
+	normalized_observed_energy_list =
+		observed_energy_list .* sqrt(w_e)
+	normalized_observed_torque_flattened =
+		observed_torque_flattened .* sqrt(w_m)
+
+	# Add 0 bias column to the torque design matrix
+	# to align with the energy design matrix
+	with_bias_design_matrix_torque =
+		hcat(zeros(size(normalized_design_matrix_torque, 1)), normalized_design_matrix_torque)
+
+	# Construct the augmented design matrix
+	X = vcat(
+		normalized_design_matrix_energy,
+		with_bias_design_matrix_torque,
+	)
+	y = vcat(
+		normalized_observed_energy_list,
+		normalized_observed_torque_flattened,
+	)
+
+	return X, y, 1
+end
+
+"""
+	extract_j0_jphi(j_values, design_matrix_energy, observed_energy_list)
+	    -> (j0::Float64, jphi::Vector{Float64})
+
+Split the augmented coefficient vector into the bias `j0` and the SCE
+coefficients `jphi`. The bias is re-estimated from the unscaled energy
+residual `mean(ye .- Xe[:, 2:end] * jphi)` to undo the √weight scaling
+that affected the augmented bias column.
+
+# Arguments
+- `j_values`: Augmented coefficient vector returned by `solve_coefficients`.
+- `design_matrix_energy`: Unscaled energy design matrix (bias column at 1).
+- `observed_energy_list`: Unscaled observed energies.
+
+# Returns
+- `(j0, jphi)`: Bias and SCE coefficients.
+"""
+function extract_j0_jphi(
+	j_values::AbstractVector{<:Real},
+	design_matrix_energy::AbstractMatrix{<:Real},
+	observed_energy_list::AbstractVector{<:Real},
+)
+	jphi = j_values[2:end]
+	j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
+	return j0, jphi
+end
+
+"""
 	elastic_net_regression(design_matrix_energy, design_matrix_torque, observed_energy_list, observed_torque_list, alpha, lambda, weight)
 
 Solve a combined regression for energy and torque using ridge (elastic net with alpha=0) regularization.
@@ -944,46 +1041,17 @@ function elastic_net_regression(
 	lambda::Real,
 	weight::Real,
 )
-	# weight parameters
-	w_e = 1 - weight
-	w_m = weight
-
-	# Flatten observed torque
-	observed_torque_flattened = vcat(vec.(observed_torque_list)...)
-
-	# Normalize the design matrices by using factor of 1/2N_data and √weight
-	normalized_design_matrix_energy =
-		design_matrix_energy .* sqrt(w_e)
-	normalized_design_matrix_energy[:, 1] .= 1.0
-	normalized_design_matrix_torque =
-		design_matrix_torque .* sqrt(w_m)
-
-	# Also normalise the observed vectors
-	normalized_observed_energy_list =
-		observed_energy_list .* sqrt(w_e)
-	normalized_observed_torque_flattened =
-		observed_torque_flattened .* sqrt(w_m)
-
-	# Add 0 bias term to the design matrix for torque
-	# to align with the energy design matrix
-	with_bias_design_matrix_torque =
-		hcat(zeros(size(normalized_design_matrix_torque, 1)), normalized_design_matrix_torque)
-
-	# Construct the augmented design matrix
-	X = vcat(
-		normalized_design_matrix_energy,
-		with_bias_design_matrix_torque,
+	X, y, bias_col = assemble_weighted_problem(
+		design_matrix_energy,
+		design_matrix_torque,
+		observed_energy_list,
+		observed_torque_list,
+		weight,
 	)
-
-	y = vcat(
-		normalized_observed_energy_list,
-		normalized_observed_torque_flattened,
-	)
-
 
 	# Elastic net regression solution
 	lambda_vec = fill(lambda, size(X, 2))
-	lambda_vec[1] = 0.0  # exclude bias term from regularization
+	lambda_vec[bias_col] = 0.0  # exclude bias term from regularization
 	j_values = begin
 		if lambda ≈ 0.0
 			X \ y
@@ -991,10 +1059,8 @@ function elastic_net_regression(
 			ridge(X, y, lambda_vec; bias = false)
 		end
 	end
-	jphi = j_values[2:end]
-	j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
 
-	return j0, jphi
+	return extract_j0_jphi(j_values, design_matrix_energy, observed_energy_list)
 end
 
 
