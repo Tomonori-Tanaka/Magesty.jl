@@ -12,7 +12,6 @@ using MultivariateStats
 using Statistics
 using StaticArrays
 using ..MySphericalHarmonics
-using ..AtomicIndices
 using ..ConfigParser
 using ..Structures
 using ..Symmetries
