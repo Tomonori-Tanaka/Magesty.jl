@@ -140,11 +140,24 @@ L554 に「Remove this exceptional handling when the bug is fixed in the project
 
 ### R10. `Basis.jl` `CoupledBasis` constructor の不変条件検証の散在
 
-**対象**: `src/types/Basis.jl:43–79`
+**Status**: **完了** (2026-05-14). branch なし → main に直接 fast-forward 予定。
 
-docstring では `atoms` が "sorted" であるべきと書かれているが、inner constructor で assertion されていない（要 verify）。N=1 special case の handling、Lseq 長チェック、エラーメッセージのフォーマットが不揃い。
+**対象**: `src/types/Basis.jl`
 
-**改善案**: すべての不変条件を inner constructor 1 箇所に集約し、エラーメッセージのフォーマットを統一する。
+**実態確認結果**:
+- 当初想定の「docstring で atoms が sorted と書かれている」は **事実誤認**。struct docstring に sorted 文言なし、inner constructor (旧 L75) に `# Check if atoms are sorted` という dead comment があるのみ。caller の `tesseral_coupled_bases_from_tesseral_bases` も atoms を sort せずに渡しており、不変条件として強制すると既存挙動が壊れる → atoms sort 検証は **追加しない**。
+- struct docstring 2 箇所 (`CoupledBasis`, `CoupledBasis_with_coefficient`) で `Lseq` の長さを "length N-1" と記述していたが、inner constructor の実装は `N-2` をチェック → docstring の誤記。N-2 が正 (`Lf` は別フィールド)。
+- `CoupledBasis_with_coefficient` の inner constructor は `length(Lseq)` と `length(atoms)` のチェックが完全に欠落していた（`CoupledBasis` 側にはある）。
+- `CoupledBasis` の N=1 early return が `length(atoms) == 1` と `ndims(coeff_tensor) == 2` のチェックをスキップしていた。
+
+**実装**:
+1. docstring の "length N-1" → "length `max(0, N-2)`" に修正 (両 struct)。
+2. `CoupledBasis_with_coefficient` constructor に `length(Lseq) == max(0, N-2)` と `length(atoms) == N` チェック追加。
+3. `CoupledBasis` の N=1 early return を廃止し、共通パスでバリデーション通過。N=1 のときも `max(0, N-2) = 0`、`length(atoms) == 1`、`ndims(coeff_tensor) == 2` を強制。
+4. エラーメッセージフォーマットを `"<field> must be <constraint> = <expected>; got <actual> (N=<N>)"` に統一。
+5. dead comment `# Check if atoms are sorted` を削除。
+
+**連動箇所**: なし（モジュール内に閉じている、外部 API シグネチャ不変）。テスト: `test-unit` 6203/6203、`test-integration` 155/155、`test-jet`、`test-aqua` 全パス。
 
 ### R11. `EnergyTorque.jl` の `(4π)^(n_C/2)` スケーリングの重複と物理意味未注釈
 
