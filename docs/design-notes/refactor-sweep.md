@@ -113,11 +113,31 @@ L554 に「Remove this exceptional handling when the bug is fixed in the project
 
 ### R8. `SortedContainer.jl` の 3 コンテナの実装重複
 
+**Status**: **完了** (Plan B, 2026-05-14). branch なし → main に直接 fast-forward 予定。Plan C (バグ修正・push!/delete! 共通化) は別 PR 扱い。
+
 **対象**: `src/common/SortedContainer.jl`
 
-`SortedVector`, `SortedUniqueVector`, `SortedCountingUniqueVector` が `AbstractSortedVector` を継承する設計だが、`push!` / `append!` / `delete!` の本体ロジックが重複している（要 verify）。
+**実態確認結果**: `AbstractSortedVector` が抽象タグとして定義されていたが、generic メソッドは一切定義されておらず、`getindex` / `length` / `size` / `iterate` / `isempty` / `append!` / `findfirst` / `in` を 3 コンテナそれぞれが個別実装していた。`SortedVector` と `SortedUniqueVector` の `findfirst` / `in` は完全に同一の `searchsortedfirst` ベース実装。`deleteat!` / `clear!` も 2 コンテナで完全同一だが、`SortedCountingUniqueVector` には未定義 (`counts` Dict との同期が必要なため)。
 
-**改善案**: 共通の sorted insertion / deletion 戦略を base に統合し、uniqueness / counting を直交した拡張として実装する。
+**実装** (Plan B: pure refactor、振る舞い変更なし):
+1. `AbstractSortedVector` の docstring を更新し、`data` フィールドの contract を明文化 (sorted な indexable コレクション、`Vector{T}` または別の `AbstractSortedVector{T}`)。
+2. 以下を generic fallback として `AbstractSortedVector` に集約:
+   - `getindex(asv, i::Int)` / `length(asv)` / `size(asv)` / `iterate(asv)` / `iterate(asv, state)` / `isempty(asv)`
+   - `append!(asv, vec)` (`push!` を呼ぶ標準パターン)
+   - `findfirst(asv, value)` / `in(value, asv)` (両者とも `searchsortedfirst` ベース)
+3. 3 コンテナから上記の重複メソッドを削除。
+4. `SortedCountingUniqueVector::in` のみ `counts` Dict ベース (O(1)) の固有実装を override として保持。
+5. `deleteat!` / `clear!` は **意図的に集約しない**: `SortedCountingUniqueVector` で適用すると `counts` Dict と `data` が不整合になるため、`SortedVector` / `SortedUniqueVector` 個別実装のまま残す。これらの正しい統合は Plan C で扱う。
+
+**ハマりポイント**: `in(val, scv)` の override シグネチャで `val` の型を書かなかったため generic `in(value::T, asv::AbstractSortedVector{T})` と method ambiguity が発生。`val::T` を明示することで解消。
+
+**残課題 (Plan C で別 PR)**:
+- `SortedCountingUniqueVector::clear!` / `deleteat!` 未定義 (現状は MethodError、`data` も `counts` も両方クリアする実装が必要)。
+- `SortedVector::delete!` / `SortedUniqueVector::delete!` が sorted 性を活かさず O(N) (`searchsortedfirst` で O(log N) 可能)。
+- `SortedUniqueVector::copy` が無駄な再 sort + unique を実行。
+- `push!` の sorted insertion 検索部分の共通化。
+
+**連動箇所**: なし（モジュール内に閉じている、外部 API シグネチャ不変）。テスト: `test-unit` 6203/6203、`test-integration` 155/155、`test-jet`、`test-aqua` 全パス。差分: 386 → 356 行 (-30 行)。
 
 ### R9. 公開 API の docstring 不揃い
 
