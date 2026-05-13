@@ -37,9 +37,9 @@
 - **アメリカ英語**で統一する（`normalize` / `behavior` / `color` / `center` 等）。
 - 例外: **外部 API のリテラルは元の綴りを保つ**（例: SpheriCart の `normalisation=:L2` kwarg）。
 - **`.jl` ソース中の日本語は PostToolUse hook (`.claude/hooks/no-japanese.sh`) で自動ブロック**。対象は `src/` `test/` `tools/` 配下（`test/develop_tmp/` `tools/personal/` は除外）。
-- **ソースコード中に Claude 内部ドキュメントを参照しない**: `.jl` のコメント・docstring 内で `CLAUDE.md` / `DESIGN_NOTES.md` / `.claude/` / `docs/specs/` を**名指しで参照しない**。これらは Claude との協働用 scaffolding であり、公開ソースは独立して読めるべき。歴史的な経緯を残したい場合は内容をインラインに要約する。
+- **ソースコード中に Claude 内部ドキュメントを参照しない**: `.jl` のコメント・docstring 内で `CLAUDE.md` / `DESIGN_NOTES.md` / `docs/design-notes/` / `.claude/` / `docs/specs/` を**名指しで参照しない**。これらは Claude との協働用 scaffolding であり、公開ソースは独立して読めるべき。歴史的な経緯を残したい場合は内容をインラインに要約する。
   - 参照してよい外部ドキュメント: `docs/src/` (Documenter)、`SPEC.md`、`STYLE_GUIDE.md`、`https://Tomonori-Tanaka.github.io/Magesty.jl/` (technical notes).
-  - 例外: コミットメッセージの `Refs:` 行で `DESIGN_NOTES.md section R7` のように参照するのは可（commit は workflow artifact）。
+  - 例外: コミットメッセージの `Refs:` 行で `docs/design-notes/refactor-sweep.md R7` のように参照するのは可（commit は workflow artifact）。
 
 ## テスト
 
@@ -115,8 +115,8 @@ buf = zeros(3)
 中規模以上の開発は **spec フォルダ** に集約する。スプリント横断の進捗トラッキングは作らない。
 
 - **進行中の開発単位**: [`docs/specs/[YYMMDD]-[slug]/`](docs/specs/)（requirements.md / design.md / tasklist.md の 3 ファイル構成）。
-- **横断的な設計メモ・調査結果・保留アイデア**: `DESIGN_NOTES.md`。
-- **日々の細かい作業**: `TaskCreate`（in-session のみ。永続化したい軽い TODO は DESIGN_NOTES.md か spec へ）。
+- **横断的な設計メモ・調査結果・保留アイデア**: [`DESIGN_NOTES.md`](DESIGN_NOTES.md)（インデックス）+ [`docs/design-notes/`](docs/design-notes/)（トピック別本体）。運用ルールは `docs/design-notes/README.md`。
+- **日々の細かい作業**: `TaskCreate`（in-session のみ。永続化したい軽い TODO は `docs/design-notes/` か spec へ）。
 - 実装済みのベンチマーク履歴: `.claude/bench_log.md` と `git log`。
 
 ### spec フォルダの運用ルール
@@ -151,7 +151,7 @@ spec を作らなくてよいもの:
 - バグ修正（最小限の変更 + テスト追加）。
 - テストの追加・修正。
 - ドキュメントの誤記修正。
-- `DESIGN_NOTES.md` への気付きの追記。
+- `DESIGN_NOTES.md` インデックス / `docs/design-notes/` 配下への気付きの追記。
 
 ### サブエージェントの活用
 
@@ -181,5 +181,5 @@ spec を作らなくてよいもの:
 - `STYLE_GUIDE.md` — コーディングスタイルの詳細ルール（**コード編集時は必ず確認する**）。
 - `SPEC.md` — アーキテクチャ・ディレクトリ構成・主要型・公開 API。
 - `docs/specs/` — 進行中・完了済みの spec（中規模以上の開発単位）。
-- `DESIGN_NOTES.md` — 設計メモ・調査結果・保留アイデア。
+- `DESIGN_NOTES.md` — 設計メモ・調査結果・保留アイデアのインデックス。本体は `docs/design-notes/` 配下。
 - [Magesty.jl technical notes](https://Tomonori-Tanaka.github.io/Magesty.jl/technical_notes/) — SALC・CG 係数等の数学的規約。
