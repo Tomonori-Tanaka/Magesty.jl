@@ -102,6 +102,19 @@ struct System
 	basisset::BasisSet
 end
 
+# Shared skeleton for all input-driven constructors below.
+# Returns the (structure, symmetry, cluster) triplet; callers append
+# the BasisSet — either computed via `BasisSet(...)` or loaded from XML.
+function _build_structure_skeleton(
+	config::Config4System;
+	verbosity::Bool = true,
+)
+	structure::Structure = Structure(config, verbosity = verbosity)
+	symmetry::Symmetry = Symmetry(structure, config, verbosity = verbosity)
+	cluster::Cluster = Cluster(structure, symmetry, config, verbosity = verbosity)
+	return structure, symmetry, cluster
+end
+
 """
 	System
 
@@ -130,20 +143,12 @@ system = System("config.toml")
 ```
 """
 function System(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)
-
 	if verbosity
 		print_header()
 	end
 	config::Config4System = Config4System(input_dict)
-
-	structure::Structure = Structure(config, verbosity = verbosity)
-
-	symmetry::Symmetry = Symmetry(structure, config, verbosity = verbosity)
-
-	cluster::Cluster = Cluster(structure, symmetry, config, verbosity = verbosity)
-
+	structure, symmetry, cluster = _build_structure_skeleton(config; verbosity = verbosity)
 	basisset::BasisSet = BasisSet(structure, symmetry, cluster, config, verbosity = verbosity)
-
 	return System(structure, symmetry, cluster, basisset)
 end
 
@@ -171,9 +176,7 @@ User interface to build the basis set for the spin cluster expansion.
 """
 function build_sce_basis(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = false)::System
 	config::Config4System = Config4System(input_dict)
-	structure::Structure = Structure(config, verbosity = verbosity)
-	symmetry::Symmetry = Symmetry(structure, config, verbosity = verbosity)
-	cluster::Cluster = Cluster(structure, symmetry, config, verbosity = verbosity)
+	structure, symmetry, cluster = _build_structure_skeleton(config; verbosity = verbosity)
 	basisset::BasisSet = BasisSet(structure, symmetry, cluster, config, verbosity = verbosity)
 	return System(structure, symmetry, cluster, basisset)
 end
@@ -210,22 +213,19 @@ function build_sce_basis_from_xml(
 	if verbosity
 		print_header()
 	end
-	
+
 	config::Config4System = Config4System(input_dict)
-	structure::Structure = Structure(config, verbosity = verbosity)
-	symmetry::Symmetry = Symmetry(structure, config, verbosity = verbosity)
-	cluster::Cluster = Cluster(structure, symmetry, config, verbosity = verbosity)
-	
+	structure, symmetry, cluster = _build_structure_skeleton(config; verbosity = verbosity)
+
 	# Load basis set from XML file instead of computing it
 	if verbosity
 		println("Loading basis set from XML file: $xml_file")
 	end
 	basisset::BasisSet = XMLIO.read_basisset_from_xml(xml_file)
-	
 	if verbosity
 		println("Successfully loaded basis set from XML file")
 	end
-	
+
 	return System(structure, symmetry, cluster, basisset)
 end
 
@@ -284,18 +284,12 @@ spin_cluster = SpinCluster(system)
 ```
 """
 function SpinCluster(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)
-
 	if verbosity
 		print_header()
 	end
 
 	config_system::Config4System = Config4System(input_dict)
-	structure::Structure = Structure(config_system, verbosity = verbosity)
-
-	symmetry::Symmetry = Symmetry(structure, config_system, verbosity = verbosity)
-
-	cluster::Cluster = Cluster(structure, symmetry, config_system, verbosity = verbosity)
-
+	structure, symmetry, cluster = _build_structure_skeleton(config_system; verbosity = verbosity)
 	basisset::BasisSet =
 		BasisSet(structure, symmetry, cluster, config_system, verbosity = verbosity)
 
