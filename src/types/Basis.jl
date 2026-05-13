@@ -18,8 +18,10 @@ Container type for coupled angular momentum bases for N-body (site) angular-mome
 
 - `ls`          : orbital angular momenta for each site (length N)
 - `Lf`          : total angular momentum of the final multiplet
-- `Lseq`        : intermediate L values along a left-coupling tree (length N-1)
-- `atoms`       : atom indices associated with each site (stored as a resizable vector)
+- `Lseq`        : intermediate L values along a left-coupling tree
+                  (length `max(0, N-2)`: empty for N≤2, N-2 entries for N≥3,
+                  since `Lf` is stored separately)
+- `atoms`       : atom indices associated with each site (length N)
 - `coeff_tensor`: N-way tensor over m₁,…,m_N (one tensor per fixed final M_f)
 """
 struct CoupledBasis
@@ -34,13 +36,13 @@ struct CoupledBasis
 
 	User-facing constructor.
 
-- `ls`           : `AbstractVector{<:Integer}` or `NTuple{N, <:Integer}` (length N)
+- `ls`           : `AbstractVector{<:Integer}` (length N)
 - `Lf`           : `Integer`
-- `Lseq`         : `AbstractVector{<:Integer}` (length N-2 for N≥2, empty for N=1)
+- `Lseq`         : `AbstractVector{<:Integer}` (length `max(0, N-2)`)
 - `atoms`        : `AbstractVector{<:Integer}` (length N), stored internally as `Vector{Int}`
-- `coeff_tensor` : `AbstractArray{T}` with `ndims(coeff_tensor) == N+1` (N dimensions for sites, 1 dimension for final Mf)
+- `coeff_tensor` : `AbstractArray{<:Number}` with `ndims(coeff_tensor) == N+1`
+                   (N dimensions for sites, 1 dimension for final Mf)
 	"""
-	# Constructor accepting NTuple for ls
 	function CoupledBasis(
 		ls::AbstractVector{<:Integer},
 		Lf::Integer,
@@ -49,33 +51,30 @@ struct CoupledBasis
 		coeff_tensor::AbstractArray{<:Number},
 	)
 		N = length(ls)
-		if N == 1
-			return new(
-				collect(Int.(ls)),
-				Int(Lf),
-				Int[],
-				Int[atoms[1]],
-				coeff_tensor,
-			)
-		end
+		expected_Lseq_len = max(0, N - 2)
 
-		length(Lseq) == N - 2 ||
-			throw(ArgumentError("length(Lseq) must be length(ls)-2; got $(length(Lseq)), N=$N"))
+		length(Lseq) == expected_Lseq_len || throw(ArgumentError(
+			"length(Lseq) must be max(0, N-2) = $expected_Lseq_len; " *
+			"got $(length(Lseq)) (N=$N)",
+		))
 
-		length(atoms) == N ||
-			throw(ArgumentError("length(atoms) must equal length(ls); got $(length(atoms)), N=$N"))
+		length(atoms) == N || throw(ArgumentError(
+			"length(atoms) must equal length(ls) = $N; " *
+			"got $(length(atoms)) (N=$N)",
+		))
 
-		ndims(coeff_tensor) == N + 1 ||
-			throw(
-				ArgumentError(
-					"ndims(coeff_tensor) must be length(ls)+1; got $(ndims(coeff_tensor)), N=$N",
-				),
-			)
+		ndims(coeff_tensor) == N + 1 || throw(ArgumentError(
+			"ndims(coeff_tensor) must be length(ls)+1 = $(N + 1); " *
+			"got $(ndims(coeff_tensor)) (N=$N)",
+		))
 
-		# Check if atoms are sorted
-		atoms_vec = collect(Int.(atoms))
-
-		return new(collect(Int.(ls)), Lf, Lseq, atoms_vec, coeff_tensor)
+		return new(
+			collect(Int.(ls)),
+			Int(Lf),
+			collect(Int.(Lseq)),
+			collect(Int.(atoms)),
+			coeff_tensor,
+		)
 	end
 end
 
@@ -296,8 +295,10 @@ Container type for coupled angular momentum bases with Mf-dependent coefficients
 
 - `ls`          : orbital angular momenta for each site (length N)
 - `Lf`          : total angular momentum of the final multiplet
-- `Lseq`        : intermediate L values along a left-coupling tree (length N-1)
-- `atoms`       : atom indices associated with each site (stored as a resizable vector)
+- `Lseq`        : intermediate L values along a left-coupling tree
+                  (length `max(0, N-2)`: empty for N≤2, N-2 entries for N≥3,
+                  since `Lf` is stored separately)
+- `atoms`       : atom indices associated with each site (length N)
 - `coeff_tensor`: N-way tensor over m₁,…,m_N (one tensor per fixed final M_f)
 - `coefficient` : coefficients for each Mf value (length must match the last dimension of coeff_tensor)
 """
@@ -320,21 +321,29 @@ struct CoupledBasis_with_coefficient
 		multiplicity::Int,
 	)
 		N = length(ls)
+		expected_Lseq_len = max(0, N - 2)
+
+		length(Lseq) == expected_Lseq_len || throw(ArgumentError(
+			"length(Lseq) must be max(0, N-2) = $expected_Lseq_len; " *
+			"got $(length(Lseq)) (N=$N)",
+		))
+
+		length(atoms) == N || throw(ArgumentError(
+			"length(atoms) must equal length(ls) = $N; " *
+			"got $(length(atoms)) (N=$N)",
+		))
+
 		nd = ndims(coeff_tensor)
-		nd == N + 1 ||
-			throw(
-				ArgumentError(
-					"ndims(coeff_tensor) must be length(ls)+1; got $nd, expected $(N+1)",
-				),
-			)
+		nd == N + 1 || throw(ArgumentError(
+			"ndims(coeff_tensor) must be length(ls)+1 = $(N + 1); " *
+			"got $nd (N=$N)",
+		))
 
 		Mf_size = size(coeff_tensor, nd)
-		length(coefficient) == Mf_size ||
-			throw(
-				ArgumentError(
-					"length(coefficient) must match the last dimension of coeff_tensor; got $(length(coefficient)), expected $Mf_size",
-				),
-			)
+		length(coefficient) == Mf_size || throw(ArgumentError(
+			"length(coefficient) must match the last dimension of coeff_tensor = $Mf_size; " *
+			"got $(length(coefficient))",
+		))
 
 		return new(
 			collect(Int.(ls)),
