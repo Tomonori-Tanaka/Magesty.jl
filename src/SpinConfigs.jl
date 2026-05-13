@@ -147,12 +147,18 @@ function calc_torques(
 end
 
 """
-	show(io::IO, config::SpinConfig)
+	show(io::IO, ::MIME"text/plain", config::SpinConfig)
 
-Display a spin configuration in a human-readable format.
+Display a spin configuration in a human-readable, multi-line format.
+
+By overloading the three-argument `show` method (with `MIME"text/plain"`),
+the rich display is used by the REPL while collections such as
+`Vector{SpinConfig}` and contexts like `print(config)` keep the default
+compact representation, matching Julia's standard `show` conventions.
 
 # Arguments
 - `io::IO`: The output stream
+- `::MIME"text/plain"`: Selects the rich multi-line representation
 - `config::SpinConfig`: The spin configuration to display
 
 # Output Format
@@ -163,7 +169,7 @@ energy (eV): <energy>
 	  ...
 ```
 """
-function show(io::IO, config::SpinConfig)
+function show(io::IO, ::MIME"text/plain", config::SpinConfig)
 	println(io, "energy (eV): $(config.energy)")
 	println(
 		io,
