@@ -125,7 +125,7 @@ was tracked in the session-scoped task list.
       `make test-integration` (155/155 unchanged). Golden values on
       the synthetic dispatch fixture are bit-identical.
 
-## M7 — Wrap-up
+## M7 — Wrap-up  ✅
 
 - [x] Update `DESIGN_NOTES.md` estimator-dispatch section: added a
       "完了" status header noting the rename and bench result.
@@ -136,13 +136,21 @@ was tracked in the session-scoped task list.
       a reference to the *future* genuine mixed-norm estimator the
       name is now reserved for.
 - [x] Push `refactor/estimator-dispatch` to `origin`.
-- [ ] Open PR `refactor: 3-layer estimator dispatch + ElasticNet→Ridge`
-      against `main`. Body: link to this spec; describe before/after;
-      summarize numerical-equivalence evidence; call out the breaking
-      `ElasticNet` removal explicitly.
-- [ ] After merge, follow-up specs may add `Lasso` / true mixed-norm
-      `ElasticNet` / `Bayesian` — each as a separate spec under
-      `docs/specs/[YYMMDD]-<estimator-name>/`.
+- [x] Open PR `refactor(optimize): 3-layer estimator dispatch +
+      ElasticNet→Ridge rename` against `main` →
+      [PR #1](https://github.com/Tomonori-Tanaka/Magesty.jl/pull/1).
+      Ubuntu CI green (`Julia 1 - ubuntu-latest`, `Documentation`).
+- [x] PR merged via merge commit
+      [`4f0eefd`](https://github.com/Tomonori-Tanaka/Magesty.jl/commit/4f0eefd).
+      Local branch deleted.
+
+### Follow-up (not part of this spec)
+
+After this merge, new estimators (`Lasso` / true mixed-norm
+`ElasticNet` / `Bayesian` / NNLS / `RegularizationPath`, ...) can be
+added each as a separate spec under
+`docs/specs/[YYMMDD]-<estimator-name>/`. Each is a `<: AbstractEstimator`
+struct plus one `solve_coefficients` method.
 
 ## Out-of-scope reminders
 
