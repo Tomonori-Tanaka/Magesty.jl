@@ -56,8 +56,8 @@ function calc_energy(
 	for i in 1:num_salcs
 		key_group::Vector{Basis.CoupledBasis_with_coefficient} = salc_list[i]
 		n_C = length(key_group[1].atoms)  # Number of sites in the cluster
-		scaling_factor = (4*pi)^(n_C/2)  # (√(4π))^{n_C}
-		
+		scaling_factor = Optimize._cluster_scaling(n_C)
+
 		# Sum contributions from all CoupledBasis_with_coefficient in this key group
 		group_value = 0.0
 		for cbc::Basis.CoupledBasis_with_coefficient in key_group
@@ -131,7 +131,7 @@ function calc_torque(
 				group_grad .+= grad_u
 			end
 			n_C = length(key_group[1].atoms)  # Number of sites in the cluster
-			scaling_factor = (4*pi)^(n_C/2)  # (√(4π))^{n_C}
+			scaling_factor = Optimize._cluster_scaling(n_C)
 			torque[:, iatom] .+= cross(dir_iatom, Vector{Float64}(group_grad)) .* scaling_factor .* optimize.SCE[salc_idx]
 		end
 	end
