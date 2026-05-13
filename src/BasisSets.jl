@@ -14,7 +14,6 @@ using Printf
 
 using ..CountingContainer
 using ..SortedContainer
-using ..AtomicIndices
 using ..ConfigParser
 using ..Structures
 using ..Symmetries
@@ -476,7 +475,7 @@ function construct_coupled_basislist(
 			if l % 2 == 1 # skip odd l cases due to the time-reversal symmetry
 				continue
 			end
-			# For 1-body case, create LinearCombo with single atom
+			# For 1-body case, build a CoupledBasis with a single atom
 			cb_list = tesseral_coupled_bases_from_tesseral_bases(
 				[l],
 				[iat];
@@ -919,7 +918,7 @@ function push_unique_coupled_basis!(
 			return
 		end
 	end
-	# No equivalent LinearCombo found: add with the given count
+	# No translationally-equivalent CoupledBasis found: add with the given count
 	push!(target, cb, count)
 end
 
