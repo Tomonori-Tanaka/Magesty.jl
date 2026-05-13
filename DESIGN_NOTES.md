@@ -268,13 +268,15 @@ L554 に「Remove this exceptional handling when the bug is fixed in the project
 
 #### R7. `xml_io.jl` の XML タグ・属性のマジックストリング
 
+**Status**: **完了** (commit `cc53c8c`, 2026-05-13). branch なし → main に直接 fast-forward。
+
 **対象**: `src/utils/xml_io.jl`
 
-`"Magesty"`, `"System"`, `"SALC"`, `"basis"` などのノード名・属性名、`"%.15e"` のフォーマット文字列が read/write 両側で hardcoded（CLAUDE.md「連動箇所: SCE 係数の入出力」で整合性が求められている部分）。
+`"Magesty"`, `"System"`, `"SALC"`, `"basis"` などのノード名・属性名、`"%.15e"` のフォーマット文字列が read/write 両側で hardcoded（連動箇所: SCE 係数の入出力で整合性が求められている部分）。
 
-**改善案**: タグ・属性・フォーマット定数を 1 箇所に集約し、read/write が共有する。スキーマ変更が片側だけに入り込むリスクを排除。
+**実装**: モジュール冒頭に `TAG_*` / `ATTR_*` 定数ブロックを追加し、write/read 両方を経由させる形に統一。`@sprintf` はリテラルフォーマットしか受け付けないため、`fmt_lattice` / `fmt_fractional` / `fmt_tensor` の 1 行 wrapper 関数で間接化。`<$(TAG_*)>` interpolation を例外メッセージにも適用してスキーマ名変更時の整合性を自動化。XML 出力は byte-identical（integration tests で write/read round-trip 確認）。
 
-**連動箇所**: BasisSet の XML ラウンドトリップテスト（あれば）。
+**連動箇所**: integration tests (dimer, fept, fege など) が write_xml + build_sce_basis_from_xml を経由しているため自動カバー。専用 round-trip テストは未追加（不要と判断）。
 
 #### R8. `SortedContainer.jl` の 3 コンテナの実装重複
 
