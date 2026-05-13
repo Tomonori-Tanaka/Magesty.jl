@@ -71,13 +71,23 @@ L554 に「Remove this exceptional handling when the bug is fixed in the project
 
 ### R5. `AngularMomentumCoupling.jl` の DP ロジック重複
 
-**対象**: `src/utils/AngularMomentumCoupling.jl` `coeff_tensor_complex`（L137–212）と `coeff_tensor_complex_mindexed`（L279–359 付近、要 verify）
+**Status**: **完了** (2026-05-14). branch なし → main に直接 fast-forward 予定。
 
-3 ステージの CG 漸化 DP（N ≥ 3）がほぼ同じアルゴリズムで 2 度実装されている。indexing 方式（`CartesianIndices` vs m-direct `OffsetArray`）のみ違う。
+**対象**: `src/utils/AngularMomentumCoupling.jl`
 
-**改善案**: 共通の DP コアを 1 関数に抽出し、indexing 方式を wrapper で選択する。
+**実態確認結果**: 当初の見立て（「`build_all_complex_bases` / `build_all_real_bases` が両方を呼んでいる」）は誤り。実際の callers を grep した結果:
 
-**連動箇所**: `build_all_complex_bases`, `build_all_real_bases` が両方を呼んでいる。
+- `coeff_tensor_complex`: `build_all_complex_bases` (L389)、`build_all_real_bases` (L425)、テスト 6 箇所で使用。
+- `coeff_tensor_complex_mindexed`: in-repo の caller ゼロ（src/ にも test/ にも tools/ にもなし）。**初期コミット `144e620` から存在するが当初から完全な dead code**。
+
+**実装**: dead code 削除を採用（共通 DP コア抽出ではなく）。pre-release で内部利用ゼロ、テストゼロのため、削除は極めて低リスク。削除対象:
+- `coeff_tensor_complex_mindexed` 関数本体（旧 L267–359）
+- `using OffsetArrays` (旧 L28、本ファイル内で他に利用なし)
+- `export` 一覧の `coeff_tensor_complex_mindexed,`
+
+`OffsetArrays` パッケージ依存自体は `Clusters.jl` / `BasisSets.jl` / `ConfigParser.jl` が使うため Project.toml からは外せない。
+
+**連動箇所**: なし（モジュール内に閉じている）。テストは既存の 428 件全パス。`make test-integration` も 155/155 全パス。
 
 ## 🟡 中優先度（保守性・スケーラビリティ）
 
