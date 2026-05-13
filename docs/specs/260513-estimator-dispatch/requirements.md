@@ -85,7 +85,7 @@ Out of scope (deferred to follow-up specs):
 ## Non-goals
 
 - No performance regression target beyond "no measurable slowdown" on
-  `make bench-optimize`. Speedups are welcome but not required.
+  `julia --project test/benchmark_optimize.jl --with-fit --samples 20`. Speedups are welcome but not required.
 - No change in error-handling philosophy beyond replacing the explicit
   `throw(ArgumentError(...))` for unknown estimator with the implicit
   `MethodError` from missing `solve_coefficients` dispatch.
@@ -117,7 +117,7 @@ Out of scope (deferred to follow-up specs):
 - [ ] Numerical regression test added: a tiny synthetic fixture
       (energy + torque) where `(j0, jphi)` from the new code matches a
       golden value captured from `main` at the start of this branch.
-- [ ] `make bench-optimize` shows no statistically significant
+- [ ] `julia --project test/benchmark_optimize.jl --with-fit --samples 20` shows no statistically significant
       regression (record before/after in `.claude/bench_log.md`).
 - [ ] `DESIGN_NOTES.md` "設計案: estimator dispatch リファクタリング"
       section gets a one-line pointer to the implementing PR /

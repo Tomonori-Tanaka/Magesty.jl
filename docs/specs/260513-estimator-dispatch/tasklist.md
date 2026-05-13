@@ -1,14 +1,17 @@
 # Tasklist: Optimize.jl estimator dispatch refactor
 
-Status: draft (2026-05-13)
+Status: **complete (2026-05-13)** — branch `refactor/estimator-dispatch`,
+commits `5efbf1b..03168dc`.
 Spec: [`requirements.md`](requirements.md) · [`design.md`](design.md)
 
-Milestones (coarse-grained; daily TODOs use `TaskCreate`).
+Milestones (coarse-grained; daily TODOs use `TaskCreate`). Items below
+are kept as-is for historical reference; the actual per-step progress
+was tracked in the session-scoped task list.
 
 ## M0 — Baseline capture (before any code change)
 
 - [ ] Run `make test-all` on `main` HEAD; record pass/fail.
-- [ ] Run `make bench-optimize` on `main` HEAD; append to
+- [ ] Run `julia --project test/benchmark_optimize.jl --input test/examples/fept_tetragonal_2x2x2/input.toml --with-fit --samples 20` on `main` HEAD; append to
       `.claude/bench_log.md` with the tag `pre-estimator-dispatch`.
 - [ ] On a tiny synthetic fixture, capture golden `(j_values, j0, jphi)`
       from the current `elastic_net_regression` for both OLS-equivalent
@@ -96,7 +99,7 @@ Milestones (coarse-grained; daily TODOs use `TaskCreate`).
 
 - [ ] `make test-unit` / `make test-integration` / `make test-jet` /
       `make test-aqua` all green.
-- [ ] `make bench-optimize`; append result to `.claude/bench_log.md`
+- [ ] `julia --project test/benchmark_optimize.jl --input test/examples/fept_tetragonal_2x2x2/input.toml --with-fit --samples 20`; append result to `.claude/bench_log.md`
       with tag `post-estimator-dispatch`. Confirm no regression
       (within run-to-run noise).
 - [ ] Compare `(j0, jphi)` from `test/examples/dimer` before vs after.
