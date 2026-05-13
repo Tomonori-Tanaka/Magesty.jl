@@ -72,17 +72,19 @@ using Magesty
         @test isapprox(jphi[2], -0.3107340994547646;  atol = 1e-12, rtol = 1e-10)
     end
 
-    @testset "golden (j0, jphi) — ElasticNet (alpha=0, lambda=0.1)" begin
+    @testset "golden (j0, jphi) — Ridge (lambda=0.1)" begin
         j0, jphi = Magesty.Optimize._fit_sce_model_internal(
             design_matrix_energy,
             design_matrix_torque,
             observed_energy_list,
             observed_torque_list,
-            Magesty.ElasticNet(alpha = 0.0, lambda = 0.1),
+            Magesty.Ridge(lambda = 0.1),
             weight,
         )
-        # Golden values captured 2026-05-13 from pre-refactor
-        # `elastic_net_regression(..., 0.0, 0.1, 0.3)`.
+        # Golden values captured 2026-05-13 from the pre-refactor
+        # `elastic_net_regression(..., 0.0, 0.1, 0.3)` call. The current
+        # Ridge(lambda=0.1) path is numerically identical because the
+        # historical `alpha` field was always ignored.
         @test isapprox(j0, 0.76894461111080004; atol = 1e-12, rtol = 1e-10)
         @test isapprox(jphi[1],  0.14994907999948034; atol = 1e-12, rtol = 1e-10)
         @test isapprox(jphi[2], -0.30765628547929808; atol = 1e-12, rtol = 1e-10)

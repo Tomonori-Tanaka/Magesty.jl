@@ -208,7 +208,7 @@ function main()
 	M = length(jphi_ref)
 
 	cfg_opt = Magesty.Config4Optimize(input)
-	estimator = Magesty.ElasticNet(alpha = cfg_opt.alpha, lambda = cfg_opt.lambda)
+	estimator = Magesty.Ridge(lambda = cfg_opt.lambda)
 	fit_w = cfg_opt.weight
 
 	for (k, n) in enumerate(n_list)

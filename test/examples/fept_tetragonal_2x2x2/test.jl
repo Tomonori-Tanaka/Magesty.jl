@@ -44,7 +44,7 @@ spinconfig_list = read_embset(datafile)
 
 # Fit SCE coefficients using fit_sce_model
 regression_config = input["regression"]
-estimator = ElasticNet(alpha=regression_config["alpha"], lambda=regression_config["lambda"])
+estimator = Ridge(lambda=regression_config["lambda"])
 optimizer = fit_sce_model(
 	system,
 	spinconfig_list,

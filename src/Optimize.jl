@@ -21,7 +21,7 @@ using ..Basis
 using ..BasisSets
 using ..SpinConfigs
 
-export Optimizer, SCEModel, fit_sce_model, predict_energy, AbstractEstimator, OLS, ElasticNet
+export Optimizer, SCEModel, fit_sce_model, predict_energy, AbstractEstimator, OLS, Ridge
 
 """
 	AbstractEstimator
@@ -38,20 +38,38 @@ Ordinary Least Squares estimator (no regularization).
 struct OLS <: AbstractEstimator end
 
 """
-	ElasticNet <: AbstractEstimator
+	Ridge <: AbstractEstimator
 
-Elastic Net estimator with ridge regularization (alpha=0).
+L2-regularized least-squares (ridge) estimator. The bias column is
+excluded from the penalty by the dispatch boundary (see
+`solve_coefficients`).
 
 # Fields
-- `alpha::Float64`: Elastic net mixing parameter (currently unused, kept for API compatibility)
-- `lambda::Float64`: Regularization strength
+- `lambda::Float64`: Regularization strength. `λ = 0` reduces to OLS.
+
+# Examples
+```julia
+estimator = Ridge(lambda = 0.1)
+```
 """
-struct ElasticNet <: AbstractEstimator
-	alpha::Float64
+struct Ridge <: AbstractEstimator
 	lambda::Float64
 end
 
-ElasticNet(; alpha::Real = 0.0, lambda::Real = 0.0) = ElasticNet(Float64(alpha), Float64(lambda))
+Ridge(; lambda::Real = 0.0) = Ridge(Float64(lambda))
+
+# Build the default estimator for the Optimizer outer constructor.
+# `alpha` is accepted for backward compatibility with the historical
+# `ElasticNet(alpha, lambda)` API but has never had any effect on the
+# solver; non-zero values trigger a one-time deprecation warning and are
+# then dropped. New code should pass `estimator = Ridge(lambda = ...)`
+# explicitly.
+function _default_estimator(alpha::Real, lambda::Real)
+	if alpha != 0.0
+		@warn "alpha is deprecated and has no effect; pass `estimator = Ridge(lambda = ...)` explicitly" maxlog = 1
+	end
+	return Ridge(lambda = lambda)
+end
 
 """
 	SCEModel
@@ -101,7 +119,7 @@ struct Optimizer
 		spinconfig_list::AbstractVector{SpinConfig},
 		;
 		verbosity::Bool = true,
-		estimator::AbstractEstimator = ElasticNet(alpha = alpha, lambda = lambda),
+		estimator::AbstractEstimator = _default_estimator(alpha, lambda),
 	)
 		# Start timing
 		start_time = time_ns()
@@ -651,7 +669,7 @@ Fit SCE coefficients using the specified estimator.
 # Description
 - Builds design matrices internally from the System and spin configurations.
 - Dispatches to the appropriate fitting method based on the estimator type.
-- Supports OLS and ElasticNet estimators.
+- Supports OLS and Ridge estimators.
 - User-facing function for fitting SCE coefficients.
 - Returns an `Optimizer` instance.
 
@@ -670,8 +688,8 @@ Fit SCE coefficients using the specified estimator.
 # Using OLS with default weight (0.5)
 optimizer = fit_sce_model(system, spinconfig_list)
 
-# Using ElasticNet with custom regularization and weight
-estimator = ElasticNet(lambda=0.1)
+# Using Ridge with custom regularization and weight
+estimator = Ridge(lambda=0.1)
 optimizer = fit_sce_model(system, spinconfig_list, estimator, weight=0.7)
 ```
 """
@@ -874,19 +892,18 @@ function fit_sce_model_ols(
 end
 
 """
-	fit_sce_model_elastic_net(design_matrix_energy, design_matrix_torque, observed_energy_list, observed_torque_list, alpha, lambda, weight)
+	fit_sce_model_ridge(design_matrix_energy, design_matrix_torque, observed_energy_list, observed_torque_list, lambda, weight)
 
-Fit SCE coefficients using Elastic Net regression (ridge regularization when alpha=0).
+Fit SCE coefficients using L2-regularized (ridge) regression.
 
 # Returns
 - `(j0::Float64, jphi::Vector{Float64})`: Bias and coefficients
 """
-function fit_sce_model_elastic_net(
+function fit_sce_model_ridge(
 	design_matrix_energy::AbstractMatrix{<:Real},
 	design_matrix_torque::AbstractMatrix{<:Real},
 	observed_energy_list::AbstractVector{<:Real},
 	observed_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
-	alpha::Real,
 	lambda::Real,
 	weight::Real,
 )
@@ -895,7 +912,7 @@ function fit_sce_model_elastic_net(
 		design_matrix_torque,
 		observed_energy_list,
 		observed_torque_list,
-		ElasticNet(alpha, lambda),
+		Ridge(lambda = lambda),
 		weight,
 	)
 end
@@ -1020,7 +1037,7 @@ function solve_coefficients(
 end
 
 function solve_coefficients(
-	e::ElasticNet,
+	e::Ridge,
 	X::AbstractMatrix{<:Real},
 	y::AbstractVector{<:Real};
 	bias_col::Int = 1,
