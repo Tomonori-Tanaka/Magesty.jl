@@ -450,11 +450,15 @@ function Base.isless(a::DistList, b::DistList)
 end
 
 """
-	print_cluster_stdout(min_distance_pairs, atoms_in_prim, kd_name, kd_int_list)
+	print_cluster_stdout([io::IO=stdout,] min_distance_pairs, atoms_in_prim, kd_name, kd_int_list)
 
-Prints the list of neighboring atoms and distances for each atom in the primitive cell.
+Print the list of neighboring atoms and distances for each atom in the
+primitive cell to `io`. Defaults to `stdout` when `io` is omitted,
+matching the convention of Base's `print` / `println` and keeping the
+output testable via `IOBuffer`.
 
 # Arguments
+- `io::IO`: The output stream (optional, defaults to `stdout`)
 - `min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}}`: Matrix of minimum distance pairs
 - `atoms_in_prim::AbstractVector{<:Integer}`: Indices of atoms in the primitive cell
 - `kd_name::AbstractVector{<:AbstractString}`: Names of atomic elements
@@ -464,6 +468,7 @@ Prints the list of neighboring atoms and distances for each atom in the primitiv
 - `AssertionError`: If input parameters are invalid
 """
 function print_cluster_stdout(
+	io::IO,
 	min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
 	atoms_in_prim::AbstractVector{<:Integer},
 	kd_name::AbstractVector{<:AbstractString},
@@ -473,7 +478,7 @@ function print_cluster_stdout(
 	@assert length(kd_name) > 0 "kd_name must not be empty."
 	@assert length(kd_int_list) > 0 "kd_int_list must not be empty."
 
-	println("""
+	println(io, """
 
 	INTERACTION
 	===========
@@ -494,16 +499,16 @@ function print_cluster_stdout(
 		sort!(neighbor_list[i_prim])
 	end
 
-	println(" List of neighboring atoms below.")
-	println(" Format [N th-nearest shell, distance (Number of atoms on the shell)]")
-	println()
+	println(io, " List of neighboring atoms below.")
+	println(io, " Format [N th-nearest shell, distance (Number of atoms on the shell)]")
+	println(io)
 
 	# Print neighbor information for each primitive atom
 	for (i_prim, i_prim_atom) in enumerate(atoms_in_prim)
 		nth_nearest = 0
 		atom_list = Int[]
 
-		@printf("%5d (%3s): ", i_prim_atom, kd_name[kd_int_list[i_prim_atom]])
+		@printf(io, "%5d (%3s): ", i_prim_atom, kd_name[kd_int_list[i_prim_atom]])
 
 		dist_tmp = 0.0
 
@@ -520,20 +525,20 @@ function print_cluster_stdout(
 					nth_nearest += 1
 
 					if nth_nearest > 1
-						print(" " ^ 13)
+						print(io, " " ^ 13)
 					end
 
-					@printf("%3d%10.6f (%3d) -", nth_nearest, dist_tmp, length(atom_list))
+					@printf(io, "%3d%10.6f (%3d) -", nth_nearest, dist_tmp, length(atom_list))
 
 					# Print atoms in this shell
 					for (k, atom_idx) in enumerate(atom_list)
 						if k > 1 && k % 4 == 1
-							println()
-							print(" " ^ 34)
+							println(io)
+							print(io, " " ^ 34)
 						end
-						@printf("%4d(%3s)", atom_idx, kd_name[kd_int_list[atom_idx]])
+						@printf(io, "%4d(%3s)", atom_idx, kd_name[kd_int_list[atom_idx]])
 					end
-					println()
+					println(io)
 				end
 
 				# Start new shell
@@ -550,24 +555,33 @@ function print_cluster_stdout(
 			nth_nearest += 1
 
 			if nth_nearest > 1
-				print(" " ^ 13)
+				print(io, " " ^ 13)
 			end
 
-			@printf("%3d%10.6f (%3d) -", nth_nearest, dist_tmp, length(atom_list))
+			@printf(io, "%3d%10.6f (%3d) -", nth_nearest, dist_tmp, length(atom_list))
 
 			# Print atoms in this shell
 			for (k, atom_idx) in enumerate(atom_list)
 				if k > 1 && k % 4 == 1
-					println()
-					print(" " ^ 34)
+					println(io)
+					print(io, " " ^ 34)
 				end
-				@printf("%4d(%3s)", atom_idx, kd_name[kd_int_list[atom_idx]])
+				@printf(io, "%4d(%3s)", atom_idx, kd_name[kd_int_list[atom_idx]])
 			end
-			println()
+			println(io)
 		end
-		println("\n")
+		println(io, "\n")
 	end
 end
+
+# Convenience overload: default to stdout when the IO argument is omitted.
+# Keeps the original call sites and any external callers working unchanged.
+print_cluster_stdout(
+	min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
+	atoms_in_prim::AbstractVector{<:Integer},
+	kd_name::AbstractVector{<:AbstractString},
+	kd_int_list::AbstractVector{<:Integer},
+) = print_cluster_stdout(stdout, min_distance_pairs, atoms_in_prim, kd_name, kd_int_list)
 
 function is_translationally_equiv_cluster(
 	cluster_target::AbstractVector{<:Integer},
