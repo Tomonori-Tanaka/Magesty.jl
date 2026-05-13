@@ -215,7 +215,7 @@ L554 に「Remove this exceptional handling when the bug is fixed in the project
 
 ## 🟢 低優先度（参照のみ）
 
-- **`BasisSets.jl` `construct_basislist`（L957–1000 付近）**: "backward compatibility" コメント付きで、内部呼び出しがあるかどうか要 verify。なければ削除。
+- **`BasisSets.jl` legacy SHProduct path 群**: ~~`construct_basislist`（L957–1000 付近）~~ **完了** (2026-05-14). 実態確認の結果、`construct_basislist` を起点とする 9 関数 (`push_unique_body!`, `listup_basislist`, `map_atom_l_list`, `classify_basislist`, `is_translationally_equiv_basis`, `projection_matrix` (legacy), `proj_matrix_a_symop`, `operate_symop`, `corresponding_idx`) すべて caller ゼロの dead code チェーン。BasisSets.jl から ~500 行削除。`SHProduct` 型自体と AtomicIndices.jl 側の関連メソッド整理は Phase 2 (別 PR) で。
 - **`SpinConfigs.show`（L175–197）と `Clusters.print_cluster_stdout`（L506–566）**: 出力フォーマットの統一余地。`PrettyTables.jl` 検討の余地もあるが新規依存追加なので保留。
 - **`AtomCells.jl` `AtomCell` と `AtomicIndices.jl` `SHSiteIndex`**: `isless` / `==` / `hash` の実装パターンが重複。**注意**: 物理意味が違うので無理に共通化するとバグの温床。慎重に。
 - **`common/version.jl`**: ~~hardcoded version 文字列。Project.toml から動的取得する仕組みの検討余地。~~ **完了** (commit `95269de`, 2026-05-13). `pkgversion(@__MODULE__)` で Project.toml から動的取得する形に変更。bump 時の編集箇所は Project.toml の 1 行のみ。`test/component_test/test_Version.jl` で drift を検証。
