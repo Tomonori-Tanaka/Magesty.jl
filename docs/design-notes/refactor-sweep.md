@@ -121,11 +121,22 @@ L554 に「Remove this exceptional handling when the bug is fixed in the project
 
 ### R9. 公開 API の docstring 不揃い
 
-**対象**: 主に `src/SpinConfigs.jl` `get_j0`, `get_jphi`, `get_j0_jphi`（L683–701 付近）と export 一覧全体
+**Status**: **完了** (2026-05-14). branch なし → main に直接 fast-forward 予定。
 
-CLAUDE.md は「エクスポートされる API には明示的な型アノテーションと docstring を付ける」「Julia 標準形式（`# Arguments` / `# Returns` / `# Examples`）」を要求しているが、一部の getter で Arguments / Returns セクションが欠落。
+**対象**: `src/Magesty.jl` の export 一覧および周辺 getter。
 
-**改善案**: `src/Magesty.jl` の export 一覧（L77–84）を起点に audit し、全 export 関数の docstring を Julia 標準形式に統一する。
+**実態確認結果**: `src/Magesty.jl` の export を起点に audit。多くの docstring は既に Julia 標準形式（# Arguments / # Returns / # Examples）に揃っていたが、以下が不揃いだった:
+
+- `get_j0` / `get_jphi` / `get_j0_jphi` (qualified access のみ、`Magesty.get_j0(sc)`): 1 行サマリのみだった
+- `build_sce_basis`: 1 行サマリのみだった
+- `SpinCluster(system, input_dict, spinconfig_list)` 3 引数 form: 2 行のみだった
+- `predict_energy`: # Examples 欠落
+- `install_tools`: 散文形式、# Arguments / # Returns 欠落
+- `fit_sce_model` の docstring 例: `weight=0.7` と書かれていたが `weight` は positional 引数のため Julia ではエラーになる呼び出し（バグ）
+
+**実装**: 上記すべてを Julia 標準形式に統一。`fit_sce_model` の例は `0.7`（位置引数）に修正。`get_j0` 系の signature 行は `get_j0(sc::SpinCluster) -> Float64` のように戻り値型まで明示。
+
+**連動箇所**: なし（docstring のみ）。テスト: `test-unit` 6203/6203、`test-jet`、`test-aqua` 全パス。
 
 ### R10. `Basis.jl` `CoupledBasis` constructor の不変条件検証の散在
 
