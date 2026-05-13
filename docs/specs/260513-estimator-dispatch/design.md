@@ -297,7 +297,7 @@ removal is a follow-up after a deprecation window.
    `@warn` and still produces identical numerics to today's run
    (since `alpha` was always ignored at the solver level).
 4. **Static analysis**: `make test-jet`, `make test-aqua` stay green.
-5. **Benchmark**: `make bench-optimize` before vs after, recorded in
+5. **Benchmark**: `julia --project test/benchmark_optimize.jl --with-fit --samples 20` before vs after, recorded in
    `.claude/bench_log.md`.
 
 ## Linked sections (must update when this lands)
