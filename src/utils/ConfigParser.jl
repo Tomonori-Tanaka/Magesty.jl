@@ -331,7 +331,7 @@ end
 const DEFAULT_VALUES_OPTIMIZE = Dict{Symbol, Any}(
 	:ndata => -1,
 	:weight => 0.0, # 0 means magnetic field only, 1 means energy only
-	:alpha => 0.0,# 0 means ridge regression, 1 means LASSO regression
+	:alpha => 0.0, # deprecated; has no effect on the solver, kept only for TOML compat
 	:lambda => 0.0, # 0 means no regularization
 )
 
@@ -417,6 +417,10 @@ struct Config4Optimize
 			"alpha",
 			DEFAULT_VALUES_OPTIMIZE[:alpha],
 		))
+		if alpha != 0.0
+			@warn "[regression].alpha is deprecated and has no effect on the solver. " *
+			      "Remove it from your TOML; future releases may reject this key." maxlog = 1
+		end
 
 		lambda = Float64(get(
 			input_dict["regression"],

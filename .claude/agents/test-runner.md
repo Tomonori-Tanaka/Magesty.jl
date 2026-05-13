@@ -46,7 +46,7 @@ Magesty.jl のテストランナーエージェント。テストを実行し、
 | `test_Basis.jl` / `test_AtomicIndices.jl` | 基底関数とインデックス管理 | SALC 構築 / `BasisSet` の並び順 |
 | `test_Symmetries.jl` | 空間群対称操作 | Spglib ラッパー・回転行列 |
 | `test_Structures.jl` | 結晶構造とスーパーセル | `Structures.jl` |
-| `test_Optimize.jl` | OLS / ElasticNet によるフィッティング | design matrix・係数推定 |
+| `test_Optimize.jl` | OLS / Ridge によるフィッティング | design matrix・係数推定 |
 | `test_ConfigParser.jl` | TOML 入力のパース | 入力スキーマの整合性 |
 | `test_RotationMatrix.jl` | 回転行列の構築 | 軸-角度表現の規約 |
 | `test_SortedContainer.jl` / `test_CountingContainer.jl` | 共通データ構造 | コンテナ実装 |

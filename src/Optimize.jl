@@ -21,7 +21,7 @@ using ..Basis
 using ..BasisSets
 using ..SpinConfigs
 
-export Optimizer, SCEModel, fit_sce_model, predict_energy, AbstractEstimator, OLS, ElasticNet
+export Optimizer, SCEModel, fit_sce_model, predict_energy, AbstractEstimator, OLS, Ridge
 
 """
 	AbstractEstimator
@@ -38,20 +38,33 @@ Ordinary Least Squares estimator (no regularization).
 struct OLS <: AbstractEstimator end
 
 """
-	ElasticNet <: AbstractEstimator
+	Ridge <: AbstractEstimator
 
-Elastic Net estimator with ridge regularization (alpha=0).
+L2-regularized least-squares (ridge) estimator. The bias column is
+excluded from the penalty by the dispatch boundary (see
+`solve_coefficients`).
 
 # Fields
-- `alpha::Float64`: Elastic net mixing parameter (currently unused, kept for API compatibility)
-- `lambda::Float64`: Regularization strength
+- `lambda::Float64`: Regularization strength. `λ = 0` reduces to OLS.
+
+# Examples
+```julia
+estimator = Ridge(lambda = 0.1)
+```
 """
-struct ElasticNet <: AbstractEstimator
-	alpha::Float64
+struct Ridge <: AbstractEstimator
 	lambda::Float64
 end
 
-ElasticNet(; alpha::Real = 0.0, lambda::Real = 0.0) = ElasticNet(Float64(alpha), Float64(lambda))
+Ridge(; lambda::Real = 0.0) = Ridge(Float64(lambda))
+
+# `alpha` is a deprecated remnant of the old ElasticNet(alpha, lambda) API.
+function _default_estimator(alpha::Real, lambda::Real)
+	if alpha != 0.0
+		@warn "alpha is deprecated and has no effect; pass `estimator = Ridge(lambda = ...)` explicitly" maxlog = 1
+	end
+	return Ridge(lambda = lambda)
+end
 
 """
 	SCEModel
@@ -81,6 +94,52 @@ struct SCEModel
 	num_atoms::Int
 end
 
+"""
+	Optimizer
+
+Container for a fitted SCE problem: the design matrices, the fitted
+`(j0, jphi)`, basic metrics, and the per-configuration predictions.
+
+The outer constructor builds the design matrices from the supplied
+`structure`/`symmetry`/`basisset`, runs the regression via
+`fit_sce_model_*` helpers, and computes RMSE / R² statistics for both
+energy and torque blocks.
+
+# Fields
+- `spinconfig_list::Vector{SpinConfig}`: Training spin configurations.
+- `reference_energy::Float64`: Bias term `j0` (eV).
+- `SCE::Vector{Float64}`: SCE coefficients `jphi`.
+- `metrics::Dict{Symbol, Any}`: RMSE / R² for energy and torque.
+- `predicted_energy_list::Vector{Float64}`: Per-config predicted energy.
+- `predicted_torque_list::Vector{Matrix{Float64}}`: Per-config `3×n_atoms` predicted torque.
+- `design_matrix_energy::Matrix{Float64}`: Energy design matrix.
+- `design_matrix_torque::Matrix{Float64}`: Flattened torque design matrix.
+
+# Constructor
+
+    Optimizer(structure, symmetry, basisset, alpha, lambda, weight,
+              spinconfig_list; verbosity=true, estimator=...)
+
+# Arguments
+- `structure::Structure`, `symmetry::Symmetry`, `basisset::BasisSet`:
+  problem context used to build the design matrices.
+- `alpha::Real`: Deprecated and ignored; kept only to preserve the
+  legacy positional signature. A non-zero value emits a one-shot
+  `@warn` and is then dropped.
+- `lambda::Real`: L2 regularization strength used when `estimator` is
+  not passed explicitly (the default `estimator` is
+  `Ridge(lambda=lambda)`).
+- `weight::Real`: Trade-off between energy `(1 - weight)` and torque
+  `weight`.
+- `spinconfig_list`: Training configurations.
+
+# Keyword arguments
+- `verbosity::Bool = true`: Print progress to stdout.
+- `estimator::AbstractEstimator`: Regression method. Defaults to
+  `Ridge(lambda=lambda)` via `_default_estimator(alpha, lambda)`. When
+  passed explicitly, the positional `alpha` and `lambda` arguments are
+  ignored — `alpha` is consulted only to emit the deprecation warning.
+"""
 struct Optimizer
 	spinconfig_list::Vector{SpinConfig}
 	reference_energy::Float64
@@ -101,7 +160,7 @@ struct Optimizer
 		spinconfig_list::AbstractVector{SpinConfig},
 		;
 		verbosity::Bool = true,
-		estimator::AbstractEstimator = ElasticNet(alpha = alpha, lambda = lambda),
+		estimator::AbstractEstimator = _default_estimator(alpha, lambda),
 	)
 		# Start timing
 		start_time = time_ns()
@@ -651,7 +710,7 @@ Fit SCE coefficients using the specified estimator.
 # Description
 - Builds design matrices internally from the System and spin configurations.
 - Dispatches to the appropriate fitting method based on the estimator type.
-- Supports OLS and ElasticNet estimators.
+- Supports OLS and Ridge estimators.
 - User-facing function for fitting SCE coefficients.
 - Returns an `Optimizer` instance.
 
@@ -670,8 +729,8 @@ Fit SCE coefficients using the specified estimator.
 # Using OLS with default weight (0.5)
 optimizer = fit_sce_model(system, spinconfig_list)
 
-# Using ElasticNet with custom regularization and weight
-estimator = ElasticNet(lambda=0.1)
+# Using Ridge with custom regularization and weight
+estimator = Ridge(lambda=0.1)
 optimizer = fit_sce_model(system, spinconfig_list, estimator, weight=0.7)
 ```
 """
@@ -834,27 +893,15 @@ function _fit_sce_model_internal(
 	estimator::AbstractEstimator,
 	weight::Real,
 )
-	if estimator isa OLS
-		return fit_sce_model_ols(
-			design_matrix_energy,
-			design_matrix_torque,
-			observed_energy_list,
-			observed_torque_list,
-			weight,
-		)
-	elseif estimator isa ElasticNet
-		return fit_sce_model_elastic_net(
-			design_matrix_energy,
-			design_matrix_torque,
-			observed_energy_list,
-			observed_torque_list,
-			estimator.alpha,
-			estimator.lambda,
-			weight,
-		)
-	else
-		throw(ArgumentError("Unsupported estimator type: $(typeof(estimator))"))
-	end
+	X, y, bias_col = assemble_weighted_problem(
+		design_matrix_energy,
+		design_matrix_torque,
+		observed_energy_list,
+		observed_torque_list,
+		weight,
+	)
+	j_values = solve_coefficients(estimator, X, y; bias_col = bias_col)
+	return extract_j0_jphi(j_values, design_matrix_energy, observed_energy_list)
 end
 
 """
@@ -875,73 +922,72 @@ function fit_sce_model_ols(
 	observed_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
 	weight::Real,
 )
-	return fit_sce_model_elastic_net(
+	return _fit_sce_model_internal(
 		design_matrix_energy,
 		design_matrix_torque,
 		observed_energy_list,
 		observed_torque_list,
-		0.0,  # alpha
-		0.0,  # lambda (no regularization)
+		OLS(),
 		weight,
 	)
 end
 
 """
-	fit_sce_model_elastic_net(design_matrix_energy, design_matrix_torque, observed_energy_list, observed_torque_list, alpha, lambda, weight)
+	fit_sce_model_ridge(design_matrix_energy, design_matrix_torque, observed_energy_list, observed_torque_list, lambda, weight)
 
-Fit SCE coefficients using Elastic Net regression (ridge regularization when alpha=0).
+Fit SCE coefficients using L2-regularized (ridge) regression.
 
 # Returns
 - `(j0::Float64, jphi::Vector{Float64})`: Bias and coefficients
 """
-function fit_sce_model_elastic_net(
+function fit_sce_model_ridge(
 	design_matrix_energy::AbstractMatrix{<:Real},
 	design_matrix_torque::AbstractMatrix{<:Real},
 	observed_energy_list::AbstractVector{<:Real},
 	observed_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
-	alpha::Real,
 	lambda::Real,
 	weight::Real,
 )
-	return elastic_net_regression(
+	return _fit_sce_model_internal(
 		design_matrix_energy,
 		design_matrix_torque,
 		observed_energy_list,
 		observed_torque_list,
-		alpha,
-		lambda,
+		Ridge(lambda = lambda),
 		weight,
 	)
 end
 
 """
-	elastic_net_regression(design_matrix_energy, design_matrix_torque, observed_energy_list, observed_torque_list, alpha, lambda, weight)
+	assemble_weighted_problem(design_matrix_energy, design_matrix_torque,
+	                          observed_energy_list, observed_torque_list, weight)
+	    -> (X::Matrix{Float64}, y::Vector{Float64}, bias_col::Int)
 
-Solve a combined regression for energy and torque using ridge (elastic net with alpha=0) regularization.
+Build the augmented `(X, y)` linear system that all estimators solve.
 
-# Description
-- Scales energy/torque parts by √weight and concatenates them into one system.
-- Excludes the bias term from regularization.
+Energy rows are scaled by `√(1 - weight)`, torque rows (after flattening)
+by `√weight`. The bias column of the energy block is reset to `1.0`
+after scaling so that the bias coefficient is not absorbed into the
+weight factor. A zero column is prepended to the torque block so the
+two blocks share `bias_col = 1`.
 
 # Arguments
-- `design_matrix_energy`: Energy design matrix (bias column included)
-- `design_matrix_torque`: Torque design matrix (no bias column)
-- `observed_energy_list`: Observed energies
-- `observed_torque_list`: Observed torques as 3×num_atoms matrices per configuration
-- `alpha`: Unused (kept for API compatibility)
-- `lambda`: Regularization strength
-- `weight`: Trade-off between energy (1-weight) and torque (weight)
+- `design_matrix_energy`: Energy design matrix (bias column at column 1).
+- `design_matrix_torque`: Torque design matrix (no bias column).
+- `observed_energy_list`: Observed energies.
+- `observed_torque_list`: Observed torques as `3×n_atoms` matrices per config.
+- `weight`: Trade-off; energy weight = `1 - weight`, torque weight = `weight`.
 
 # Returns
-- `(j0::Float64, jphi::Vector{Float64})`: Bias and coefficients
+- `X`: Augmented design matrix (energy rows stacked above flattened torque rows).
+- `y`: Augmented observation vector.
+- `bias_col`: Column index of the bias term (always `1`).
 """
-function elastic_net_regression(
+function assemble_weighted_problem(
 	design_matrix_energy::AbstractMatrix{<:Real},
 	design_matrix_torque::AbstractMatrix{<:Real},
 	observed_energy_list::AbstractVector{<:Real},
 	observed_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
-	alpha::Real,
-	lambda::Real,
 	weight::Real,
 )
 	# weight parameters
@@ -951,7 +997,7 @@ function elastic_net_regression(
 	# Flatten observed torque
 	observed_torque_flattened = vcat(vec.(observed_torque_list)...)
 
-	# Normalize the design matrices by using factor of 1/2N_data and √weight
+	# Normalize the design matrices by √weight
 	normalized_design_matrix_energy =
 		design_matrix_energy .* sqrt(w_e)
 	normalized_design_matrix_energy[:, 1] .= 1.0
@@ -964,7 +1010,7 @@ function elastic_net_regression(
 	normalized_observed_torque_flattened =
 		observed_torque_flattened .* sqrt(w_m)
 
-	# Add 0 bias term to the design matrix for torque
+	# Add 0 bias column to the torque design matrix
 	# to align with the energy design matrix
 	with_bias_design_matrix_torque =
 		hcat(zeros(size(normalized_design_matrix_torque, 1)), normalized_design_matrix_torque)
@@ -974,29 +1020,84 @@ function elastic_net_regression(
 		normalized_design_matrix_energy,
 		with_bias_design_matrix_torque,
 	)
-
 	y = vcat(
 		normalized_observed_energy_list,
 		normalized_observed_torque_flattened,
 	)
 
+	return X, y, 1
+end
 
-	# Elastic net regression solution
-	lambda_vec = fill(lambda, size(X, 2))
-	lambda_vec[1] = 0.0  # exclude bias term from regularization
-	j_values = begin
-		if lambda ≈ 0.0
-			X \ y
-		else
-			ridge(X, y, lambda_vec; bias = false)
-		end
-	end
+"""
+	extract_j0_jphi(j_values, design_matrix_energy, observed_energy_list)
+	    -> (j0::Float64, jphi::Vector{Float64})
+
+Split the augmented coefficient vector into the bias `j0` and the SCE
+coefficients `jphi`. The bias is re-estimated from the unscaled energy
+residual `mean(ye .- Xe[:, 2:end] * jphi)` to undo the √weight scaling
+that affected the augmented bias column.
+
+# Arguments
+- `j_values`: Augmented coefficient vector returned by `solve_coefficients`.
+- `design_matrix_energy`: Unscaled energy design matrix (bias column at 1).
+- `observed_energy_list`: Unscaled observed energies.
+
+# Returns
+- `(j0, jphi)`: Bias and SCE coefficients.
+"""
+function extract_j0_jphi(
+	j_values::AbstractVector{<:Real},
+	design_matrix_energy::AbstractMatrix{<:Real},
+	observed_energy_list::AbstractVector{<:Real},
+)
 	jphi = j_values[2:end]
 	j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
-
 	return j0, jphi
 end
 
+"""
+	solve_coefficients(estimator::AbstractEstimator, X, y; bias_col=1)
+	    -> Vector{Float64}
+
+Solve the augmented linear system `(X, y)` for the coefficient vector.
+The element at index `bias_col` is the bias (j0) and MUST be excluded
+from any regularization penalty by the estimator's method.
+
+Each `AbstractEstimator` subtype defines exactly one method of this
+function. Unknown estimator types raise `MethodError`.
+"""
+function solve_coefficients end
+
+function solve_coefficients(
+	::OLS,
+	X::AbstractMatrix{<:Real},
+	y::AbstractVector{<:Real};
+	bias_col::Int = 1,
+)
+	return X \ y
+end
+
+"""
+	solve_coefficients(estimator::Ridge, X, y; bias_col=1) -> Vector{Float64}
+
+L2-regularized solve. Uses `MultivariateStats.ridge` with a per-column
+penalty vector that zeros out the bias column at `bias_col`. When
+`estimator.lambda ≈ 0` falls back to `X \\ y` to avoid building the
+penalty vector for an effectively unregularized problem.
+"""
+function solve_coefficients(
+	e::Ridge,
+	X::AbstractMatrix{<:Real},
+	y::AbstractVector{<:Real};
+	bias_col::Int = 1,
+)
+	if e.lambda ≈ 0.0
+		return X \ y
+	end
+	lambda_vec = fill(e.lambda, size(X, 2))
+	lambda_vec[bias_col] = 0.0  # exclude bias term from regularization
+	return ridge(X, y, lambda_vec; bias = false)
+end
 
 function calc_rmse(list1::AbstractVector{<:Real}, list2::AbstractVector{<:Real})::Float64
 	# Calculate the Root Mean Square Error (RMSE) between two lists

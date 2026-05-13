@@ -91,7 +91,16 @@ SpinClusterMC 側でのみ採用、Magesty には依存追加不要。
 
 ---
 
-## 設計案: Optimize.jl の estimator dispatch リファクタリング（2026-05-13、未着手）
+## 設計案: Optimize.jl の estimator dispatch リファクタリング（2026-05-13、**完了**: branch `refactor/estimator-dispatch`）
+
+> **Status (2026-05-13)**: 実装完了。spec は `docs/specs/260513-estimator-dispatch/`。
+> ハイライト:
+> - 3 層分離（`assemble_weighted_problem` → `solve_coefficients` → `extract_j0_jphi`）と多重ディスパッチに移行。
+> - `ElasticNet`（実体は pure ridge）→ `Ridge(lambda)` に **rename**（breaking）。`ElasticNet` 名前を将来の真の mixed-norm estimator のために空けた。
+> - `[regression].alpha` は TOML 互換のため field/parse は残し、`alpha != 0` でワンショットの deprecation `@warn` を発行（`maxlog = 1`）。
+> - Bench: `fit_sce_model` (`fept_tetragonal_2x2x2`, samples=20) で +/-1% （`.claude/bench_log.md` 参照）。
+>
+> 以下は当初の設計メモ（参考用）。
 
 **対象**: `src/Optimize.jl` の回帰手法ディスパッチと `elastic_net_regression`。
 
@@ -345,8 +354,8 @@ system = System(crystal;
 data = SpinConfigSet("EMBSET.dat")            # or load_spinconfigs(path)
 
 # ── Step 4: estimator を選んで fit ──
-model = fit(SCEModel, system, data, ElasticNet(lambda=0.1); weight=0.5)
-# 他の estimator: OLS()、Ridge(lambda=0.1)、Lasso(lambda=0.1)、Bayesian(...)
+model = fit(SCEModel, system, data, Ridge(lambda=0.1); weight=0.5)
+# 他の estimator: OLS()、Lasso(lambda=0.1)、ElasticNet(alpha=0.5, lambda=0.1)、Bayesian(...)
 
 # ── Step 5: 検査 / 予測 / 保存 ──
 coef(model)                            # → jphi::Vector{Float64}
@@ -372,7 +381,7 @@ convergence_runs = [
 ]
 results = map(convergence_runs) do params
     system = System(crystal; params..., tolerance_sym=1e-3)
-    fit(SCEModel, system, data, ElasticNet(lambda=0.1))
+    fit(SCEModel, system, data, Ridge(lambda=0.1))
 end
 rmses = [metrics(m)[:rmse_energy] for m in results]
 
@@ -397,7 +406,7 @@ models = [fit(SCEModel, system, data, est) for est in estimators]
 | 物質型の名前 | `Crystal` / `Structure` を維持 | `Structure` 維持。既存コードへの影響最小化。`Crystal` は AtomsBase 等で使う語彙だが現状は導入しない。 |
 | `fit` の引数順 | `fit(SCEModel, sys, data, est)` / `fit(est, sys, data)` | StatsAPI 準拠で type-first。GLM.jl の `fit(LinearModel, X, y)` と整合。 |
 | `Symmetry` / `Cluster` の expose | 暗黙構築のみ / 明示構築も許可 | 明示構築も許可。default は暗黙、advanced 用途で `Symmetry(crystal; ...)` を直接構築可能に。 |
-| Cross-validation の表現 | 別 estimator (`CV(ElasticNet, ...)`) / 別関数 (`crossvalidate(...)`) | wrapper estimator (`CV(...)`) を推奨。`fit` の API を変えず、estimator dispatch だけで吸収できる。 |
+| Cross-validation の表現 | 別 estimator (`CV(Ridge, ...)`) / 別関数 (`crossvalidate(...)`) | wrapper estimator (`CV(...)`) を推奨。`fit` の API を変えず、estimator dispatch だけで吸収できる。 |
 | AtomsBase.jl 統合 | 統合する / 当面なし | 当面なし。将来 `Crystal` から AtomsBase 型を生成する変換関数を足すだけで対応可能なので延期。 |
 | 既存 `Optimizer` の扱い | export 維持 / 内部化 / 削除 | 内部化（export 維持して deprecation warning）。`SCEModel` がユーザー向け result type。 |
 
@@ -441,7 +450,7 @@ function fit(::Type{SCEModel}, system, data, cv::CV; weight)
 end
 ```
 
-ユーザーコードは `fit(SCEModel, system, data, CV(ElasticNet(lambda=0.1); k=5))` のまま、CV 1 タイプ追加だけで実現できる。MLJ.jl 流の "wrapping model" と同じパターン。
+ユーザーコードは `fit(SCEModel, system, data, CV(Ridge(lambda=0.1); k=5))` のまま、CV 1 タイプ追加だけで実現できる。MLJ.jl 流の "wrapping model" と同じパターン。
 
 なお **λ-path**（resample なしで λ を変えるだけ）は `solve_coefficients` レベルで実装可能。つまり dispatch 位置が違うだけ：
 

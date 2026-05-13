@@ -106,7 +106,7 @@ using Test
 				"datafile" => "test.dat",
 				"ndata" => 100,
 				"weight" => 0.5,
-				"alpha" => 0.1,
+				"alpha" => 0.0,
 				"lambda" => 0.01,
 			),
 		)
@@ -116,7 +116,7 @@ using Test
 		@test config.datafile == "test.dat"
 		@test config.ndata == 100
 		@test config.weight ≈ 0.5
-		@test config.alpha ≈ 0.1
+		@test config.alpha ≈ 0.0
 		@test config.lambda ≈ 0.01
 
 		# Test missing required section
@@ -136,6 +136,18 @@ using Test
 			),
 		)
 		@test_throws ArgumentError Config4Optimize(invalid_dict)
+
+		# A non-zero `alpha` is deprecated and emits a one-shot warning.
+		# (`maxlog = 1` means the warning fires at most once per Julia
+		# session, so this match only succeeds on the first invocation.)
+		deprecated_dict = Dict{String, Any}(
+			"regression" => Dict{String, Any}(
+				"datafile" => "test.dat",
+				"alpha" => 0.5,
+				"lambda" => 0.01,
+			),
+		)
+		@test_logs (:warn, r"\[regression\].alpha is deprecated") Config4Optimize(deprecated_dict)
 	end
 
 	@testset "parse_position" begin

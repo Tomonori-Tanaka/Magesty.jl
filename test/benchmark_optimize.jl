@@ -74,7 +74,7 @@ end
 function run_bench(cfg::Dict{Symbol, Any})
     ctx = load_context(cfg)
     regression = TOML.parsefile(ctx.input_path)["regression"]
-    estimator = Magesty.ElasticNet(alpha = regression["alpha"], lambda = regression["lambda"])
+    estimator = Magesty.Ridge(lambda = regression["lambda"])
     weight = regression["weight"]
 
     println("Input TOML: ", ctx.input_path)
