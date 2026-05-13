@@ -25,7 +25,6 @@ module AngularMomentumCoupling
 
 using LinearAlgebra
 using WignerSymbols  # provides clebschgordan
-using OffsetArrays   # enables direct indexing by magnetic quantum numbers m
 
 using ..SphericalHarmonicsTransforms
 
@@ -262,102 +261,6 @@ function complex_to_real_tensor(Ccx::AbstractArray{<:Number}, ls::Vector{Int}, L
 	return Creal
 end
 
-# ---------------- 2') Build complex coefficient tensor with m-indexed axes ----------------
-
-"""
-	coeff_tensor_complex_mindexed(ls, Lseq, Lf; T=Float64) -> OffsetArray
-
-	Same coefficients as `coeff_tensor_complex`, but returns an OffsetArray whose axes
-	are directly indexed by the magnetic quantum numbers m for each site and Mf for the
-	final multiplet. This allows accessing entries as `C[m1, m2, ..., mN, Mf]` with
-	`m_k ∈ -l_k: +l_k` and `Mf ∈ -Lf: +Lf`.
-
-	Notes:
-	- Computation reuses the same dynamic-programming scheme; only storage layout differs.
-	- This is convenient for readability but introduces an OffsetArrays dependency.
-	"""
-function coeff_tensor_complex_mindexed(
-	ls::Vector{Int},
-	Lseq::Vector{Int},
-	Lf::Int;
-	T::Type{<:Real} = Float64,
-)
-	N = length(ls)
-	mr = [mrange(l) for l in ls]                 # per-site m ranges: -l..+l
-	dims = [2*l + 1 for l in ls]                 # per-site lengths
-
-	# Allocate a base (0-based) array and wrap with offsets so that indices are actual m values
-	Cbase = zeros(T, dims..., 2*Lf + 1)
-	site_offsets = Tuple(first.(mr) .- 1)         # shift so that C[m] is valid
-	final_offset = (-Lf - 1)                      # for Mf ∈ -Lf..+Lf
-	C = OffsetArray(Cbase, site_offsets..., final_offset)
-
-	# N = 1: delta coupling constraint
-	if N == 1
-		l1 = ls[1]
-		for Mf in mrange(Lf)
-			# nonzero only when Lf == l1 and Mf == m1
-			C[Mf, Mf] = (Lf == l1) ? one(T) : zero(T)
-		end
-		return C
-	end
-
-	# N = 2: single CG coefficient
-	if N == 2
-		for mi in mr[1], mj in mr[2], Mf in mrange(Lf)
-			C[mi, mj, Mf] = convert(T, clebschgordan(ls[1], mi, ls[2], mj, Lf, Mf))
-		end
-		return C
-	end
-
-	# N >= 3: forward dynamic programming over intermediate M's
-	Lprev = Lseq[end]
-	inds  = CartesianIndices(Tuple(dims))  # Convert Vector to Tuple for multi-dimensional indexing
-	for I in inds
-		# Map multi-index I to actual magnetic quantum numbers m_k
-		ms = ntuple(i -> mr[i][I[i]], N)
-
-		# Stage 1: (l1,l2) -> L12 (sum over M12)
-		L12 = Lseq[1]
-		acc_prev = Dict{Int, T}()                  # map: M12 -> amplitude
-		for M12 in (-L12):L12
-			v = convert(T, clebschgordan(ls[1], ms[1], ls[2], ms[2], L12, M12))
-			if v != 0
-				acc_prev[M12] = v
-			end
-		end
-
-		# Intermediate stages: (L_{...}, l_{t+1}) -> L_t
-		for t in 2:(N-2)
-			Lt_1, Lt = Lseq[t-1], Lseq[t]
-			mt1 = ms[t+1]
-			acc = Dict{Int, T}()
-			for (Mprev, aval) in acc_prev
-				for Mt in (-Lt):Lt
-					v = aval * convert(T, clebschgordan(Lt_1, Mprev, ls[t+1], mt1, Lt, Mt))
-					if v != 0
-						acc[Mt] = get(acc, Mt, zero(T)) + v
-					end
-				end
-			end
-			acc_prev = acc
-		end
-
-		# Final stage: (Lprev, lN) -> Lf ; sum over Mprev
-		mN = ms[end]
-		for Mf in mrange(Lf)
-			total_amplitude = zero(T)
-			for (Mprev, aval) in acc_prev
-				total_amplitude +=
-					aval * convert(T, clebschgordan(Lprev, Mprev, ls[end], mN, Lf, Mf))
-			end
-			C[ms..., Mf] = total_amplitude
-		end
-	end
-
-	return C
-end
-
 # ---------------- 4) Build all bases, grouped by final Lf ----------------
 
 
@@ -444,7 +347,6 @@ export mrange,
 	enumerate_paths_left_all,
 	nmode_mul,
 	coeff_tensor_complex,
-	coeff_tensor_complex_mindexed,
 	complex_to_real_tensor,
 	build_all_complex_bases,
 	build_all_real_bases
