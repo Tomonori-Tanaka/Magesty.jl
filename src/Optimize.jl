@@ -731,7 +731,7 @@ optimizer = fit_sce_model(system, spinconfig_list)
 
 # Using Ridge with custom regularization and weight
 estimator = Ridge(lambda=0.1)
-optimizer = fit_sce_model(system, spinconfig_list, estimator, weight=0.7)
+optimizer = fit_sce_model(system, spinconfig_list, estimator, 0.7)
 ```
 """
 function fit_sce_model(
@@ -855,11 +855,23 @@ end
 Predict the energy of a spin configuration using an SCE model.
 
 # Arguments
-- `model::SCEModel`: SCE model containing coefficients and basis information
-- `spin_directions::AbstractMatrix{<:Real}`: 3×N matrix of spin unit vectors
+- `model::SCEModel`: SCE model containing coefficients and basis information.
+- `spin_directions::AbstractMatrix{<:Real}`: `3×N` matrix of spin unit vectors,
+  where `N` is the number of atoms in the supercell.
 
 # Returns
-- `Float64`: Predicted energy in eV
+- `Float64`: Predicted energy in eV (`j0 + Σ jphi · ϕ(spin)`).
+
+# Examples
+```julia
+sc = SpinCluster("input.toml")
+model = SCEModel(get_j0(sc), get_jphi(sc), sc.basisset, sc.symmetry,
+                 sc.structure.supercell.num_atoms)
+
+num_atoms = sc.structure.supercell.num_atoms
+fm = zeros(3, num_atoms); fm[3, :] .= 1.0
+E_fm = predict_energy(model, fm)
+```
 """
 function predict_energy(
 	model::SCEModel,

@@ -170,9 +170,30 @@ end
 
 
 """
-	build_sce_basis(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)::System
+	build_sce_basis(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool=false) -> System
 
-User interface to build the basis set for the spin cluster expansion.
+Build a `System` (structure + symmetry + cluster + basis set) from a parsed input
+dictionary. This is the headless alternative to `System(input_dict)` and skips the
+header banner by default; the SALC basis is computed from scratch (use
+`build_sce_basis_from_xml` to load a precomputed basis instead).
+
+# Arguments
+- `input_dict::Dict{<:AbstractString, <:Any}`: Dictionary containing the parsed
+  TOML input parameters (typically the result of `TOML.parsefile`).
+- `verbosity::Bool=false`: Whether to print detailed progress information.
+
+# Returns
+- `System`: A `System` instance containing structure, symmetry, cluster, and basis set.
+
+# Throws
+- `ErrorException`: If required parameters are missing or invalid.
+
+# Examples
+```julia
+using TOML
+input_dict = TOML.parsefile("input.toml")
+system = build_sce_basis(input_dict)
+```
 """
 function build_sce_basis(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = false)::System
 	config::Config4System = Config4System(input_dict)
@@ -362,9 +383,37 @@ function SpinCluster(
 end
 
 """
-	SpinCluster
-Create a `SpinCluster` instance from a `System` and a list of `SpinConfig` objects.
-This constructor is used when the optimization process is based on predefined spin configurations.
+	SpinCluster(system::System,
+	            input_dict::AbstractDict{<:AbstractString, <:Any},
+	            spinconfig_list::AbstractVector{SpinConfig};
+	            verbosity::Bool=true)
+
+Create a `SpinCluster` from an existing `System`, an input dictionary, and a
+caller-supplied list of `SpinConfig` objects. Use this overload when the spin
+configurations come from somewhere other than the EMBSET path declared in
+`input_dict` (for example, configurations generated programmatically or pulled
+from a non-standard format).
+
+# Arguments
+- `system::System`: An existing `System` instance.
+- `input_dict::AbstractDict{<:AbstractString, <:Any}`: Dictionary with
+  optimization parameters (`[regression]` section).
+- `spinconfig_list::AbstractVector{SpinConfig}`: Training spin configurations
+  used in place of those that would be loaded from disk.
+- `verbosity::Bool=true`: Whether to print detailed information during fitting.
+
+# Returns
+- `SpinCluster`: A fitted `SpinCluster` instance.
+
+# Throws
+- `ErrorException`: If required `[regression]` parameters are missing or invalid.
+
+# Examples
+```julia
+system = System("input.toml")
+configs = [SpinConfig(...), SpinConfig(...)]
+sc = SpinCluster(system, input_dict, configs)
+```
 """
 function SpinCluster(
 	system::System,
@@ -655,28 +704,71 @@ function write_torques(
 end
 
 """
-	get the reference energy
+	get_j0(sc::SpinCluster) -> Float64
+
+Return the fitted reference energy (bias term `j0`) from a `SpinCluster`.
+
+# Arguments
+- `sc::SpinCluster`: Spin cluster with a fitted optimizer.
+
+# Returns
+- `Float64`: Reference energy in eV (the constant offset of the SCE expansion).
+
+# Examples
+```julia
+sc = SpinCluster("input.toml")
+j0 = get_j0(sc)
+```
 """
 function get_j0(sc::SpinCluster)::Float64
 	return sc.optimize.reference_energy
 end
 
 """
-	get the spin-cluster coefficients
+	get_jphi(sc::SpinCluster) -> Vector{Float64}
+
+Return the fitted SCE coefficients (`jphi`) from a `SpinCluster`.
+
+# Arguments
+- `sc::SpinCluster`: Spin cluster with a fitted optimizer.
+
+# Returns
+- `Vector{Float64}`: SCE coefficients, one entry per SALC basis function.
+
+# Examples
+```julia
+sc = SpinCluster("input.toml")
+jphi = get_jphi(sc)
+```
 """
 function get_jphi(sc::SpinCluster)::Vector{Float64}
 	return sc.optimize.SCE
 end
 
 """
-	get the reference energy and spin-cluster coefficients
+	get_j0_jphi(sc::SpinCluster) -> Tuple{Float64, Vector{Float64}}
+
+Return the reference energy and SCE coefficients as a tuple.
+
+# Arguments
+- `sc::SpinCluster`: Spin cluster with a fitted optimizer.
+
+# Returns
+- `Tuple{Float64, Vector{Float64}}`: `(j0, jphi)` where `j0` is the bias term in eV
+  and `jphi` is the vector of SCE coefficients.
+
+# Examples
+```julia
+sc = SpinCluster("input.toml")
+j0, jphi = get_j0_jphi(sc)
+```
 """
 function get_j0_jphi(sc::SpinCluster)::Tuple{Float64, Vector{Float64}}
 	return sc.optimize.reference_energy, sc.optimize.SCE
 end
 
 """
-    install_tools(; bindir=joinpath(homedir(), ".julia", "bin"))
+    install_tools(; bindir::AbstractString=joinpath(homedir(), ".julia", "bin"))
 
 Install CLI wrapper scripts for Magesty tools into `bindir` (default: `~/.julia/bin`).
 Each wrapper calls `julia /path/to/script.jl "\$@"`, so the correct package version
@@ -685,9 +777,27 @@ is always used regardless of where the package is installed.
 After running this once, add `~/.julia/bin` to your PATH:
     export PATH="\$HOME/.julia/bin:\$PATH"
 
+# Arguments
+- `bindir::AbstractString=joinpath(homedir(), ".julia", "bin")`: Target directory
+  for the wrapper scripts. The directory is created if it does not exist.
+
+# Returns
+- `Nothing`: Writes wrapper scripts as a side effect and prints their paths.
+
+# Throws
+- `ErrorException`: If the Magesty package directory cannot be determined.
+
 # Available commands after installation
 - `vasp2extxyz`           — convert a single VASP output to extxyz
 - `vasp2extxyz_recursive` — recursively convert VASP outputs under a directory
+
+# Examples
+```julia
+using Magesty
+Magesty.install_tools()
+# or to install into a custom location
+Magesty.install_tools(bindir="/usr/local/bin")
+```
 """
 function install_tools(; bindir::AbstractString = joinpath(homedir(), ".julia", "bin"))
     pkg_dir = pkgdir(Magesty)
