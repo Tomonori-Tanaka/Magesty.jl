@@ -15,6 +15,28 @@ This module provides functions to compute spherical harmonics ( Y_{l,m} ) and re
 - `Zₗₘ_unsafe(l, m, uvec)`: Same as `Zₗₘ` without validation (for hot paths).
 - `∂Yₗₘ_∂r̂x`, `∂Yₗₘ_∂r̂y`, `∂Yₗₘ_∂r̂z`, `yₗₘ`, `dP̄ₗₘ`, `∂Zₗₘ_∂r̂x`, `∂Zₗₘ_∂r̂y`, `∂Zₗₘ_∂r̂z`, `zzₗₘ`, `∂Zₗₘ_∂x`, `∂Zₗₘ_∂y`, `∂Zₗₘ_∂z`, `∂ᵢZlm`: validate then compute; each has a `…_unsafe` twin for hot paths.
 - `d_Zlm` / `d_Zlm_unsafe`: length-3 lists of the Cartesian `∂Z` callbacks (safe vs unsafe).
+
+# Buffer requirements (for buffered overloads)
+
+Several `*_unsafe` functions expose a buffered overload that accepts a
+`buf::AbstractVector{Float64}` so the per-call `LegendrePolynomials.dnPl`
+heap allocation can be eliminated in hot paths.
+
+For every buffered call (`P̄ₗₘ`, `dP̄ₗₘ_unsafe`, `Zₗₘ_unsafe`, `∂ᵢZlm_unsafe`,
+and the private `_legendre_pair_unsafe!`), `buf` must satisfy
+`length(buf) >= l - |m| + 1`. Over a workload with `l ≤ max_l` the maximum
+required size is therefore `max_l + 1`, so each thread should allocate
+`Vector{Float64}(undef, max_l + 1)` once and reuse it.
+
+`dP̄ₗₘ_unsafe` alone would technically need only `l - |m|` (it calls
+`dnPl(..., |m| + 1, buf)` rather than `dnPl(..., |m|, buf)`), but the
+unified `l - |m| + 1` lets a single buffer cover all callers — in
+particular `∂ᵢZlm_unsafe`, which invokes both `P̄ₗₘ` and `dP̄ₗₘ_unsafe`
+through `_legendre_pair_unsafe!`.
+
+The buffered methods verify the requirement via `@boundscheck
+checkbounds(buf, _required_buf_size(l, m))`; under `@inbounds` callers
+the check is elided.
 """
 module MySphericalHarmonics
 
@@ -31,6 +53,12 @@ export ∂Zₗₘ_∂x_unsafe, ∂Zₗₘ_∂y_unsafe, ∂Zₗₘ_∂z_unsafe, d
 # Fast integer parity: (-1)^n without float exponentiation
 @inline _parity(n::Integer) = isodd(n) ? -1 : 1
 
+# Minimum `buf` length required by every buffered `*_unsafe` overload in this
+# module. See the module docstring's "Buffer requirements" section for the
+# unified rationale (`l - |m| + 1` covers `dnPl(..., |m|, buf)` and is also
+# enough for `dnPl(..., |m| + 1, buf)`).
+@inline _required_buf_size(l::Integer, m::Integer)::Int = l - abs(m) + 1
+
 # Combined cache fill for dnPl(x, l, am) and dnPl(x, l, am + 1).
 #
 # Two separate `dnPl` calls would each rebuild the Legendre cache via
@@ -39,13 +67,15 @@ export ∂Zₗₘ_∂x_unsafe, ∂Zₗₘ_∂y_unsafe, ∂Zₗₘ_∂z_unsafe, d
 # index `l - am + 1`, then advance the recurrence one extra step (`ni = am + 1`)
 # in-place to recover the (am+1)-th derivative at `l`, stored at index `l - am`.
 #
-# `buf` must satisfy `length(buf) >= l - am + 1`. Uses non-exported
-# `LegendrePolynomials._unsafednPl!` and `LegendrePolynomials.dPl_recursion`;
+# `buf` size: `length(buf) >= l - am + 1` (see the module docstring's
+# "Buffer requirements" section; `am == |m|` for caller-side `(l, m)`). Uses
+# non-exported `LegendrePolynomials._unsafednPl!` and `LegendrePolynomials.dPl_recursion`;
 # upstream changes to those internals require updating this helper.
 @inline function _legendre_pair_unsafe!(buf::AbstractVector{Float64},
 		x::Real, l::Integer, am::Integer)::Tuple{Float64,Float64}
 	# dnPl(x, l, n) = 0 when n > l.
 	am > l && return (0.0, 0.0)
+	@boundscheck checkbounds(buf, l - am + 1)
 
 	LegendrePolynomials._unsafednPl!(buf, x, l, am)
 	plm_raw = @inbounds buf[l - am + 1]
@@ -129,8 +159,9 @@ function P̄ₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float6
 	return P̄ₗₘ(l, m, uvec[3])
 end
 
-# Buffered overload — see [`Zₗₘ_unsafe`](@ref) buffered method for required buffer size.
+# Buffered overload — see the module docstring's "Buffer requirements" section.
 function P̄ₗₘ(l::Integer, m::Integer, r̂z::Real, buf::AbstractVector{Float64})::Float64
+	@boundscheck checkbounds(buf, _required_buf_size(l, m))
 	am = abs(m)
 	return _parity(m) * _plm_norm(l, am) * dnPl(r̂z, l, am, buf)
 end
@@ -151,9 +182,13 @@ function dP̄ₗₘ_unsafe(l::Integer, m::Integer, r̂z::Real)::Float64
 	return _parity(m) * _plm_norm(l, am) * dnPl(r̂z, l, am + 1)
 end
 
-# Buffered overload — `buf` must satisfy `length(buf) >= l - |m|`.
+# Buffered overload — see the module docstring's "Buffer requirements" section.
+# The intrinsic requirement here is `length(buf) >= l - |m|`, but we assert the
+# unified `l - |m| + 1` so a single shared buffer covers callers that mix this
+# with `P̄ₗₘ` (e.g. `∂ᵢZlm_unsafe`).
 function dP̄ₗₘ_unsafe(l::Integer, m::Integer, r̂z::Real,
 		buf::AbstractVector{Float64})::Float64
+	@boundscheck checkbounds(buf, _required_buf_size(l, m))
 	am = abs(m)
 	return _parity(m) * _plm_norm(l, am) * dnPl(r̂z, l, am + 1, buf)
 end
@@ -483,13 +518,14 @@ end
 	Zₗₘ_unsafe(l, m, uvec, buf::AbstractVector{Float64}) -> Float64
 
 Buffered variant of [`Zₗₘ_unsafe`](@ref) that reuses `buf` as the cache for
-`LegendrePolynomials.dnPl`, eliminating the per-call heap allocation. `buf` must
-satisfy `length(buf) >= l - |m| + 1`; allocating `Vector{Float64}(undef, max_l + 1)`
-once per thread covers all `(l, m)` with `l ≤ max_l`. Numerical result is identical
-to the unbuffered method.
+`LegendrePolynomials.dnPl`, eliminating the per-call heap allocation.
+Numerical result is identical to the unbuffered method.
+
+See the module docstring's "Buffer requirements" section for `buf` sizing.
 """
 function Zₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real},
 		buf::AbstractVector{Float64})::Float64
+	@boundscheck checkbounds(buf, _required_buf_size(l, m))
 	m == 0 && return P̄ₗₘ(l, 0, uvec[3], buf)
 
 	n = abs(m)
@@ -738,13 +774,15 @@ end
 """
 	∂ᵢZlm_unsafe(l, m, uvec, buf::AbstractVector{Float64}) -> SVector{3,Float64}
 
-Buffered variant of [`∂ᵢZlm_unsafe`](@ref). `buf` is reused as the cache for both
-the `P̄ₗₘ` and `dP̄ₗₘ_unsafe` calls (each call overwrites `buf` independently;
-result is read before the next call). `buf` must satisfy `length(buf) >= l - |m| + 1`;
-`Vector{Float64}(undef, max_l + 1)` per thread covers all `(l, m)` with `l ≤ max_l`.
+Buffered variant of [`∂ᵢZlm_unsafe`](@ref). `buf` is reused as the cache for
+both the `P̄ₗₘ` and `dP̄ₗₘ_unsafe` computations through a single
+`_legendre_pair_unsafe!` call.
+
+See the module docstring's "Buffer requirements" section for `buf` sizing.
 """
 function ∂ᵢZlm_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real},
 		buf::AbstractVector{Float64})::SVector{3,Float64}
+	@boundscheck checkbounds(buf, _required_buf_size(l, m))
 	x, y, z = uvec[1], uvec[2], uvec[3]
 	n = abs(m)
 	# Single cache build covers both raw Legendre values.

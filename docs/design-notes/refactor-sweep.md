@@ -93,11 +93,19 @@ L554 に「Remove this exceptional handling when the bug is fixed in the project
 
 ### R6. `MySphericalHarmonics.jl` の buffered / non-buffered API の整理
 
+**Status**: **完了** (Plan B, 2026-05-14). branch なし → main に直接 fast-forward 予定。
+
 **対象**: `src/utils/MySphericalHarmonics.jl`
 
-`Zₗₘ` / `Zₗₘ_unsafe` / `∂ᵢZlm_unsafe` で buffered 版と non-buffered 版が並列に存在。buffer サイズ要件（`length(buf) >= l - |m| + 1` 等）の docstring が散在しており、新規呼び出し時に必要サイズの根拠が辿りにくい。
+**実態確認結果**: buffered 関数は計 5 つ (`_legendre_pair_unsafe!`, `P̄ₗₘ`, `dP̄ₗₘ_unsafe`, `Zₗₘ_unsafe`, `∂ᵢZlm_unsafe`)。buffer サイズ要件のコメント / docstring が 5 箇所に散在しており、しかも `dP̄ₗₘ_unsafe` だけ要件が異なる (`l - |m|` vs 他 4 つの `l - |m| + 1`)。実態として `∂ᵢZlm_unsafe` が両者を 1 つのバッファで共有するため、caller は `l - |m| + 1` を確保する必要があり、`dP̄ₗₘ_unsafe` 単独要件の `l - |m|` は混乱の元。
 
-**改善案**: buffer サイズ仕様を 1 箇所（例: モジュール冒頭の docstring または `BUFFER_SIZE_*` 定数）に集約し、各 buffered 関数の docstring から参照する。可能なら `@boundscheck` で buffer サイズの assertion を追加。
+**実装** (数値結果不変、docstring + boundscheck のみ):
+1. モジュール docstring に "Buffer requirements" セクションを追加し、全 buffered 関数の要件を一箇所に集約。`l - |m| + 1` を統一基準として明記。`max_l + 1` をスレッドごとに確保する推奨パターンを記載。
+2. private helper `_required_buf_size(l, m) = l - abs(m) + 1` を追加。
+3. 5 つの buffered 関数に `@boundscheck checkbounds(buf, _required_buf_size(l, m))` 追加。`@inbounds` 環境では elided されるため hot path 性能は不変。
+4. 散在していた buffer サイズコメント (`P̄ₗₘ` L132, `dP̄ₗₘ_unsafe` L154, `Zₗₘ_unsafe` docstring L482-490, `∂ᵢZlm_unsafe` docstring L738-745) を「See the module docstring's Buffer requirements section.」への参照に簡潔化。
+
+**連動箇所**: 球面調和関数の規格化・符号は変更なし → `SphericalHarmonicsTransforms.jl` / `BasisSets.jl` / `test_sphericart_agreement.jl` への影響なし。テスト: `test-unit` 6203/6203、`test-integration` 155/155、`test-jet`、`test-aqua` 全パス。
 
 ### R7. `xml_io.jl` の XML タグ・属性のマジックストリング
 
