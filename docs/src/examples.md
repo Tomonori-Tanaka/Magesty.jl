@@ -38,8 +38,8 @@ optimizer = fit_sce_model(system, spinconfigs)
 println("RMSE energy: ", optimizer.metrics[:rmse_energy] * 1000, " meV")
 println("RMSE torque: ", optimizer.metrics[:rmse_torque] * 1000, " meV")
 
-# Elastic-Net fit (weight=0.5: balanced energy/torque)
-estimator = ElasticNet(lambda = 1e-4)
+# Ridge fit (weight=0.5: balanced energy/torque)
+estimator = Ridge(lambda = 1e-4)
 optimizer_reg = fit_sce_model(system, spinconfigs, estimator, 0.5)
 ```
 
@@ -180,7 +180,7 @@ input  = TOML.parsefile("input.toml")
 system = build_sce_basis_from_xml(input, "scecoeffs.xml")
 
 spinconfigs = read_embset("new_EMBSET.dat")
-estimator   = ElasticNet(lambda = 1e-3)
+estimator   = Ridge(lambda = 1e-3)
 optimizer   = fit_sce_model(system, spinconfigs, estimator, 0.5)
 
 write_xml(system.structure, system.symmetry, system.basisset, optimizer, "new_results.xml")

@@ -129,15 +129,14 @@ const A_FEGE = 9.378              # Cubic lattice constant from input.toml
 			i in 1:num_cfg
 		]
 
-		# Recover coefficients via elastic-net regression (torque-only weight).
+		# Recover coefficients via OLS (torque-only weight).
 		weight = 1.0
-		j0_hat, jphi_hat = Optimize.elastic_net_regression(
+		j0_hat, jphi_hat = Optimize._fit_sce_model_internal(
 			design_E,
 			design_T,
 			observed_energy_list,
 			observed_torque_list,
-			0.0,
-			0.0,
+			Optimize.OLS(),
 			weight,
 		)
 

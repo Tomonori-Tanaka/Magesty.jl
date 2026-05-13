@@ -40,7 +40,7 @@ fit_sce_model
 ```@docs
 AbstractEstimator
 OLS
-ElasticNet
+Ridge
 ```
 
 ### Output Functions

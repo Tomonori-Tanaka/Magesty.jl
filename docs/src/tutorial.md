@@ -114,8 +114,8 @@ spinconfigs = read_embset("EMBSET.dat")
 # OLS fit
 optimizer = fit_sce_model(system, spinconfigs)
 
-# Elastic-Net fit
-estimator = ElasticNet(lambda = 1e-4)
+# Ridge fit
+estimator = Ridge(lambda = 1e-4)
 optimizer = fit_sce_model(system, spinconfigs, estimator, 0.5)
 
 j0   = optimizer.reference_energy
