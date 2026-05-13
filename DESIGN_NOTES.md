@@ -315,7 +315,7 @@ docstring では `atoms` が "sorted" であるべきと書かれているが、
 - **`BasisSets.jl` `construct_basislist`（L957–1000 付近）**: "backward compatibility" コメント付きで、内部呼び出しがあるかどうか要 verify。なければ削除。
 - **`SpinConfigs.show`（L175–197）と `Clusters.print_cluster_stdout`（L506–566）**: 出力フォーマットの統一余地。`PrettyTables.jl` 検討の余地もあるが新規依存追加なので保留。
 - **`AtomCells.jl` `AtomCell` と `AtomicIndices.jl` `SHSiteIndex`**: `isless` / `==` / `hash` の実装パターンが重複。**注意**: 物理意味が違うので無理に共通化するとバグの温床。慎重に。
-- **`common/version.jl`**: hardcoded version 文字列。Project.toml から動的取得する仕組みの検討余地。
+- **`common/version.jl`**: ~~hardcoded version 文字列。Project.toml から動的取得する仕組みの検討余地。~~ **完了** (commit `95269de`, 2026-05-13). `pkgversion(@__MODULE__)` で Project.toml から動的取得する形に変更。bump 時の編集箇所は Project.toml の 1 行のみ。`test/component_test/test_Version.jl` で drift を検証。
 - **`Magesty.jl` `print_header`（L743–757）**: version / Julia info / threads / timestamp の 4 責務。verbose ロギングを整備する際に分割。
 
 ### Optimize.jl 関連項目（クロスリファレンス）
