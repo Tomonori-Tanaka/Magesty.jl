@@ -22,9 +22,42 @@ export SortedCountingUniqueVector, getcount, addcount!
 	AbstractSortedVector{T} <: AbstractVector{T}
 
 An abstract type representing a sorted vector of element type `T`.
-This type indicates that any concrete subtype maintains a sorted order of its elements.
+Concrete subtypes maintain a sorted order of their elements and must expose
+a `data` field that itself supports indexing, iteration, length, and sorted
+search via `searchsortedfirst` (i.e. either a `Vector{T}` or another
+`AbstractSortedVector{T}` for nested containers).
 """
 abstract type AbstractSortedVector{T} <: AbstractVector{T} end
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Generic fallbacks (apply to all AbstractSortedVector subtypes that expose
+# a sorted `data` field). Type-specific behavior (push! semantics, == across
+# different concrete types, counted-container overrides) is defined per type.
+# ─────────────────────────────────────────────────────────────────────────────
+
+getindex(asv::AbstractSortedVector, i::Int) = asv.data[i]
+length(asv::AbstractSortedVector) = length(asv.data)
+size(asv::AbstractSortedVector) = size(asv.data)
+iterate(asv::AbstractSortedVector) = iterate(asv.data)
+iterate(asv::AbstractSortedVector, state) = iterate(asv.data, state)
+isempty(asv::AbstractSortedVector) = isempty(asv.data)
+
+function append!(asv::AbstractSortedVector{T}, new_vec::AbstractVector{T}) where T
+	for value in new_vec
+		push!(asv, value)
+	end
+	return asv
+end
+
+function findfirst(asv::AbstractSortedVector{T}, value::T) where T
+	idx = searchsortedfirst(asv.data, value)
+	return idx <= length(asv.data) && asv.data[idx] == value ? idx : nothing
+end
+
+function in(value::T, asv::AbstractSortedVector{T}) where T
+	idx = searchsortedfirst(asv.data, value)
+	return idx <= length(asv.data) && asv.data[idx] == value
+end
 
 
 
@@ -66,13 +99,7 @@ mutable struct SortedVector{T} <: AbstractSortedVector{T}
 	SortedVector() = new{Any}(Vector())
 end
 
-# Support array-like operations
-getindex(sv::SortedVector, i::Int) = sv.data[i]  # Allow index-based access
-length(sv::SortedVector) = length(sv.data)       # Return the length of the vector
-iterate(sv::SortedVector) = iterate(sv.data)     # Support iteration
-iterate(sv::SortedVector, state) = iterate(sv.data, state)
-isempty(sv::SortedVector) = isempty(sv.data)
-size(sv::SortedVector) = size(sv.data)
+# Type-specific operations (semantics differ from generic fallbacks)
 ==(sv1::SortedVector, sv2::SortedVector) = sv1.data == sv2.data
 isless(sv1::SortedVector, sv2::SortedVector) = sv1.data < sv2.data
 
@@ -86,24 +113,6 @@ function push!(sv::SortedVector{T}, value::T) where T
 	idx = searchsortedfirst(sv.data, value)  # Find the insertion position
 	insert!(sv.data, idx, value)            # Insert the value at the calculated position
 	return sv
-end
-
-function append!(sv::SortedVector{T}, new_vec::AbstractVector{T}) where T
-	for value in new_vec
-		push!(sv, value)
-	end
-	return sv
-end
-
-"""
-	findfirst(sv::SortedVector{T}, value::T) -> Union{Int, Nothing}
-
-Return the index of the first occurrence of `value` in `sv`, or `nothing`
-if `value` is not found.
-"""
-function findfirst(sv::SortedVector{T}, value::T) where T
-	idx = searchsortedfirst(sv.data, value)
-	return idx <= length(sv.data) && sv.data[idx] == value ? idx : nothing
 end
 
 """
@@ -146,11 +155,6 @@ function deleteall!(sv::SortedVector{T}, value::T) where T
 	return sv
 end
 
-function in(value::T, sv::SortedVector{T}) where T
-	idx = searchsortedfirst(sv.data, value)
-	return idx <= length(sv.data) && sv.data[idx] == value
-end
-
 function clear!(sv::SortedVector)
 	empty!(sv.data)
 	return sv
@@ -188,12 +192,7 @@ mutable struct SortedUniqueVector{T} <: AbstractSortedVector{T}
 	SortedUniqueVector() = new{Any}(Vector{Any}())
 end
 
-getindex(suv::SortedUniqueVector, i::Int) = suv.data[i]  # Allow index-based access
-length(suv::SortedUniqueVector) = length(suv.data)       # Return the length of the vector
-iterate(suv::SortedUniqueVector) = iterate(suv.data)     # Support iteration
-iterate(suv::SortedUniqueVector, state) = iterate(suv.data, state)
-isempty(suv::SortedUniqueVector) = isempty(suv.data)
-size(suv::SortedUniqueVector) = size(suv.data)
+# Type-specific operations (semantics differ from generic fallbacks)
 ==(suv1::SortedUniqueVector, suv2::SortedUniqueVector) = suv1.data == suv2.data
 ==(suv::SortedUniqueVector, vec::AbstractVector) = suv.data == vec
 ==(vec::AbstractVector, suv::SortedUniqueVector) = vec == suv.data
@@ -206,18 +205,6 @@ function push!(suv::SortedUniqueVector{T}, value::T) where T
 		insert!(suv.data, idx, value)
 	end
 	return suv
-end
-
-function append!(suv::SortedUniqueVector{T}, new_vec::AbstractVector{T}) where T
-	for value in new_vec
-		push!(suv, value)
-	end
-	return suv
-end
-
-function findfirst(suv::SortedUniqueVector{T}, value::T) where T
-	idx = searchsortedfirst(suv.data, value)
-	return idx <= length(suv.data) && suv.data[idx] == value ? idx : nothing
 end
 
 # Remove a specific element if it exists
@@ -235,11 +222,6 @@ function deleteat!(suv::SortedUniqueVector{T}, idx::Int) where T
 	end
 	deleteat!(suv.data, idx)      # Remove the element at the specified index
 	return suv
-end
-
-function in(value::T, suv::SortedUniqueVector{T}) where T
-	idx = searchsortedfirst(suv.data, value)
-	return idx <= length(suv.data) && suv.data[idx] == value
 end
 
 function copy(suv::SortedUniqueVector{T}) where T
@@ -300,11 +282,7 @@ mutable struct SortedCountingUniqueVector{T} <: AbstractSortedVector{T}
 	end
 end
 
-getindex(suv::SortedCountingUniqueVector, i::Int) = suv.data[i]  # Allow index-based access
-length(suv::SortedCountingUniqueVector) = length(suv.data)       # Return the length of the vector
-size(suv::SortedCountingUniqueVector) = size(suv.data)
-iterate(suv::SortedCountingUniqueVector) = iterate(suv.data)     # Support iteration
-iterate(suv::SortedCountingUniqueVector, state) = iterate(suv.data, state)
+# Type-specific operations (semantics differ from generic fallbacks)
 function ==(suv1::SortedCountingUniqueVector, suv2::SortedCountingUniqueVector)
 	return suv1.data == suv2.data && suv1.counts == suv2.counts
 end
@@ -333,16 +311,6 @@ function push!(scv::SortedCountingUniqueVector{T}, val::T, count::Integer) where
 	return scv
 end
 
-function append!(
-	scv::SortedCountingUniqueVector{T},
-	new_vals::AbstractVector{T},
-) where T
-	for val in new_vals
-		push!(scv, val)
-	end
-	return scv
-end
-
 function delete!(scv::SortedCountingUniqueVector{T}, val::T) where T
 	if haskey(scv.counts, val)
 		delete!(scv.counts, val)
@@ -351,7 +319,9 @@ function delete!(scv::SortedCountingUniqueVector{T}, val::T) where T
 	return scv
 end
 
-function in(val, scv::SortedCountingUniqueVector{T}) where T
+# Override generic `in` fallback: counts-dict lookup is O(1) vs searchsortedfirst's
+# O(log N), and stays accurate even if `data` and `counts` ever drift.
+function in(val::T, scv::SortedCountingUniqueVector{T}) where T
 	return haskey(scv.counts, val)
 end
 
