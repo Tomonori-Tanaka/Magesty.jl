@@ -70,8 +70,6 @@ using .Symmetries
 using .Clusters
 using .SALCBases
 using .Optimize
-# extended in Magesty with SCEFit / SpinConfig / SCEDataset methods
-import .Optimize: SCEModel, predict_energy, predict_torque
 
 include("utils/xml_io.jl")
 using .XMLIO
@@ -79,7 +77,8 @@ include("utils/EnergyTorque.jl")
 using .EnergyTorque
 
 export System, SpinCluster, SCEBasis, SCEDataset, SCEFit, VERSION, install_tools
-export SCEModel, fit_sce_model, predict_energy, predict_torque, AbstractEstimator, OLS, Ridge
+export SCEModel, fit_sce_model, AbstractEstimator, OLS, Ridge
+export predict_energy, predict_torque
 export fit, coef, intercept, nobs, dof
 export r2_energy, r2_torque, rss_energy, rss_torque
 export residuals_energy, residuals_torque, rmse_energy, rmse_torque
@@ -254,20 +253,19 @@ end
 """
 	SCEBasis
 
-Material + basis: crystal structure, symmetry, cluster, and SALC basis.
-The heavy part is the SALC construction; an `SCEBasis` can be persisted
-and reused.
+Material + basis: crystal structure, symmetry, and SALC basis. The heavy
+part is the SALC construction; an `SCEBasis` can be persisted and
+reused. `Cluster` is a construction step, not a stored field — it is
+computed inside the constructor to build `salcbasis`, then discarded.
 
 # Fields
 - `structure::Structure`: Crystal structure information.
 - `symmetry::Symmetry`: Symmetry operations.
-- `cluster::Cluster`: Cluster information.
 - `salcbasis::SALCBasis`: SALC basis functions.
 """
 struct SCEBasis
 	structure::Structure
 	symmetry::Symmetry
-	cluster::Cluster
 	salcbasis::SALCBasis
 end
 
@@ -283,8 +281,8 @@ keyword arguments. All paths build a `Config4System` internally and run
 the same structure / symmetry / cluster / SALC construction.
 
 The `interaction` argument is a nested `NamedTuple` keyed `body1`,
-`body2`, ...; see `docs/specs/260514-sce-public-api/` for its format
-and the per-path Unitful requirements.
+`body2`, ...; see the API documentation for the accepted format and
+the per-path Unitful requirements.
 """
 function SCEBasis(
 	input_dict::AbstractDict{<:AbstractString, <:Any};
@@ -294,7 +292,8 @@ function SCEBasis(
 	structure, symmetry, cluster = _build_structure_skeleton(config; verbosity = verbosity)
 	salcbasis::SALCBasis =
 		SALCBasis(structure, symmetry, cluster, config, verbosity = verbosity)
-	return SCEBasis(structure, symmetry, cluster, salcbasis)
+	# `cluster` is a construction step only; it is not stored in SCEBasis.
+	return SCEBasis(structure, symmetry, salcbasis)
 end
 
 function SCEBasis(toml_path::AbstractString; verbosity::Bool = true)
@@ -354,6 +353,38 @@ function SCEBasis(;
 		isotropy = isotropy,
 	)
 	return SCEBasis(input_dict; verbosity = verbosity)
+end
+
+
+"""
+	SCEModel
+
+A fitted SCE model: a `SCEBasis` together with the fitted reference
+energy `j0` and SCE coefficients `jphi`. This is the lightweight,
+persistable predictor — `predict_energy` / `predict_torque` and the
+evaluation verbs accept it. Build one from a `SCEFit` via `SCEModel(f)`.
+
+# Fields
+- `basis::SCEBasis`: Structure, symmetry, and SALC basis the fit used.
+- `j0::Float64`: Reference energy (bias term) in eV.
+- `jphi::Vector{Float64}`: SCE coefficients.
+
+The constructor checks that `length(jphi)` matches the number of SALCs
+in `basis` — there is one coefficient per SALC.
+"""
+struct SCEModel
+	basis::SCEBasis
+	j0::Float64
+	jphi::Vector{Float64}
+
+	function SCEModel(basis::SCEBasis, j0::Real, jphi::AbstractVector{<:Real})
+		n_salc = length(basis.salcbasis.salc_list)
+		length(jphi) == n_salc || throw(ArgumentError(
+			"length(jphi) ($(length(jphi))) must equal the number of SALCs ($n_salc)"))
+		# `new` converts j0/jphi to the field types; a Vector{Float64} jphi
+		# is kept as-is (convert is identity), preserving reference sharing.
+		return new(basis, j0, jphi)
+	end
 end
 
 
@@ -635,25 +666,17 @@ dof(f::SCEFit)::Int = length(f.jphi) + 1
 """
 	SCEModel(f::SCEFit) -> SCEModel
 
-Extract a lightweight `SCEModel` from a fitted `SCEFit`: the fitted
-`(j0, jphi)` together with the SALC basis, symmetry, and atom count
-needed for prediction. The training dataset, residuals, and cached
-metrics held by the `SCEFit` are dropped.
+Extract a lightweight `SCEModel` from a fitted `SCEFit`: the `SCEBasis`
+together with the fitted `(j0, jphi)`. The training dataset, residuals,
+and cached metrics held by the `SCEFit` are dropped.
 """
-function SCEModel(f::SCEFit)::SCEModel
-	return SCEModel(
-		f.j0,
-		f.jphi,
-		f.dataset.basis.salcbasis,
-		f.dataset.basis.symmetry,
-		f.dataset.basis.structure.supercell.num_atoms,
-	)
-end
+SCEModel(f::SCEFit)::SCEModel = SCEModel(f.dataset.basis, f.j0, f.jphi)
 
 
 # --- Prediction ---------------------------------------------------------
 
 """
+	predict_energy(model::SCEModel, spin_directions::AbstractMatrix{<:Real}) -> Float64
 	predict_energy(model::SCEModel, sc::SpinConfig) -> Float64
 	predict_energy(f::SCEFit, spin_directions::AbstractMatrix{<:Real}) -> Float64
 	predict_energy(f::SCEFit, sc::SpinConfig) -> Float64
@@ -664,6 +687,10 @@ Predict SCE energies. The single-configuration forms return one
 `SCEFit` predictors delegate through `SCEModel(f)`. The `SCEDataset` form
 requires the dataset to share the predictor's SALC basis.
 """
+predict_energy(model::SCEModel, spin_directions::AbstractMatrix{<:Real})::Float64 =
+	Optimize._predict_energy(
+		model.j0, model.jphi,
+		model.basis.salcbasis.salc_list, model.basis.symmetry, spin_directions)
 predict_energy(model::SCEModel, sc::SpinConfig)::Float64 =
 	predict_energy(model, sc.spin_directions)
 predict_energy(f::SCEFit, spin_directions::AbstractMatrix{<:Real})::Float64 =
@@ -679,6 +706,7 @@ predict_energy(f::SCEFit, dataset::SCEDataset)::Vector{Float64} =
 	predict_energy(SCEModel(f), dataset)
 
 """
+	predict_torque(model::SCEModel, spin_directions::AbstractMatrix{<:Real}) -> Matrix{Float64}
 	predict_torque(model::SCEModel, sc::SpinConfig) -> Matrix{Float64}
 	predict_torque(f::SCEFit, spin_directions::AbstractMatrix{<:Real}) -> Matrix{Float64}
 	predict_torque(f::SCEFit, sc::SpinConfig) -> Matrix{Float64}
@@ -690,6 +718,9 @@ configuration. `SCEFit` predictors delegate through `SCEModel(f)`. The
 `SCEDataset` form requires the dataset to share the predictor's SALC
 basis.
 """
+predict_torque(model::SCEModel, spin_directions::AbstractMatrix{<:Real})::Matrix{Float64} =
+	Optimize._predict_torque(
+		model.jphi, model.basis.salcbasis.salc_list, model.basis.symmetry, spin_directions)
 predict_torque(model::SCEModel, sc::SpinConfig)::Matrix{Float64} =
 	predict_torque(model, sc.spin_directions)
 predict_torque(f::SCEFit, spin_directions::AbstractMatrix{<:Real})::Matrix{Float64} =
@@ -722,7 +753,7 @@ const SCEEvalData = Union{SCEDataset, AbstractVector{SpinConfig}, AbstractString
 # SCEDataset (configs / EMBSET paths are evaluated through the
 # predictor's own basis, so they are compatible by construction).
 function _check_basis(model::SCEModel, dataset::SCEDataset)
-	model.salcbasis === dataset.basis.salcbasis || throw(ArgumentError(
+	model.basis === dataset.basis || throw(ArgumentError(
 		"evaluation SCEDataset was built from a different SCEBasis than the predictor"))
 	return nothing
 end
