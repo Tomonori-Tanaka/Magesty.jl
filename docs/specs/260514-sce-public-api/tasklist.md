@@ -53,10 +53,10 @@ APIs coexist); step 6 rewrites tests; step 7 is the breaking removal.
       `SCEDataset(basis, embset_path)`, sugar
       `SCEDataset(system, spinconfigs; nbody, ...)`,
       `SCEDataset(toml_path, spinconfigs)`.
-- [ ] Slicing: `length`, `getindex` (copy), `view`, `vcat`
-      (basis-identity check). `X_E` row slice mirrored to `X_T` block
-      slice.
-- [ ] Add `test_SCEDataset.jl`: construction, slicing copy vs view,
+- [ ] Slicing: `length`, `getindex` (copy), `vcat` (basis-identity
+      check). `X_E` row slice mirrored to `X_T` block slice. `view`
+      deferred to the CV follow-up spec.
+- [ ] Add `test_SCEDataset.jl`: construction, slicing copy semantics,
       `vcat`, row/block synchronization.
 - [ ] `make test-all` green.
 

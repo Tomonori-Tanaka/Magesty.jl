@@ -74,7 +74,7 @@ using .XMLIO
 include("utils/EnergyTorque.jl")
 using .EnergyTorque
 
-export System, SpinCluster, SCEBasis, VERSION, install_tools
+export System, SpinCluster, SCEBasis, SCEDataset, VERSION, install_tools
 export SCEModel, fit_sce_model, predict_energy, AbstractEstimator, OLS, Ridge
 export build_sce_basis, build_sce_basis_from_xml
 export write_xml
@@ -347,6 +347,155 @@ function SCEBasis(;
 		isotropy = isotropy,
 	)
 	return SCEBasis(input_dict; verbosity = verbosity)
+end
+
+
+"""
+	SCEDataset
+
+A `SCEBasis` paired with training data: the spin configurations and the
+unweighted design matrices and observation vectors derived from them.
+
+`X_E` and `X_T` are stored unweighted. The torque weight is applied later
+at `fit` time, so a weight sweep reuses one `SCEDataset` without
+rebuilding design matrices.
+
+# Fields
+- `basis::SCEBasis`: The SCE basis the design matrices were built from.
+- `spinconfigs::Vector{SpinConfig}`: Training spin configurations.
+- `X_E::Matrix{Float64}`: Energy design matrix, bias column at column 1,
+  one row per configuration. Unweighted.
+- `X_T::Matrix{Float64}`: Torque design matrix, no bias column, a
+  `3 * num_atoms` block of rows per configuration. Unweighted.
+- `y_E::Vector{Float64}`: Observed energies, length `n_configs`.
+- `y_T::Vector{Float64}`: Observed torques, flattened, length
+  `3 * num_atoms * n_configs`.
+"""
+struct SCEDataset
+	basis::SCEBasis
+	spinconfigs::Vector{SpinConfig}
+	X_E::Matrix{Float64}
+	X_T::Matrix{Float64}
+	y_E::Vector{Float64}
+	y_T::Vector{Float64}
+end
+
+"""
+	SCEDataset(basis::SCEBasis, spinconfigs::AbstractVector{SpinConfig}) -> SCEDataset
+	SCEDataset(basis::SCEBasis, embset_path::AbstractString) -> SCEDataset
+	SCEDataset(system::AtomsBase.AbstractSystem, spinconfigs; interaction, ...) -> SCEDataset
+	SCEDataset(toml_path::AbstractString, spinconfigs::AbstractVector{SpinConfig})
+
+Build a `SCEDataset` from a basis and training data. The base method
+takes an explicit `SCEBasis` and a vector of `SpinConfig`; it builds the
+unweighted energy and torque design matrices once. The `embset_path`
+method reads the configurations from an EMBSET file first. The two sugar
+methods build a throwaway `SCEBasis` internally (from an
+`AtomsBase.AbstractSystem` or a TOML file) and embed it in the dataset;
+for workflows that share one basis across several datasets, construct the
+`SCEBasis` explicitly and pass it to the base method.
+"""
+function SCEDataset(basis::SCEBasis, spinconfigs::AbstractVector{SpinConfig})
+	X_E = Optimize.build_design_matrix_energy(
+		basis.salcbasis.salc_list,
+		spinconfigs,
+		basis.symmetry,
+	)
+	X_T = Optimize.build_design_matrix_torque(
+		basis.salcbasis.salc_list,
+		spinconfigs,
+		basis.structure.supercell.num_atoms,
+		basis.symmetry,
+	)
+	y_E::Vector{Float64} = [sc.energy for sc in spinconfigs]
+	y_T::Vector{Float64} =
+		isempty(spinconfigs) ? Float64[] :
+		reduce(vcat, (vec(sc.torques) for sc in spinconfigs))
+	return SCEDataset(basis, collect(SpinConfig, spinconfigs), X_E, X_T, y_E, y_T)
+end
+
+function SCEDataset(basis::SCEBasis, embset_path::AbstractString)
+	return SCEDataset(basis, SpinConfigs.read_embset(embset_path))
+end
+
+function SCEDataset(
+	system::AtomsBase.AbstractSystem,
+	spinconfigs::AbstractVector{SpinConfig};
+	interaction::NamedTuple,
+	name::AbstractString = "system",
+	tolerance_sym::Real = 1e-5,
+	isotropy::Bool = false,
+	verbosity::Bool = true,
+)
+	basis = SCEBasis(
+		system;
+		interaction = interaction,
+		name = name,
+		tolerance_sym = tolerance_sym,
+		isotropy = isotropy,
+		verbosity = verbosity,
+	)
+	return SCEDataset(basis, spinconfigs)
+end
+
+function SCEDataset(
+	toml_path::AbstractString,
+	spinconfigs::AbstractVector{SpinConfig};
+	verbosity::Bool = true,
+)
+	return SCEDataset(SCEBasis(toml_path; verbosity = verbosity), spinconfigs)
+end
+
+# --- SCEDataset slicing -------------------------------------------------
+
+Base.length(d::SCEDataset)::Int = length(d.spinconfigs)
+Base.lastindex(d::SCEDataset)::Int = length(d)
+Base.firstindex(d::SCEDataset)::Int = 1
+
+# Torque rows for config indices `idx`: each config owns a contiguous
+# `block_size` block, mirroring `build_design_matrix_torque`'s layout.
+function _torque_rows(d::SCEDataset, idx::AbstractVector{<:Integer})::Vector{Int}
+	block_size = 3 * d.basis.structure.supercell.num_atoms
+	rows = Vector{Int}(undef, block_size * length(idx))
+	for (k, c) in enumerate(idx)
+		dst = block_size * (k - 1)
+		src = block_size * (c - 1)
+		@inbounds for b = 1:block_size
+			rows[dst+b] = src + b
+		end
+	end
+	return rows
+end
+
+function Base.getindex(d::SCEDataset, r::AbstractVector{<:Integer})::SCEDataset
+	trows = _torque_rows(d, r)
+	return SCEDataset(
+		d.basis,
+		d.spinconfigs[r],
+		d.X_E[r, :],
+		d.X_T[trows, :],
+		d.y_E[r],
+		d.y_T[trows],
+	)
+end
+
+Base.getindex(d::SCEDataset, i::Integer)::SCEDataset = d[i:i]
+Base.getindex(d::SCEDataset, r::AbstractVector{Bool})::SCEDataset = d[findall(r)]
+
+function Base.vcat(d1::SCEDataset, ds::SCEDataset...)::SCEDataset
+	for d in ds
+		d.basis === d1.basis || throw(ArgumentError(
+			"vcat requires all SCEDataset arguments to share the same SCEBasis"))
+	end
+	all_d = (d1, ds...)
+	return SCEDataset(
+		d1.basis,
+		reduce(vcat, (d.spinconfigs for d in all_d)),
+		reduce(vcat, (d.X_E for d in all_d)),
+		reduce(vcat, (d.X_T for d in all_d)),
+		reduce(vcat, (d.y_E for d in all_d)),
+		reduce(vcat, (d.y_T for d in all_d)),
+	)
 end
 
 
