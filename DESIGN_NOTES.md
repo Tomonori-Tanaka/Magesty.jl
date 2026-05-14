@@ -10,12 +10,12 @@
 | トピック | Status | 最終更新 |
 |---|---|---|
 | [SCE 公開 API: 4 型構成 + StatsAPI 化](docs/design-notes/sce-public-api.md) | 未着手 | 2026-05-14 |
-| [自作コンテナ (SortedContainer / CountingContainer) を DataStructures.jl で置き換える](docs/design-notes/replace-sorted-container.md) | 未着手 | 2026-05-14 |
+| [自作コンテナ (SortedContainer / CountingContainer) を DataStructures.jl で置き換える](docs/design-notes/replace-sorted-container.md) | CountingContainer 完了 / SortedContainer 未着手 | 2026-05-14 |
 | [Optimize.jl estimator dispatch](docs/design-notes/estimator-dispatch.md) | 完了 (branch `refactor/estimator-dispatch`) | 2026-05-13 |
 
 ## リファクタリング進捗
 
-- [リファクタリング候補スイープ R1-R11](docs/design-notes/refactor-sweep.md) — R1/R2/R3/R4/R7 完了、R5/R6/R8-R11 未着手 (2026-05-13)
+- [リファクタリング候補スイープ R1-R11](docs/design-notes/refactor-sweep.md) — R1-R7, R9-R11 完了。R8 は Plan B 完了、Plan C は `replace-sorted-container.md` で吸収予定 (2026-05-14)
 
 ## 調査結果
 

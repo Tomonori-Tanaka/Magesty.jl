@@ -1,6 +1,6 @@
 # 自作コンテナを DataStructures.jl で置き換える案
 
-**Status**: 未着手 (思いつきメモ、2026-05-14)
+**Status**: CountingContainer 部分は **完了** (2026-05-14). SortedContainer 部分は未着手。
 
 **目的**: 自作の `SortedContainer.jl` (~360 行、3 コンテナ) と `CountingContainer.jl` (~120 行、1 コンテナ) を `DataStructures.jl` の成熟した実装に置き換え、保守コストとバグリスクを削減する。`DataStructures.jl` は既に依存。
 
@@ -28,14 +28,25 @@
 
 ### CountingContainer.jl
 
-| Magesty 自作 | DataStructures.jl の対応物 |
-|---|---|
-| `CountingUniqueVector{T}` (insertion order + count) | `Accumulator{T,Int}` (a.k.a. Counter) |
+**実施結果 (2026-05-14)**: `CountingUniqueVector{T}` → `OrderedDict{T, Int}` (DataStructures.jl) に置換し、`CountingContainer.jl` モジュールごと削除。
 
-`Accumulator` の特徴:
-- 内部 `Dict{T,V}` ベース、`push!` / `inc!` / `acc[x]` / `haskey` / `length` を提供
-- **順序保持しない** (`CountingUniqueVector.data` は insertion order を保持するが、唯一の caller `Clusters.jl` は順序に依存していない — push 後に sorted な `SortedCountingUniqueVector` に変換する際に別途 sort される)
-- 既に Magesty 内で使用中 (`Basis.jl` で `counter()` 関数経由)
+| Magesty 自作 | 採用した置き換え | 検討したが不採用 |
+|---|---|---|
+| `CountingUniqueVector{T}` (insertion order + count) | `OrderedDict{T, Int}` | `Accumulator{T, Int}` |
+
+**`Accumulator` を採用しなかった理由**: 当初メモでは「`Clusters.jl` は順序に依存していない」と記載していたが、実装を再精査したところ誤り。`irreducible_clusters` (`src/Clusters.jl` L606-) は `cluster_dict[body][prim_atom_sc]` を iterate して、translationally equivalent なクラスタが既に追加済みなら `continue` する設計。「どのクラスタが canonical 代表として残るか」が iteration 順に依存しており、`Accumulator` (Dict ベース、順序保持なし) を使うと canonical 代表の atom 並びが変わって BasisSet 出力 (XML) が baseline と差分を起こす。
+
+**`OrderedDict` で十分な根拠**: Clusters.jl で `CountingUniqueVector` から実利用しているのは 4 操作のみ:
+- `CountingUniqueVector{Vector{Int}}()` → `OrderedDict{Vector{Int}, Int}()`
+- `push!(cuv, val)` (重複時はカウント加算) → `od[k] = get(od, k, 0) + 1`
+- `for x in cuv` (unique key を挿入順) → `for x in keys(od)`
+- `getcounts(cuv, val)` → `cluster_dict[...][cluster]` (キー存在保証済み箇所では直接 lookup)
+
+`AbstractVector` インタフェース (`length` / `size` / `getindex(::Int)` / `append!` / `==` / `isless` / `copy` 等) は Clusters.jl では一切呼ばれていなかった。`OrderedDict` は DataStructures.jl 提供で既に `using DataStructures` 済み、新規依存なし。
+
+**連動箇所**: dead だった `using ..CountingContainer` を `BasisSets.jl` から削除。`Magesty.jl` の `include("common/CountingContainer.jl")`、`test/runtests.jl` の include と testset、`src/common/CountingContainer.jl`、`test/component_test/test_CountingContainer.jl` を全削除。
+
+**数値結果**: 不変 (`test-unit` 6122/6122、`test-integration` 155/155、`test-jet`、`test-aqua` 全パス)。
 
 ## 性能 trade-off
 

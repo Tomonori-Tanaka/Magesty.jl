@@ -12,7 +12,6 @@ using LinearAlgebra
 using OffsetArrays
 using Printf
 
-using ..CountingContainer
 using ..SortedContainer
 using ..ConfigParser
 using ..Structures
