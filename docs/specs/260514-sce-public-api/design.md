@@ -335,14 +335,14 @@ load(::Type{T}, path::AbstractString)   # T in {SCEBasis, SCEModel} for XML; any
 length(d::SCEDataset)            -> Int               # n_configs
 getindex(d::SCEDataset, i::Int)  -> SCEDataset         # 1 config, copy
 getindex(d::SCEDataset, r)       -> SCEDataset         # copy (r: range, Vector, BitVector)
-view(d::SCEDataset, r)           -> SCEDataset         # view-backed
 vcat(d1::SCEDataset, d2::SCEDataset) -> SCEDataset     # requires d1.basis === d2.basis
 ```
 
-`getindex` copies (Julia convention); `view` shares storage for
-fold-heavy workflows (k-fold CV). Row slicing of `X_E` (one row per
+`getindex` copies (Julia convention). Row slicing of `X_E` (one row per
 config) is mirrored on `X_T` (a `3*n_atoms` block per config) so the
 two stay synchronized. `vcat` runtime-checks `basis` identity.
+`view`-backed slicing is deferred to the CV follow-up spec (see
+"Resolved decisions" #3).
 
 ## Usage examples
 
