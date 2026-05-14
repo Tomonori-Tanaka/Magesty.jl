@@ -9,7 +9,7 @@ using EzXML
 using Printf
 using LinearAlgebra
 using ..Basis
-using ..SortedContainer
+using ..SortedCounters: SortedCounter
 
 # XML schema constants. Shared between the write_* and read_* paths so
 # a schema change here cannot drift between the two sides. Renaming a
@@ -493,7 +493,7 @@ function read_basisset_from_xml(
 	end
 	
 	# Reconstruct coupled_basislist from salc_list
-	coupled_basislist = SortedCountingUniqueVector{Basis.CoupledBasis}()
+	coupled_basislist = SortedCounter{Basis.CoupledBasis}()
 	for key_group in salc_list
 		for cbc in key_group
 			cb = Basis.CoupledBasis(

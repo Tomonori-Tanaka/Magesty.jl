@@ -139,11 +139,11 @@ L554 に「Remove this exceptional handling when the bug is fixed in the project
 
 **ハマりポイント**: `in(val, scv)` の override シグネチャで `val` の型を書かなかったため generic `in(value::T, asv::AbstractSortedVector{T})` と method ambiguity が発生。`val::T` を明示することで解消。
 
-**残課題 (Plan C で別 PR)**:
-- `SortedCountingUniqueVector::clear!` / `deleteat!` 未定義 (現状は MethodError、`data` も `counts` も両方クリアする実装が必要)。
-- `SortedVector::delete!` / `SortedUniqueVector::delete!` が sorted 性を活かさず O(N) (`searchsortedfirst` で O(log N) 可能)。
-- `SortedUniqueVector::copy` が無駄な再 sort + unique を実行。
-- `push!` の sorted insertion 検索部分の共通化。
+**残課題 (Plan C で別 PR)**: **解消** (2026-05-14, `refactor/replace-sorted-container` ブランチ). `docs/specs/260514-replace-sorted-container/` で `SortedContainer.jl` 自体を削除し新しい `SortedCounter` + plain `Vector` + `sort!` once パターンに移行したため、以下の残課題はすべて消滅:
+- ~~`SortedCountingUniqueVector::clear!` / `deleteat!` 未定義~~
+- ~~`SortedVector::delete!` / `SortedUniqueVector::delete!` が O(N)~~
+- ~~`SortedUniqueVector::copy` が無駄な再 sort + unique~~
+- ~~`push!` の sorted insertion 検索部分の共通化~~
 
 **連動箇所**: なし（モジュール内に閉じている、外部 API シグネチャ不変）。テスト: `test-unit` 6203/6203、`test-integration` 155/155、`test-jet`、`test-aqua` 全パス。差分: 386 → 356 行 (-30 行)。
 
