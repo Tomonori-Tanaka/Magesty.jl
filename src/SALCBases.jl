@@ -3,7 +3,7 @@ This module provides functionality for handling basis sets in crystal structure 
 It includes tools for constructing, classifying, and manipulating basis functions that are
 adapted to the symmetry of the crystal structure.
 """
-module BasisSets
+module SALCBases
 
 using Base.Threads
 using Combinat
@@ -20,11 +20,11 @@ using ..Clusters
 using ..RotationMatrix
 using ..Basis
 
-export BasisSet
+export SALCBasis
 
 
 """
-	struct BasisSet
+	struct SALCBasis
 
 Represents a set of basis functions for atomic interactions in a crystal structure.
 This structure is used to store and manage basis functions that are adapted to the symmetry of the crystal.
@@ -34,10 +34,10 @@ This structure is used to store and manage basis functions that are adapted to t
 - `salc_list::Vector{Vector{Basis.CoupledBasis_with_coefficient}}`: List of symmetry-adapted linear combinations (SALCs), where each element is a vector of coupled basis functions belonging to the same key group
 
 # Constructors
-	BasisSet(structure, symmetry, cluster, body1_lmax, bodyn_lsum, nbody; isotropy=false, verbosity=true)
-	BasisSet(structure, symmetry, cluster, config; verbosity=true)
+	SALCBasis(structure, symmetry, cluster, body1_lmax, bodyn_lsum, nbody; isotropy=false, verbosity=true)
+	SALCBasis(structure, symmetry, cluster, config; verbosity=true)
 
-Constructs a new `BasisSet` instance for atomic interactions in a crystal structure.
+Constructs a new `SALCBasis` instance for atomic interactions in a crystal structure.
 
 # Arguments
 - `structure::Structure`: Structure information containing atomic positions and species
@@ -50,17 +50,17 @@ Constructs a new `BasisSet` instance for atomic interactions in a crystal struct
 - `verbosity::Bool`: Whether to print progress information (default: `true`)
 
 # Returns
-- `BasisSet`: A new basis set instance containing coupled basis functions and symmetry-adapted linear combinations
+- `SALCBasis`: A new basis set instance containing coupled basis functions and symmetry-adapted linear combinations
 
 # Examples
 ```julia
 # Create a basis set using explicit parameters
 body1_lmax = [2, 3]  # lmax for each atomic species
 bodyn_lsum = OffsetArray([0, 0, 4, 6], 0:3)  # lsum for each body
-basis = BasisSet(structure, symmetry, cluster, body1_lmax, bodyn_lsum, 3)
+basis = SALCBasis(structure, symmetry, cluster, body1_lmax, bodyn_lsum, 3)
 
 # Create a basis set using configuration
-basis = BasisSet(structure, symmetry, cluster, config)
+basis = SALCBasis(structure, symmetry, cluster, config)
 ```
 
 # Note
@@ -69,7 +69,7 @@ The constructor performs the following steps:
 2. Constructs projection matrices for each symmetry label
 3. Generates symmetry-adapted linear combinations (SALCs) of `CoupledBasis_with_coefficient` objects
 """
-struct BasisSet
+struct SALCBasis
 	coupled_basislist::SortedCounter{Basis.CoupledBasis}
 	salc_list::Vector{Vector{Basis.CoupledBasis_with_coefficient}}
 	angular_momentum_couplings::Vector{Basis.AngularMomentumCouplingResult}
@@ -120,7 +120,7 @@ function _compute_salc_groups(
 	return key_salc_groups
 end
 
-function BasisSet(
+function SALCBasis(
 	structure::Structure,
 	symmetry::Symmetry,
 	cluster::Cluster,
@@ -197,7 +197,7 @@ function BasisSet(
 
 
 
-	# Reconstruct basislist from classified dictionary for BasisSet storage
+	# Reconstruct basislist from classified dictionary for SALCBasis storage
 	result_basislist = SortedCounter{Basis.CoupledBasis}()
 	for (key, classified_basislist) in classified_coupled_basisdict
 		for cb in classified_basislist
@@ -241,10 +241,10 @@ function BasisSet(
 		end
 	end
 
-	return BasisSet(result_basislist, salc_list, angular_momentum_couplings)
+	return SALCBasis(result_basislist, salc_list, angular_momentum_couplings)
 end
 
-function BasisSet(
+function SALCBasis(
 	structure::Structure,
 	symmetry::Symmetry,
 	cluster::Cluster,
@@ -252,7 +252,7 @@ function BasisSet(
 	;
 	verbosity::Bool = true,
 )
-	return BasisSet(
+	return SALCBasis(
 		structure,
 		symmetry,
 		cluster,
@@ -1050,14 +1050,14 @@ function flip_vector_if_negative_sum(
 end
 
 """
-	print_basisset_stdout(salc_list)
+	print_salcbasis_stdout(salc_list)
 
 Print symmetry-adapted basis functions to stdout.
 
 # Arguments
 - `salc_list::AbstractVector{Vector{Basis.CoupledBasis_with_coefficient}}`: List of SALC groups, where each group is a vector of `CoupledBasis_with_coefficient` objects
 """
-function print_basisset_stdout(
+function print_salcbasis_stdout(
 	salc_list::AbstractVector{Vector{Basis.CoupledBasis_with_coefficient}},
 )
 	println(" Number of symmetry-adapted basis functions: $(length(salc_list))\n")
@@ -1076,4 +1076,4 @@ function print_basisset_stdout(
 end
 
 
-end # module BasisSets
+end # module SALCBases

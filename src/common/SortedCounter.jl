@@ -2,7 +2,7 @@
 	module SortedCounters
 
 Internal helper that pairs an unordered `Dict{T, Int}` count store with a
-lazily-sorted view of its keys. Used by `Clusters.jl`, `BasisSets.jl`, and
+lazily-sorted view of its keys. Used by `Clusters.jl`, `SALCBases.jl`, and
 `xml_io.jl` for the irreducible cluster / coupled basis containers that
 must iterate in sorted key order but also support O(1) count lookup.
 
