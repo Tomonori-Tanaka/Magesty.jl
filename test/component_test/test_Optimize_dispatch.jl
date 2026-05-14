@@ -4,10 +4,11 @@ using Magesty
 
 # Regression test for the 3-layer estimator dispatch in src/Optimize.jl.
 #
-# Golden (j0, jphi) values were captured from the pre-refactor
-# `elastic_net_regression` implementation on the fixture below
-# (`Random.seed!(20260513)`, WEIGHT = 0.3). Any change here that alters
-# numerical output trips this test.
+# Golden (j0, jphi) values were recaptured on 2026-05-14 after
+# `assemble_weighted_problem` switched to per-sample MSE normalization
+# (energy rows scaled by √((1-w)/n_E), torque rows by √(w/n_T)). The
+# fixture below uses `Random.seed!(20260513)`, WEIGHT = 0.3. Any change
+# here that alters numerical output trips this test.
 #
 # See: docs/specs/260513-estimator-dispatch/
 
@@ -33,13 +34,24 @@ using Magesty
             weight,
         )
         @test bias_col == 1
-        # Energy rows come first; bias column is reset to 1.0 after √weight scaling.
+        # Energy rows come first; bias column is reset to 1.0 after scaling.
         @test all(X[1:n_config, 1] .== 1.0)
         # Torque block has a leading zero bias column.
         @test all(X[(n_config + 1):end, 1] .== 0.0)
         @test size(X, 1) == n_config + 3 * n_atoms * n_config
         @test size(X, 2) == n_basis + 1
         @test length(y) == size(X, 1)
+
+        # Per-sample MSE normalization: energy block scaled by √((1-w)/n_E),
+        # torque block by √(w/n_T) with n_T = 3 * n_atoms * n_config. This
+        # makes `weight` a convex combination of the two MSEs independent
+        # of each block's row count.
+        n_T = 3 * n_atoms * n_config
+        scale_e = sqrt((1 - weight) / n_config)
+        scale_m = sqrt(weight / n_T)
+        @test X[1:n_config, 2:end] ≈ design_matrix_energy[:, 2:end] .* scale_e
+        @test y[1:n_config] ≈ observed_energy_list .* scale_e
+        @test X[(n_config + 1):end, 2:end] ≈ design_matrix_torque .* scale_m
     end
 
     @testset "solve_coefficients(::OLS) matches X \\ y" begin
@@ -65,11 +77,11 @@ using Magesty
             Magesty.OLS(),
             weight,
         )
-        # Golden values captured 2026-05-13 from pre-refactor
-        # `elastic_net_regression(..., 0.0, 0.0, 0.3)`.
-        @test isapprox(j0, 0.77052178555705997; atol = 1e-12, rtol = 1e-10)
-        @test isapprox(jphi[1],  0.15051107443703846; atol = 1e-12, rtol = 1e-10)
-        @test isapprox(jphi[2], -0.3107340994547646;  atol = 1e-12, rtol = 1e-10)
+        # Golden values recaptured 2026-05-14 after per-sample MSE
+        # normalization (was: 0.77052.., 0.15051.., -0.31073..).
+        @test isapprox(j0, 0.73174756944306574; atol = 1e-12, rtol = 1e-10)
+        @test isapprox(jphi[1],  0.15794098335672488; atol = 1e-12, rtol = 1e-10)
+        @test isapprox(jphi[2], -0.24272817525866192; atol = 1e-12, rtol = 1e-10)
     end
 
     @testset "golden (j0, jphi) — Ridge (lambda=0.1)" begin
@@ -81,13 +93,11 @@ using Magesty
             Magesty.Ridge(lambda = 0.1),
             weight,
         )
-        # Golden values captured 2026-05-13 from the pre-refactor
-        # `elastic_net_regression(..., 0.0, 0.1, 0.3)` call. The current
-        # Ridge(lambda=0.1) path is numerically identical because the
-        # historical `alpha` field was always ignored.
-        @test isapprox(j0, 0.76894461111080004; atol = 1e-12, rtol = 1e-10)
-        @test isapprox(jphi[1],  0.14994907999948034; atol = 1e-12, rtol = 1e-10)
-        @test isapprox(jphi[2], -0.30765628547929808; atol = 1e-12, rtol = 1e-10)
+        # Golden values recaptured 2026-05-14 after per-sample MSE
+        # normalization (was: 0.76894.., 0.14995.., -0.30766..).
+        @test isapprox(j0, 0.71912905195775911; atol = 1e-12, rtol = 1e-10)
+        @test isapprox(jphi[1],  0.15469233524793524; atol = 1e-12, rtol = 1e-10)
+        @test isapprox(jphi[2], -0.2185533681028447; atol = 1e-12, rtol = 1e-10)
     end
 
     @testset "extract_j0_jphi splits augmented coefficients" begin

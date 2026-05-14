@@ -990,8 +990,15 @@ end
 
 Build the augmented `(X, y)` linear system that all estimators solve.
 
-Energy rows are scaled by `√(1 - weight)`, torque rows (after flattening)
-by `√weight`. The bias column of the energy block is reset to `1.0`
+Energy rows are scaled by `√((1 - weight) / n_E)` and torque rows
+(after flattening) by `√(weight / n_T)`, where `n_E` is the number of
+energy samples (configs) and `n_T = 3 * n_atoms * n_E` the number of
+torque components. This per-sample normalization makes the augmented
+least-squares objective equal to `(1 - weight) * MSE_energy + weight *
+MSE_torque`, so `weight` selects a convex combination of the two mean
+squared errors independent of how many rows each block contributes
+(mirroring the energy/force loss convention used by ML interatomic
+potentials). The bias column of the energy block is reset to `1.0`
 after scaling so that the bias coefficient is not absorbed into the
 weight factor. A zero column is prepended to the torque block so the
 two blocks share `bias_col = 1`.
@@ -1022,18 +1029,35 @@ function assemble_weighted_problem(
 	# Flatten observed torque
 	observed_torque_flattened = vcat(vec.(observed_torque_list)...)
 
-	# Normalize the design matrices by √weight
+	# Per-sample MSE normalization. The objective we want to minimize is
+	#   L = (1 - weight) * MSE_energy + weight * MSE_torque
+	#     = (1 - weight) / n_E * Σ ε²  +  weight / n_T * Σ τ²
+	# but a linear least-squares solver minimizes only the plain residual
+	# sum of squares ‖X β - y‖². Scaling a block's rows by a factor c
+	# turns its residual sum of squares into c² * Σ(residual²), so to give
+	# a block the weight w / n we scale its rows (and the matching entries
+	# of y) by √(w / n). This is the standard weighted-least-squares
+	# whitening transform W^(1/2) applied to (X, y); the √ appears because
+	# the solver squares the residuals.
+	# n_E = number of energy samples (configs),
+	# n_T = 3 * n_atoms * n_E = number of torque components.
+	n_E = length(observed_energy_list)
+	n_T = length(observed_torque_flattened)
+	scale_e = sqrt(w_e / n_E)
+	scale_m = sqrt(w_m / n_T)
+
+	# Normalize the design matrices
 	normalized_design_matrix_energy =
-		design_matrix_energy .* sqrt(w_e)
+		design_matrix_energy .* scale_e
 	normalized_design_matrix_energy[:, 1] .= 1.0
 	normalized_design_matrix_torque =
-		design_matrix_torque .* sqrt(w_m)
+		design_matrix_torque .* scale_m
 
-	# Also normalise the observed vectors
+	# Also normalize the observed vectors
 	normalized_observed_energy_list =
-		observed_energy_list .* sqrt(w_e)
+		observed_energy_list .* scale_e
 	normalized_observed_torque_flattened =
-		observed_torque_flattened .* sqrt(w_m)
+		observed_torque_flattened .* scale_m
 
 	# Add 0 bias column to the torque design matrix
 	# to align with the energy design matrix
