@@ -116,8 +116,10 @@ APIs coexist); step 6 rewrites tests; step 7 is the breaking removal.
 - [ ] Remove `[regression]` from every `test/examples/*/input.toml`.
 - [ ] Delete `examples/fept/` (stale data dump); add runnable new-API
       example scripts under `examples/` — a light system with EMBSET
-      data, covering basic flow / estimator comparison / train-test
-      split / save-load (mirroring design.md "Usage examples").
+      data, covering basic flow / building from a CIF file (AtomsIO) /
+      estimator comparison / train-test split / save-load (mirroring
+      design.md "Usage examples"). `AtomsIO` is an `examples/`-only
+      dependency, not a package dependency.
 - [ ] Update `docs/src/api.md`, `docs/src/examples.md`, `SPEC.md`,
       `README.md`.
 - [ ] `make test-all` green; example assertions still pass;
@@ -146,6 +148,10 @@ APIs coexist); step 6 rewrites tests; step 7 is the breaking removal.
 - [ ] Follow-up specs (out of scope here): molecular / aperiodic
       support, `CV` wrapper estimator + `kfold`, Bayesian
       `AbstractSCEFit`.
+- [ ] Add an `examples/` script for a system where `atom_name`
+      sublabels matter — same element on inequivalent Wyckoff sites
+      that the user wants treated as distinct kinds (distinct `lmax`
+      etc.). Deferred until a concrete such system is on hand.
 
 ## Risks tracked
 
