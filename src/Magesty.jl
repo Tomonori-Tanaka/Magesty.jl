@@ -70,6 +70,8 @@ using .Symmetries
 using .Clusters
 using .SALCBases
 using .Optimize
+# extended in Magesty with SCEFit / SpinConfig / SCEDataset methods
+import .Optimize: SCEModel, predict_energy, predict_torque
 
 include("utils/xml_io.jl")
 using .XMLIO
@@ -77,8 +79,10 @@ include("utils/EnergyTorque.jl")
 using .EnergyTorque
 
 export System, SpinCluster, SCEBasis, SCEDataset, SCEFit, VERSION, install_tools
-export SCEModel, fit_sce_model, predict_energy, AbstractEstimator, OLS, Ridge
+export SCEModel, fit_sce_model, predict_energy, predict_torque, AbstractEstimator, OLS, Ridge
 export fit, coef, intercept, nobs, dof
+export r2_energy, r2_torque, rss_energy, rss_torque
+export residuals_energy, residuals_torque, rmse_energy, rmse_torque
 export build_sce_basis, build_sce_basis_from_xml
 export write_xml
 
@@ -624,6 +628,246 @@ Degrees of freedom consumed by the fit: `length(coef(f)) + 1` — the SCE
 coefficients plus the intercept.
 """
 dof(f::SCEFit)::Int = length(f.jphi) + 1
+
+
+# --- SCEModel conversion ------------------------------------------------
+
+"""
+	SCEModel(f::SCEFit) -> SCEModel
+
+Extract a lightweight `SCEModel` from a fitted `SCEFit`: the fitted
+`(j0, jphi)` together with the SALC basis, symmetry, and atom count
+needed for prediction. The training dataset, residuals, and cached
+metrics held by the `SCEFit` are dropped.
+"""
+function SCEModel(f::SCEFit)::SCEModel
+	return SCEModel(
+		f.j0,
+		f.jphi,
+		f.dataset.basis.salcbasis,
+		f.dataset.basis.symmetry,
+		f.dataset.basis.structure.supercell.num_atoms,
+	)
+end
+
+
+# --- Prediction ---------------------------------------------------------
+
+"""
+	predict_energy(model::SCEModel, sc::SpinConfig) -> Float64
+	predict_energy(f::SCEFit, spin_directions::AbstractMatrix{<:Real}) -> Float64
+	predict_energy(f::SCEFit, sc::SpinConfig) -> Float64
+	predict_energy(predictor, dataset::SCEDataset) -> Vector{Float64}
+
+Predict SCE energies. The single-configuration forms return one
+`Float64`; the `SCEDataset` form returns one energy per configuration.
+`SCEFit` predictors delegate through `SCEModel(f)`. The `SCEDataset` form
+requires the dataset to share the predictor's SALC basis.
+"""
+predict_energy(model::SCEModel, sc::SpinConfig)::Float64 =
+	predict_energy(model, sc.spin_directions)
+predict_energy(f::SCEFit, spin_directions::AbstractMatrix{<:Real})::Float64 =
+	predict_energy(SCEModel(f), spin_directions)
+predict_energy(f::SCEFit, sc::SpinConfig)::Float64 =
+	predict_energy(SCEModel(f), sc)
+
+function predict_energy(model::SCEModel, dataset::SCEDataset)::Vector{Float64}
+	_check_basis(model, dataset)
+	return dataset.X_E[:, 2:end] * model.jphi .+ model.j0
+end
+predict_energy(f::SCEFit, dataset::SCEDataset)::Vector{Float64} =
+	predict_energy(SCEModel(f), dataset)
+
+"""
+	predict_torque(model::SCEModel, sc::SpinConfig) -> Matrix{Float64}
+	predict_torque(f::SCEFit, spin_directions::AbstractMatrix{<:Real}) -> Matrix{Float64}
+	predict_torque(f::SCEFit, sc::SpinConfig) -> Matrix{Float64}
+	predict_torque(predictor, dataset::SCEDataset) -> Vector{Matrix{Float64}}
+
+Predict per-atom SCE torques. The single-configuration forms return one
+`3×num_atoms` matrix; the `SCEDataset` form returns one such matrix per
+configuration. `SCEFit` predictors delegate through `SCEModel(f)`. The
+`SCEDataset` form requires the dataset to share the predictor's SALC
+basis.
+"""
+predict_torque(model::SCEModel, sc::SpinConfig)::Matrix{Float64} =
+	predict_torque(model, sc.spin_directions)
+predict_torque(f::SCEFit, spin_directions::AbstractMatrix{<:Real})::Matrix{Float64} =
+	predict_torque(SCEModel(f), spin_directions)
+predict_torque(f::SCEFit, sc::SpinConfig)::Matrix{Float64} =
+	predict_torque(SCEModel(f), sc)
+
+function predict_torque(model::SCEModel, dataset::SCEDataset)::Vector{Matrix{Float64}}
+	_check_basis(model, dataset)
+	num_atoms = dataset.basis.structure.supercell.num_atoms
+	block_size = 3 * num_atoms
+	flat = dataset.X_T * model.jphi
+	return [
+		reshape(flat[((i-1)*block_size+1):(i*block_size)], 3, num_atoms)
+		for i = 1:length(dataset)
+	]
+end
+predict_torque(f::SCEFit, dataset::SCEDataset)::Vector{Matrix{Float64}} =
+	predict_torque(SCEModel(f), dataset)
+
+
+# --- Evaluation verbs ---------------------------------------------------
+
+# Evaluation data accepted by the `(predictor, data)` verb family.
+const SCEEvalData = Union{SCEDataset, AbstractVector{SpinConfig}, AbstractString}
+
+# The evaluation data must come from the same SALC basis as the
+# predictor: the (l, m, site) column ordering of the design matrices
+# must match the fitted coefficients. Only checkable when the data is a
+# SCEDataset (configs / EMBSET paths are evaluated through the
+# predictor's own basis, so they are compatible by construction).
+function _check_basis(model::SCEModel, dataset::SCEDataset)
+	model.salcbasis === dataset.basis.salcbasis || throw(ArgumentError(
+		"evaluation SCEDataset was built from a different SCEBasis than the predictor"))
+	return nothing
+end
+_check_basis(f::SCEFit, dataset::SCEDataset) = _check_basis(SCEModel(f), dataset)
+
+# (observed, predicted) energy vectors for a predictor and evaluation data.
+_eval_energy(predictor, dataset::SCEDataset) =
+	(dataset.y_E, predict_energy(predictor, dataset))
+_eval_energy(predictor, configs::AbstractVector{SpinConfig}) =
+	(Float64[sc.energy for sc in configs],
+	 Float64[predict_energy(predictor, sc) for sc in configs])
+_eval_energy(predictor, embset_path::AbstractString) =
+	_eval_energy(predictor, SpinConfigs.read_embset(embset_path))
+
+# (observed, predicted) flattened torque vectors.
+function _eval_torque(predictor, dataset::SCEDataset)
+	predicted = isempty(dataset.spinconfigs) ? Float64[] :
+		reduce(vcat, (vec(t) for t in predict_torque(predictor, dataset)))
+	return (dataset.y_T, predicted)
+end
+function _eval_torque(predictor, configs::AbstractVector{SpinConfig})
+	observed = isempty(configs) ? Float64[] :
+		reduce(vcat, (vec(sc.torques) for sc in configs))
+	predicted = isempty(configs) ? Float64[] :
+		reduce(vcat, (vec(predict_torque(predictor, sc)) for sc in configs))
+	return (observed, predicted)
+end
+_eval_torque(predictor, embset_path::AbstractString) =
+	_eval_torque(predictor, SpinConfigs.read_embset(embset_path))
+
+"""
+	r2_energy(predictor, data) -> Float64
+	r2_energy(f::SCEFit) -> Float64
+
+Coefficient of determination (R²) of the SCE energy predictions.
+`predictor` is a `SCEModel` or `SCEFit`; `data` is a `SCEDataset`, a
+vector of `SpinConfig`, or an EMBSET file path. The single-argument form
+evaluates `f` in-sample on its own training dataset.
+"""
+function r2_energy(predictor::Union{SCEModel, SCEFit}, data::SCEEvalData)::Float64
+	observed, predicted = _eval_energy(predictor, data)
+	return Optimize.calc_r2score(observed, predicted)
+end
+r2_energy(f::SCEFit)::Float64 = r2_energy(f, f.dataset)
+
+"""
+	r2_torque(predictor, data) -> Float64
+	r2_torque(f::SCEFit) -> Float64
+
+Coefficient of determination (R²) of the SCE torque predictions,
+computed over the flattened torque components. See [`r2_energy`](@ref)
+for the argument forms.
+"""
+function r2_torque(predictor::Union{SCEModel, SCEFit}, data::SCEEvalData)::Float64
+	observed, predicted = _eval_torque(predictor, data)
+	return Optimize.calc_r2score(observed, predicted)
+end
+r2_torque(f::SCEFit)::Float64 = r2_torque(f, f.dataset)
+
+"""
+	rss_energy(predictor, data) -> Float64
+	rss_energy(f::SCEFit) -> Float64
+
+Residual sum of squares of the SCE energy predictions. See
+[`r2_energy`](@ref) for the argument forms.
+"""
+function rss_energy(predictor::Union{SCEModel, SCEFit}, data::SCEEvalData)::Float64
+	observed, predicted = _eval_energy(predictor, data)
+	return sum(abs2, observed .- predicted)
+end
+rss_energy(f::SCEFit)::Float64 = rss_energy(f, f.dataset)
+
+"""
+	rss_torque(predictor, data) -> Float64
+	rss_torque(f::SCEFit) -> Float64
+
+Residual sum of squares of the SCE torque predictions, over the
+flattened torque components. See [`r2_energy`](@ref) for the argument
+forms.
+"""
+function rss_torque(predictor::Union{SCEModel, SCEFit}, data::SCEEvalData)::Float64
+	observed, predicted = _eval_torque(predictor, data)
+	return sum(abs2, observed .- predicted)
+end
+rss_torque(f::SCEFit)::Float64 = rss_torque(f, f.dataset)
+
+"""
+	residuals_energy(predictor, data) -> Vector{Float64}
+	residuals_energy(f::SCEFit) -> Vector{Float64}
+
+Per-configuration energy residuals `observed - predicted` (eV). See
+[`r2_energy`](@ref) for the argument forms.
+"""
+function residuals_energy(
+	predictor::Union{SCEModel, SCEFit},
+	data::SCEEvalData,
+)::Vector{Float64}
+	observed, predicted = _eval_energy(predictor, data)
+	return observed .- predicted
+end
+residuals_energy(f::SCEFit)::Vector{Float64} = residuals_energy(f, f.dataset)
+
+"""
+	residuals_torque(predictor, data) -> Vector{Float64}
+	residuals_torque(f::SCEFit) -> Vector{Float64}
+
+Flattened torque residuals `observed - predicted` (eV), length
+`3 * num_atoms * n_configs`. See [`r2_energy`](@ref) for the argument
+forms.
+"""
+function residuals_torque(
+	predictor::Union{SCEModel, SCEFit},
+	data::SCEEvalData,
+)::Vector{Float64}
+	observed, predicted = _eval_torque(predictor, data)
+	return observed .- predicted
+end
+residuals_torque(f::SCEFit)::Vector{Float64} = residuals_torque(f, f.dataset)
+
+"""
+	rmse_energy(predictor, data) -> Float64
+	rmse_energy(f::SCEFit) -> Float64
+
+Root mean squared error of the SCE energy predictions (eV). See
+[`r2_energy`](@ref) for the argument forms.
+"""
+function rmse_energy(predictor::Union{SCEModel, SCEFit}, data::SCEEvalData)::Float64
+	observed, predicted = _eval_energy(predictor, data)
+	return Optimize.calc_rmse(observed, predicted)
+end
+rmse_energy(f::SCEFit)::Float64 = rmse_energy(f, f.dataset)
+
+"""
+	rmse_torque(predictor, data) -> Float64
+	rmse_torque(f::SCEFit) -> Float64
+
+Root mean squared error of the SCE torque predictions (eV), over the
+flattened torque components. See [`r2_energy`](@ref) for the argument
+forms.
+"""
+function rmse_torque(predictor::Union{SCEModel, SCEFit}, data::SCEEvalData)::Float64
+	observed, predicted = _eval_torque(predictor, data)
+	return Optimize.calc_rmse(observed, predicted)
+end
+rmse_torque(f::SCEFit)::Float64 = rmse_torque(f, f.dataset)
 
 
 """

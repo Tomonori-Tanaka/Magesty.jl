@@ -20,7 +20,7 @@ using ..Basis
 using ..SALCBases
 using ..SpinConfigs
 
-export Optimizer, SCEModel, fit_sce_model, predict_energy, AbstractEstimator, OLS, Ridge
+export Optimizer, SCEModel, fit_sce_model, predict_energy, predict_torque, AbstractEstimator, OLS, Ridge
 
 """
 	_cluster_scaling(n_sites::Integer) -> Float64
@@ -906,6 +906,65 @@ function predict_energy(
 	end
 
 	return dot(design_vector, model.jphi) + model.j0
+end
+
+"""
+	predict_torque(model::SCEModel, spin_directions::AbstractMatrix{<:Real}) -> Matrix{Float64}
+
+Predict the per-atom torque of a spin configuration using an SCE model.
+
+# Arguments
+- `model::SCEModel`: SCE model containing coefficients and basis information.
+- `spin_directions::AbstractMatrix{<:Real}`: `3×N` matrix of spin unit vectors,
+  where `N` is the number of atoms in the supercell.
+
+# Returns
+- `Matrix{Float64}`: `3×N` torque matrix; column `i` is the torque vector
+  (in eV) on atom `i`.
+
+# Throws
+- `ArgumentError`: If `spin_directions` is not a `3×N` matrix.
+
+# Examples
+```julia
+sc = SpinCluster("input.toml")
+model = SCEModel(get_j0(sc), get_jphi(sc), sc.basisset, sc.symmetry,
+                 sc.structure.supercell.num_atoms)
+
+num_atoms = sc.structure.supercell.num_atoms
+fm = zeros(3, num_atoms); fm[3, :] .= 1.0
+T_fm = predict_torque(model, fm)
+```
+"""
+function predict_torque(
+	model::SCEModel,
+	spin_directions::AbstractMatrix{<:Real},
+)::Matrix{Float64}
+	if size(spin_directions, 1) != 3
+		throw(ArgumentError("spin_directions must be a 3xN matrix"))
+	end
+	salc_list = model.salcbasis.salc_list
+	num_atoms = size(spin_directions, 2)
+	torque = zeros(Float64, 3, num_atoms)
+	grad_u_buf = MVector{3, Float64}(0.0, 0.0, 0.0)
+
+	@inbounds for iatom = 1:num_atoms
+		dir_iatom = SVector{3, Float64}(@view spin_directions[:, iatom])
+		for (salc_idx, key_group) in enumerate(salc_list)
+			group_grad = MVector{3, Float64}(0.0, 0.0, 0.0)
+			for cbc in key_group
+				calc_∇ₑu!(grad_u_buf, cbc, iatom, spin_directions, model.symmetry)
+				group_grad .+= grad_u_buf
+			end
+			n_C = length(key_group[1].atoms)
+			scaling_factor = _cluster_scaling(n_C)
+			torque[:, iatom] .+=
+				cross(dir_iatom, SVector{3, Float64}(group_grad)) .*
+				scaling_factor .* model.jphi[salc_idx]
+		end
+	end
+
+	return torque
 end
 
 

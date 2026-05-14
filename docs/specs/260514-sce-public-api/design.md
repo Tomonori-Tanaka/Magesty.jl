@@ -232,12 +232,18 @@ evaluation data, following one regular overload pattern (shown for
 `r2_energy`; identical for the whole family):
 
 ```julia
-r2_energy(model::SCEModel, dataset::SCEDataset)          -> Float64  # base method
-r2_energy(f::SCEFit, dataset::SCEDataset)                -> Float64  # delegates via SCEModel(f)
-r2_energy(f::SCEFit)                                     -> Float64  # in-sample: f's own training data
-r2_energy(target, embset_path::AbstractString)           -> Float64  # data normalized to SCEDataset
-r2_energy(target, configs::AbstractVector{SpinConfig})   -> Float64
+const SCEEvalData = Union{SCEDataset, AbstractVector{SpinConfig}, AbstractString}
+
+r2_energy(predictor::Union{SCEModel, SCEFit}, data::SCEEvalData) -> Float64
+r2_energy(f::SCEFit)                                            -> Float64  # in-sample: f's own training data
 ```
+
+One `(predictor, data)` method handles `SCEModel` / `SCEFit` predictors
+and `SCEDataset` / `Vector{SpinConfig}` / EMBSET-path data. `SCEFit`
+predictors delegate through `SCEModel(f)`; the in-sample form is
+`r2_energy(f) = r2_energy(f, f.dataset)`. The `SCEModel(f::SCEFit)`
+conversion constructor (a few lines, add-only) is implemented in this
+step rather than step 5, since the delegation depends on it.
 
 The family, each with the overload set above:
 
@@ -265,7 +271,11 @@ they want, for exactly the block they mean.
 
 **Constraint**: the `data` argument must be built from the *same*
 `SCEBasis` as the predictor — the design-matrix `(l, m, site)`
-ordering must match. Enforced by a runtime `basis`-identity check.
+ordering must match. Enforced by a runtime identity check on the SALC
+basis (`predictor`'s `salcbasis === data.basis.salcbasis`) when `data`
+is a `SCEDataset`. `Vector{SpinConfig}` / EMBSET-path data carry no
+design matrices and are evaluated through the predictor's own basis, so
+they are compatible by construction and need no check.
 
 ## AtomsBase integration & Unitful boundary
 
