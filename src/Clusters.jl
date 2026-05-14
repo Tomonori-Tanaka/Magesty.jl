@@ -25,7 +25,6 @@ using LinearAlgebra
 using OffsetArrays
 using Printf
 
-using ..CountingContainer: CountingUniqueVector, getcounts
 using ..SortedContainer
 using ..AtomCells
 using ..ConfigParser
@@ -96,7 +95,7 @@ Represents a collection of interaction clusters based on the specified number of
 - `num_bodies::Int`: Number of interacting bodies
 - `cutoff_radii::OffsetArray{Float64, 3}`: Cutoff radii for each atomic element pair and interaction body
 - `min_distance_pairs::Matrix{Vector{DistInfo}}`: Matrix of minimum distance pairs between atoms
-- `cluster_dict::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}`: Dictionary of interaction clusters organized by body and primitive atom index
+- `cluster_dict::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}`: Dictionary of interaction clusters organized by body and primitive atom index
 
 # Constructor
 	Cluster(structure, symmetry, nbody, cutoff_radii)
@@ -112,7 +111,7 @@ struct Cluster
 	num_bodies::Int
 	cutoff_radii::OffsetArray{Float64, 3}
 	min_distance_pairs::Matrix{Vector{DistInfo}}
-	cluster_dict::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}
+	cluster_dict::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}
 	irreducible_cluster_dict::Dict{Int, SortedCountingUniqueVector{Vector{Int}}}
 	cluster_orbits_dict::Dict{Int, Dict{Int, Vector{Vector{Int}}}}
 
@@ -127,7 +126,7 @@ struct Cluster
 
 		start_time = time_ns()
 
-		cluster_dict::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}} =
+		cluster_dict::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}} =
 			generate_clusters(structure, symmetry, cutoff_radii, nbody)
 
 		irreducible_cluster_dict::Dict{Int, SortedCountingUniqueVector{Vector{Int}}} =
@@ -310,7 +309,7 @@ end
 
 
 """
-	generate_clusters(structure, symmetry, cutoff_radii, nbody) -> Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}
+	generate_clusters(structure, symmetry, cutoff_radii, nbody) -> Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}
 
 Generates interaction clusters based on cutoff radii and structure information.
 
@@ -321,14 +320,14 @@ Generates interaction clusters based on cutoff radii and structure information.
 - `nbody::Integer`: Number of interacting bodies
 
 # Returns
-- `Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}`: Dictionary of clusters organized by body and primitive atom index
+- `Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}`: Dictionary of clusters organized by body and primitive atom index
 """
 function generate_clusters(
 	structure::Structure,
 	symmetry::Symmetry,
 	cutoff_radii::AbstractArray{<:Real, 3},
 	nbody::Integer,
-)::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}
+)::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}
 
 	min_distance_pairs = set_mindist_pairs(
 		structure.supercell.num_atoms,
@@ -408,23 +407,23 @@ function generate_clusters(
 		end
 	end
 
-	result = Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}}()
+	result = Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}()
 	for body in 2:nbody
-		result[body] = Dict{Int, CountingUniqueVector{Vector{Int}}}()
+		result[body] = Dict{Int, OrderedDict{Vector{Int}, Int}}()
 		for prim_atom_sc in symmetry.atoms_in_prim
-			result[body][prim_atom_sc] = CountingUniqueVector{Vector{Int}}()
+			result[body][prim_atom_sc] = OrderedDict{Vector{Int}, Int}()
 		end
 	end
 
 	for body in 2:nbody
 		for prim_atom_sc in symmetry.atoms_in_prim
-			counting_unique_vector = CountingUniqueVector{Vector{Int}}()
+			cluster_counts = OrderedDict{Vector{Int}, Int}()
 			for cluster::SortedVector{AtomCell} in interaction_clusters[body][prim_atom_sc]
 				atom_list = [atom_cell.atom for atom_cell in cluster]
 				atom_list = vcat([prim_atom_sc], atom_list)
-				push!(counting_unique_vector, atom_list)
+				cluster_counts[atom_list] = get(cluster_counts, atom_list, 0) + 1
 			end
-			result[body][prim_atom_sc] = counting_unique_vector
+			result[body][prim_atom_sc] = cluster_counts
 		end
 	end
 
@@ -604,7 +603,7 @@ function is_translationally_equiv_cluster(
 end
 
 function irreducible_clusters(
-	cluster_dict::Dict{Int, Dict{Int, CountingUniqueVector{Vector{Int}}}},
+	cluster_dict::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}},
 	symmetry::Symmetry,
 )::Dict{Int, SortedCountingUniqueVector{Vector{Int}}}
 	result = Dict{Int, SortedCountingUniqueVector{Vector{Int}}}()
@@ -613,10 +612,10 @@ function irreducible_clusters(
 		result[body] = SortedCountingUniqueVector{Vector{Int}}()
 
 		for prim_atom_sc in symmetry.atoms_in_prim
-			for cluster::Vector{Int} in cluster_dict[body][prim_atom_sc]
+			for cluster::Vector{Int} in keys(cluster_dict[body][prim_atom_sc])
 				cluster_list = sort(cluster)
 				# Get the count from the original cluster_dict
-				original_count = getcounts(cluster_dict[body][prim_atom_sc], cluster)
+				original_count = cluster_dict[body][prim_atom_sc][cluster]
 
 				# Check if this cluster is translationally equivalent to any existing cluster in result[body]
 				found_equivalent = false

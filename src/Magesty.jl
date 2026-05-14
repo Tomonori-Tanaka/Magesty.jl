@@ -39,7 +39,6 @@ include("common/version.jl")
 using .Version
 
 include("common/SortedContainer.jl")
-include("common/CountingContainer.jl")
 include("types/AtomCells.jl")
 include("SpinConfigs.jl")
 using .SpinConfigs
