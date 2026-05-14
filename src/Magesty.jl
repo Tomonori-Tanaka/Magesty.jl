@@ -34,6 +34,7 @@ module Magesty
 
 using Printf
 using TOML
+import AtomsBase
 
 include("common/version.jl")
 using .Version
@@ -50,9 +51,11 @@ using .AngularMomentumCoupling
 using .Basis
 
 include("utils/ConfigParser.jl")
+include("utils/atomsbase_adapter.jl")
 include("utils/RotationMatrix.jl")
 include("utils/MySphericalHarmonics.jl")
 using .ConfigParser
+using .AtomsBaseAdapter
 
 include("Structures.jl")
 include("Symmetries.jl")
@@ -71,7 +74,7 @@ using .XMLIO
 include("utils/EnergyTorque.jl")
 using .EnergyTorque
 
-export System, SpinCluster, VERSION, install_tools
+export System, SpinCluster, SCEBasis, VERSION, install_tools
 export SCEModel, fit_sce_model, predict_energy, AbstractEstimator, OLS, Ridge
 export build_sce_basis, build_sce_basis_from_xml
 export write_xml
@@ -238,6 +241,112 @@ function build_sce_basis_from_xml(
 	end
 
 	return System(structure, symmetry, cluster, basisset)
+end
+
+
+"""
+	SCEBasis
+
+Material + basis: crystal structure, symmetry, cluster, and SALC basis.
+The heavy part is the SALC construction; an `SCEBasis` can be persisted
+and reused.
+
+# Fields
+- `structure::Structure`: Crystal structure information.
+- `symmetry::Symmetry`: Symmetry operations.
+- `cluster::Cluster`: Cluster information.
+- `salcbasis::SALCBasis`: SALC basis functions.
+"""
+struct SCEBasis
+	structure::Structure
+	symmetry::Symmetry
+	cluster::Cluster
+	salcbasis::SALCBasis
+end
+
+"""
+	SCEBasis(input_dict::AbstractDict; verbosity = true) -> SCEBasis
+	SCEBasis(toml_path::AbstractString; verbosity = true) -> SCEBasis
+	SCEBasis(system::AtomsBase.AbstractSystem; interaction, name, tolerance_sym, isotropy, verbosity) -> SCEBasis
+	SCEBasis(; lattice, kd, kd_list, positions, periodicity, interaction, name, tolerance_sym, isotropy, verbosity) -> SCEBasis
+
+Construct an `SCEBasis` from one of four input paths: a parsed TOML
+dictionary, a TOML file, an `AtomsBase.AbstractSystem`, or raw Julia
+keyword arguments. All paths build a `Config4System` internally and run
+the same structure / symmetry / cluster / SALC construction.
+
+The `interaction` argument is a nested `NamedTuple` keyed `body1`,
+`body2`, ...; see `docs/specs/260514-sce-public-api/` for its format
+and the per-path Unitful requirements.
+"""
+function SCEBasis(
+	input_dict::AbstractDict{<:AbstractString, <:Any};
+	verbosity::Bool = true,
+)
+	config::Config4System = Config4System(input_dict)
+	structure, symmetry, cluster = _build_structure_skeleton(config; verbosity = verbosity)
+	salcbasis::SALCBasis =
+		SALCBasis(structure, symmetry, cluster, config, verbosity = verbosity)
+	return SCEBasis(structure, symmetry, cluster, salcbasis)
+end
+
+function SCEBasis(toml_path::AbstractString; verbosity::Bool = true)
+	try
+		open(toml_path) do io
+			input_dict = TOML.parse(read(io, String))
+			return SCEBasis(input_dict; verbosity = verbosity)
+		end
+	catch e
+		if isa(e, SystemError)
+			throw(SystemError("Failed to read file: $toml_path"))
+		else
+			throw(ErrorException("Failed to parse TOML file: $toml_path"))
+		end
+	end
+end
+
+function SCEBasis(
+	system::AtomsBase.AbstractSystem;
+	interaction::NamedTuple,
+	name::AbstractString = "system",
+	tolerance_sym::Real = 1e-5,
+	isotropy::Bool = false,
+	verbosity::Bool = true,
+)
+	input_dict = AtomsBaseAdapter.system_to_input_dict(
+		system,
+		interaction;
+		name = name,
+		tolerance_sym = tolerance_sym,
+		isotropy = isotropy,
+	)
+	return SCEBasis(input_dict; verbosity = verbosity)
+end
+
+function SCEBasis(;
+	lattice::AbstractMatrix,
+	kd::AbstractVector{Symbol},
+	kd_list::AbstractVector{<:Integer},
+	positions::AbstractVector,
+	periodicity = (true, true, true),
+	interaction::NamedTuple,
+	name::AbstractString = "system",
+	tolerance_sym::Real = 1e-5,
+	isotropy::Bool = false,
+	verbosity::Bool = true,
+)
+	input_dict = AtomsBaseAdapter.kwargs_to_input_dict(
+		lattice = lattice,
+		kd = kd,
+		kd_list = kd_list,
+		positions = positions,
+		periodicity = periodicity,
+		interaction = interaction,
+		name = name,
+		tolerance_sym = tolerance_sym,
+		isotropy = isotropy,
+	)
+	return SCEBasis(input_dict; verbosity = verbosity)
 end
 
 

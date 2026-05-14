@@ -29,6 +29,7 @@ if TEST_MODE in ("unit", "all")
 		# include("./component_test/test_Optimize.jl")
 		include("./component_test/test_Optimize_dispatch.jl")
 		include("./component_test/test_SALCBases_l13_regression.jl")
+		include("./component_test/test_SCEBasis.jl")
 		include("./component_test/test_Version.jl")
 	end
 end
