@@ -4,19 +4,22 @@ Status: draft (2026-05-14)
 Requirements: `./requirements.md` — Design: `./design.md`
 
 Coarse milestones. Day-to-day work tracked with `TaskCreate`.
-Branch: `refactor/sce-public-api`. Steps 1-5 are add-only (old and new
-APIs coexist); step 6 rewrites tests; step 7 is the breaking removal.
+Branch: `refactor/sce-public-api`. Through step 5 the old API keeps
+working alongside the new one (coexistence); step 5 also reshapes the
+*new* types (`SCEBasis` / `SCEModel`) as the design firms up; step 6
+rewrites tests; step 7 is the breaking removal of the old API.
 `make test-all` must stay green at every commit.
 
 ## Phase 0 — sign-off
 
-- [ ] User agrees on the four-type shape (`SCEBasis` / `SCEDataset` /
+- [x] User agrees on the four-type shape (`SCEBasis` / `SCEDataset` /
       `SCEFit` / `SCEModel`).
-- [ ] User agrees on `SCEBasis` storing `Structure` (not the raw
+- [x] User agrees on `SCEBasis` storing `Structure` (not the raw
       `AbstractSystem`) — Unitful kept out of stored fields.
-- [ ] User agrees on the resolved decisions in design.md (top-level
-      type placement, no `metrics` aggregator, `view` deferred to the
-      CV spec).
+- [x] User agrees on the resolved decisions in design.md (see
+      "Resolved decisions" 1-7 — type placement, no `metrics`
+      aggregator, `view` deferred, `cluster` not stored, `SCEModel`
+      holds `SCEBasis`, `Symmetry` recomputed on load, JLD2 not a dep).
 
 ## Prerequisites (done)
 
@@ -26,22 +29,23 @@ APIs coexist); step 6 rewrites tests; step 7 is the breaking removal.
 
 ## Step 1 — `SCEBasis` type + AtomsBase input
 
-- [ ] Add deps `AtomsBase`, `Unitful` to `Project.toml` with compat
+- [x] Add deps `AtomsBase`, `Unitful` to `Project.toml` with compat
       bounds.
-- [ ] New `src/utils/atomsbase_adapter.jl`: `AbstractSystem` →
+- [x] New `src/utils/atomsbase_adapter.jl`: `AbstractSystem` →
       `Structure` conversion, `ustrip` to angstrom, `ChemicalSpecies`
       sublabel → kind name, element-only `lmax`/`cutoff` fan-out.
-- [ ] Define `SCEBasis` (structure + symmetry + cluster + salcbasis).
-- [ ] Constructors: `SCEBasis(::AbstractSystem; nbody, lmax, ...)`,
+- [x] Define `SCEBasis` (structure + symmetry + cluster + salcbasis).
+      Note: `cluster` is dropped from the fields in step 5a.
+- [x] Constructors: `SCEBasis(::AbstractSystem; nbody, lmax, ...)`,
       `SCEBasis(::AbstractString)` (TOML), `SCEBasis(::AbstractDict)`.
-- [ ] `SCEBasis` constructor: `@warn` on odd `lmax` / `lsum` values
+- [x] `SCEBasis` constructor: `@warn` on odd `lmax` / `lsum` values
       (time-reversal symmetry note); covers both input paths.
-- [ ] `SCEModel` field renames: `reference_energy` → `j0`, `SCE` →
+- [x] `SCEModel` field renames: `reference_energy` → `j0`, `SCE` →
       `jphi`, `basisset` → `salcbasis`. Update `EnergyTorque.jl` /
       `Optimize.jl` read & construction sites. XML tag names unchanged.
-- [ ] Add `test_SCEBasis.jl`: construct from AtomsBase system, from
+- [x] Add `test_SCEBasis.jl`: construct from AtomsBase system, from
       TOML; species sublabel handling; element-only fan-out.
-- [ ] `make test-all` green (old API still exported and working).
+- [x] `make test-all` green (old API still exported and working).
 
 ## Step 2 — `SCEDataset` type + slicing
 
@@ -103,19 +107,49 @@ APIs coexist); step 6 rewrites tests; step 7 is the breaking removal.
 - [x] `make test-all` green (unit 6259, jet 0 issues, aqua 10,
       integration 155).
 
-## Step 5 — `save` / `load`
+## Step 5 — type reshape + `save` / `load`
 
-- [x] `SCEModel(f::SCEFit)` lightweight conversion — done in step 4.
-- [ ] `save(obj, path)` / `load(::Type{T}, path)` with extension
-      dispatch.
-- [ ] XML backend: refactor `xml_io.jl` so basis-only (`SCEBasis`) and
-      basis+coeff (`SCEModel`) share code; `SCEModel` XML
-      byte-identical.
-- [ ] JLD2 backend (add `JLD2` dep): `SCEBasis` / `SCEFit` /
-      `SCEModel`.
-- [ ] Add `test_save_load.jl`: extension dispatch, round-trip,
-      `SCEModel` XML byte-identical vs committed baseline (`fept`,
-      `fege`).
+Driven by reading `xml_io.jl`: `Cluster` is a construction step, not
+persistent state, and `Symmetry` is a derived quantity. See design.md
+"Resolved decisions" 4-7. JLD2 is *not* a dependency — `SCEFit`
+persistence is left to the user (`jldsave` on a plain struct).
+
+### Step 5a — type reshape (no new deps)
+
+- [x] `SCEModel(f::SCEFit)` lightweight conversion — done in step 4
+      (re-pointed at the reshaped `SCEModel` in this step).
+- [ ] Drop `cluster` from `SCEBasis`; the constructor computes it
+      locally for `SALCBasis` construction and discards it. `Cluster`
+      stays an internal struct (a construction intermediate).
+- [ ] Reshape `SCEModel` to `{basis::SCEBasis, j0, jphi}`; `num_atoms`
+      becomes `basis.structure.supercell.num_atoms`.
+- [ ] Update `predict_energy` / `predict_torque` / `SCEModel(f)` and
+      `test_SCEBasis.jl` / `test_SCEFit.jl` for the reshaped types.
+- [ ] `make test-all` green (old API untouched; coexistence holds).
+
+### Step 5b — XML `save` / `load`
+
+- [ ] Extend the XML schema: `tolerance_sym` attribute on `<Symmetry>`,
+      `isotropy` attribute on `<SCEBasis>`. `isotropy` is provenance
+      metadata; `tolerance_sym` is consumed on load.
+- [ ] Refactor the `xml_io.jl` writer to take `SCEBasis` / `SCEModel`
+      (not loose args + `Optimizer`); basis-only and basis+coeff paths
+      share code.
+- [ ] XML readers: reconstruct `SCEBasis` via `Structure(xml)` +
+      `Symmetry(structure, tolerance_sym)` (recompute, not
+      deserialize) + `read_salcbasis_from_xml`. `SCEModel` adds the
+      `<JPhi>` reader. `load(SCEBasis, xml)` accepts an `SCEModel` XML.
+- [ ] `save(obj, path)` / `load(::Type{T}, path)` — XML only, `.xml`
+      extension required, clear error otherwise.
+- [ ] `make test-all` green.
+
+### Step 5c — tests + baselines
+
+- [ ] Add `test_save_load.jl`: `.xml` round-trip for `SCEBasis` /
+      `SCEModel`, basis-identity after reload, non-`.xml` extension
+      error path.
+- [ ] Regenerate the committed baseline XML for `fept` / `fege` under
+      the new schema; byte-diff regression test against it.
 - [ ] `make test-all` green.
 
 ## Step 6 — migrate `test/examples/*`, rebuild `examples/`, docs
@@ -132,7 +166,7 @@ APIs coexist); step 6 rewrites tests; step 7 is the breaking removal.
 - [ ] Update `docs/src/api.md`, `docs/src/examples.md`, `SPEC.md`,
       `README.md`.
 - [ ] `make test-all` green; example assertions still pass;
-      `SCEModel` XML still byte-identical.
+      `SCEModel` / `SCEBasis` XML still matches the committed baseline.
 
 ## Step 7 — remove old API (breaking commit)
 
@@ -166,8 +200,9 @@ APIs coexist); step 6 rewrites tests; step 7 is the breaking removal.
 
 - AtomsBase API churn (pre-1.0): all calls isolated in
   `atomsbase_adapter.jl`; compat bound pinned.
-- `SCEModel` XML byte-identical regression: caught only by the
-  round-trip diff test in Step 5 — run it before every commit that
-  touches `xml_io.jl`.
-- Intermediate commits non-importable: Steps 1-5 are add-only;
+- XML schema drift: caught by the byte-diff round-trip test in step 5c
+  against the regenerated `fept` / `fege` baselines — run it before
+  every commit that touches `xml_io.jl`.
+- Intermediate commits non-importable: old / new APIs coexist through
+  step 5;
   `make test-all` at every commit.
