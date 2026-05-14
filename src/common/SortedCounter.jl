@@ -31,6 +31,11 @@ ordered iteration over keys.
 # Constructors
 - `SortedCounter{T}()`: create an empty counter.
 
+# Returns
+- `SortedCounter{T}`: empty counter whose `counts::Dict{T, Int}` field
+  accumulates per-key multiplicities and whose iteration yields the unique
+  keys in `isless` order.
+
 # Examples
 ```julia
 sc = SortedCounter{Int}()
