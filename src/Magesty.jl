@@ -35,6 +35,8 @@ module Magesty
 using Printf
 using TOML
 import AtomsBase
+import StatsAPI                          # for the StatsAPI.RegressionModel supertype
+import StatsAPI: fit, coef, nobs, dof    # extended with SCEFit / SCEModel methods
 
 include("common/version.jl")
 using .Version
@@ -74,8 +76,9 @@ using .XMLIO
 include("utils/EnergyTorque.jl")
 using .EnergyTorque
 
-export System, SpinCluster, SCEBasis, SCEDataset, VERSION, install_tools
+export System, SpinCluster, SCEBasis, SCEDataset, SCEFit, VERSION, install_tools
 export SCEModel, fit_sce_model, predict_energy, AbstractEstimator, OLS, Ridge
+export fit, coef, intercept, nobs, dof
 export build_sce_basis, build_sce_basis_from_xml
 export write_xml
 
@@ -497,6 +500,130 @@ function Base.vcat(d1::SCEDataset, ds::SCEDataset...)::SCEDataset
 		reduce(vcat, (d.y_T for d in all_d)),
 	)
 end
+
+
+"""
+	SCEFit
+
+A fitted SCE regression. Holds the dataset it was fit on, the fitted
+coefficients, the estimator and torque weight used, the residuals of the
+augmented (weighted) least-squares system, and cached in-sample metrics.
+
+`SCEFit <: StatsAPI.RegressionModel`. The response-block-independent
+verbs `coef`, `intercept`, `nobs`, `dof` are defined for it.
+
+# Fields
+- `dataset::SCEDataset`: The training dataset.
+- `j0::Float64`: Fitted reference energy (bias term).
+- `jphi::Vector{Float64}`: Fitted SCE coefficients.
+- `estimator::AbstractEstimator`: The estimator used (`OLS` / `Ridge`).
+- `torque_weight::Float64`: Torque weight in `[0, 1]` used at fit time.
+- `residuals::Vector{Float64}`: Residuals of the augmented *weighted*
+  least-squares system (energy rows stacked above flattened torque rows).
+  These carry the `torque_weight` scaling and are not in physical units;
+  use `metrics` for interpretable in-sample errors.
+- `metrics::Dict{Symbol, Any}`: In-sample RMSE / R² for energy and torque
+  (`:rmse_energy`, `:rmse_torque`, `:r2score_energy`, `:r2score_torque`),
+  computed on the unweighted predictions.
+"""
+struct SCEFit <: StatsAPI.RegressionModel
+	dataset::SCEDataset
+	j0::Float64
+	jphi::Vector{Float64}
+	estimator::AbstractEstimator
+	torque_weight::Float64
+	residuals::Vector{Float64}
+	metrics::Dict{Symbol, Any}
+end
+
+"""
+	fit(::Type{SCEFit}, dataset::SCEDataset, estimator::AbstractEstimator;
+	    torque_weight::Real = 0.5) -> SCEFit
+
+Fit SCE coefficients on `dataset` with `estimator`, returning a `SCEFit`.
+
+`torque_weight` in `[0, 1]` sets the convex combination of the per-sample
+energy and torque mean squared errors that the augmented least-squares
+problem minimizes: `(1 - torque_weight) * MSE_energy + torque_weight *
+MSE_torque`. The design matrices stored in `dataset` are unweighted, so a
+`torque_weight` sweep reuses one `SCEDataset` without rebuilding them.
+
+This is the StatsAPI `fit` verb; `using Magesty` re-exports it.
+"""
+function fit(
+	::Type{SCEFit},
+	dataset::SCEDataset,
+	estimator::AbstractEstimator;
+	torque_weight::Real = 0.5,
+)::SCEFit
+	X, y, bias_col = Optimize.assemble_weighted_problem(
+		dataset.X_E,
+		dataset.X_T,
+		dataset.y_E,
+		dataset.y_T,
+		torque_weight,
+	)
+	j_values = Optimize.solve_coefficients(estimator, X, y; bias_col = bias_col)
+	j0, jphi = Optimize.extract_j0_jphi(j_values, dataset.X_E, dataset.y_E)
+	residuals::Vector{Float64} = y .- X * j_values
+	predicted_energy::Vector{Float64} = dataset.X_E[:, 2:end] * jphi .+ j0
+	predicted_torque::Vector{Float64} = dataset.X_T * jphi
+	metrics = Dict{Symbol, Any}(
+		:rmse_energy => Optimize.calc_rmse(dataset.y_E, predicted_energy),
+		:rmse_torque => Optimize.calc_rmse(dataset.y_T, predicted_torque),
+		:r2score_energy => Optimize.calc_r2score(dataset.y_E, predicted_energy),
+		:r2score_torque => Optimize.calc_r2score(dataset.y_T, predicted_torque),
+	)
+	return SCEFit(
+		dataset,
+		j0,
+		jphi,
+		estimator,
+		Float64(torque_weight),
+		residuals,
+		metrics,
+	)
+end
+
+# --- StatsAPI verbs (response-block independent) ------------------------
+
+"""
+	coef(f::SCEFit) -> Vector{Float64}
+	coef(m::SCEModel) -> Vector{Float64}
+
+The fitted SCE coefficients `jphi` — a single set shared by the energy
+and torque models.
+"""
+coef(f::SCEFit)::Vector{Float64} = f.jphi
+coef(m::SCEModel)::Vector{Float64} = m.jphi
+
+"""
+	intercept(f::SCEFit) -> Float64
+	intercept(m::SCEModel) -> Float64
+
+The fitted reference energy `j0` (bias term). `intercept` is a
+Magesty-native verb: StatsAPI has no intercept concept, and the SCE model
+keeps `j0` separate from the coefficients `jphi`.
+"""
+function intercept end
+intercept(f::SCEFit)::Float64 = f.j0
+intercept(m::SCEModel)::Float64 = m.j0
+
+"""
+	nobs(f::SCEFit) -> Int
+
+Number of observations (spin configurations) the fit was trained on, i.e.
+the energy-block observation count `n_configs`.
+"""
+nobs(f::SCEFit)::Int = length(f.dataset)
+
+"""
+	dof(f::SCEFit) -> Int
+
+Degrees of freedom consumed by the fit: `length(coef(f)) + 1` — the SCE
+coefficients plus the intercept.
+"""
+dof(f::SCEFit)::Int = length(f.jphi) + 1
 
 
 """
