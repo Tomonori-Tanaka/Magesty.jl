@@ -985,10 +985,15 @@ end
 
 """
 	assemble_weighted_problem(design_matrix_energy, design_matrix_torque,
-	                          observed_energy_list, observed_torque_list, weight)
+	                          observed_energy_list, observed_torque, weight)
 	    -> (X::Matrix{Float64}, y::Vector{Float64}, bias_col::Int)
 
 Build the augmented `(X, y)` linear system that all estimators solve.
+
+`observed_torque` may be passed either as a vector of `3×n_atoms`
+matrices (one per config) or as the already-flattened
+`3 * n_atoms * n_config` vector; the matrix form is flattened internally
+and both produce identical output.
 
 Energy rows are scaled by `√((1 - weight) / n_E)` and torque rows
 (after flattening) by `√(weight / n_T)`, where `n_E` is the number of
@@ -1007,7 +1012,8 @@ two blocks share `bias_col = 1`.
 - `design_matrix_energy`: Energy design matrix (bias column at column 1).
 - `design_matrix_torque`: Torque design matrix (no bias column).
 - `observed_energy_list`: Observed energies.
-- `observed_torque_list`: Observed torques as `3×n_atoms` matrices per config.
+- `observed_torque`: Observed torques, either as `3×n_atoms` matrices per
+  config or as the flattened `3 * n_atoms * n_config` vector.
 - `weight`: Trade-off; energy weight = `1 - weight`, torque weight = `weight`.
 
 # Returns
@@ -1022,12 +1028,25 @@ function assemble_weighted_problem(
 	observed_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
 	weight::Real,
 )
+	return assemble_weighted_problem(
+		design_matrix_energy,
+		design_matrix_torque,
+		observed_energy_list,
+		convert(Vector{Float64}, vcat(vec.(observed_torque_list)...)),
+		weight,
+	)
+end
+
+function assemble_weighted_problem(
+	design_matrix_energy::AbstractMatrix{<:Real},
+	design_matrix_torque::AbstractMatrix{<:Real},
+	observed_energy_list::AbstractVector{<:Real},
+	observed_torque_flattened::AbstractVector{<:Real},
+	weight::Real,
+)
 	# weight parameters
 	w_e = 1 - weight
 	w_m = weight
-
-	# Flatten observed torque
-	observed_torque_flattened = vcat(vec.(observed_torque_list)...)
 
 	# Per-sample MSE normalization. The objective we want to minimize is
 	#   L = (1 - weight) * MSE_energy + weight * MSE_torque
@@ -1182,8 +1201,8 @@ function calc_metrics(
 	observed_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
 	predicted_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
 )::Dict{Symbol, Any}
-	observed_torque_flattened_list = vcat(vec.(observed_torque_list)...)
-	predicted_torque_flattened_list = vcat(vec.(predicted_torque_list)...)
+	observed_torque_flattened_list::Vector{Float64} = vcat(vec.(observed_torque_list)...)
+	predicted_torque_flattened_list::Vector{Float64} = vcat(vec.(predicted_torque_list)...)
 	return Dict(
 		:rmse_energy => calc_rmse(observed_energy_list, predicted_energy_list),
 		:rmse_torque => calc_rmse(observed_torque_flattened_list, predicted_torque_flattened_list),

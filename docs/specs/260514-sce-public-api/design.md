@@ -196,29 +196,34 @@ StatsAPI unmodified.
 ### StatsAPI verbs (response-block independent)
 
 ```julia
-# Magesty imports these from StatsAPI, adds methods, and re-exports
-# them — `using Magesty` is enough; the user never imports StatsAPI.
-# Because GLM.jl etc. re-export the same StatsAPI.fit, `using GLM,
-# Magesty` produces no name clash.
-import StatsAPI: fit, coef, intercept, nobs, dof
-export fit, coef, intercept, nobs, dof
+# Magesty imports `fit` / `coef` / `nobs` / `dof` from StatsAPI, adds
+# methods, and re-exports them — `using Magesty` is enough; the user
+# never imports StatsAPI. Because GLM.jl etc. re-export the same
+# StatsAPI.fit, `using GLM, Magesty` produces no name clash.
+# `intercept` is NOT a StatsAPI verb — StatsAPI has no intercept concept
+# (GLM folds the intercept into `coef`). Magesty defines `intercept`
+# natively because the SCE model keeps `j0` separate from `jphi`.
+import StatsAPI: fit, coef, nobs, dof
+export fit, coef, intercept, nobs, dof   # intercept is Magesty-native
 
 fit(::Type{SCEFit}, dataset::SCEDataset, estimator::AbstractEstimator;
     torque_weight::Real = 0.5) -> SCEFit
 
 coef(f::SCEFit)        -> jphi::Vector{Float64}   # SCE coefficients, one shared set
 coef(m::SCEModel)      -> jphi::Vector{Float64}
-intercept(f::SCEFit)   -> j0::Float64
+intercept(f::SCEFit)   -> j0::Float64             # Magesty-native verb
 intercept(m::SCEModel) -> j0::Float64
-nobs(f::SCEFit)        -> Int                     # n_configs
+nobs(f::SCEFit)        -> Int                     # n_configs (energy-block observations)
 dof(f::SCEFit)         -> Int                     # length(jphi) + 1
 ```
 
 `coef` / `intercept` are bare (no suffix): the SCE coefficients are a
-single set shared by the energy and torque models. The bare StatsAPI
-verbs `r2` / `rss` / `residuals` / `predict` are **not** implemented —
-they assume a single response and would force an implicit "energy"
-default.
+single set shared by the energy and torque models. `nobs` returns the
+number of spin configurations (`n_configs`), i.e. the energy-block
+observation count — torque components are derived per-config quantities,
+not independent observations. The bare StatsAPI verbs `r2` / `rss` /
+`residuals` / `predict` are **not** implemented — they assume a single
+response and would force an implicit "energy" default.
 
 ### Evaluation & prediction verbs (Magesty, `(predictor, data)` form)
 

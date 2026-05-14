@@ -62,21 +62,25 @@ APIs coexist); step 6 rewrites tests; step 7 is the breaking removal.
 
 ## Step 3 — `SCEFit` + StatsAPI verbs
 
-- [ ] Add dep `StatsAPI` to `Project.toml`.
-- [ ] Define `SCEFit <: StatsAPI.RegressionModel`.
-- [ ] `fit(::Type{SCEFit}, dataset, estimator; torque_weight = 0.5)`:
+- [x] Add dep `StatsAPI` to `Project.toml`.
+- [x] Define `SCEFit <: StatsAPI.RegressionModel`.
+- [x] `fit(::Type{SCEFit}, dataset, estimator; torque_weight = 0.5)`:
       `assemble_weighted_problem` + `solve_coefficients` +
       `extract_j0_jphi`, packaging residuals + metrics.
-- [ ] Rename the `weight` kwarg to `torque_weight` along the call
-      path.
-- [ ] Implement the StatsAPI response-independent verbs `coef`,
-      `intercept`, `nobs`, `dof` for `SCEFit`; `coef` / `intercept`
-      for `SCEModel`. (Bare `r2` / `rss` / `residuals` / `predict` are
-      not implemented — see design.md "Verbs".)
-- [ ] Add `test_SCEFit.jl`: fit an example, check `coef` / `intercept`
+- [x] Rename the `weight` kwarg to `torque_weight` along the call
+      path. (New `fit` uses `torque_weight`; the internal
+      `assemble_weighted_problem` keeps its positional `weight` arg,
+      removed/refactored in Step 7.)
+- [x] Implement the response-independent verbs `coef`, `intercept`,
+      `nobs`, `dof` for `SCEFit`; `coef` / `intercept` for `SCEModel`.
+      `fit` / `coef` / `nobs` / `dof` come from StatsAPI; `intercept`
+      is Magesty-native (StatsAPI has no intercept verb). Bare `r2` /
+      `rss` / `residuals` / `predict` are not implemented — see
+      design.md "Verbs".
+- [x] Add `test_SCEFit.jl`: fit an example, check `coef` / `intercept`
       / `nobs` / `dof`; golden `(j0, jphi)` vs `fit_sce_model` on the
       same inputs.
-- [ ] `make test-all` green.
+- [x] `make test-all` green.
 
 ## Step 4 — evaluation & prediction verbs
 
