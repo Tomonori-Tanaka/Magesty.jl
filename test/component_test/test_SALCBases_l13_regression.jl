@@ -2,7 +2,7 @@ using Test
 using Magesty
 
 # Regression test for the `l_vec == [1, 3]` (and `[3, 1]`) workaround
-# that used to live in `BasisSets.listup_coupled_basislist`.
+# that used to live in `SALCBases.listup_coupled_basislist`.
 #
 # History:
 # - Commit 8b389b4 (Feb 2026) added `if sort(l_vec) == [1, 3]; continue; end`
@@ -12,15 +12,15 @@ using Magesty
 #   test was added then.
 # - This file (R3 cleanup) adds the missing coverage: a 2-atom BCC cell
 #   with `body2.lsum = 4` exercises `l_vec in {[1,3], [2,2], [3,1]}`
-#   through the full `BasisSet` build, including
+#   through the full `SALCBasis` build, including
 #   `projection_matrix_coupled_basis`. If the bug ever resurfaces, this
 #   test fails before the cleanup commit can be merged.
 #
 # See DESIGN_NOTES.md section "R3" for the design memo.
 
-@testset "BasisSets l_vec == [1, 3] regression" begin
+@testset "SALCBases l_vec == [1, 3] regression" begin
     @testset "listup_coupled_basislist enumerates [1,3]" begin
-        cb_list = Magesty.BasisSets.listup_coupled_basislist(
+        cb_list = Magesty.SALCBases.listup_coupled_basislist(
             [1, 2], 4; isotropy = false,
         )
         @test !isempty(cb_list)
@@ -32,7 +32,7 @@ using Magesty
         @test any(v -> sort(v) == [2, 2], l_vecs)
     end
 
-    @testset "Full BasisSet build on BCC with body2.lsum = 4" begin
+    @testset "Full SALCBasis build on BCC with body2.lsum = 4" begin
         # Minimal conventional BCC cell (2 atoms: corner + body center)
         # with body2.lsum = 4. The projection_matrix_coupled_basis routine
         # must complete for the [1,3] / [2,2] / [3,1] compositions without

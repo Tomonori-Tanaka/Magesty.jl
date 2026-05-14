@@ -35,12 +35,12 @@ In scope:
     (or callers use bare `Dict{T,Int}` + cached sorted keys; final
     naming decided in design.md).
   - `Cluster.irreducible_cluster_dict` field type changes accordingly.
-- `src/BasisSets.jl`
+- `src/SALCBases.jl`
   - `SortedCountingUniqueVector{Basis.CoupledBasis}` in
-    `BasisSet.coupled_basislist` and the many intermediate
+    `SALCBasis.coupled_basislist` and the many intermediate
     `OrderedDict{Int, SortedCountingUniqueVector{...}}` carriers →
     same new helper type.
-  - `BasisSet.coupled_basislist` field type changes accordingly.
+  - `SALCBasis.coupled_basislist` field type changes accordingly.
 - `src/utils/xml_io.jl` — `build_sce_basis_from_xml` reconstructs the
   basis container; uses the new helper.
 - `test/component_test/test_SortedContainer.jl` — delete.
@@ -52,7 +52,7 @@ In scope:
 
 Out of scope:
 
-- `BasisSet.coupled_basislist` is technically a public field type
+- `SALCBasis.coupled_basislist` is technically a public field type
   (the struct is exported), but no documented external code reads
   `.coupled_basislist` directly outside Magesty itself. We accept
   this incidental type change; renaming the struct field or the
@@ -61,7 +61,7 @@ Out of scope:
 - Renaming or restructuring any module beyond what the migration
   forces.
 - Optimization passes beyond replacing the container type (e.g.,
-  reducing the number of intermediate dicts in `BasisSets.jl` is
+  reducing the number of intermediate dicts in `SALCBases.jl` is
   out of scope here).
 
 ## Invariants
@@ -81,7 +81,7 @@ Out of scope:
 4. **Multiplicity semantics unchanged.** `getcount(scuv, k)`
    returning `0` for absent keys is preserved on the new helper
    under whatever name we pick.
-5. **`Cluster` and `BasisSet` public constructors keep the same
+5. **`Cluster` and `SALCBasis` public constructors keep the same
    call signatures.** Only internal field types change.
 6. **Physics conventions unchanged.** No SH / SALC / CG / sign /
    normalization touched.
@@ -90,7 +90,7 @@ Out of scope:
 
 - No new `DataStructures.jl` types are pulled in for this work
   (Dict/Vector are sufficient). The `DataStructures` dependency is
-  still needed elsewhere (`OrderedDict` in `BasisSets.jl`,
+  still needed elsewhere (`OrderedDict` in `SALCBases.jl`,
   `OrderedDict` introduced in `Clusters.jl` from the prior
   CountingContainer refactor).
 - No deprecation shim. `SortedVector` / `SortedUniqueVector` /
@@ -120,6 +120,6 @@ Out of scope:
 | Risk | Mitigation |
 |------|------------|
 | Iteration order drift breaks XML byte-identical | The new helper sorts keys lazily via `Base.sort` on the same key type as before. Add an explicit round-trip XML diff test in CI for `fege_2x2x2` and `fept` before merge. |
-| `BasisSet.coupled_basislist` field type change breaks an out-of-repo caller | The field is not documented as a stable accessor (`SPEC.md` describes `BasisSet` at the constructor level). The diff is documented in the commit message and DESIGN_NOTES. SCE public API spec will codify accessor methods separately. |
+| `SALCBasis.coupled_basislist` field type change breaks an out-of-repo caller | The field is not documented as a stable accessor (`SPEC.md` describes `SALCBasis` at the constructor level). The diff is documented in the commit message and DESIGN_NOTES. SCE public API spec will codify accessor methods separately. |
 | Performance regression on small inputs (overhead of finalize step) | Micro-bench results already show wins down to N=100. Re-confirm on `dimer` / `chain` integration tests during PR. |
 | Loss of `findfirst` / `findall` / `delete!` / `clear!` semantics | These methods are used only inside `SortedContainer.jl` self and inside the tests we are deleting. Verified by grep before merge. |

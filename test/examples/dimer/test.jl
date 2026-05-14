@@ -131,7 +131,7 @@ input["regression"]["datafile"] = joinpath(@__DIR__, "EMBSET.dat")
 		push!(salc_list, [coupled_basis_with_coefficient])
 		coupled_basislist = basisset.coupled_basislist
 		angular_momentum_couplings = basisset.angular_momentum_couplings
-		basisset = Magesty.BasisSet(coupled_basislist, salc_list, angular_momentum_couplings)
+		basisset = Magesty.SALCBasis(coupled_basislist, salc_list, angular_momentum_couplings)
 
 		optimize = Magesty.Optimize.Optimizer(
 			system.structure,

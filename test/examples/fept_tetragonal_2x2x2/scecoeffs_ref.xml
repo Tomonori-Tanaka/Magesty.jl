@@ -49,7 +49,7 @@
         <map trans="8" atom="9">16</map>
       </Translations>
     </Symmetry>
-    <SCEBasisSet>
+    <SCEBasis>
       <NumberOfSALCs>2</NumberOfSALCs>
       <SALC index="1" num_basis="1">
         <basis multiplicity="1" index-1="1 2 0 1">1.0</basis>
@@ -57,7 +57,7 @@
       <SALC index="2" num_basis="1">
         <basis multiplicity="1" index-1="9 2 0 1">1.0</basis>
       </SALC>
-    </SCEBasisSet>
+    </SCEBasis>
   </System>
   <JPhi unit="eV">
     <ReferenceEnergy>-121.36058072608984</ReferenceEnergy>

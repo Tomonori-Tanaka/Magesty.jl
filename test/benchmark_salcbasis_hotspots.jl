@@ -9,7 +9,7 @@ using TOML
 using Magesty
 
 """
-Micro-benchmark and line-profile for BasisSets.jl hotspots.
+Micro-benchmark and line-profile for SALCBases.jl hotspots.
 
 Usage:
   julia test/benchmark_basisset_hotspots.jl
@@ -79,7 +79,7 @@ function load_context(cfg::Dict{Symbol, Any})
     end
     cfgsys = Magesty.ConfigParser.Config4System(input)
 
-    classified = Magesty.BasisSets.classify_coupled_basislist_test(system.basisset.coupled_basislist)
+    classified = Magesty.SALCBases.classify_coupled_basislist_test(system.basisset.coupled_basislist)
     keys_sorted = sort(collect(keys(classified)))
     key = keys_sorted[1]
     representative_group = classified[key]
@@ -124,13 +124,13 @@ function run_bench(cfg::Dict{Symbol, Any})
     )
 
     println("\nWarming up target functions...")
-    Magesty.BasisSets.listup_coupled_basislist(
+    Magesty.SALCBases.listup_coupled_basislist(
         ctx.atom_list,
         ctx.lsum;
         isotropy = ctx.isotropy,
     )
-    Magesty.BasisSets.projection_matrix_coupled_basis(ctx.representative_group, ctx.symmetry)
-    Magesty.BasisSet(
+    Magesty.SALCBases.projection_matrix_coupled_basis(ctx.representative_group, ctx.symmetry)
+    Magesty.SALCBasis(
         ctx.structure,
         ctx.symmetry,
         ctx.cluster,
@@ -142,7 +142,7 @@ function run_bench(cfg::Dict{Symbol, Any})
     nsamples = cfg[:samples]
     nevals = cfg[:evals]
 
-    bench_listup = @benchmark Magesty.BasisSets.listup_coupled_basislist(
+    bench_listup = @benchmark Magesty.SALCBases.listup_coupled_basislist(
         $(ctx.atom_list),
         $(ctx.lsum);
         isotropy = $(ctx.isotropy),
@@ -150,14 +150,14 @@ function run_bench(cfg::Dict{Symbol, Any})
     show(stdout, MIME"text/plain"(), bench_listup)
     println()
 
-    bench_projection = @benchmark Magesty.BasisSets.projection_matrix_coupled_basis(
+    bench_projection = @benchmark Magesty.SALCBases.projection_matrix_coupled_basis(
         $(ctx.representative_group),
         $(ctx.symmetry),
     ) samples=nsamples evals=nevals
     show(stdout, MIME"text/plain"(), bench_projection)
     println()
 
-    bench_basisset = @benchmark Magesty.BasisSet(
+    bench_basisset = @benchmark Magesty.SALCBasis(
         $(ctx.structure),
         $(ctx.symmetry),
         $(ctx.cluster),
@@ -169,7 +169,7 @@ function run_bench(cfg::Dict{Symbol, Any})
 
     print_profile_for(() -> begin
         for _ in 1:cfg[:profile_iters_listup]
-            Magesty.BasisSets.listup_coupled_basislist(
+            Magesty.SALCBases.listup_coupled_basislist(
                 ctx.atom_list,
                 ctx.lsum;
                 isotropy = ctx.isotropy,
@@ -179,7 +179,7 @@ function run_bench(cfg::Dict{Symbol, Any})
 
     print_profile_for(() -> begin
         for _ in 1:cfg[:profile_iters_projection]
-            Magesty.BasisSets.projection_matrix_coupled_basis(
+            Magesty.SALCBases.projection_matrix_coupled_basis(
                 ctx.representative_group,
                 ctx.symmetry,
             )
@@ -188,7 +188,7 @@ function run_bench(cfg::Dict{Symbol, Any})
 
     print_profile_for(() -> begin
         for _ in 1:cfg[:profile_iters_basisset]
-            Magesty.BasisSet(
+            Magesty.SALCBasis(
                 ctx.structure,
                 ctx.symmetry,
                 ctx.cluster,
@@ -196,7 +196,7 @@ function run_bench(cfg::Dict{Symbol, Any})
                 verbosity = false,
             )
         end
-    end, "BasisSet constructor")
+    end, "SALCBasis constructor")
 
     return nothing
 end
