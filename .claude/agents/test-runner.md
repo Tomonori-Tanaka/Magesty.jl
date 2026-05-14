@@ -43,13 +43,13 @@ Magesty.jl のテストランナーエージェント。テストを実行し、
 | `test_sphericart_agreement.jl` | SpheriCart との bit-exact 一致（lmax=4） | `MySphericalHarmonics` の実装変更 |
 | `test_SphericalHarmonicsTransforms.jl` | 実⇄複素変換の整合性 | テッサー型の変換係数 |
 | `test_AngularMomentumCoupling.jl` | Wigner 係数 / CG 係数 | `AngularMomentumCoupling.jl` の規約 |
-| `test_Basis.jl` / `test_AtomicIndices.jl` | 基底関数とインデックス管理 | SALC 構築 / `BasisSet` の並び順 |
+| `test_Basis.jl` | 基底関数の構築と検証 | SALC 構築 / `BasisSet` の並び順 |
 | `test_Symmetries.jl` | 空間群対称操作 | Spglib ラッパー・回転行列 |
 | `test_Structures.jl` | 結晶構造とスーパーセル | `Structures.jl` |
 | `test_Optimize.jl` | OLS / Ridge によるフィッティング | design matrix・係数推定 |
 | `test_ConfigParser.jl` | TOML 入力のパース | 入力スキーマの整合性 |
 | `test_RotationMatrix.jl` | 回転行列の構築 | 軸-角度表現の規約 |
-| `test_SortedContainer.jl` / `test_CountingContainer.jl` | 共通データ構造 | コンテナ実装 |
+| `test_SortedCounter.jl` | 共通データ構造（`SortedCounter`） | コンテナ実装の正確性 |
 | `test_SpinConfigs.jl` | スピン配置の読み込み | `SpinConfigs.jl` / レイアウト |
 
 ### `test/examples/`（統合）
@@ -60,7 +60,7 @@ Magesty.jl のテストランナーエージェント。テストを実行し、
 
 - **`test_sphericart_agreement` の失敗**: `MySphericalHarmonics` の規格化・符号がリファレンス（SpheriCart）から乖離。design matrix の数値が静かに変わる可能性。
 - **`test_MySphericalHarmonics` の失敗**: `Zₗₘ` 本体の値が壊れている。SALC・design matrix・Optimize 全てに波及。
-- **`test_Basis` / `test_AtomicIndices` の失敗**: SALC や `(l, m, site)` 順序の整合が崩れている。係数の物理的解釈が変わるので注意。
+- **`test_Basis` の失敗**: SALC や `(l, m, site)` 順序の整合が崩れている。係数の物理的解釈が変わるので注意。
 - **`test_Optimize` の失敗**: design matrix 構築または推定器の問題。中間値（行列の shape・条件数）を確認する価値あり。
 - **`test/examples/` の失敗**: ユニットが通っていれば公開 API か XML I/O の互換性。`write_xml` / `build_sce_basis_from_xml` のラウンドトリップを疑う。
 

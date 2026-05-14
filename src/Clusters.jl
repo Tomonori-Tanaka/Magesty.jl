@@ -642,13 +642,7 @@ function irreducible_clusters(
 
 				# If no equivalent cluster found, add this cluster with its count
 				sorted_cluster_list = sort(cluster_list)
-				# Add to result[body] (global list)
-				if haskey(result[body].counts, sorted_cluster_list)
-					result[body].counts[sorted_cluster_list] += original_count
-				else
-					push!(result[body], sorted_cluster_list)
-					result[body].counts[sorted_cluster_list] = original_count
-				end
+				push!(result[body], sorted_cluster_list, original_count)
 			end
 		end
 	end

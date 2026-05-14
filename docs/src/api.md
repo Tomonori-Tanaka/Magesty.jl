@@ -153,19 +153,3 @@ EnergyTorque.calc_energy
 ```@docs
 Version.version_string
 ```
-
-## Container Types
-
-### Sorted Containers
-```@docs
-SortedContainer.SortedVector
-SortedContainer.SortedUniqueVector
-SortedContainer.SortedCountingUniqueVector
-```
-
-### Counting Containers
-```@docs
-CountingContainer.CountingUniqueVector
-CountingContainer.getcounts
-```
-
