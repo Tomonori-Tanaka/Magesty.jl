@@ -12,6 +12,7 @@
 | [SCE 公開 API: 4 型構成 + StatsAPI 化](docs/design-notes/sce-public-api.md) | 未着手 | 2026-05-14 |
 | [自作コンテナ (SortedContainer / CountingContainer) の削除と置き換え](docs/design-notes/replace-sorted-container.md) | 完了（spec: [260514-replace-sorted-container](docs/specs/260514-replace-sorted-container/)） | 2026-05-14 |
 | [Optimize.jl estimator dispatch](docs/design-notes/estimator-dispatch.md) | 完了 (branch `refactor/estimator-dispatch`) | 2026-05-13 |
+| [Config4System の役割の見直し](docs/design-notes/config4system-role.md) | 未着手（SCE 公開 API spec 完了後に判断） | 2026-05-14 |
 
 ## リファクタリング進捗
 
