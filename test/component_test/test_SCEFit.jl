@@ -47,8 +47,7 @@ end
         @test dof(f) == length(coef(f)) + 1
 
         # coef / intercept also work on a bare SCEModel
-        m = SCEModel(intercept(f), coef(f), basis.salcbasis, basis.symmetry,
-                     basis.structure.supercell.num_atoms)
+        m = SCEModel(basis, intercept(f), coef(f))
         @test coef(m) == f.jphi
         @test intercept(m) == f.j0
     end
@@ -79,11 +78,9 @@ end
         f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3)
         m = SCEModel(f)
         @test m isa SCEModel
+        @test m.basis === basis
         @test m.j0 == f.j0
         @test m.jphi === f.jphi
-        @test m.salcbasis === basis.salcbasis
-        @test m.symmetry === basis.symmetry
-        @test m.num_atoms == basis.structure.supercell.num_atoms
     end
 
     @testset "predict_energy / predict_torque" begin

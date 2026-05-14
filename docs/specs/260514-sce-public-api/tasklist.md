@@ -118,14 +118,19 @@ persistence is left to the user (`jldsave` on a plain struct).
 
 - [x] `SCEModel(f::SCEFit)` lightweight conversion — done in step 4
       (re-pointed at the reshaped `SCEModel` in this step).
-- [ ] Drop `cluster` from `SCEBasis`; the constructor computes it
+- [x] Drop `cluster` from `SCEBasis`; the constructor computes it
       locally for `SALCBasis` construction and discards it. `Cluster`
       stays an internal struct (a construction intermediate).
-- [ ] Reshape `SCEModel` to `{basis::SCEBasis, j0, jphi}`; `num_atoms`
-      becomes `basis.structure.supercell.num_atoms`.
-- [ ] Update `predict_energy` / `predict_torque` / `SCEModel(f)` and
-      `test_SCEBasis.jl` / `test_SCEFit.jl` for the reshaped types.
-- [ ] `make test-all` green (old API untouched; coexistence holds).
+- [x] Reshape `SCEModel` to `{basis::SCEBasis, j0, jphi}`; `num_atoms`
+      becomes `basis.structure.supercell.num_atoms`. `SCEModel` moves
+      from `Optimize` to `Magesty.jl` top level (it now references
+      `SCEBasis`); a checked inner constructor enforces
+      `length(jphi) == n_salc`.
+- [x] Update `predict_energy` / `predict_torque` / `SCEModel(f)` and
+      `test_SCEFit.jl` for the reshaped types. `predict_*` base methods
+      delegate to `Optimize._predict_energy` / `_predict_torque`
+      (raw-argument internal cores).
+- [x] `make test-all` green (old API untouched; coexistence holds).
 
 ### Step 5b — XML `save` / `load`
 

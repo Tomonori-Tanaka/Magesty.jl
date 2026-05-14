@@ -19,6 +19,7 @@ using Magesty
 	@testset "Hypothetical SCE model (isotropic)" begin
 		input = TOML.parse(open(joinpath(@__DIR__, "input_isotropic.toml"), "r"))
 		system = System(input, verbosity = false)
+		basis = SCEBasis(input; verbosity = false)
 		Magesty.write_xml(system, joinpath(@__DIR__, "system_isotropic.xml"))
 		# Heisenberg model: E = Σ_{<ij>} Jij * Si·Sj, Jij = -1.0 eV (ferromagnetic) for all pairs.
 		#
@@ -36,13 +37,7 @@ using Magesty
 		# When a SALC has multiple bases, the norm of the first basis's coefficient vector is used.
 		salc_coeffs = [norm(salc[1].coefficient) for salc in system.basisset.salc_list]
 		jphi_list = [J / (c * sqrt(3)) for c in salc_coeffs]
-		model = SCEModel(
-			0.0, # j0
-			jphi_list,
-			system.basisset,
-			system.symmetry,
-			system.structure.supercell.num_atoms,
-		)
+		model = SCEModel(basis, 0.0, jphi_list)
 
 		# Ferromagnetic configuration: all spins along +z, Si·Sj = 1 for all pairs.
 		# E = Jij × (8 NN + 8 diagonal) × 1 = -1.0 × 16 = -16 eV

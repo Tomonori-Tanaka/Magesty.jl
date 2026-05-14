@@ -549,12 +549,13 @@ path).
 
 ## Resolved decisions
 
-1. **Type placement**: `SCEBasis` / `SCEDataset` / `SCEFit` live at
-   `Magesty.jl` top level (like `System` / `SpinCluster` today). They
-   are integration types depending on multiple submodules, so a
-   submodule home would create a dependency cycle. `SCEModel` stays in
-   `Optimize` for now; moving it to top level for consistency is an
-   implementation-time call (it has no cyclic-dependency issue).
+1. **Type placement**: `SCEBasis` / `SCEDataset` / `SCEFit` / `SCEModel`
+   all live at `Magesty.jl` top level (like `System` / `SpinCluster`
+   today). They are integration types depending on multiple submodules,
+   so a submodule home would create a dependency cycle. `SCEModel` was
+   moved out of `Optimize` in step 5a: reshape #5 makes it hold a
+   `SCEBasis`, which `Optimize` (included before `SCEBasis` is defined)
+   cannot reference.
 2. **No `metrics` aggregator**: dropped in favor of individual
    StatsAPI-style verbs (`r2_energy`, `rmse_torque`, ...). See "Verbs".
 3. **`SCEDataset` slicing**: `getindex` (copy) only in this spec.
