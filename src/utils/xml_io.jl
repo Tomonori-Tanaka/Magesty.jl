@@ -52,16 +52,35 @@ fmt_fractional(x::Real) = @sprintf("%.12f", x)
 fmt_tensor(x::Real)     = @sprintf("%.15e", x)
 
 """
-	write_xml(structure::Structure, basis_set::BasisSet, filename::String)
+	write_xml(
+		structure::Structure,
+		symmetry::Symmetry,
+		basis_set::BasisSet,
+		optimize::Optimizer,
+		filename::String;
+		write_jphi::Bool = true,
+	)
 
-Write system information to an XML file using EzXML.
+Internal helper that writes system information, symmetry, SALC basis, and
+(optionally) fitted Jφ coefficients to an XML file using EzXML.
+Public callers should go through `Magesty.write_xml(::System, ...)` or
+`Magesty.write_xml(::SpinCluster, ...)`; those overloads delegate here.
 
 # Arguments
-- `structure::Structure`: The structure containing system information
-- `filename::String`: Output XML file name
+- `structure::Structure`: Crystal structure (lattice / atomic positions / element list).
+- `symmetry::Symmetry`: Symmetry operations and translation map for `structure`.
+- `basis_set::BasisSet`: SALC coupled-basis container to be serialized.
+- `optimize::Optimizer`: Holds the fitted `j0` / `jphi` coefficients written
+  when `write_jphi=true`. Pass an `Optimizer` with empty coefficients for
+  `System`-level writes.
+- `filename::String`: Output XML file path.
+
+# Keywords
+- `write_jphi::Bool = true`: If `true`, emit the `<Jphi>` block with fitted
+  coefficients. Set to `false` for structure+basis-only output.
 
 # Throws
-- `SystemError` if the file cannot be written
+- `SystemError` if the file cannot be written.
 """
 function write_xml(structure::Structure,
 	symmetry::Symmetry,
