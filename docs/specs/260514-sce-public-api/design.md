@@ -24,25 +24,34 @@ New / changed files under `src/`:
   (basis-only) writer/reader; `SCEModel` XML stays byte-identical.
 - `src/Magesty.jl` — new exports, old API removed in the final step.
 
-New dependencies: `AtomsBase`, `StatsAPI`, `JLD2`, `Unitful` (the
-latter transitively via AtomsBase but used directly in the adapter).
+New dependencies: `AtomsBase`, `StatsAPI`, `Unitful` (the latter
+transitively via AtomsBase but used directly in the adapter). `JLD2`
+is intentionally *not* a dependency — see "save / load".
 
 ## Type definitions
 
 ```julia
 struct SCEBasis
     structure::Structure          # Magesty internal representation
-    symmetry::Symmetry
-    cluster::Cluster
+    symmetry::Symmetry            # derived from structure + symmetry.tol; cached
     salcbasis::SALCBasis          # heavy SALC result
 end
 ```
 
-`SCEBasis` is structurally today's `System` with `basisset` renamed to
-`salcbasis`. The AtomsBase `AbstractSystem` is *not* stored: it is
-converted to `Structure` at construction and discarded (keeps Unitful
-out of the stored type, per requirements "Unitful boundary"). Species
-sublabels (`Fe_4a`, `Fe_8e`) are carried into `Structure.kd_name`.
+`SCEBasis` stores only what the finished basis *is*, not the
+construction scaffolding. `Cluster` is **not** a field: it is a
+construction step (`structure` + `symmetry` + interaction params →
+`Cluster` → `SALCBasis`), computed inside the constructor and
+discarded once `SALCBasis` is built. `Cluster` stays an internal
+struct — only its role changes from stored state to construction
+intermediate. `Symmetry` *is* stored (it is used on every
+`SCEDataset` build and every `predict_*` call) but is conceptually a
+cached derivation of `structure` + `symmetry.tol`.
+
+The AtomsBase `AbstractSystem` is *not* stored: it is converted to
+`Structure` at construction and discarded (keeps Unitful out of the
+stored type, per requirements "Unitful boundary"). Species sublabels
+(`Fe_4a`, `Fe_8e`) are carried into `Structure.kd_name`.
 
 ```julia
 struct SCEDataset
@@ -76,19 +85,21 @@ abstract type — see requirements "Out of scope", Bayesian).
 
 ```julia
 struct SCEModel
+    basis::SCEBasis
     j0::Float64                   # was: reference_energy
     jphi::Vector{Float64}         # was: SCE
-    salcbasis::SALCBasis          # was: basisset
-    symmetry::Symmetry
-    num_atoms::Int
 end
 ```
 
-`SCEModel` kept; three fields renamed for clarity and consistency:
-`reference_energy` → `j0`, `SCE` → `jphi` (matching the `j0` / `Jφ`
-physics terminology used throughout the package), `basisset` →
-`salcbasis`. XML tag names are unchanged (invariant 2) — field names
-are independent of the XML schema.
+`SCEModel` is reshaped to hold a `SCEBasis` plus the fitted bias and
+coefficients. Holding the whole `basis` (rather than flat `salcbasis`
+/ `symmetry` / `num_atoms` fields) gives `SCEModel` the `structure` it
+needs to write a complete XML, and lets the XML `save` path share the
+`SCEBasis` writer. `num_atoms` becomes
+`model.basis.structure.supercell.num_atoms`; `SCEModel(f::SCEFit) =
+SCEModel(f.dataset.basis, f.j0, f.jphi)`. The historical field renames
+(`reference_energy` → `j0`, `SCE` → `jphi`) still apply to the names
+kept.
 
 ## Interaction parameters
 
@@ -324,25 +335,62 @@ keyword, and AtomsIO paths never expose it.
 ## save / load
 
 ```julia
-save(obj, path::AbstractString)         # dispatches on extension
-load(::Type{T}, path::AbstractString)   # T in {SCEBasis, SCEModel} for XML; any for JLD2
+save(obj, path::AbstractString)         # XML; obj in {SCEBasis, SCEModel}
+load(::Type{T}, path::AbstractString)   # XML; T in {SCEBasis, SCEModel}
 ```
 
-| Type | `.xml` | `.jld2` |
-|---|---|---|
-| `SCEBasis` | basis only (human-readable) | full struct |
-| `SCEFit` | — (not supported) | full struct |
-| `SCEModel` | basis + `j0` + `jphi`, **byte-identical** to current `write_xml` | full struct |
+| Type | `.xml` |
+|---|---|
+| `SCEBasis` | structure + symmetry params + SALC basis (human-readable, full round-trip) |
+| `SCEModel` | `SCEBasis` XML + `<JPhi>` block (full round-trip) |
+| `SCEFit` | — (not covered; see below) |
 
-- XML backend: existing `xml_io.jl` writer, refactored so the
-  basis-only path (`SCEBasis`) and the basis+coeff path (`SCEModel`)
-  share code. The `SCEModel` XML schema is unchanged (the existing
-  `write_jphi = true` output).
-- `load(SCEBasis, "x.xml")` can read either an `SCEBasis` XML or an
-  `SCEModel` XML (extracts the basis part, drops coefficients).
-- JLD2 backend: straightforward struct serialization.
-- `write_xml` / `read_*_from_xml` are removed from the public surface;
-  their internals become `save`/`load` backends.
+Magesty's `save` / `load` handle XML only. The path must end in
+`.xml`; any other extension is a clear error. `save` / `load` are kept
+as the (ecosystem-aligned) names even though there is one format, so a
+second format could be added later without an API change.
+
+**`SCEFit` persistence is left to the user.** `SCEFit` / `SCEBasis` /
+`SCEModel` are plain structs, so a user who wants to persist a fit
+result writes `using JLD2; jldsave("fit.jld2"; fit = f)` directly —
+JLD2 serializes the whole struct graph generically. Magesty does not
+depend on JLD2 or wrap it; the recommended pattern is shown in
+`examples/` (step 6). This keeps Magesty's `save` / `load` a single
+XML code path and adds no dependency.
+
+**XML writer.** The `xml_io.jl` writer is refactored to take
+`SCEBasis` / `SCEModel` directly (it currently takes loose
+`structure` / `symmetry` / `salc_basis` / `Optimizer` arguments). The
+basis-only path (`SCEBasis`) and the basis+coeff path (`SCEModel`)
+share the basis-writing code; `SCEModel` appends the `<JPhi>` block.
+
+The schema gains two attributes so the file is self-describing:
+- `tolerance_sym` on `<Symmetry>` — consumed on load.
+- `isotropy` on `<SCEBasis>` — provenance metadata (a human cannot
+  otherwise tell `isotropy = true` from `false` without inspecting
+  every basis function for `Lf = 0`); not used by `load`.
+
+Adding these attributes means the XML is no longer byte-identical to
+the pre-refactor `write_xml` output — see requirements invariant 2 (it
+is reframed to "stable schema, byte-regression against a committed
+baseline").
+
+**XML reader** reconstructs rather than blindly deserializing:
+- `structure` ← `Structure(xml)` (constructor already exists).
+- `symmetry` ← **recomputed** via `Symmetry(structure, tolerance_sym)`.
+  `Symmetry` is a deterministic function of `structure` + `tol` (via
+  Spglib), so it is not serialized in full — only `tolerance_sym` is
+  stored. The `<Symmetry>` subtree the writer still emits (translation
+  map etc.) is for human / external-tool consumption; `load` does not
+  parse it.
+- `salcbasis` ← `read_salcbasis_from_xml` (already exists).
+- `SCEModel` additionally reads `<ReferenceEnergy>` / `<jphi>`.
+- `load(SCEBasis, "x.xml")` accepts an `SCEModel` XML too (drops the
+  `<JPhi>` block).
+
+`write_xml` / `read_*_from_xml` stay during steps 1-6 (old API
+coexistence) and are removed from the public surface in step 7; their
+internals are reused by the `save` / `load` backends.
 
 ## Slicing semantics
 
@@ -467,9 +515,11 @@ path).
 
 ## Affected coupling points
 
-- **`xml_io.jl`**: `save`/`load` backends. `SCEModel` XML must stay
-  byte-identical (invariant 2). Basis-only XML for `SCEBasis` reuses
-  the existing `<SCEBasis>` tag subtree.
+- **`xml_io.jl`**: `save`/`load` backends. The writer is refactored to
+  take `SCEBasis` / `SCEModel` (not loose args + `Optimizer`); the
+  schema gains `tolerance_sym` / `isotropy` attributes. New readers:
+  the `Symmetry` recompute path and the `<JPhi>` block reader. Byte-
+  regression against a regenerated `fept` / `fege` baseline.
 - **`Optimize.jl`**: `assemble_weighted_problem` already does
   per-sample MSE normalization; `fit(SCEFit, ...)` calls it with
   `torque_weight`. `extract_j0_jphi` unchanged.
@@ -477,9 +527,13 @@ path).
   `build_design_matrix_torque` move from being called inside
   `Optimizer`/`fit_sce_model` to being called inside the `SCEDataset`
   constructor (so `X_E`/`X_T` are built once and reused).
-- **`SCEModel` field rename** `basisset` → `salcbasis`: update
-  `EnergyTorque.jl` (`calc_energy`/`calc_torque` read `.basisset`),
-  `Optimize.jl`, any `SCEModel(...)` construction site.
+- **`SCEModel` reshape** to `{basis::SCEBasis, j0, jphi}`: update
+  `predict_energy` / `predict_torque` (read `model.basis.salcbasis` /
+  `model.basis.symmetry`), `SCEModel(f::SCEFit)`, and every
+  `SCEModel(...)` construction site.
+- **`SCEBasis` drops `cluster`**: the constructor still computes a
+  `Cluster` locally to build `SALCBasis`, then discards it. Nothing
+  reads `SCEBasis.cluster` post-construction (verified across `src/`).
 
 ## Test strategy
 
@@ -507,3 +561,26 @@ path).
    `view`-backed slicing is deferred to the CV follow-up spec, which
    will decide the type design (parametrized `SCEDataset` vs a
    dedicated view type) against real k-fold requirements.
+4. **`Cluster` is not a stored field of `SCEBasis`** (decided in step
+   5, after reading `xml_io.jl`). `Cluster` is a construction step,
+   not persistent state — nothing reads `SCEBasis.cluster` after
+   construction (verified across `src/`). It stays an internal struct;
+   only its role changes. This also makes `SCEBasis` exactly the
+   serializable triple `structure` / `symmetry` / `salcbasis`.
+5. **`SCEModel` holds a `SCEBasis`** rather than flat `salcbasis` /
+   `symmetry` / `num_atoms` fields. It needs `structure` for a
+   complete XML, and holding `basis` lets `save` reuse the `SCEBasis`
+   XML writer.
+6. **`Symmetry` is recomputed, not serialized, on XML load.**
+   `Symmetry` is a deterministic function of `structure` +
+   `tolerance_sym`. Storing `tolerance_sym` (one attribute) is enough;
+   serializing the full `Symmetry` struct would be redundant. This
+   drove the invariant 2 reframe: the schema gains attributes, so
+   strict byte-identity with the pre-refactor output is dropped in
+   favor of byte-regression against a new committed baseline.
+7. **JLD2 is not a Magesty dependency.** Magesty's `save` / `load` are
+   XML-only. `SCEFit` / `SCEBasis` / `SCEModel` are plain structs, so
+   users who want struct-level persistence (the only way to persist a
+   `SCEFit`) use `JLD2` directly. This keeps `save` / `load` a single
+   code path and avoids a heavy dependency for a one-line user-side
+   call.
