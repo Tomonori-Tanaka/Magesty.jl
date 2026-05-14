@@ -43,11 +43,11 @@ Coarse milestones. In-session TODOs are tracked separately.
 - [x] `make test-unit` / `make test-integration` green; XML
       byte-identical on representative examples (`dimer`, `fege_2x2x2`).
 
-## Phase 3 — migrate `BasisSets.jl` and `xml_io.jl`
+## Phase 3 — migrate `SALCBases.jl` and `xml_io.jl`
 
 - [x] Swap `SortedCountingUniqueVector{Basis.CoupledBasis}` →
       `SortedCounter{Basis.CoupledBasis}` everywhere.
-- [x] Update `BasisSet.coupled_basislist` field type.
+- [x] Update `SALCBasis.coupled_basislist` field type.
 - [x] Drop `using ..SortedContainer` and the `isa SortedCountingUniqueVector`
       check at L975 (replace with `isa SortedCounter` or remove
       now-redundant branch — confirm during edit).

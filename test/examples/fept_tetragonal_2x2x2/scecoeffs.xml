@@ -49,7 +49,7 @@
         <map trans="8" atom="9">16</map>
       </Translations>
     </Symmetry>
-    <SCEBasisSet num_salc="31">
+    <SCEBasis num_salc="31">
       <SALC index="1" num_basis="1" body="1" Lf="2">
         <basis multiplicity="1" atoms="1" ls="2" Lseq="" index="1">0.0 -0.0 1.0 -0.0 0.0</basis>
       </SALC>
@@ -190,7 +190,7 @@
       <SALC index="31" num_basis="1" body="2" Lf="2">
         <basis multiplicity="4" atoms="9 15" ls="1 1" Lseq="" index="1">-0.0 -0.0 1.0 -0.0 0.0</basis>
       </SALC>
-    </SCEBasisSet>
+    </SCEBasis>
     <AngularMomentumCouplings num_couplings="4">
       <Coupling index="1" ls="1 1" Lseq="" Lf="0" tensor_shape="3 3" Mf_size="1">
         <Mf value="0" index="1">

@@ -154,7 +154,7 @@ struct plus one `solve_coefficients` method.
 
 ## Out-of-scope reminders
 
-- Do NOT touch `BasisSets.jl`, `Symmetry.jl`, `Structure.jl`, SALC
+- Do NOT touch `SALCBases.jl`, `Symmetry.jl`, `Structure.jl`, SALC
   ordering, or `MySphericalHarmonics.jl` in this branch.
 - Do NOT add genuinely new estimator types (`Lasso`, true
   `ElasticNet`, `Bayesian`, ...) in this branch — they each get

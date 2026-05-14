@@ -17,7 +17,7 @@ using ..Structures
 using ..Symmetries
 using ..Clusters
 using ..Basis
-using ..BasisSets
+using ..SALCBases
 using ..SpinConfigs
 
 export Optimizer, SCEModel, fit_sce_model, predict_energy, AbstractEstimator, OLS, Ridge
@@ -88,7 +88,7 @@ information required to make energy and torque predictions on new spin configura
 # Fields
 - `reference_energy::Float64`: Reference energy (bias term j0) in eV
 - `SCE::Vector{Float64}`: SCE coefficients (jphi)
-- `basisset::BasisSet`: Basis function set used during fitting
+- `basisset::SALCBasis`: Basis function set used during fitting
 - `symmetry::Symmetry`: Symmetry information of the crystal structure
 - `num_atoms::Int`: Number of atoms in the supercell
 
@@ -102,7 +102,7 @@ E = predict_energy(model, spin_directions)
 struct SCEModel
 	reference_energy::Float64
 	SCE::Vector{Float64}
-	basisset::BasisSet
+	basisset::SALCBasis
 	symmetry::Symmetry
 	num_atoms::Int
 end
@@ -134,7 +134,7 @@ energy and torque blocks.
               spinconfig_list; verbosity=true, estimator=...)
 
 # Arguments
-- `structure::Structure`, `symmetry::Symmetry`, `basisset::BasisSet`:
+- `structure::Structure`, `symmetry::Symmetry`, `basisset::SALCBasis`:
   problem context used to build the design matrices.
 - `alpha::Real`: Deprecated and ignored; kept only to preserve the
   legacy positional signature. A non-zero value emits a one-shot
@@ -166,7 +166,7 @@ struct Optimizer
 	function Optimizer(
 		structure::Structure,
 		symmetry::Symmetry,
-		basisset::BasisSet,
+		basisset::SALCBasis,
 		alpha::Real,
 		lambda::Real,
 		weight::Real,
@@ -311,7 +311,7 @@ end
 function Optimizer(
 	structure::Structure,
 	symmetry::Symmetry,
-	basisset::BasisSet,
+	basisset::SALCBasis,
 	alpha::Real,
 	lambda::Real,
 	weight::Real,
@@ -337,7 +337,7 @@ end
 function Optimizer(
 	structure::Structure,
 	symmetry::Symmetry,
-	basisset::BasisSet,
+	basisset::SALCBasis,
 	config::Config4Optimize,
 	;
 	verbosity::Bool = true,

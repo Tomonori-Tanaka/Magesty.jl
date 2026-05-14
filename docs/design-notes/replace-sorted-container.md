@@ -36,7 +36,7 @@
 |---|---|---|
 | `CountingUniqueVector{T}` (insertion order + count) | `OrderedDict{T, Int}` | `Accumulator{T, Int}` |
 
-**`Accumulator` を採用しなかった理由**: 当初メモでは「`Clusters.jl` は順序に依存していない」と記載していたが、実装を再精査したところ誤り。`irreducible_clusters` (`src/Clusters.jl` L606-) は `cluster_dict[body][prim_atom_sc]` を iterate して、translationally equivalent なクラスタが既に追加済みなら `continue` する設計。「どのクラスタが canonical 代表として残るか」が iteration 順に依存しており、`Accumulator` (Dict ベース、順序保持なし) を使うと canonical 代表の atom 並びが変わって BasisSet 出力 (XML) が baseline と差分を起こす。
+**`Accumulator` を採用しなかった理由**: 当初メモでは「`Clusters.jl` は順序に依存していない」と記載していたが、実装を再精査したところ誤り。`irreducible_clusters` (`src/Clusters.jl` L606-) は `cluster_dict[body][prim_atom_sc]` を iterate して、translationally equivalent なクラスタが既に追加済みなら `continue` する設計。「どのクラスタが canonical 代表として残るか」が iteration 順に依存しており、`Accumulator` (Dict ベース、順序保持なし) を使うと canonical 代表の atom 並びが変わって SALCBasis 出力 (XML) が baseline と差分を起こす。
 
 **`OrderedDict` で十分な根拠**: Clusters.jl で `CountingUniqueVector` から実利用しているのは 4 操作のみ:
 - `CountingUniqueVector{Vector{Int}}()` → `OrderedDict{Vector{Int}, Int}()`
@@ -46,7 +46,7 @@
 
 `AbstractVector` インタフェース (`length` / `size` / `getindex(::Int)` / `append!` / `==` / `isless` / `copy` 等) は Clusters.jl では一切呼ばれていなかった。`OrderedDict` は DataStructures.jl 提供で既に `using DataStructures` 済み、新規依存なし。
 
-**連動箇所**: dead だった `using ..CountingContainer` を `BasisSets.jl` から削除。`Magesty.jl` の `include("common/CountingContainer.jl")`、`test/runtests.jl` の include と testset、`src/common/CountingContainer.jl`、`test/component_test/test_CountingContainer.jl` を全削除。
+**連動箇所**: dead だった `using ..CountingContainer` を `SALCBases.jl` から削除。`Magesty.jl` の `include("common/CountingContainer.jl")`、`test/runtests.jl` の include と testset、`src/common/CountingContainer.jl`、`test/component_test/test_CountingContainer.jl` を全削除。
 
 **数値結果**: 不変 (`test-unit` 6122/6122、`test-integration` 155/155、`test-jet`、`test-aqua` 全パス)。
 
@@ -65,7 +65,7 @@
 ## 主要 caller
 
 ### SortedContainer.jl
-- `BasisSets.jl`: `SortedCountingUniqueVector{Basis.CoupledBasis}` を coupled basis 構築で多用。
+- `SALCBases.jl`: `SortedCountingUniqueVector{Basis.CoupledBasis}` を coupled basis 構築で多用。
   - 構築時の push 回数 = 全 coupled basis の数 (N が大きいと O(N²) になりうる)。
   - 構築後の iteration が支配的なフェーズ (design matrix 構築) も多い。
 
@@ -77,7 +77,7 @@
 ## 着手前に必要なこと
 
 ### SortedContainer.jl
-1. **ベンチマーク**: 既存の `BasisSet` 構築で Vector ベース vs `SortedMultiSet` の時間・メモリを測定。
+1. **ベンチマーク**: 既存の `SALCBasis` 構築で Vector ベース vs `SortedMultiSet` の時間・メモリを測定。
    - 小規模 (dimer / chain): Vector 有利の可能性。
    - 大規模 (FeGe B20 2x2x2 / Fe BCC 2x2x2): Tree 有利の可能性。
    - 計測結果次第で「全置き換え」「型別置き換え」「現状維持」を判断。
@@ -86,7 +86,7 @@
 
 ### CountingContainer.jl
 1. **caller 影響範囲**: `Clusters.jl` のみなので機械的に置換可能。
-2. **ベンチマーク**: 内部実装はどちらも `Dict` ベースなので有意差は出にくいが、念のため `BasisSet` 構築時間で確認。
+2. **ベンチマーク**: 内部実装はどちらも `Dict` ベースなので有意差は出にくいが、念のため `SALCBasis` 構築時間で確認。
 
 ## 着手判断
 

@@ -50,7 +50,7 @@ Out of scope (deferred to follow-up specs):
   a deprecated-but-accepted key in this spec; remove in a follow-up
   once downstream users have migrated).
 - XML I/O format changes.
-- `BasisSet` / `Symmetry` / `Structure` / SALC layout — untouched.
+- `SALCBasis` / `Symmetry` / `Structure` / SALC layout — untouched.
 
 ## Invariants (must hold before vs. after)
 
@@ -67,7 +67,7 @@ Out of scope (deferred to follow-up specs):
    torque rows by `√w_m`; energy bias column reset to 1.0 after scaling.
 4. **`(l, m, site)` basis ordering preserved.** `solve_coefficients` does
    not permute columns; downstream `extract_j0_jphi` and design-matrix
-   contract with `BasisSets.jl` are unchanged.
+   contract with `SALCBases.jl` are unchanged.
 5. **Public API surface, except the `ElasticNet` rename, is preserved.**
    `Optimizer`, `SCEModel`, `fit_sce_model`, `predict_energy`,
    `AbstractEstimator`, `OLS` remain exported with their current

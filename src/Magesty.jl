@@ -27,7 +27,7 @@ sc = SpinCluster("config.toml")
 - `Structures`: Crystal structure processing
 - `Symmetries`: Symmetry operations processing
 - `Clusters`: Cluster expansion processing
-- `BasisSets`: Basis function generation
+- `SALCBases`: Basis function generation
 - `Optimize`: Spin configuration optimization
 """
 module Magesty
@@ -57,13 +57,13 @@ using .ConfigParser
 include("Structures.jl")
 include("Symmetries.jl")
 include("Clusters.jl")
-include("BasisSets.jl")
+include("SALCBases.jl")
 include("Optimize.jl")
 
 using .Structures
 using .Symmetries
 using .Clusters
-using .BasisSets
+using .SALCBases
 using .Optimize
 
 include("utils/xml_io.jl")
@@ -90,18 +90,18 @@ A collection of structure, symmetry, cluster, and basis set.
 - `structure::Structure`: Crystal structure information
 - `symmetry::Symmetry`: Symmetry operations
 - `cluster::Cluster`: Cluster information
-- `basisset::BasisSet`: Basis set information
+- `basisset::SALCBasis`: Basis set information
 """
 struct System
 	structure::Structure
 	symmetry::Symmetry
 	cluster::Cluster
-	basisset::BasisSet
+	basisset::SALCBasis
 end
 
 # Shared skeleton for all input-driven constructors below.
 # Returns the (structure, symmetry, cluster) triplet; callers append
-# the BasisSet — either computed via `BasisSet(...)` or loaded from XML.
+# the SALCBasis — either computed via `SALCBasis(...)` or loaded from XML.
 function _build_structure_skeleton(
 	config::Config4System;
 	verbosity::Bool = true,
@@ -142,7 +142,7 @@ system = System("config.toml")
 function System(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)
 	config::Config4System = Config4System(input_dict)
 	structure, symmetry, cluster = _build_structure_skeleton(config; verbosity = verbosity)
-	basisset::BasisSet = BasisSet(structure, symmetry, cluster, config, verbosity = verbosity)
+	basisset::SALCBasis = SALCBasis(structure, symmetry, cluster, config, verbosity = verbosity)
 	return System(structure, symmetry, cluster, basisset)
 end
 
@@ -192,7 +192,7 @@ system = build_sce_basis(input_dict)
 function build_sce_basis(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = false)::System
 	config::Config4System = Config4System(input_dict)
 	structure, symmetry, cluster = _build_structure_skeleton(config; verbosity = verbosity)
-	basisset::BasisSet = BasisSet(structure, symmetry, cluster, config, verbosity = verbosity)
+	basisset::SALCBasis = SALCBasis(structure, symmetry, cluster, config, verbosity = verbosity)
 	return System(structure, symmetry, cluster, basisset)
 end
 
@@ -232,7 +232,7 @@ function build_sce_basis_from_xml(
 	if verbosity
 		println("Loading basis set from XML file: $xml_file")
 	end
-	basisset::BasisSet = XMLIO.read_basisset_from_xml(xml_file)
+	basisset::SALCBasis = XMLIO.read_salcbasis_from_xml(xml_file)
 	if verbosity
 		println("Successfully loaded basis set from XML file")
 	end
@@ -251,14 +251,14 @@ An extension of System with optimization capabilities.
 - `structure::Structure`: Crystal structure information
 - `symmetry::Symmetry`: Symmetry operations
 - `cluster::Cluster`: Cluster information
-- `basisset::BasisSet`: Basis set information
+- `basisset::SALCBasis`: Basis set information
 - `optimize::Optimizer`: Optimizer instance
 """
 struct SpinCluster
 	structure::Structure
 	symmetry::Symmetry
 	cluster::Cluster
-	basisset::BasisSet
+	basisset::SALCBasis
 	optimize::Optimizer
 end
 
@@ -297,8 +297,8 @@ spin_cluster = SpinCluster(system)
 function SpinCluster(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)
 	config_system::Config4System = Config4System(input_dict)
 	structure, symmetry, cluster = _build_structure_skeleton(config_system; verbosity = verbosity)
-	basisset::BasisSet =
-		BasisSet(structure, symmetry, cluster, config_system, verbosity = verbosity)
+	basisset::SALCBasis =
+		SALCBasis(structure, symmetry, cluster, config_system, verbosity = verbosity)
 
 	config_optimize::Config4Optimize = Config4Optimize(input_dict)
 	optimize::Optimizer =
@@ -523,9 +523,9 @@ write_xml(spin_cluster, "output.xml", write_jphi=false)
 
 To export a `System` (no fitted coefficients), use the
 `write_xml(::System, ...)` overload instead. To export from
-standalone components (`structure`, `symmetry`, `basis_set`,
+standalone components (`structure`, `symmetry`, `salc_basis`,
 `optimizer`), wrap them with `SpinCluster(structure, symmetry,
-cluster, basis_set, optimizer)` first.
+cluster, salc_basis, optimizer)` first.
 """
 function write_xml(
 	sc::SpinCluster,

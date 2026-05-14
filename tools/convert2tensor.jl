@@ -211,9 +211,9 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::ExchangeTensorD
 	# - Lf=2: Anisotropic symmetric exchange (symmetric traceless)
 
 	# Pre-fetch XML nodes
-	sce_basis_set = findfirst("//SCEBasisSet", doc)
+	sce_basis_set = findfirst("//SCEBasis", doc)
 	if isnothing(sce_basis_set)
-		throw(ArgumentError("<SCEBasisSet> node not found in the XML file."))
+		throw(ArgumentError("<SCEBasis> node not found in the XML file."))
 	end
 
 	JPhi_node = findfirst("//JPhi", doc)
@@ -350,7 +350,7 @@ end
 Check if the atom pair exists in the XML SALC basis set.
 """
 function check_pair_exists(doc, atom1::Int, atom2::Int)::Bool
-	sce_basis_set = findfirst("//SCEBasisSet", doc)
+	sce_basis_set = findfirst("//SCEBasis", doc)
 	if isnothing(sce_basis_set)
 		return false
 	end
@@ -479,9 +479,9 @@ Directly calculate the tensor brute force.
 """
 function calculate_tensor_for_pair_debug(doc, atom1::Int, atom2::Int)::ExchangeTensorData
 	# Pre-fetch XML nodes
-	sce_basis_set = findfirst("//SCEBasisSet", doc)
+	sce_basis_set = findfirst("//SCEBasis", doc)
 	if isnothing(sce_basis_set)
-		throw(ArgumentError("<SCEBasisSet> node not found in the XML file."))
+		throw(ArgumentError("<SCEBasis> node not found in the XML file."))
 	end
 
 	JPhi_node = findfirst("//JPhi", doc)
@@ -619,7 +619,7 @@ function precompute_xml(input::AbstractString)::PrecomputedXMLData
 
 	# Build SALC lookup table for all pairs at once
 	salc_lookup = Dict{Tuple{Int, Int}, Vector{Tuple{Int, Float64, Vector{Float64}, Int}}}()
-	sce_basis_set = findfirst("//SCEBasisSet", doc)
+	sce_basis_set = findfirst("//SCEBasis", doc)
 	if !isnothing(sce_basis_set)
 		for salc_node in EzXML.findall("SALC", sce_basis_set)
 			body = parse(Int, salc_node["body"])

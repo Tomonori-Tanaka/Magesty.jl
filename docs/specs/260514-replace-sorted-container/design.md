@@ -46,22 +46,22 @@ Key reading:
 - `push!(sv, SortedVector([ac]))` — pushing a vector wrapper.
 - Iteration in sorted order: `for cluster::SortedVector{AtomCell} in interaction_clusters[body][prim_atom_sc]`.
 
-`SortedCountingUniqueVector{T}` (Clusters.jl, BasisSets.jl,
+`SortedCountingUniqueVector{T}` (Clusters.jl, SALCBases.jl,
 xml_io.jl, where T is `Vector{Int}` or `Basis.CoupledBasis`):
 
 - Empty constructor `SortedCountingUniqueVector{T}()`.
 - `push!(scv, k)` — increment count or insert with count = 1.
 - `push!(scv, k, n::Integer)` — insert/increment by `n`
-  (BasisSets.jl L513 only).
+  (SALCBases.jl L513 only).
 - Iteration in sorted unique-key order.
 - `length(scv)`, `isempty(scv)`, `scv[1]` (first element by index).
 - **Direct field access `scv.counts[k]`** (very common):
   - `haskey(scv.counts, k)` (Clusters.jl L638).
   - `scv.counts[k] += n` (Clusters.jl L639).
   - `scv.counts[k] = n` (Clusters.jl L642).
-  - `scv.counts[k]` lookup, assumed present (BasisSets.jl L112,
+  - `scv.counts[k]` lookup, assumed present (SALCBases.jl L112,
     L204, L362, L499, L1118).
-  - `get(scv.counts, k, 1)` (BasisSets.jl L975).
+  - `get(scv.counts, k, 1)` (SALCBases.jl L975).
 
 ### Operations defined on the custom types but never used externally
 
@@ -167,7 +167,7 @@ Design notes:
   Keeping it as a plain struct is simpler and avoids method
   ambiguities with `Base.push!(::AbstractVector, ...)`.
 - **`counts` stays as a public-ish field**: callers already read
-  `scv.counts[k]` directly (~11 sites in `BasisSets.jl` /
+  `scv.counts[k]` directly (~11 sites in `SALCBases.jl` /
   `Clusters.jl`). Replicating that access is the lowest-churn
   migration. We document the field contract: `counts` is the
   source of truth, `_sorted_keys` is a derived cache.
@@ -200,7 +200,7 @@ being replaced. Drop the type alongside `SortedContainer.jl`.
 | `src/common/SortedCounter.jl` | **new** (private helper module) |
 | `src/Magesty.jl` | swap `include("common/SortedContainer.jl")` → `include("common/SortedCounter.jl")` |
 | `src/Clusters.jl` | `using ..SortedContainer` removed; new `using ..SortedCounter: SortedCounter`. `SortedVector` types replaced with plain `Vector{...}` and `sort!` finalize. `irreducible_cluster_dict` field type → `Dict{Int, SortedCounter{Vector{Int}}}` |
-| `src/BasisSets.jl` | `using ..SortedContainer` removed; new `using ..SortedCounter`. All `SortedCountingUniqueVector{Basis.CoupledBasis}` type annotations and field types → `SortedCounter{Basis.CoupledBasis}` |
+| `src/SALCBases.jl` | `using ..SortedContainer` removed; new `using ..SortedCounter`. All `SortedCountingUniqueVector{Basis.CoupledBasis}` type annotations and field types → `SortedCounter{Basis.CoupledBasis}` |
 | `src/utils/xml_io.jl` | Same field-type swap |
 | `test/runtests.jl` | swap include and testset references |
 | `test/component_test/test_SortedContainer.jl` | **deleted** |
@@ -209,9 +209,9 @@ being replaced. Drop the type alongside `SortedContainer.jl`.
 
 ## Linked changes
 
-- `BasisSet.coupled_basislist` field type changes from
+- `SALCBasis.coupled_basislist` field type changes from
   `SortedCountingUniqueVector{Basis.CoupledBasis}` to
-  `SortedCounter{Basis.CoupledBasis}`. The `BasisSet` constructor
+  `SortedCounter{Basis.CoupledBasis}`. The `SALCBasis` constructor
   signature is unchanged; callers that read the field directly will
   see a type change. Within Magesty no caller relies on
   `AbstractVector`-only methods of the old type, so this is safe.
@@ -238,7 +238,7 @@ be byte-identical (verified per integration example).
    domain-specific). Decision needed.
 2. **Module location**: `src/common/SortedCounter.jl` proposed
    (parallels old layout). Alternative: inline as a private struct
-   inside `Clusters.jl` or `BasisSets.jl`, but it's used by both
+   inside `Clusters.jl` or `SALCBases.jl`, but it's used by both
    so a shared module is cleaner.
 3. **Whether to also bench end-to-end** on `fege_2x2x2` before
    merge, or rely on micro-bench + integration test correctness.

@@ -98,9 +98,9 @@ Clusters.Cluster
 Clusters.cluster_orbits
 ```
 
-### BasisSets
+### SALCBases
 ```@docs
-BasisSets.BasisSet
+SALCBases.SALCBasis
 ```
 
 ### Spin Configurations
