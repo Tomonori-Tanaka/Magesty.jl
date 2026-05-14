@@ -84,23 +84,28 @@ APIs coexist); step 6 rewrites tests; step 7 is the breaking removal.
 
 ## Step 4 — evaluation & prediction verbs
 
-- [ ] Implement the `(predictor, data)` verb family: `r2_energy` /
+- [x] `SCEModel(f::SCEFit)` lightweight conversion. Pulled forward from
+      step 5: the `(fit, data)` overloads delegate through it.
+- [x] Implement the `(predictor, data)` verb family: `r2_energy` /
       `r2_torque`, `rss_energy` / `rss_torque`, `residuals_energy` /
       `residuals_torque`, `rmse_energy` / `rmse_torque`.
-- [ ] Overload set for each: `(model, dataset)`, `(fit, dataset)`,
-      `(fit)` (in-sample), `(target, embset_path)`,
-      `(target, configs)`. Normalize data to `SCEDataset`; runtime
-      `basis`-identity check.
-- [ ] `predict_energy` / `predict_torque`: `(model, spin_directions)`,
-      `(model, sc::SpinConfig)`, and dataset-batch forms.
-- [ ] Extend `test_SCEFit.jl`: in-sample vs out-of-sample evaluation,
-      `predict_torque` shape/values vs `calc_torque`, basis-identity
-      check error path.
-- [ ] `make test-all` green.
+- [x] One `(predictor::Union{SCEModel,SCEFit}, data::SCEEvalData)`
+      method per verb, plus `(f::SCEFit)` in-sample. `SCEEvalData =
+      Union{SCEDataset, Vector{SpinConfig}, AbstractString}`. SALC
+      basis-identity check when `data` is a `SCEDataset`.
+- [x] `predict_torque(::SCEModel, spin_directions)` added to
+      `Optimize.jl` (mirrors `predict_energy`). `predict_energy` /
+      `predict_torque` overloads: `(model, sc::SpinConfig)`,
+      `(fit, ...)`, and dataset-batch forms.
+- [x] Extend `test_SCEFit.jl`: SCEModel conversion, predict_* agreement
+      across forms, in-sample verbs vs cached metrics, configs/dataset
+      paths, basis-identity check error path.
+- [x] `make test-all` green (unit 6259, jet 0 issues, aqua 10,
+      integration 155).
 
-## Step 5 — `SCEModel(fit)` + `save` / `load`
+## Step 5 — `save` / `load`
 
-- [ ] `SCEModel(f::SCEFit)` lightweight conversion.
+- [x] `SCEModel(f::SCEFit)` lightweight conversion — done in step 4.
 - [ ] `save(obj, path)` / `load(::Type{T}, path)` with extension
       dispatch.
 - [ ] XML backend: refactor `xml_io.jl` so basis-only (`SCEBasis`) and
