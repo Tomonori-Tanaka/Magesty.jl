@@ -37,7 +37,7 @@ using Magesty
 		salc_coeffs = [norm(salc[1].coefficient) for salc in system.basisset.salc_list]
 		jphi_list = [J / (c * sqrt(3)) for c in salc_coeffs]
 		model = SCEModel(
-			0.0, # reference_energy
+			0.0, # j0
 			jphi_list,
 			system.basisset,
 			system.symmetry,
