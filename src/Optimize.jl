@@ -86,9 +86,9 @@ A fitted SCE (Spin Cluster Expansion) model containing the coefficients and basi
 information required to make energy and torque predictions on new spin configurations.
 
 # Fields
-- `reference_energy::Float64`: Reference energy (bias term j0) in eV
-- `SCE::Vector{Float64}`: SCE coefficients (jphi)
-- `basisset::SALCBasis`: Basis function set used during fitting
+- `j0::Float64`: Reference energy (bias term) in eV
+- `jphi::Vector{Float64}`: SCE coefficients
+- `salcbasis::SALCBasis`: Basis function set used during fitting
 - `symmetry::Symmetry`: Symmetry information of the crystal structure
 - `num_atoms::Int`: Number of atoms in the supercell
 
@@ -100,9 +100,9 @@ E = predict_energy(model, spin_directions)
 ```
 """
 struct SCEModel
-	reference_energy::Float64
-	SCE::Vector{Float64}
-	basisset::SALCBasis
+	j0::Float64
+	jphi::Vector{Float64}
+	salcbasis::SALCBasis
 	symmetry::Symmetry
 	num_atoms::Int
 end
@@ -890,7 +890,7 @@ function predict_energy(
 	model::SCEModel,
 	spin_directions::AbstractMatrix{<:Real},
 )::Float64
-	salc_list = model.basisset.salc_list
+	salc_list = model.salcbasis.salc_list
 	num_salcs = length(salc_list)
 	design_vector = Vector{Float64}(undef, num_salcs)
 
@@ -905,7 +905,7 @@ function predict_energy(
 		design_vector[i] = group_value * scaling_factor
 	end
 
-	return dot(design_vector, model.SCE) + model.reference_energy
+	return dot(design_vector, model.jphi) + model.j0
 end
 
 
