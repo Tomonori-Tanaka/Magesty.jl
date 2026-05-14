@@ -57,9 +57,12 @@ In scope:
   at the constructor, internal representation stays `Float64` (see
   design.md "Unitful boundary").
 - **Species-based** parameter specification: `lmax` / `cutoff` keyed by
-  `ChemicalSpecies` (sublabel-aware, so `Fe_4a` / `Fe_8e` are distinct);
-  element-only specification (`Dict(:Fe => 2)`) is sugar that fans out
-  to all sublabels.
+  kind-name `Symbol`. The kind name comes from the per-atom
+  `atom.data[:atom_name]` (AtomsBase), or the element symbol when that
+  entry is absent — so `:Fe_4a` / `:Fe_8e` are distinct kinds.
+  (`ChemicalSpecies.atom_name` is unusable: 4-char cap, ignored by
+  `==`.) An element-only key (`Dict(:Fe => 2)`) is sugar that fans out
+  to all sublabels of that element.
 - **Constructor-level validation**: the `SCEBasis` constructor emits a
   `@warn` on odd `lmax` / `lsum` (time-reversal symmetry removes
   odd-`l` terms, so an odd value is equivalent to `value - 1`).
@@ -100,7 +103,8 @@ Out of scope (deferred to follow-up specs):
   but the SALC construction's reliance on translational symmetry is a
   separate effort.
 - **`AtomsIO.jl` as a hard dependency**: documented as the recommended
-  way to read CIF / POSCAR / extxyz, but not a `Project.toml` dep.
+  way to read CIF / POSCAR / extxyz and used in `examples/`, but not a
+  `Project.toml` dependency of the package itself.
 - **Cross-validation wrapper estimator** (`CV(...)`) and the `kfold`
   helper: the type hierarchy supports it, implementation is later.
 - **`view`-backed `SCEDataset` slicing**: `getindex` returns a copy in

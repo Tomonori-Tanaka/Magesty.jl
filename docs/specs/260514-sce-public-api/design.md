@@ -101,7 +101,7 @@ the TOML `[interaction]` table.
 |---|---|---|---|
 | `lmax` | `body1` only | max angular momentum `l` per atomic species (on-site anisotropy order) | `Dict{Symbol, Int}` (species-keyed) |
 | `lsum` | `body2`+ | upper bound on the **sum** of the angular momenta of the N atoms in the term | `Int` (one scalar per body) |
-| `cutoff` | `body2`+ | distance cutoff per species pair (`-1.0` = no cutoff) | `Dict{Tuple{Symbol,Symbol}, Float64}` |
+| `cutoff` | `body2`+ | distance cutoff per species pair (`-1.0` = no cutoff) | `Dict{Tuple{Symbol,Symbol}, V}`, `V <: Union{Real, Unitful.Length}` |
 
 ```julia
 interaction = (
@@ -120,6 +120,10 @@ sum over the N atoms — they live at different body levels and are not
 interchangeable. Species keys may use sublabels (`:Fe_4a`); an
 element-only key fans out to all sublabels of that element.
 
+`cutoff` values may be written as bare reals (taken as angstrom) or as
+`Unitful.Length` quantities (auto-converted to angstrom); the `-1.0`
+no-cutoff sentinel stays a bare real. See "Unitful boundary".
+
 **Time-reversal symmetry**: SALC construction enforces time-reversal
 symmetry, which removes all odd-`l` terms. An odd `lmax` or `lsum`
 therefore produces exactly the same basis as `value - 1`. The
@@ -133,14 +137,37 @@ input paths get it.
 ## Constructors
 
 ```julia
-# SCEBasis — material + basis
+# SCEBasis — material + basis. Four input paths.
+
+# (1) AtomsBase system — Unitful required only if the user hand-writes
+#     the system; the common case is the return value of AtomsIO
+#     (CIF/POSCAR/extxyz), where the user never touches Unitful.
 SCEBasis(system::AtomsBase.AbstractSystem;
          interaction::NamedTuple,           # see "Interaction parameters"
          tolerance_sym::Real = 1e-5,
          isotropy::Bool = false,
          verbosity::Bool = true) -> SCEBasis
-SCEBasis(toml_path::AbstractString; verbosity = true) -> SCEBasis   # TOML template
-SCEBasis(input_dict::AbstractDict; verbosity = true) -> SCEBasis    # parsed TOML dict
+
+# (2) TOML template — no Unitful
+SCEBasis(toml_path::AbstractString; verbosity = true) -> SCEBasis
+
+# (3) parsed TOML dict — no Unitful
+SCEBasis(input_dict::AbstractDict; verbosity = true) -> SCEBasis
+
+# (4) Julia-native keyword constructor — no Unitful. Numbers are taken
+#     as angstrom (lattice) and fractional (positions); Magesty applies
+#     the units internally. This is the dict of path (3) spread into
+#     keyword arguments — the recommended way to build a basis in pure
+#     Julia without importing Unitful.
+SCEBasis(; lattice::AbstractMatrix,         # 3x3; bare reals = angstrom, Unitful lengths also OK
+           kd::AbstractVector{Symbol},      # unique species/sublabel names
+           kd_list::AbstractVector{<:Integer},  # per-atom index into `kd`
+           positions::AbstractVector,       # fractional coordinates, one per atom
+           periodicity::NTuple{3,Bool} = (true, true, true),
+           interaction::NamedTuple,
+           tolerance_sym::Real = 1e-5,
+           isotropy::Bool = false,
+           verbosity::Bool = true) -> SCEBasis
 
 # SCEDataset — basis + data + design matrices
 SCEDataset(basis::SCEBasis, spinconfigs::AbstractVector{SpinConfig}) -> SCEDataset
@@ -243,15 +270,41 @@ All `AtomsBase` / `Unitful` use is confined to
 - `position(atom)` and `cell(system)` are `ustrip`-ed to angstrom
   `Float64` (`ustrip.(u"Å", ...)`). Non-length units error out via
   Unitful; nm / bohr auto-convert.
-- Species: `AtomsBase.species(atom)` is a `ChemicalSpecies`; its
-  `atom_name` (sublabel, e.g. `:Fe_4a`) becomes the Magesty "kind"
-  name. Atoms with the same element but different sublabels get
-  distinct kind indices automatically.
+- Species / kind name: `AtomsBase.species(atom)` returns a
+  `ChemicalSpecies`, but its `atom_name` is capped at 4 chars and is
+  ignored by `==`, so it cannot carry a Wyckoff-style sublabel. The
+  adapter instead reads the per-atom `atom.data[:atom_name]` entry
+  (free-form `Symbol`, no length limit): the Magesty kind name is
+  `get(atom.data, :atom_name, Symbol(atomic_symbol(species(atom))))`.
+  Atoms sharing an element but carrying different `:atom_name` data
+  get distinct kind indices; atoms with no `:atom_name` fall back to
+  the element symbol.
 - `lmax` / `lsum` / `cutoff` dicts are keyed by species `Symbol`. An
   element-only key (`:Fe`) fans out to every sublabel of that element
   as sugar; mixed element/species keys are an error.
+- Distance-valued arguments the user writes directly — `cutoff` in
+  `interaction`, and `lattice` in the keyword constructor — accept
+  either a bare `Real` (taken as angstrom) or a `Unitful.Length`
+  (auto-converted). A two-method helper normalizes them:
+  `_to_angstrom(x::Unitful.Length) = ustrip(u"Å", x)` and
+  `_to_angstrom(x::Real) = Float64(x)`. The `-1.0` no-cutoff sentinel
+  passes through `_to_angstrom(::Real)` unchanged.
 - Internal representation stays `Float64`; outputs stay `Float64`.
   Unitful never enters the stored fields of the four types.
+
+**User perspective — when is `using Unitful` needed?**
+
+| Input path | `using Unitful` |
+|---|---|
+| `SCEBasis("input.toml")` / `SCEBasis(dict)` | not needed |
+| `SCEBasis(; lattice, kd, positions, ...)` (kwarg) | not needed |
+| `SCEBasis(load_system("x.cif"))` (AtomsIO) | not needed |
+| `SCEBasis(system)` with a hand-written AtomsBase system | needed — AtomsBase's `Atom` constructor requires Unitful positions |
+
+The Magesty API never requires or returns a Unitful `Quantity`: inputs
+are `ustrip`-ed at the boundary, outputs are `Float64`. Unitful surfaces
+only if the user chooses to hand-write an AtomsBase system; the TOML,
+keyword, and AtomsIO paths never expose it.
 
 ## save / load
 
@@ -305,6 +358,25 @@ f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
 println("RMSE energy: ", rmse_energy(f), "  R2 energy: ", r2_energy(f))
 save(SCEModel(f), "model.xml")
 ```
+
+### Building from a CIF file (AtomsIO)
+
+```julia
+using AtomsIO                                   # reads CIF / POSCAR / extxyz
+system  = load_system("FePt.cif")               # -> AtomsBase.AbstractSystem
+basis   = SCEBasis(system;
+                   interaction = (body1 = (lmax = Dict(:Fe => 2, :Pt => 2),),
+                                  body2 = (lsum = 2,
+                                           cutoff = Dict((:Fe, :Fe) => -1.0,
+                                                         (:Fe, :Pt) => -1.0,
+                                                         (:Pt, :Pt) => -1.0))))
+dataset = SCEDataset(basis, "EMBSET.dat")
+f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
+```
+
+`AtomsIO` is not a dependency of Magesty itself; it is the recommended
+reader and is used in `examples/`. The user installs it alongside
+Magesty when reading structure files.
 
 ### Estimator comparison (reuse one dataset)
 
