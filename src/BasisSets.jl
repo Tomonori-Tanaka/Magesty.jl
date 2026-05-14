@@ -12,7 +12,7 @@ using LinearAlgebra
 using OffsetArrays
 using Printf
 
-using ..SortedContainer
+using ..SortedCounters: SortedCounter
 using ..ConfigParser
 using ..Structures
 using ..Symmetries
@@ -30,7 +30,7 @@ Represents a set of basis functions for atomic interactions in a crystal structu
 This structure is used to store and manage basis functions that are adapted to the symmetry of the crystal.
 
 # Fields
-- `coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis}`: List of coupled angular momentum basis functions with their multiplicities
+- `coupled_basislist::SortedCounter{Basis.CoupledBasis}`: List of coupled angular momentum basis functions with their multiplicities
 - `salc_list::Vector{Vector{Basis.CoupledBasis_with_coefficient}}`: List of symmetry-adapted linear combinations (SALCs), where each element is a vector of coupled basis functions belonging to the same key group
 
 # Constructors
@@ -70,13 +70,13 @@ The constructor performs the following steps:
 3. Generates symmetry-adapted linear combinations (SALCs) of `CoupledBasis_with_coefficient` objects
 """
 struct BasisSet
-	coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis}
+	coupled_basislist::SortedCounter{Basis.CoupledBasis}
 	salc_list::Vector{Vector{Basis.CoupledBasis_with_coefficient}}
 	angular_momentum_couplings::Vector{Basis.AngularMomentumCouplingResult}
 end
 
 function _compute_salc_groups(
-	coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis},
+	coupled_basislist::SortedCounter{Basis.CoupledBasis},
 	symmetry::Symmetry,
 )::Vector{Vector{Basis.CoupledBasis_with_coefficient}}
 	projection_mat = projection_matrix_coupled_basis(coupled_basislist, symmetry)
@@ -146,7 +146,7 @@ function BasisSet(
 	if verbosity
 		print("Constructing and classifying coupled basis list...")
 	end
-	classified_coupled_basisdict::Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}} =
+	classified_coupled_basisdict::Dict{Int, SortedCounter{Basis.CoupledBasis}} =
 		construct_and_classify_coupled_basislist(
 			structure,
 			symmetry,
@@ -168,7 +168,7 @@ function BasisSet(
 	end
 	keys_list = sort(collect(keys(classified_coupled_basisdict)))
 	num_keys = length(keys_list)
-	coupled_basislists::Vector{SortedCountingUniqueVector{Basis.CoupledBasis}} =
+	coupled_basislists::Vector{SortedCounter{Basis.CoupledBasis}} =
 		[classified_coupled_basisdict[k] for k in keys_list]
 	# Pre-allocate array to store results for each key (preserving order)
 	# Each key can have multiple SALC groups (one per eigenvector)
@@ -198,7 +198,7 @@ function BasisSet(
 
 
 	# Reconstruct basislist from classified dictionary for BasisSet storage
-	result_basislist = SortedCountingUniqueVector{Basis.CoupledBasis}()
+	result_basislist = SortedCounter{Basis.CoupledBasis}()
 	for (key, classified_basislist) in classified_coupled_basisdict
 		for cb in classified_basislist
 			count = classified_basislist.counts[cb]
@@ -273,7 +273,7 @@ end
 		bodyn_lsum::OffsetArray{Int, 1},
 		nbody::Integer;
 		isotropy::Bool = false,
-	) -> Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}
+	) -> Dict{Int, SortedCounter{Basis.CoupledBasis}}
 
 Construct coupled basis functions and classify them simultaneously using orbit information.
 
@@ -291,7 +291,7 @@ memory-efficient and allows for better organization of basis functions by symmet
 - `isotropy::Bool`: If `true`, only include isotropic terms (Lf=0), default: `false`
 
 # Returns
-- `Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}`: Dictionary keyed by classification labels
+- `Dict{Int, SortedCounter{Basis.CoupledBasis}}`: Dictionary keyed by classification labels
   (based on `(nbody, Lf, sum(ls), Tuple(sort(ls)...))`), containing classified basis functions
 """
 function construct_and_classify_coupled_basislist(
@@ -302,13 +302,13 @@ function construct_and_classify_coupled_basislist(
 	bodyn_lsum::OffsetArray{Int, 1},
 	nbody::Integer;
 	isotropy::Bool = false,
-)::Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}
+)::Dict{Int, SortedCounter{Basis.CoupledBasis}}
 	# Result dictionary for classified basis functions
-	classified_dict = OrderedDict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}()
+	classified_dict = OrderedDict{Int, SortedCounter{Basis.CoupledBasis}}()
 	label_map = Dict{Any, Int}()
 	next_label = 0
 
-	irreducible_cluster_dict::Dict{Int, SortedCountingUniqueVector{Vector{Int}}} =
+	irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}} =
 		cluster.irreducible_cluster_dict
 	cluster_orbits_dict::Dict{Int, Dict{Int, Vector{Vector{Int}}}} =
 		cluster.cluster_orbits_dict
@@ -337,7 +337,7 @@ function construct_and_classify_coupled_basislist(
 					next_label += 1
 					label = next_label
 					label_map[key] = label
-					classified_dict[label] = SortedCountingUniqueVector{Basis.CoupledBasis}()
+					classified_dict[label] = SortedCounter{Basis.CoupledBasis}()
 				end
 				push!(classified_dict[label], cb, 1)
 			end
@@ -403,7 +403,7 @@ function construct_and_classify_coupled_basislist(
 						next_label += 1
 						label = next_label
 						label_map[key] = label
-						classified_dict[label] = SortedCountingUniqueVector{Basis.CoupledBasis}()
+						classified_dict[label] = SortedCounter{Basis.CoupledBasis}()
 					end
 
 					count = orbit_basis_counts[cb]
@@ -425,7 +425,7 @@ end
 		bodyn_lsum::OffsetArray{Int, 1},
 		nbody::Integer;
 		isotropy::Bool = false,
-	) -> SortedCountingUniqueVector{Basis.CoupledBasis}
+	) -> SortedCounter{Basis.CoupledBasis}
 
 Construct a list of coupled angular momentum basis functions.
 
@@ -442,7 +442,7 @@ and multi-body cases. It uses cluster orbit information for efficient processing
 - `isotropy::Bool`: If `true`, only include isotropic terms (Lf=0), default: `false`
 
 # Returns
-- `SortedCountingUniqueVector{Basis.CoupledBasis}`: List of coupled basis functions with multiplicities
+- `SortedCounter{Basis.CoupledBasis}`: List of coupled basis functions with multiplicities
 
 # Note
 - Skips l=1 and odd l values due to time-reversal symmetry constraints
@@ -459,9 +459,9 @@ function construct_coupled_basislist(
 	nbody::Integer;
 	isotropy::Bool = false,
 )
-	result_coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis} =
-		SortedCountingUniqueVector{Basis.CoupledBasis}()
-	irreducible_cluster_dict::Dict{Int, SortedCountingUniqueVector{Vector{Int}}} =
+	result_coupled_basislist::SortedCounter{Basis.CoupledBasis} =
+		SortedCounter{Basis.CoupledBasis}()
+	irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}} =
 		cluster.irreducible_cluster_dict
 	cluster_orbits_dict::Dict{Int, Dict{Int, Vector{Vector{Int}}}} =
 		cluster.cluster_orbits_dict
@@ -488,7 +488,7 @@ function construct_coupled_basislist(
 
 	# Process multi-body cases using cluster_orbits_dict for efficient processing
 	for body in 2:nbody
-		body_coupled_basislist = SortedCountingUniqueVector{Basis.CoupledBasis}()
+		body_coupled_basislist = SortedCounter{Basis.CoupledBasis}()
 		# Use cluster_orbits_dict to process clusters grouped by symmetry orbits
 		if haskey(cluster_orbits_dict, body)
 			for (orbit_index, orbit_clusters) in cluster_orbits_dict[body]
@@ -610,13 +610,13 @@ end
 Collect all unique atom lists from a list of coupled basis functions.
 
 # Arguments
-- `coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis}`: List of coupled basis functions
+- `coupled_basislist::SortedCounter{Basis.CoupledBasis}`: List of coupled basis functions
 
 # Returns
 - `Set{Vector{Int}}`: Set of unique atom lists (as vectors)
 """
 function collect_cluster_atoms(
-	coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis},
+	coupled_basislist::SortedCounter{Basis.CoupledBasis},
 )::Set{Vector{Int}}
 	result_set = Set{Vector{Int}}()
 	for cb in coupled_basislist
@@ -708,7 +708,7 @@ The projection matrix is computed by averaging over all symmetry operations (inc
 and projects onto the subspace of basis functions that are invariant under the symmetry group.
 
 # Arguments
-- `coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis}`: List of coupled basis functions
+- `coupled_basislist::SortedCounter{Basis.CoupledBasis}`: List of coupled basis functions
 - `symmetry::Symmetry`: Symmetry information containing all symmetry operations
 
 # Returns
@@ -720,7 +720,7 @@ and projects onto the subspace of basis functions that are invariant under the s
 - Each basis function contributes a submatrix of size (2*Lf + 1) × (2*Lf + 1)
 """
 function projection_matrix_coupled_basis(
-	coupled_basislist::SortedCountingUniqueVector{Basis.CoupledBasis},
+	coupled_basislist::SortedCounter{Basis.CoupledBasis},
 	symmetry::Symmetry,
 	;
 	check_unitary::Bool = get(ENV, "MAGESTY_CHECK_UNITARY", "0") == "1",
@@ -888,7 +888,7 @@ Add a `CoupledBasis` to the target list only if it is not translationally equiva
 to any existing `CoupledBasis` in the list.
 
 # Arguments
-- `target::SortedCountingUniqueVector{Basis.CoupledBasis}`: Target list to add to
+- `target::SortedCounter{Basis.CoupledBasis}`: Target list to add to
 - `cb::Basis.CoupledBasis`: Coupled basis function to add
 - `count::Integer`: Multiplicity count for the basis function
 - `symmetry::Symmetry`: Symmetry information for checking translational equivalence
@@ -898,7 +898,7 @@ to any existing `CoupledBasis` in the list.
 - Otherwise, adds the basis function with the given count
 """
 function push_unique_coupled_basis!(
-	target::SortedCountingUniqueVector{Basis.CoupledBasis},
+	target::SortedCounter{Basis.CoupledBasis},
 	cb::Basis.CoupledBasis,
 	count::Integer,
 	symmetry::Symmetry,
@@ -926,7 +926,7 @@ end
 """
 	classify_coupled_basislist_test(
 		coupled_basislist::AbstractVector{Basis.CoupledBasis},
-	) -> Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}
+	) -> Dict{Int, SortedCounter{Basis.CoupledBasis}}
 
 Simplified classifier for `CoupledBasis` objects used in tests.
 
@@ -939,14 +939,14 @@ grouping without depending on symmetry metadata.
 - `coupled_basislist::AbstractVector{Basis.CoupledBasis}`: List of CoupledBasis objects
 
 # Returns
-- `Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}`: Dictionary keyed by
+- `Dict{Int, SortedCounter{Basis.CoupledBasis}}`: Dictionary keyed by
   labels assigned per `(nbody, Lf, sum(ls), Tuple(sort(ls)...))` tuple
 """
 function classify_coupled_basislist_test(
 	coupled_basislist::AbstractVector{<:Basis.CoupledBasis},
-)::Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}
+)::Dict{Int, SortedCounter{Basis.CoupledBasis}}
 	if isempty(coupled_basislist)
-		return OrderedDict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}()
+		return OrderedDict{Int, SortedCounter{Basis.CoupledBasis}}()
 	end
 
 	label_map = Dict{Any, Int}()
@@ -965,13 +965,13 @@ function classify_coupled_basislist_test(
 		label_list[idx] = label
 	end
 
-	dict = OrderedDict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}()
+	dict = OrderedDict{Int, SortedCounter{Basis.CoupledBasis}}()
 	for label in 1:next_label
-		dict[label] = SortedCountingUniqueVector{Basis.CoupledBasis}()
+		dict[label] = SortedCounter{Basis.CoupledBasis}()
 	end
 
 	for (cb, label) in zip(coupled_basislist, label_list)
-		if coupled_basislist isa SortedCountingUniqueVector
+		if coupled_basislist isa SortedCounter
 			count_val = get(coupled_basislist.counts, cb, 1)
 			push!(dict[label], cb, count_val)
 		else
@@ -1060,9 +1060,9 @@ end
 
 """
 	filter_basisdict(
-		basisdict::Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}},
+		basisdict::Dict{Int, SortedCounter{Basis.CoupledBasis}},
 		symmetry::Symmetry,
-	) -> Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}
+	) -> Dict{Int, SortedCounter{Basis.CoupledBasis}}
 
 Filter out basis entries that correspond to clusters where all atoms map to the same
 primitive atom, have odd total angular momentum Lf, and have multiplicity greater than 1.
@@ -1084,33 +1084,33 @@ translationally equivalent sites at cell boundaries always have multiplicity > 1
 periodic boundary conditions.
 
 # Arguments
-- `basisdict::Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}`: Dictionary of
+- `basisdict::Dict{Int, SortedCounter{Basis.CoupledBasis}}`: Dictionary of
   classified coupled basis sets, where keys are labels and values are lists of basis
   functions belonging to the same symmetry class. The `counts` field of each
-  `SortedCountingUniqueVector` stores the multiplicity of each basis.
+  `SortedCounter` stores the multiplicity of each basis.
 - `symmetry::Symmetry`: Symmetry information containing the mapping from supercell atoms
   to primitive cell atoms (`symmetry.map_s2p`)
 
 # Returns
-- `Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}`: Filtered dictionary with
+- `Dict{Int, SortedCounter{Basis.CoupledBasis}}`: Filtered dictionary with
   renumbered labels. Entries that satisfy all filtering conditions are removed, and
   remaining entries are assigned new consecutive labels starting from 1.
 
 # Notes
-- The function checks only the first basis in each `SortedCountingUniqueVector` to determine
+- The function checks only the first basis in each `SortedCounter` to determine
   the filtering condition, as all bases in the same list share the same Lf value.
 - The multiplicity is accessed via `basislist.counts[first_basis]`, which counts how many
   times the same basis appears due to translational symmetry.
 - The input dictionary keys are sorted before processing to ensure deterministic output.
 """
 function filter_basisdict(
-	basisdict::Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}},
+	basisdict::Dict{Int, SortedCounter{Basis.CoupledBasis}},
 	symmetry::Symmetry,
-)::Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}
-	result_basisdict = Dict{Int, SortedCountingUniqueVector{Basis.CoupledBasis}}()
+)::Dict{Int, SortedCounter{Basis.CoupledBasis}}
+	result_basisdict = Dict{Int, SortedCounter{Basis.CoupledBasis}}()
 	new_label = 1
 	for label in sort!(collect(keys(basisdict)))
-		basislist::SortedCountingUniqueVector{Basis.CoupledBasis} = basisdict[label]
+		basislist::SortedCounter{Basis.CoupledBasis} = basisdict[label]
 		first_basis = basislist[begin]
 		atom_list = first_basis.atoms
 		atom_list_in_prim = [symmetry.map_s2p[atom].atom for atom in atom_list]

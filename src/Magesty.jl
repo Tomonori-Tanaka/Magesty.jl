@@ -38,7 +38,7 @@ using TOML
 include("common/version.jl")
 using .Version
 
-include("common/SortedContainer.jl")
+include("common/SortedCounter.jl")
 include("types/AtomCells.jl")
 include("SpinConfigs.jl")
 using .SpinConfigs

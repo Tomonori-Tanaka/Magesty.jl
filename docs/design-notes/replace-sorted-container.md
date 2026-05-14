@@ -1,6 +1,8 @@
 # 自作コンテナを DataStructures.jl で置き換える案
 
-**Status**: CountingContainer 部分は **完了** (2026-05-14). SortedContainer 部分は未着手。
+**Status**: **完了** (2026-05-14). CountingContainer は `OrderedDict` 置換、SortedContainer は新規 `SortedCounter` 型 + plain `Vector` + `sort!` once パターンに移行。
+
+> **方針変更**: 当初本ノートは「`DataStructures.jl` の tree 系 (`SortedMultiSet` 等) に置き換える」案だったが、micro-benchmark の結果 `SortedMultiSet` が DataStructures.jl に存在しないこと、および tree 系は本ワークロードの規模では marginal 〜 逆効果であることが判明したため、spec (`docs/specs/260514-replace-sorted-container/`) で「plain container + sort once」パターンへ方針転換した。詳細は spec の design.md を参照。
 
 **目的**: 自作の `SortedContainer.jl` (~360 行、3 コンテナ) と `CountingContainer.jl` (~120 行、1 コンテナ) を `DataStructures.jl` の成熟した実装に置き換え、保守コストとバグリスクを削減する。`DataStructures.jl` は既に依存。
 

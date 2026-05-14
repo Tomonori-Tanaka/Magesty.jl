@@ -25,7 +25,7 @@ using LinearAlgebra
 using OffsetArrays
 using Printf
 
-using ..SortedContainer
+using ..SortedCounters: SortedCounter
 using ..AtomCells
 using ..ConfigParser
 using ..Structures
@@ -112,7 +112,7 @@ struct Cluster
 	cutoff_radii::OffsetArray{Float64, 3}
 	min_distance_pairs::Matrix{Vector{DistInfo}}
 	cluster_dict::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}
-	irreducible_cluster_dict::Dict{Int, SortedCountingUniqueVector{Vector{Int}}}
+	irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}}
 	cluster_orbits_dict::Dict{Int, Dict{Int, Vector{Vector{Int}}}}
 
 	function Cluster(
@@ -129,7 +129,7 @@ struct Cluster
 		cluster_dict::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}} =
 			generate_clusters(structure, symmetry, cutoff_radii, nbody)
 
-		irreducible_cluster_dict::Dict{Int, SortedCountingUniqueVector{Vector{Int}}} =
+		irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}} =
 			irreducible_clusters(cluster_dict, symmetry)
 
 		cluster_orbits_dict::Dict{Int, Dict{Int, Vector{Vector{Int}}}} =
@@ -335,12 +335,12 @@ function generate_clusters(
 		structure.exist_image,
 		tol = symmetry.tol,
 	)
-	interaction_cutoff_dict = Dict{Int, Dict{Int, SortedVector{AtomCell}}}()
+	interaction_cutoff_dict = Dict{Int, Dict{Int, Vector{AtomCell}}}()
 	for body in 2:nbody
-		interaction_cutoff_dict[body] = Dict{Int, SortedVector{AtomCell}}()
+		interaction_cutoff_dict[body] = Dict{Int, Vector{AtomCell}}()
 		for prim_atom_sc in symmetry.atoms_in_prim
 			prim_atom_type = structure.supercell.kd_int_list[prim_atom_sc]
-			interaction_cutoff_dict[body][prim_atom_sc] = SortedVector{AtomCell}()
+			interaction_cutoff_dict[body][prim_atom_sc] = AtomCell[]
 			for other_atom_sc = 1:structure.supercell.num_atoms
 				if prim_atom_sc == other_atom_sc
 					;
@@ -362,19 +362,28 @@ function generate_clusters(
 	end
 
 
-	# interaction_clusters[body][prim_atom_sc] = SortedVector{SortedVector{AtomCell}}()
-	interaction_clusters = Dict{Int, Dict{Int, Vector{SortedVector{AtomCell}}}}()
+	# Finalize each cutoff bucket in sorted AtomCell order; downstream uses
+	# combinations() and translationally-equivalent cluster matching, both of
+	# which assume sorted input.
+	for body in 2:nbody, prim_atom_sc in symmetry.atoms_in_prim
+		sort!(interaction_cutoff_dict[body][prim_atom_sc])
+	end
+
+	# Inner clusters are stored sorted (translationally-equivalent comparison
+	# in irreducible_clusters expects sorted atom lists); the outer vector
+	# preserves insertion order.
+	interaction_clusters = Dict{Int, Dict{Int, Vector{Vector{AtomCell}}}}()
 	for body in 2:nbody
-		interaction_clusters[body] = Dict{Int, SortedVector{AtomCell}}()
+		interaction_clusters[body] = Dict{Int, Vector{Vector{AtomCell}}}()
 		for prim_atom_sc in symmetry.atoms_in_prim
-			interaction_clusters[body][prim_atom_sc] = SortedVector{AtomCell}()
+			interaction_clusters[body][prim_atom_sc] = Vector{AtomCell}[]
 		end
 	end
 
 
 	for body in 2:nbody, prim_atom_sc in symmetry.atoms_in_prim
 		prim_atom_ac::AtomCell = AtomCell(prim_atom_sc, 1)
-		interactiong_atoms::SortedVector = interaction_cutoff_dict[body][prim_atom_sc]
+		interactiong_atoms::Vector{AtomCell} = interaction_cutoff_dict[body][prim_atom_sc]
 		if body == 2
 			for other_atom_ac::AtomCell in interactiong_atoms
 				distance = distance_atomcells(prim_atom_ac, other_atom_ac, structure.x_image_cart)
@@ -384,7 +393,7 @@ function generate_clusters(
 					structure.supercell.kd_int_list[other_atom_ac.atom],
 				]
 				if rc < 0.0 || distance ≤ rc
-					push!(interaction_clusters[body][prim_atom_sc], SortedVector([other_atom_ac]))
+					push!(interaction_clusters[body][prim_atom_sc], [other_atom_ac])
 				end
 			end
 		else
@@ -400,8 +409,7 @@ function generate_clusters(
 					structure.x_image_cart,
 					min_distance_pairs,
 				) && length(atom_list_all) == length(unique(atom_list_all))
-					sorted_vector = SortedVector(atom_combination)
-					push!(interaction_clusters[body][prim_atom_sc], sorted_vector)
+					push!(interaction_clusters[body][prim_atom_sc], sort(atom_combination))
 				end
 			end
 		end
@@ -418,7 +426,7 @@ function generate_clusters(
 	for body in 2:nbody
 		for prim_atom_sc in symmetry.atoms_in_prim
 			cluster_counts = OrderedDict{Vector{Int}, Int}()
-			for cluster::SortedVector{AtomCell} in interaction_clusters[body][prim_atom_sc]
+			for cluster::Vector{AtomCell} in interaction_clusters[body][prim_atom_sc]
 				atom_list = [atom_cell.atom for atom_cell in cluster]
 				atom_list = vcat([prim_atom_sc], atom_list)
 				cluster_counts[atom_list] = get(cluster_counts, atom_list, 0) + 1
@@ -605,11 +613,11 @@ end
 function irreducible_clusters(
 	cluster_dict::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}},
 	symmetry::Symmetry,
-)::Dict{Int, SortedCountingUniqueVector{Vector{Int}}}
-	result = Dict{Int, SortedCountingUniqueVector{Vector{Int}}}()
+)::Dict{Int, SortedCounter{Vector{Int}}}
+	result = Dict{Int, SortedCounter{Vector{Int}}}()
 
 	for body in sort(collect(keys(cluster_dict)))
-		result[body] = SortedCountingUniqueVector{Vector{Int}}()
+		result[body] = SortedCounter{Vector{Int}}()
 
 		for prim_atom_sc in symmetry.atoms_in_prim
 			for cluster::Vector{Int} in keys(cluster_dict[body][prim_atom_sc])
@@ -649,7 +657,7 @@ end
 
 """
 	cluster_orbits(
-		irreducible_cluster_dict::Dict{Int, SortedCountingUniqueVector{Vector{Int}}},
+		irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}},
 		symmetry::Symmetry,
 	) -> Dict{Int, Dict{Int, Vector{Vector{Int}}}}
 
@@ -661,7 +669,7 @@ the same projection matrix structure, making this classification useful for effi
 operator construction.
 
 # Arguments
-- `irreducible_cluster_dict::Dict{Int, SortedCountingUniqueVector{Vector{Int}}}`: Dictionary of irreducible clusters organized by body
+- `irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}}`: Dictionary of irreducible clusters organized by body
 - `symmetry::Symmetry`: Symmetry information containing spatial symmetry operations
 
 # Returns
@@ -675,7 +683,7 @@ orbits = cluster_orbits(cluster.irreducible_cluster_dict, symmetry)
 ```
 """
 function cluster_orbits(
-	irreducible_cluster_dict::Dict{Int, SortedCountingUniqueVector{Vector{Int}}},
+	irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}},
 	symmetry::Symmetry,
 )::Dict{Int, Dict{Int, Vector{Vector{Int}}}}
 	result = Dict{Int, Dict{Int, Vector{Vector{Int}}}}()

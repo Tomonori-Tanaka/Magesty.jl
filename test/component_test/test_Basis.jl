@@ -1,7 +1,6 @@
 @testset "Basis" begin
 	using .AngularMomentumCoupling
 	using .Basis: CoupledBasis, tesseral_coupled_bases_from_tesseral_bases, reorder_atoms
-	using .SortedContainer: SortedCountingUniqueVector
 	using Test
 
 	@testset "CoupledBasis" begin
