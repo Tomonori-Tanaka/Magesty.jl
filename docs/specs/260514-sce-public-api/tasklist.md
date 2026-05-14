@@ -45,20 +45,20 @@ APIs coexist); step 6 rewrites tests; step 7 is the breaking removal.
 
 ## Step 2 — `SCEDataset` type + slicing
 
-- [ ] Define `SCEDataset` (basis + spinconfigs + unweighted
+- [x] Define `SCEDataset` (basis + spinconfigs + unweighted
       `X_E`/`X_T`/`y_E`/`y_T`).
-- [ ] Move `build_design_matrix_energy` / `build_design_matrix_torque`
+- [x] Move `build_design_matrix_energy` / `build_design_matrix_torque`
       calls into the `SCEDataset` constructor.
-- [ ] Constructors: `SCEDataset(basis, spinconfigs)`,
+- [x] Constructors: `SCEDataset(basis, spinconfigs)`,
       `SCEDataset(basis, embset_path)`, sugar
       `SCEDataset(system, spinconfigs; nbody, ...)`,
       `SCEDataset(toml_path, spinconfigs)`.
-- [ ] Slicing: `length`, `getindex` (copy), `vcat` (basis-identity
+- [x] Slicing: `length`, `getindex` (copy), `vcat` (basis-identity
       check). `X_E` row slice mirrored to `X_T` block slice. `view`
       deferred to the CV follow-up spec.
-- [ ] Add `test_SCEDataset.jl`: construction, slicing copy semantics,
+- [x] Add `test_SCEDataset.jl`: construction, slicing copy semantics,
       `vcat`, row/block synchronization.
-- [ ] `make test-all` green.
+- [x] `make test-all` green.
 
 ## Step 3 — `SCEFit` + StatsAPI verbs
 
