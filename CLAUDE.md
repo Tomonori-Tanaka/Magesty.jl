@@ -71,7 +71,7 @@
 
 ## パフォーマンス最適化方針
 
-ホットパスは `Optimize.jl` の基底関数評価ループと `BasisSets.jl` の SALC 計算。
+ホットパスは `Optimize.jl` の基底関数評価ループと `SALCBases.jl` の SALC 計算。
 
 **StaticArrays の活用**:
 - 3 次元ベクトルは `SVector{3, Float64}`（不変）または `MVector{3, Float64}`（スクラッチバッファ）を使う。
@@ -97,18 +97,18 @@ buf = zeros(3)
 - 球面調和関数のホットパスには `Zₗₘ_unsafe`（境界チェックなし版）を使う。
 
 **計算コストの大きい処理**:
-- `BasisSet` の SALC 計算は重い。再利用する場合は `write_xml` で保存し `build_sce_basis_from_xml` でロードする。
+- `SALCBasis` の SALC 計算は重い。再利用する場合は `write_xml` で保存し `build_sce_basis_from_xml` でロードする。
 
 ## 連動箇所（一方を変えたら全箇所を確認）
 
 ### 球面調和関数の規約
-`MySphericalHarmonics.jl` の `Zₗₘ` / `Zₗₘ_unsafe` / `∂ᵢZlm_unsafe` の規格化と符号は `SphericalHarmonicsTransforms.jl` / SALC 構築（`BasisSets.jl`） / SpheriCart 比較テスト（`test/component_test/test_sphericart_agreement.jl`）と整合している必要がある。片方だけ変えると design matrix が静かに壊れる。
+`MySphericalHarmonics.jl` の `Zₗₘ` / `Zₗₘ_unsafe` / `∂ᵢZlm_unsafe` の規格化と符号は `SphericalHarmonicsTransforms.jl` / SALC 構築（`SALCBases.jl`） / SpheriCart 比較テスト（`test/component_test/test_sphericart_agreement.jl`）と整合している必要がある。片方だけ変えると design matrix が静かに壊れる。
 
 ### SCE 係数の入出力
 `write_xml` / `build_sce_basis_from_xml` のラウンドトリップは整数桁まで一致しなければならない。係数や基底順序のフォーマットを変える場合は両方を同期する。
 
-### Optimize と BasisSet の対応
-`Optimize.jl` の design matrix 構築は `BasisSet` 内の `(l, m, site)` 順序に依存している。基底の並び順を変えると係数の物理的解釈が変わる。
+### Optimize と SALCBasis の対応
+`Optimize.jl` の design matrix 構築は `SALCBasis` 内の `(l, m, site)` 順序に依存している。基底の並び順を変えると係数の物理的解釈が変わる。
 
 ## 開発単位の管理
 

@@ -49,7 +49,7 @@
         <map trans="16" atom="1">13</map>
       </Translations>
     </Symmetry>
-    <SCEBasisSet num_salc="7">
+    <SCEBasis num_salc="7">
       <SALC index="1" num_basis="48" body="2">
         <basis multiplicity="1" index-1="1 1 -1 1" index-2="2 1 0 1">0.14433756729740646</basis>
         <basis multiplicity="1" index-1="1 1 -1 1" index-2="2 1 1 1">0.14433756729740646</basis>
@@ -214,7 +214,7 @@
         <basis multiplicity="1" index-1="1 1 1 1" index-2="15 1 1 12">0.20412414523193156</basis>
         <basis multiplicity="1" index-1="1 1 1 1" index-2="15 1 1 14">0.20412414523193156</basis>
       </SALC>
-    </SCEBasisSet>
+    </SCEBasis>
   </System>
   <JPhi unit="eV">
     <ReferenceEnergy>-128.65123808343753</ReferenceEnergy>

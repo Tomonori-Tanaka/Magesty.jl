@@ -21,11 +21,11 @@
         <map trans="1" atom="2">2</map>
       </Translations>
     </Symmetry>
-    <SCEBasisSet num_salc="1">
+    <SCEBasis num_salc="1">
       <SALC index="1" num_basis="1" body="2" Lf="1">
         <basis multiplicity="1" atoms="1 2" ls="1 1" Lseq="" index="1">0.0 1.0 0.0</basis>
       </SALC>
-    </SCEBasisSet>
+    </SCEBasis>
     <AngularMomentumCouplings num_couplings="3">
       <Coupling index="1" ls="1 1" Lseq="" Lf="0" tensor_shape="3 3" Mf_size="1">
         <Mf value="0" index="1">

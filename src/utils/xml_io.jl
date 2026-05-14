@@ -3,7 +3,7 @@ module XMLIO
 using ..Version
 using ..Structures
 using ..Symmetries
-using ..BasisSets
+using ..SALCBases
 using ..Optimize
 using EzXML
 using Printf
@@ -28,7 +28,7 @@ const TAG_SYMMETRY         = "Symmetry"
 const TAG_NUM_TRANSLATIONS = "NumberOfTranslations"
 const TAG_TRANSLATIONS     = "Translations"
 
-const TAG_SCE_BASIS        = "SCEBasisSet"
+const TAG_SCE_BASIS        = "SCEBasis"
 const TAG_SALC             = "SALC"
 const TAG_BASIS            = "basis"
 
@@ -55,7 +55,7 @@ fmt_tensor(x::Real)     = @sprintf("%.15e", x)
 	write_xml(
 		structure::Structure,
 		symmetry::Symmetry,
-		basis_set::BasisSet,
+		salc_basis::SALCBasis,
 		optimize::Optimizer,
 		filename::String;
 		write_jphi::Bool = true,
@@ -69,7 +69,7 @@ Public callers should go through `Magesty.write_xml(::System, ...)` or
 # Arguments
 - `structure::Structure`: Crystal structure (lattice / atomic positions / element list).
 - `symmetry::Symmetry`: Symmetry operations and translation map for `structure`.
-- `basis_set::BasisSet`: SALC coupled-basis container to be serialized.
+- `salc_basis::SALCBasis`: SALC coupled-basis container to be serialized.
 - `optimize::Optimizer`: Holds the fitted `j0` / `jphi` coefficients written
   when `write_jphi=true`. Pass an `Optimizer` with empty coefficients for
   `System`-level writes.
@@ -84,7 +84,7 @@ Public callers should go through `Magesty.write_xml(::System, ...)` or
 """
 function write_xml(structure::Structure,
 	symmetry::Symmetry,
-	basis_set::BasisSet,
+	salc_basis::SALCBasis,
 	optimize::Optimizer,
 	filename::String
 	;
@@ -142,10 +142,10 @@ function write_xml(structure::Structure,
 	end
 
 	# Add SCE basis set information (CoupledBasis_with_coefficient)
-	basis_set_node = addelement!(system_node, TAG_SCE_BASIS)
-	num_salc = length(basis_set.salc_list)
-	basis_set_node["num_salc"] = string(num_salc)
-	for (i, key_group) in enumerate(basis_set.salc_list)
+	salc_basis_node = addelement!(system_node, TAG_SCE_BASIS)
+	num_salc = length(salc_basis.salc_list)
+	salc_basis_node["num_salc"] = string(num_salc)
+	for (i, key_group) in enumerate(salc_basis.salc_list)
 		# Skip empty groups for safety
 		if isempty(key_group)
 			continue
@@ -154,7 +154,7 @@ function write_xml(structure::Structure,
 		# All cbc in the same key_group share Lf/body by construction
 		first_cbc = key_group[1]
 
-		salc_node = addelement!(basis_set_node, TAG_SALC)
+		salc_node = addelement!(salc_basis_node, TAG_SALC)
 		salc_node["index"] = string(i)
 		salc_node["num_basis"] = string(length(key_group))
 		salc_node["body"] = string(length(first_cbc.atoms))
@@ -173,10 +173,10 @@ function write_xml(structure::Structure,
 	end
 
 	# Add angular momentum coupling results
-	if !isempty(basis_set.angular_momentum_couplings)
+	if !isempty(salc_basis.angular_momentum_couplings)
 		amc_node = addelement!(system_node, TAG_AMC)
-		amc_node["num_couplings"] = string(length(basis_set.angular_momentum_couplings))
-		for (i, amc) in enumerate(basis_set.angular_momentum_couplings)
+		amc_node["num_couplings"] = string(length(salc_basis.angular_momentum_couplings))
+		for (i, amc) in enumerate(salc_basis.angular_momentum_couplings)
 			coupling_node = addelement!(amc_node, TAG_COUPLING)
 			coupling_node["index"] = string(i)
 			coupling_node["ls"] = join(string.(amc.ls), " ")
@@ -229,7 +229,7 @@ function write_xml(structure::Structure,
 end
 
 """
-	write_xml(structure::Structure, symmetry::Symmetry, basis_set::BasisSet, filename::String)
+	write_xml(structure::Structure, symmetry::Symmetry, salc_basis::SALCBasis, filename::String)
 
 Write System information to an XML file without optimization results (JPhi).
 This is used for writing System objects.
@@ -237,7 +237,7 @@ This is used for writing System objects.
 # Arguments
 - `structure::Structure`: The structure containing system information
 - `symmetry::Symmetry`: The symmetry information
-- `basis_set::BasisSet`: The basis set information
+- `salc_basis::SALCBasis`: The basis set information
 - `filename::String`: Output XML file name
 
 # Throws
@@ -246,7 +246,7 @@ This is used for writing System objects.
 function write_xml(
 	structure::Structure,
 	symmetry::Symmetry,
-	basis_set::BasisSet,
+	salc_basis::SALCBasis,
 	filename::String,
 )
 	# Create XML document
@@ -301,10 +301,10 @@ function write_xml(
 	end
 
 	# Add SCE basis set information (CoupledBasis_with_coefficient)
-	basis_set_node = addelement!(system_node, TAG_SCE_BASIS)
-	num_salc = length(basis_set.salc_list)
-	basis_set_node["num_salc"] = string(num_salc)
-	for (i, key_group) in enumerate(basis_set.salc_list)
+	salc_basis_node = addelement!(system_node, TAG_SCE_BASIS)
+	num_salc = length(salc_basis.salc_list)
+	salc_basis_node["num_salc"] = string(num_salc)
+	for (i, key_group) in enumerate(salc_basis.salc_list)
 		# Skip empty groups for safety
 		if isempty(key_group)
 			continue
@@ -313,7 +313,7 @@ function write_xml(
 		# All cbc in the same key_group share Lf/body by construction
 		first_cbc = key_group[1]
 
-		salc_node = addelement!(basis_set_node, TAG_SALC)
+		salc_node = addelement!(salc_basis_node, TAG_SALC)
 		salc_node["index"] = string(i)
 		salc_node["num_basis"] = string(length(key_group))
 		salc_node["body"] = string(length(first_cbc.atoms))
@@ -332,10 +332,10 @@ function write_xml(
 	end
 
 	# Add angular momentum coupling results
-	if !isempty(basis_set.angular_momentum_couplings)
+	if !isempty(salc_basis.angular_momentum_couplings)
 		amc_node = addelement!(system_node, TAG_AMC)
-		amc_node["num_couplings"] = string(length(basis_set.angular_momentum_couplings))
-		for (i, amc) in enumerate(basis_set.angular_momentum_couplings)
+		amc_node["num_couplings"] = string(length(salc_basis.angular_momentum_couplings))
+		for (i, amc) in enumerate(salc_basis.angular_momentum_couplings)
 			coupling_node = addelement!(amc_node, TAG_COUPLING)
 			coupling_node["index"] = string(i)
 			coupling_node["ls"] = join(string.(amc.ls), " ")
@@ -377,23 +377,23 @@ function write_xml(
 end
 
 """
-	read_basisset_from_xml(xml_file::AbstractString) -> BasisSet
+	read_salcbasis_from_xml(xml_file::AbstractString) -> SALCBasis
 
-Read BasisSet from XML file. This reconstructs the basis set from saved SALC information,
+Read SALCBasis from XML file. This reconstructs the basis set from saved SALC information,
 avoiding the expensive SALC computation.
 
 # Arguments
 - `xml_file::AbstractString`: Path to XML file containing basis set information
 
 # Returns
-- `BasisSet`: Reconstructed basis set from XML file
+- `SALCBasis`: Reconstructed basis set from XML file
 
 # Throws
 - `ErrorException` if the XML file format is invalid or missing required information
 """
-function read_basisset_from_xml(
+function read_salcbasis_from_xml(
 	xml_file::AbstractString,
-)::BasisSet
+)::SALCBasis
 	doc = readxml(xml_file)
 	system_node = findfirst("//" * TAG_SYSTEM, doc)
 	if isnothing(system_node)
@@ -446,14 +446,14 @@ function read_basisset_from_xml(
 	end
 
 	# Read SCE basis set
-	basis_set_node = findfirst(TAG_SCE_BASIS, system_node)
-	if isnothing(basis_set_node)
+	salc_basis_node = findfirst(TAG_SCE_BASIS, system_node)
+	if isnothing(salc_basis_node)
 		throw(ArgumentError("<$(TAG_SCE_BASIS)> node not found in XML file: $xml_file"))
 	end
 
 	salc_list = Vector{Vector{Basis.CoupledBasis_with_coefficient}}()
 
-	for salc_node in findall(TAG_SALC, basis_set_node)
+	for salc_node in findall(TAG_SALC, salc_basis_node)
 		key_group = Vector{Basis.CoupledBasis_with_coefficient}()
 
 		for basis_node in findall(TAG_BASIS, salc_node)
@@ -529,7 +529,7 @@ function read_basisset_from_xml(
 	# Reconstruct angular_momentum_couplings
 	angular_momentum_couplings = collect(values(amc_dict))
 	
-	return BasisSet(coupled_basislist, salc_list, angular_momentum_couplings)
+	return SALCBasis(coupled_basislist, salc_list, angular_momentum_couplings)
 end
 
 
