@@ -277,9 +277,8 @@ end
 
 Construct coupled basis functions and classify them simultaneously using orbit information.
 
-This function combines the functionality of `construct_coupled_basislist` and `classify_coupled_basislist_test`
-by generating basis functions orbit-by-orbit and classifying them on-the-fly. This approach is more
-memory-efficient and allows for better organization of basis functions by symmetry.
+Basis functions are generated orbit-by-orbit and classified on-the-fly, which is
+memory-efficient and keeps the resulting basis organized by symmetry label.
 
 # Arguments
 - `structure::Structure`: Structure information containing atomic positions and species
@@ -414,106 +413,6 @@ function construct_and_classify_coupled_basislist(
 	end
 
 	return classified_dict
-end
-
-"""
-	construct_coupled_basislist(
-		structure::Structure,
-		symmetry::Symmetry,
-		cluster::Cluster,
-		body1_lmax::Vector{Int},
-		bodyn_lsum::OffsetArray{Int, 1},
-		nbody::Integer;
-		isotropy::Bool = false,
-	) -> SortedCounter{Basis.CoupledBasis}
-
-Construct a list of coupled angular momentum basis functions.
-
-This function generates all coupled basis functions for atomic interactions, handling both 1-body
-and multi-body cases. It uses cluster orbit information for efficient processing.
-
-# Arguments
-- `structure::Structure`: Structure information containing atomic positions and species
-- `symmetry::Symmetry`: Symmetry information for the crystal structure
-- `cluster::Cluster`: Cluster information containing orbit classification
-- `body1_lmax::Vector{Int}`: Maximum angular momentum values for 1-body interactions
-- `bodyn_lsum::OffsetArray{Int, 1}`: Maximum sum of angular momentum values for multi-body interactions
-- `nbody::Integer`: Maximum number of bodies in interactions
-- `isotropy::Bool`: If `true`, only include isotropic terms (Lf=0), default: `false`
-
-# Returns
-- `SortedCounter{Basis.CoupledBasis}`: List of coupled basis functions with multiplicities
-
-# Note
-- Skips l=1 and odd l values due to time-reversal symmetry constraints
-- Uses cluster orbits for efficient processing of multi-body cases
-- **Unused**: This function is currently not used. Its functionality has been integrated into `construct_and_classify_coupled_basislist`.
-  Kept for reference purposes.
-"""
-function construct_coupled_basislist(
-	structure::Structure,
-	symmetry::Symmetry,
-	cluster::Cluster,
-	body1_lmax::Vector{Int},
-	bodyn_lsum::OffsetArray{Int, 1},
-	nbody::Integer;
-	isotropy::Bool = false,
-)
-	result_coupled_basislist::SortedCounter{Basis.CoupledBasis} =
-		SortedCounter{Basis.CoupledBasis}()
-	irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}} =
-		cluster.irreducible_cluster_dict
-	cluster_orbits_dict::Dict{Int, Dict{Int, Vector{Vector{Int}}}} =
-		cluster.cluster_orbits_dict
-
-	# Handle 1-body case
-	for iat in symmetry.atoms_in_prim
-		lmax = body1_lmax[structure.supercell.kd_int_list[iat]]
-		for l in 2:lmax # skip l = 1 because it is prohibited by the time-reversal symmetry
-			if l % 2 == 1 # skip odd l cases due to the time-reversal symmetry
-				continue
-			end
-			# For 1-body case, build a CoupledBasis with a single atom
-			cb_list = tesseral_coupled_bases_from_tesseral_bases(
-				[l],
-				[iat];
-				isotropy = isotropy,
-			)
-			for cb::Basis.CoupledBasis in cb_list
-				push!(result_coupled_basislist, cb, 1)
-			end
-		end
-	end
-
-
-	# Process multi-body cases using cluster_orbits_dict for efficient processing
-	for body in 2:nbody
-		body_coupled_basislist = SortedCounter{Basis.CoupledBasis}()
-		# Use cluster_orbits_dict to process clusters grouped by symmetry orbits
-		if haskey(cluster_orbits_dict, body)
-			for (orbit_index, orbit_clusters) in cluster_orbits_dict[body]
-				# Process all clusters in this orbit
-				# Clusters in the same orbit have the same projection matrix structure
-				for atom_list::Vector{Int} in orbit_clusters
-					# Get multiplicity from irreducible_cluster_dict
-					count = irreducible_cluster_dict[body].counts[atom_list]
-					sorted_atom_list = sort(atom_list)
-					cb_list::Vector{Basis.CoupledBasis} = listup_coupled_basislist(
-						sorted_atom_list,
-						bodyn_lsum[body];
-						isotropy = isotropy,
-					)
-					for cb::Basis.CoupledBasis in cb_list
-						push_unique_coupled_basis!(body_coupled_basislist, cb, count, symmetry)
-					end
-				end
-			end
-		end
-		for cb in body_coupled_basislist
-			push!(result_coupled_basislist, cb, body_coupled_basislist.counts[cb])
-		end
-	end
-	return result_coupled_basislist
 end
 
 """
