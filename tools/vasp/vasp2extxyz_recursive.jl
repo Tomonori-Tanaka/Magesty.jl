@@ -69,7 +69,7 @@ function build_frame(
 
     if oszicar_name !== nothing
         md = parse_oszicar_magdata(joinpath(dir, oszicar_name), vd.m_constr, vd.num_atoms)
-        push!(extra_per_atom, "MAGMOM_smoothed" => md.magmom_smoothed)
+        push!(extra_per_atom, "magmom_smoothed" => md.magmom_smoothed)
         push!(extra_per_atom, "magmom_raw"      => md.magmom_raw)
         push!(extra_per_atom, "constr_field"    => md.constr_field)
     end

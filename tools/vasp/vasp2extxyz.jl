@@ -92,7 +92,7 @@ function main()
     if args["oszicar"] !== nothing
         @info "Parsing $(args["oszicar"]) for magnetic data…"
         md = parse_oszicar_magdata(args["oszicar"], vd.m_constr, vd.num_atoms)
-        push!(extra_per_atom, "MAGMOM_smoothed" => md.magmom_smoothed)
+        push!(extra_per_atom, "magmom_smoothed" => md.magmom_smoothed)
         push!(extra_per_atom, "magmom_raw"      => md.magmom_raw)
         push!(extra_per_atom, "constr_field"    => md.constr_field)
     end
