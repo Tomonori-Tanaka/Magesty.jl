@@ -134,25 +134,6 @@ julia tools/extract.jl -f OUTCAR1 OUTCAR2 -e f -s 1 0 0 --randomize
 
 ---
 
-### tools/check_convergence_embset.jl
-Scan training-set size `n` along a Julia-style range, compare fitted `jphi` to the all-data reference, and compute energy RMSE over all EMBSET configurations. Writes a summary TSV, `{prefix}_jphi_wide.tsv` and `{prefix}_jphi_long.tsv`, and optionally a two-panel PNG (requires Plots.jl).
-
-**Usage:**
-```bash
-julia --project=. tools/check_convergence_embset.jl -i input.toml -e EMBSET.dat --n-range 10:10:200 -o convergence_out
-julia --project=. tools/check_convergence_embset.jl -i input.toml -s system.jld2 --n-range 5:5:100
-```
-
-**Arguments:**
-- `--input`, `-i`: Path to `input.toml` (required)
-- `--system`, `-s`: Path to `system.jld2` saved with `@save "file.jld2" system` (optional; if omitted, `System` is built from the TOML)
-- `--embset`, `-e`: EMBSET path (optional; defaults to `regression.datafile` resolved relative to the TOML directory)
-- `--n-range`, `-n`: Training counts to evaluate, e.g. `20:200` or `10:10:200` (required)
-- `--out`, `-o`: Output prefix for `.tsv` and `.png` files (default: `convergence_embset`)
-- `--shuffle`: Shuffle EMBSET order before taking the first `n` structures for training (flag)
-- `--seed`: RNG seed for `--shuffle` (default: `42`)
-- `--no-plot`: Skip PNG output (TSV only) (flag)
-
 ## Visualization Tools
 
 ### tools/FitCheck_energy.py
@@ -273,13 +254,12 @@ Calculate micromagnetics model parameters (stiffness and spiralization matrices)
 
 **Usage:**
 ```bash
-julia tools/micromagnetics.jl -x jphi.xml -j system.jld2
-julia tools/micromagnetics.jl -x jphi.xml -j system.jld2 --cutoff 5.0
+julia tools/micromagnetics.jl -x jphi.xml
+julia tools/micromagnetics.jl -x jphi.xml --cutoff 5.0
 ```
 
 **Arguments:**
-- `--input_xml`, `-x`: Input XML file containing SCE coefficients (required)
-- `--input_jld2`, `-j`: Input JLD2 file containing a `System` struct (required)
+- `--input_xml`, `-x`: Input XML file containing the SCE basis and coefficients (e.g. the output of `save(model, "jphi.xml")`) (required)
 - `--cutoff`, `-c`: Cutoff distance for atom pairs in Å (optional)
 
 **Note:** Only the lowest-order two-body interaction terms are included.
