@@ -134,8 +134,16 @@ function _write_system_subtree!(
 		salc_node[ATTR_LF] = string(first_cbc.Lf)
 
 		for (basis_idx, cbc) in enumerate(key_group)
-			# coefficient is a vector over Mf; store as space-separated string
-			coeff_str = join(string.(cbc.coefficient), " ")
+			# Coefficient is a vector over Mf; store as space-separated text.
+			# Normalize negative zero to +0.0 so the textual output is
+			# bit-stable across BLAS / LAPACK implementations — eigensolvers
+			# on different platforms produce -0.0 vs +0.0 for the same
+			# numerical eigenvector (the two are IEEE-equal but `string(...)`
+			# preserves the sign bit).
+			coeff_str = join(
+				(string(iszero(x) ? 0.0 : x) for x in cbc.coefficient),
+				" ",
+			)
 			basis_node = addelement!(salc_node, TAG_BASIS, coeff_str)
 			basis_node["multiplicity"] = string(cbc.multiplicity)
 			basis_node["atoms"] = join(string.(cbc.atoms), " ")
