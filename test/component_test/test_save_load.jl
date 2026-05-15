@@ -8,6 +8,8 @@ const SL_FEPT_TOML =
 	joinpath(@__DIR__, "..", "examples", "fept_tetragonal_2x2x2", "input.toml")
 const SL_FEPT_EMBSET =
 	joinpath(@__DIR__, "..", "examples", "fept_tetragonal_2x2x2", "EMBSET.dat")
+const SL_FEGE_TOML =
+	joinpath(@__DIR__, "..", "examples", "fege_2x2x2", "input.toml")
 const SL_BASELINE_DIR = joinpath(@__DIR__, "baselines")
 
 
@@ -133,32 +135,42 @@ end
 	end
 
 	# Byte-diff regression against committed baselines: catches accidental
-	# schema drift in the XML writer / reader. The check is a load -> re-save
-	# round-trip — fully deterministic (no SALC eigensolve), so byte equality
-	# holds regardless of platform.
-	#
-	# A "fresh build" byte-diff (`SCEBasis(toml)` -> save -> byte-compare to
-	# committed baseline) is intentionally not done here: both fept and fege
-	# have Lf=2 SALC groups that span 2D degenerate eigenvalue subspaces, and
-	# LAPACK eigensolvers do not guarantee a platform-stable choice of basis
-	# within such a subspace. Per-platform consistency of the build is still
-	# verified by the "basis identity (design matrices) after reload" testset
-	# above, which compares design matrices with `≈`.
-	#
-	# A principled fix (subspace-span comparison or canonical gauge fix at
-	# SALC build) is tracked in `docs/design-notes/post-step7-cleanup.md`.
+	# schema drift in the XML writer / reader and unintended changes to
+	# SALC coefficients. The load -> re-save loop is fully deterministic;
+	# the fresh-build loop additionally exercises the eigensolver-based
+	# SALC construction. Both rely on the canonical gauge fix inside
+	# `_compute_salc_groups` to pin the eigenbasis within degenerate
+	# eigenspaces, so byte equality holds across BLAS/LAPACK
+	# implementations.
 	@testset "byte-diff regression vs committed baseline" begin
-		for (name, T) in (
-			("fept_basis", SCEBasis),
-			("fept_model", SCEModel),
-			("fege_basis", SCEBasis),
-		)
-			baseline = joinpath(SL_BASELINE_DIR, "$name.xml")
-			obj = load(T, baseline)
-			mktempdir() do dir
-				path = joinpath(dir, "$name.xml")
-				save(obj, path)
-				@test read(path, String) == read(baseline, String)
+		@testset "load -> re-save" begin
+			for (name, T) in (
+				("fept_basis", SCEBasis),
+				("fept_model", SCEModel),
+				("fege_basis", SCEBasis),
+			)
+				baseline = joinpath(SL_BASELINE_DIR, "$name.xml")
+				obj = load(T, baseline)
+				mktempdir() do dir
+					path = joinpath(dir, "$name.xml")
+					save(obj, path)
+					@test read(path, String) == read(baseline, String)
+				end
+			end
+		end
+
+		@testset "fresh build vs committed baseline (SCEBasis)" begin
+			for (name, toml) in (
+				("fept_basis", SL_FEPT_TOML),
+				("fege_basis", SL_FEGE_TOML),
+			)
+				baseline = joinpath(SL_BASELINE_DIR, "$name.xml")
+				basis = SCEBasis(toml; verbosity = false)
+				mktempdir() do dir
+					path = joinpath(dir, "$name.xml")
+					save(basis, path)
+					@test read(path, String) == read(baseline, String)
+				end
 			end
 		end
 	end
