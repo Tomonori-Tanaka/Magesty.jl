@@ -328,14 +328,8 @@ function read_salcbasis_from_xml(
 				tensor_str = nodecontent(tensor_str_node)
 				tensor_values = parse.(Float64, split(tensor_str))
 
-				# Reshape to match site dimensions
 				tensor_slice = reshape(tensor_values, site_dims...)
-
-				# Set the slice in coeff_tensor using proper indexing
-				# Create indices: [:, :, ..., :, mf_idx] for N site dims + 1 Mf dim
-				indices = Vector{Any}([Colon() for _ in 1:length(site_dims)])
-				push!(indices, mf_idx)
-				coeff_tensor[indices...] = tensor_slice
+				selectdim(coeff_tensor, ndims(coeff_tensor), mf_idx) .= tensor_slice
 			end
 
 			amc = Basis.AngularMomentumCouplingResult(ls, Lseq, Lf, coeff_tensor)

@@ -33,9 +33,11 @@ in `.claude/bench_log.md`.
 
 ## Minor follow-ups
 
-- **B5**: `src/utils/xml_io.jl:394` — `Vector{Any}` of `Colon()` for
-  tensor slicing. Cosmetic; the path is I/O-bound so perf impact is
-  small. Replace with chained `selectdim`.
+- ~~**B5**: `src/utils/xml_io.jl` — `Vector{Any}` of `Colon()` for
+  tensor slicing~~ *(resolved 2026-05-16: rewritten as
+  `selectdim(coeff_tensor, ndims(coeff_tensor), mf_idx) .= tensor_slice`
+  — the trailing dimension is the only one indexed by an integer, and
+  every other dim takes the full range)*.
 
 ## Documentation cleanup (audit C2)
 
