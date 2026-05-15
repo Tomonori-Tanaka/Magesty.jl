@@ -1,108 +1,73 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Tutorial · Magesty.jl</title><meta name="title" content="Tutorial · Magesty.jl"/><meta property="og:title" content="Tutorial · Magesty.jl"/><meta property="twitter:title" content="Tutorial · Magesty.jl"/><meta name="description" content="Documentation for Magesty.jl."/><meta property="og:description" content="Documentation for Magesty.jl."/><meta property="twitter:description" content="Documentation for Magesty.jl."/><meta property="og:url" content="https://Tomonori-Tanaka.github.io/Magesty.jl/tutorial/"/><meta property="twitter:url" content="https://Tomonori-Tanaka.github.io/Magesty.jl/tutorial/"/><link rel="canonical" href="https://Tomonori-Tanaka.github.io/Magesty.jl/tutorial/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script><link href="../assets/codeblock_filenames.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Magesty.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Magesty.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../api/">API Reference</a></li><li class="is-active"><a class="tocitem" href>Tutorial</a><ul class="internal"><li><a class="tocitem" href="#Configuration-File-Format"><span>Configuration File Format</span></a></li><li><a class="tocitem" href="#Basic-Workflow"><span>Basic Workflow</span></a></li><li><a class="tocitem" href="#Programmatic-Fitting-with-fit_sce_model"><span>Programmatic Fitting with <code>fit_sce_model</code></span></a></li><li><a class="tocitem" href="#Building-Basis-from-XML"><span>Building Basis from XML</span></a></li><li><a class="tocitem" href="#Advanced-Usage"><span>Advanced Usage</span></a></li></ul></li><li><a class="tocitem" href="../input_keys/">Input Keys</a></li><li><a class="tocitem" href="../examples/">Examples</a></li><li><a class="tocitem" href="../tools/">Tools</a></li><li><a class="tocitem" href="../technical_notes/">Technical Notes</a></li><li><span class="tocitem">Tips</span><ul><li><a class="tocitem" href="../tips/">Overview</a></li><li><a class="tocitem" href="../tips/penalty_parameter_dependence/">Penalty term dependence</a></li><li><a class="tocitem" href="../tips/rwigs_dependence/">RWIGS dependence</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Tutorial</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Tutorial</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/Tomonori-Tanaka/Magesty.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Tutorial"><a class="docs-heading-anchor" href="#Tutorial">Tutorial</a><a id="Tutorial-1"></a><a class="docs-heading-anchor-permalink" href="#Tutorial" title="Permalink"></a></h1><p>This tutorial will guide you through the basic usage of Magesty.jl for magnetic structure analysis and spin cluster expansion calculations.</p><h2 id="Configuration-File-Format"><a class="docs-heading-anchor" href="#Configuration-File-Format">Configuration File Format</a><a id="Configuration-File-Format-1"></a><a class="docs-heading-anchor-permalink" href="#Configuration-File-Format" title="Permalink"></a></h2><p>Magesty.jl uses TOML configuration files. Below is an annotated example for a BCC Fe supercell:</p><pre><code class="language-toml toml hljs">[general]
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Tutorial · Magesty.jl</title><meta name="title" content="Tutorial · Magesty.jl"/><meta property="og:title" content="Tutorial · Magesty.jl"/><meta property="twitter:title" content="Tutorial · Magesty.jl"/><meta name="description" content="Documentation for Magesty.jl."/><meta property="og:description" content="Documentation for Magesty.jl."/><meta property="twitter:description" content="Documentation for Magesty.jl."/><meta property="og:url" content="https://Tomonori-Tanaka.github.io/Magesty.jl/tutorial/"/><meta property="twitter:url" content="https://Tomonori-Tanaka.github.io/Magesty.jl/tutorial/"/><link rel="canonical" href="https://Tomonori-Tanaka.github.io/Magesty.jl/tutorial/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script><link href="../assets/codeblock_filenames.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="Magesty.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Magesty.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../installation/">Installation</a></li><li><a class="tocitem" href="../api/">API Reference</a></li><li class="is-active"><a class="tocitem" href>Tutorial</a><ul class="internal"><li><a class="tocitem" href="#Configuration-file-format"><span>Configuration file format</span></a></li><li><a class="tocitem" href="#Basic-workflow"><span>Basic workflow</span></a></li><li><a class="tocitem" href="#Exporting-and-reloading-results"><span>Exporting and reloading results</span></a></li><li><a class="tocitem" href="#Predicting-on-new-configurations"><span>Predicting on new configurations</span></a></li><li><a class="tocitem" href="#Evaluation-on-held-out-data"><span>Evaluation on held-out data</span></a></li><li><a class="tocitem" href="#Inspecting-the-basis"><span>Inspecting the basis</span></a></li></ul></li><li><a class="tocitem" href="../input_keys/">Input Keys</a></li><li><a class="tocitem" href="../examples/">Examples</a></li><li><a class="tocitem" href="../tools/">Tools</a></li><li><a class="tocitem" href="../technical_notes/">Technical Notes</a></li><li><span class="tocitem">Tips</span><ul><li><a class="tocitem" href="../tips/">Overview</a></li><li><a class="tocitem" href="../tips/penalty_parameter_dependence/">Penalty term dependence</a></li><li><a class="tocitem" href="../tips/rwigs_dependence/">RWIGS dependence</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Tutorial</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Tutorial</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/Tomonori-Tanaka/Magesty.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Tutorial"><a class="docs-heading-anchor" href="#Tutorial">Tutorial</a><a id="Tutorial-1"></a><a class="docs-heading-anchor-permalink" href="#Tutorial" title="Permalink"></a></h1><p>This tutorial walks through the basic usage of Magesty.jl for spin-cluster expansion (SCE) analysis.</p><h2 id="Configuration-file-format"><a class="docs-heading-anchor" href="#Configuration-file-format">Configuration file format</a><a id="Configuration-file-format-1"></a><a class="docs-heading-anchor-permalink" href="#Configuration-file-format" title="Permalink"></a></h2><p>Magesty.jl reads structure and interaction settings from a TOML file. Fit parameters (estimator, regularization, torque weight) are passed in Julia at <code>fit</code> time and <strong>do not</strong> live in the TOML.</p><pre><code class="language-toml toml hljs">[general]
 name = &quot;bccfe&quot;
 kd   = [&quot;Fe&quot;]           # list of element names
 nat  = 16               # total number of atoms in the supercell
 periodicity = [true, true, true]  # apply periodic boundary to all (x, y, z) directions
 
 [symmetry]
-tolerance = 1e-5        # symmetry detection tolerance (optional, default 1e-3)
-isotropy = true
+tolerance = 1e-5        # symmetry detection tolerance
+isotropy = true         # restrict to Lf = 0 (isotropic exchange) terms
 
 [interaction]
-nbody = 2               # maximum interaction body
+nbody = 2               # maximum interaction body order
 [interaction.body1]
-lmax.Fe = 0             # 1-body maximum angular momentum per element, i.e. this represents on-site anisotropy
+lmax.Fe = 0             # on-site (1-body) maximum angular momentum per element
 [interaction.body2]
-lsum = 2                # cutoff summation of l values for basis functions
-cutoff.&quot;Fe-Fe&quot; = -1     # pairwise cutoff radius in Å (-1 uses all possible pairs)
-
-[regression]
-datafile = &quot;EMBSET&quot; # path to training data
-weight   = 0.5          # 0 = torque only, 1 = energy only, 0.5 = balanced
-alpha    = 0.0          # elastic-net mixing (0 = ridge)
-lambda   = 0.0          # regularization strength (0 = no regularization)
+lsum = 2                # cutoff sum of l values for 2-body basis functions
+cutoff.&quot;Fe-Fe&quot; = -1     # pairwise cutoff radius in Å (-1 = include all pairs)
 
 [structure]
 kd_list  = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]  # element index per atom
-lattice  = [            # lattice parameters
+lattice  = [
   [5.66, 0.0, 0.0],
   [0.0, 5.66, 0.0],
   [0.0, 0.0, 5.66],
 ]
-position = [            # fractional coordinates
+position = [
   [0.00, 0.00, 0.00],
   [0.25, 0.25, 0.25],
-  [0.00, 0.00, 0.50],
-  [0.50, 0.00, 0.00],
-  [0.00, 0.50, 0.00],
-  [0.25, 0.25, 0.75],
-  [0.75, 0.25, 0.25],
-  [0.25, 0.75, 0.25],
-  [0.00, 0.50, 0.50],
-  [0.50, 0.00, 0.50],
-  [0.50, 0.50, 0.00],
-  [0.25, 0.75, 0.75],
-  [0.75, 0.25, 0.75],
-  [0.75, 0.75, 0.25],
-  [0.50, 0.50, 0.50],
-  [0.75, 0.75, 0.75],
-]</code></pre><p>For a full key reference see <a href="../input_keys/">Input Keys</a>.</p><h2 id="Basic-Workflow"><a class="docs-heading-anchor" href="#Basic-Workflow">Basic Workflow</a><a id="Basic-Workflow-1"></a><a class="docs-heading-anchor-permalink" href="#Basic-Workflow" title="Permalink"></a></h2><h3 id="1.-Creating-a-SpinCluster-(All-in-One)"><a class="docs-heading-anchor" href="#1.-Creating-a-SpinCluster-(All-in-One)">1. Creating a SpinCluster (All-in-One)</a><a id="1.-Creating-a-SpinCluster-(All-in-One)-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Creating-a-SpinCluster-(All-in-One)" title="Permalink"></a></h3><p>The simplest approach reads the TOML file, builds the basis, loads the training set, and fits the SCE model in one call:</p><pre><code class="language-julia hljs">using Magesty
+  # ... (16 atoms total)
+]</code></pre><p>For a full key reference see <a href="../input_keys/">Input Keys</a>.</p><h2 id="Basic-workflow"><a class="docs-heading-anchor" href="#Basic-workflow">Basic workflow</a><a id="Basic-workflow-1"></a><a class="docs-heading-anchor-permalink" href="#Basic-workflow" title="Permalink"></a></h2><pre><code class="language-julia hljs">using Magesty
 
-sc = SpinCluster(&quot;config.toml&quot;)</code></pre><h3 id="2.-Accessing-Fitted-Results"><a class="docs-heading-anchor" href="#2.-Accessing-Fitted-Results">2. Accessing Fitted Results</a><a id="2.-Accessing-Fitted-Results-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Accessing-Fitted-Results" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Reference energy (eV)
-j0 = Magesty.get_j0(sc)
+# 1. Build the SCE basis (heavy: runs SALC construction).
+basis = SCEBasis(&quot;input.toml&quot;)
 
-# SCE coefficients
-jphi = Magesty.get_jphi(sc)
+# 2. Pair the basis with training data to form a dataset.
+dataset = SCEDataset(basis, &quot;EMBSET.dat&quot;)
 
-# Both at once
-j0, jphi = Magesty.get_j0_jphi(sc)</code></pre><h3 id="3.-Exporting-Results"><a class="docs-heading-anchor" href="#3.-Exporting-Results">3. Exporting Results</a><a id="3.-Exporting-Results-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Exporting-Results" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Write SCE coefficients to XML
-# This XML file can be used for the Monte Carlo package, `SpinClusterMC.jl`.
-write_xml(sc, &quot;results.xml&quot;)
+# 3. Fit. `torque_weight` is the convex combination of per-sample
+#    energy MSE and torque MSE that the augmented least-squares problem
+#    minimizes — `0.5` weights both equally.
+f = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
 
-# Write energy and torque comparison files
-Magesty.write_energies(sc, &quot;energy_list.txt&quot;)
-Magesty.write_torques(sc, &quot;torque_list.txt&quot;)</code></pre><h2 id="Programmatic-Fitting-with-fit_sce_model"><a class="docs-heading-anchor" href="#Programmatic-Fitting-with-fit_sce_model">Programmatic Fitting with <code>fit_sce_model</code></a><a id="Programmatic-Fitting-with-fit_sce_model-1"></a><a class="docs-heading-anchor-permalink" href="#Programmatic-Fitting-with-fit_sce_model" title="Permalink"></a></h2><p>For more control—e.g., cross-validation or custom training sets—use the lower-level <code>fit_sce_model</code> API:</p><pre><code class="language-julia hljs">using Magesty, TOML
+println(&quot;Reference energy j0: &quot;, intercept(f), &quot; eV&quot;)
+println(&quot;Number of SCE coefficients: &quot;, length(coef(f)))
+println(&quot;RMSE energy: &quot;, rmse_energy(f) * 1000, &quot; meV&quot;)
+println(&quot;R²    energy: &quot;, r2_energy(f))</code></pre><h2 id="Exporting-and-reloading-results"><a class="docs-heading-anchor" href="#Exporting-and-reloading-results">Exporting and reloading results</a><a id="Exporting-and-reloading-results-1"></a><a class="docs-heading-anchor-permalink" href="#Exporting-and-reloading-results" title="Permalink"></a></h2><p><code>save</code> / <code>load</code> round-trip a basis or model via XML. The XML schema is shared with the Monte Carlo package <code>SpinClusterMC.jl</code>.</p><pre><code class="language-julia hljs"># Persist a fitted model.
+save(SCEModel(f), &quot;model.xml&quot;)
 
-input  = TOML.parsefile(&quot;config.toml&quot;)
-system = build_sce_basis(input)
+# Persist just the basis (skip the expensive SALC build next time).
+save(basis, &quot;basis.xml&quot;)
 
-# Load training data
-spinconfigs = read_embset(&quot;EMBSET.dat&quot;)
+# Later session: reload and refit without recomputing SALCs.
+basis   = load(SCEBasis, &quot;basis.xml&quot;)
+dataset = SCEDataset(basis, &quot;EMBSET.dat&quot;)
+f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)</code></pre><h2 id="Predicting-on-new-configurations"><a class="docs-heading-anchor" href="#Predicting-on-new-configurations">Predicting on new configurations</a><a id="Predicting-on-new-configurations-1"></a><a class="docs-heading-anchor-permalink" href="#Predicting-on-new-configurations" title="Permalink"></a></h2><pre><code class="language-julia hljs">model = SCEModel(f)
 
-# OLS fit
-optimizer = fit_sce_model(system, spinconfigs)
+# Single configuration (3 × num_atoms matrix of unit spin directions).
+spin_directions = ones(3, basis.structure.supercell.num_atoms)  # all spins along +x
+E = predict_energy(model, spin_directions)
+T = predict_torque(model, spin_directions)  # 3 × num_atoms matrix</code></pre><h2 id="Evaluation-on-held-out-data"><a class="docs-heading-anchor" href="#Evaluation-on-held-out-data">Evaluation on held-out data</a><a id="Evaluation-on-held-out-data-1"></a><a class="docs-heading-anchor-permalink" href="#Evaluation-on-held-out-data" title="Permalink"></a></h2><p><code>SCEDataset</code> supports indexing, so a train / test split is one line:</p><pre><code class="language-julia hljs">n_train = round(Int, 0.8 * length(dataset))
+train, test = dataset[1:n_train], dataset[(n_train + 1):end]
 
-# Ridge fit
-estimator = Ridge(lambda = 1e-4)
-optimizer = fit_sce_model(system, spinconfigs, estimator, 0.5)
-
-j0   = optimizer.reference_energy
-jphi = optimizer.SCE
-println(&quot;RMSE energy: &quot;, optimizer.metrics[:rmse_energy] * 1000, &quot; meV&quot;)
-println(&quot;RMSE torque: &quot;, optimizer.metrics[:rmse_torque] * 1000, &quot; meV&quot;)</code></pre><h3 id="Creating-a-SpinCluster-from-an-Existing-System"><a class="docs-heading-anchor" href="#Creating-a-SpinCluster-from-an-Existing-System">Creating a SpinCluster from an Existing System</a><a id="Creating-a-SpinCluster-from-an-Existing-System-1"></a><a class="docs-heading-anchor-permalink" href="#Creating-a-SpinCluster-from-an-Existing-System" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Reuse a System built above
-sc = SpinCluster(system, input)</code></pre><h3 id="Creating-a-SpinCluster-with-a-Pre-loaded-Training-Set"><a class="docs-heading-anchor" href="#Creating-a-SpinCluster-with-a-Pre-loaded-Training-Set">Creating a SpinCluster with a Pre-loaded Training Set</a><a id="Creating-a-SpinCluster-with-a-Pre-loaded-Training-Set-1"></a><a class="docs-heading-anchor-permalink" href="#Creating-a-SpinCluster-with-a-Pre-loaded-Training-Set" title="Permalink"></a></h3><pre><code class="language-julia hljs">spinconfigs = read_embset(&quot;EMBSET.dat&quot;)
-sc = SpinCluster(system, input, spinconfigs)</code></pre><h2 id="Building-Basis-from-XML"><a class="docs-heading-anchor" href="#Building-Basis-from-XML">Building Basis from XML</a><a id="Building-Basis-from-XML-1"></a><a class="docs-heading-anchor-permalink" href="#Building-Basis-from-XML" title="Permalink"></a></h2><p>If the basis set has already been saved to XML, load it directly to skip the expensive SALC computation:</p><pre><code class="language-julia hljs">using Magesty, TOML
-
-input  = TOML.parsefile(&quot;config.toml&quot;)
-system = build_sce_basis_from_xml(input, &quot;scecoeffs.xml&quot;)</code></pre><h2 id="Advanced-Usage"><a class="docs-heading-anchor" href="#Advanced-Usage">Advanced Usage</a><a id="Advanced-Usage-1"></a><a class="docs-heading-anchor-permalink" href="#Advanced-Usage" title="Permalink"></a></h2><h3 id="Symmetry-Information"><a class="docs-heading-anchor" href="#Symmetry-Information">Symmetry Information</a><a id="Symmetry-Information-1"></a><a class="docs-heading-anchor-permalink" href="#Symmetry-Information" title="Permalink"></a></h3><pre><code class="language-julia hljs">sym = sc.symmetry
-println(&quot;Space group: &quot;, sym.international_symbol, &quot; (#&quot;, sym.spacegroup_number, &quot;)&quot;)
+f = fit(SCEFit, train, Ridge(lambda = 1e-4); torque_weight = 0.5)
+println(&quot;in-sample  RMSE energy: &quot;, rmse_energy(f))
+println(&quot;out-sample RMSE energy: &quot;, rmse_energy(f, test))</code></pre><h2 id="Inspecting-the-basis"><a class="docs-heading-anchor" href="#Inspecting-the-basis">Inspecting the basis</a><a id="Inspecting-the-basis-1"></a><a class="docs-heading-anchor-permalink" href="#Inspecting-the-basis" title="Permalink"></a></h2><pre><code class="language-julia hljs">sym = basis.symmetry
+println(&quot;Space group: &quot;, sym.international_symbol,
+        &quot; (#&quot;, sym.spacegroup_number, &quot;)&quot;)
 println(&quot;Number of symmetry operations: &quot;, sym.nsym)
 
-for (i, symop) in enumerate(sym.symdata)
-    println(&quot;Operation $i:&quot;)
-    println(&quot;  Rotation (fractional): &quot;, symop.rotation_frac)
-    println(&quot;  Translation (fractional): &quot;, symop.translation_frac)
-    println(&quot;  Is proper: &quot;, symop.is_proper)
-end</code></pre><h3 id="Structure-Information"><a class="docs-heading-anchor" href="#Structure-Information">Structure Information</a><a id="Structure-Information-1"></a><a class="docs-heading-anchor-permalink" href="#Structure-Information" title="Permalink"></a></h3><pre><code class="language-julia hljs">cell = sc.structure.supercell
+cell = basis.structure.supercell
 println(&quot;Number of atoms: &quot;, cell.num_atoms)
-println(&quot;Lattice vectors:&quot;)
-for i in 1:3
-    println(&quot;  a$i: &quot;, cell.lattice_vectors[:, i])
-end
-println(&quot;Atomic positions (fractional):&quot;)
-for i in 1:cell.num_atoms
-    elem = sc.structure.kd_name[cell.kd_int_list[i]]
-    println(&quot;  $elem: &quot;, cell.x_frac[:, i])
-end</code></pre><h3 id="Basis-Set-Information"><a class="docs-heading-anchor" href="#Basis-Set-Information">Basis Set Information</a><a id="Basis-Set-Information-1"></a><a class="docs-heading-anchor-permalink" href="#Basis-Set-Information" title="Permalink"></a></h3><pre><code class="language-julia hljs">basisset = sc.basisset
-println(&quot;Number of SALCs: &quot;, length(basisset.salc_list))</code></pre><p>For detailed function documentation see the <a href="../api/#API-Reference">API Reference</a>. For more complex use cases see <a href="../examples/">Examples</a>.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../api/">« API Reference</a><a class="docs-footer-nextpage" href="../input_keys/">Input Keys »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Thursday 14 May 2026 07:20">Thursday 14 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+println(&quot;Number of SALCs: &quot;, length(basis.salcbasis.salc_list))</code></pre><p>For detailed function documentation see the <a href="../api/#API-Reference">API Reference</a>. More complex use cases live in <a href="../examples/">Examples</a>.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../api/">« API Reference</a><a class="docs-footer-nextpage" href="../input_keys/">Input Keys »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Friday 15 May 2026 09:21">Friday 15 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
