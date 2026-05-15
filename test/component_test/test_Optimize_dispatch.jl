@@ -68,15 +68,27 @@ using Magesty
         @test j_ols ≈ X \ y
     end
 
-    @testset "golden (j0, jphi) — OLS-equivalent (alpha=0, lambda=0)" begin
-        j0, jphi = Magesty.Optimize._fit_sce_model_internal(
+    # Helper: run the three-stage estimator dispatch (assemble -> solve ->
+    # extract) end-to-end and return (j0, jphi). Mirrors the kernel that
+    # `fit(SCEFit, dataset, est; torque_weight)` runs under the hood.
+    function _fit_kernel(estimator)
+        X, y, bias_col = Magesty.Optimize.assemble_weighted_problem(
             design_matrix_energy,
             design_matrix_torque,
             observed_energy_list,
             observed_torque_list,
-            Magesty.OLS(),
             weight,
         )
+        j_values = Magesty.Optimize.solve_coefficients(
+            estimator, X, y; bias_col = bias_col,
+        )
+        return Magesty.Optimize.extract_j0_jphi(
+            j_values, design_matrix_energy, observed_energy_list,
+        )
+    end
+
+    @testset "golden (j0, jphi) — OLS" begin
+        j0, jphi = _fit_kernel(Magesty.OLS())
         # Golden values recaptured 2026-05-14 after per-sample MSE
         # normalization (was: 0.77052.., 0.15051.., -0.31073..).
         @test isapprox(j0, 0.73174756944306574; atol = 1e-12, rtol = 1e-10)
@@ -85,14 +97,7 @@ using Magesty
     end
 
     @testset "golden (j0, jphi) — Ridge (lambda=0.1)" begin
-        j0, jphi = Magesty.Optimize._fit_sce_model_internal(
-            design_matrix_energy,
-            design_matrix_torque,
-            observed_energy_list,
-            observed_torque_list,
-            Magesty.Ridge(lambda = 0.1),
-            weight,
-        )
+        j0, jphi = _fit_kernel(Magesty.Ridge(lambda = 0.1))
         # Golden values recaptured 2026-05-14 after per-sample MSE
         # normalization (was: 0.76894.., 0.14995.., -0.30766..).
         @test isapprox(j0, 0.71912905195775911; atol = 1e-12, rtol = 1e-10)

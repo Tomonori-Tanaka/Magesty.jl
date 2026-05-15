@@ -1,7 +1,7 @@
 module ConfigParser
 using OffsetArrays
 
-export Config4System, Config4Optimize
+export Config4System
 
 # Default values for system configuration
 const DEFAULT_VALUES_SYSTEM = Dict{Symbol, Any}(
@@ -271,90 +271,6 @@ function parse_position(
 end
 
 
-# Default values for optimization parameters
-const DEFAULT_VALUES_OPTIMIZE = Dict{Symbol, Any}(
-	:ndata => -1,
-	:weight => 0.0, # 0 means magnetic field only, 1 means energy only
-	:alpha => 0.0, # deprecated; has no effect on the solver, kept only for TOML compat
-	:lambda => 0.0, # 0 means no regularization
-)
-
-"""
-	Config4Optimize
-
-A structure that holds optimization parameters.
-
-# Required Parameters
-- `datafile::String`: Path to the data file
-
-# Optional Parameters
-- `ndata::Int`: Number of data points to use [default: -1]
-- `weight::Float64`: Weight for optimization [default: 0.0]
-"""
-struct Config4Optimize
-	# required parameters
-	datafile::String
-
-	# optional parameters
-	ndata::Int
-	weight::Float64
-	alpha::Float64
-	lambda::Float64
-
-	"""
-		Config4Optimize(input_dict::AbstractDict{<:AbstractString, Any})
-
-	Construct a Config4Optimize from a dictionary of parameters.
-
-	# Arguments
-	- `input_dict::AbstractDict{<:AbstractString, Any}`: Dictionary containing optimization parameters
-
-	# Returns
-	- `Config4Optimize`: A new optimization configuration object
-
-	# Throws
-	- `ArgumentError`: If required parameters are missing or invalid
-	"""
-	function Config4Optimize(input_dict::AbstractDict{<:AbstractString, Any})
-		_check_required_sections(input_dict, REQUIRED_SECTIONS_OPTIMIZE)
-
-		datafile = input_dict["regression"]["datafile"]::String
-		ndata = get(input_dict["regression"], "ndata", DEFAULT_VALUES_OPTIMIZE[:ndata])::Int
-		weight = Float64(get(
-			input_dict["regression"],
-			"weight",
-			DEFAULT_VALUES_OPTIMIZE[:weight],
-		))
-
-		alpha = Float64(get(
-			input_dict["regression"],
-			"alpha",
-			DEFAULT_VALUES_OPTIMIZE[:alpha],
-		))
-		if alpha != 0.0
-			@warn "[regression].alpha is deprecated and has no effect on the solver. " *
-			      "Remove it from your TOML; future releases may reject this key." maxlog = 1
-		end
-
-		lambda = Float64(get(
-			input_dict["regression"],
-			"lambda",
-			DEFAULT_VALUES_OPTIMIZE[:lambda],
-		))
-
-		params = (
-			datafile = datafile,
-			ndata = ndata,
-			weight = weight,
-			alpha = alpha,
-			lambda = lambda,
-		)
-		validate_optimize_parameters(params)
-
-		return new(params...)
-	end
-end
-
 function validate_system_parameters(params::NamedTuple)::Nothing
 	isempty(params.name) &&
 		throw(ArgumentError("Structure name cannot be empty"))
@@ -375,23 +291,8 @@ function validate_system_parameters(params::NamedTuple)::Nothing
 	return nothing
 end
 
-function validate_optimize_parameters(params::NamedTuple)::Nothing
-	isempty(params.datafile) &&
-		throw(ArgumentError("Data file path cannot be empty"))
-	params.ndata isa Int ||
-		throw(ArgumentError("ndata must be an integer, got $(params.ndata)"))
-	0 <= params.weight <= 1 ||
-		throw(ArgumentError("weight must be between 0 and 1, got $(params.weight)"))
-	0.0 <= params.alpha <= 1.0 ||
-		throw(ArgumentError("alpha must be between 0 and 1, got $(params.alpha)"))
-	(params.lambda isa Real && params.lambda >= 0.0) ||
-		throw(ArgumentError("lambda must be a non-negative real number, got $(params.lambda)"))
-	return nothing
-end
-
-# Required top-level TOML sections for each Config type.
+# Required top-level TOML sections for the SCEBasis input dictionary.
 const REQUIRED_SECTIONS_SYSTEM = ["general", "symmetry", "interaction", "structure"]
-const REQUIRED_SECTIONS_OPTIMIZE = ["regression"]
 
 function _check_required_sections(
 	input_dict::AbstractDict{<:AbstractString, Any},

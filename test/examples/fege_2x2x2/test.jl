@@ -3,15 +3,14 @@ using Printf
 using Test
 using StaticArrays
 using Random
-using Magesty.Optimize
-using Magesty.Structures
-using Magesty.Symmetries
+using Magesty
 
 
 input = TOML.parse(open(joinpath(@__DIR__, "input.toml"), "r"))
-input["regression"]["datafile"] = joinpath(@__DIR__, "EMBSET")
+embset_path = joinpath(@__DIR__, "EMBSET")
 
-system = System(input, verbosity = false)
+basis = SCEBasis(input; verbosity = false)
+spinconfigs_all = Magesty.read_embset(embset_path)
 
 const NUM_CELLS = 27  # Center cell + 26 neighboring image cells
 const NUM_FE = 32
@@ -21,7 +20,7 @@ const A_FEGE = 9.378              # Cubic lattice constant from input.toml
 
 @testset "FeGe B20 2x2x2 Tests" begin
 	@testset "Structure Tests" begin
-		structure = system.structure
+		structure = basis.structure
 
 		# Lattice and reciprocal vectors
 		expected_lattice = SMatrix{3, 3, Float64}([
@@ -70,8 +69,8 @@ const A_FEGE = 9.378              # Cubic lattice constant from input.toml
 	end
 
 	@testset "Symmetry Tests" begin
-		symmetry = system.symmetry
-		structure = system.structure
+		symmetry = basis.symmetry
+		structure = basis.structure
 
 		# Consistency checks (avoid hard-coding space-group specifics).
 		@test symmetry.nat_prim ≥ 1
@@ -90,57 +89,41 @@ const A_FEGE = 9.378              # Cubic lattice constant from input.toml
 		end
 	end
 
-	sclus = SpinCluster(system, input, verbosity = false)
-	Magesty.write_xml(sclus, joinpath(@__DIR__, "scecoeffs.xml"))
+	# Fit on a subset and persist the model — exercises the full new-API flow
+	# on a large (64-atom) two-species system.
+	num_cfg_target = 2 * length(basis.salcbasis.salc_list)
+	num_cfg = min(length(spinconfigs_all), num_cfg_target)
+	spinconfigs = spinconfigs_all[1:num_cfg]
+	dataset = SCEDataset(basis, spinconfigs)
+	fitted = fit(SCEFit, dataset, OLS(); torque_weight = 1.0)
+	save(SCEModel(fitted), joinpath(@__DIR__, "scecoeffs.xml"))
 
 	@testset "SCE Regression Roundtrip (energy + torque)" begin
-		spinconfigs = sclus.optimize.spinconfig_list
-		# Use at most 2×(number of SALC groups) configs to keep test lightweight.
-		num_cfg_target = 2 * length(sclus.basisset.salc_list)
-		num_cfg = min(length(spinconfigs), num_cfg_target)
-		spinconfigs = spinconfigs[1:num_cfg]
+		num_atoms = basis.structure.supercell.num_atoms
+		num_salcs = length(basis.salcbasis.salc_list)
 
-		num_atoms = sclus.structure.supercell.num_atoms
-		salc_list = sclus.basisset.salc_list
+		@test size(dataset.X_E, 2) == num_salcs + 1
+		@test size(dataset.X_T, 2) == num_salcs
 
-		# Build design matrices (bias column included for energy, not for torque)
-		design_E = Optimize.build_design_matrix_energy(salc_list, spinconfigs, sclus.symmetry)
-		design_T = Optimize.build_design_matrix_torque(
-			salc_list,
-			spinconfigs,
-			num_atoms,
-			sclus.symmetry,
-		)
-
-		num_salcs = length(salc_list)
-		@test size(design_E, 2) == num_salcs + 1
-		@test size(design_T, 2) == num_salcs
-
-		# Synthetic ground-truth coefficients and corresponding observations
+		# Synthesize ground-truth coefficients and the matching observations.
 		rng = Xoshiro(0x12345678)
 		jphi_true = randn(rng, num_salcs)
 		j0_true = 0.1234
+		y_E_synth = dataset.X_E[:, 2:end] * jphi_true .+ j0_true
+		y_T_synth = dataset.X_T * jphi_true
 
-		observed_energy_list = design_E[:, 2:end] * jphi_true .+ j0_true
-		torque_flat = design_T * jphi_true
-		block_size = 3 * num_atoms
-		observed_torque_list = [
-			reshape(torque_flat[((i-1)*block_size+1):(i*block_size)], 3, num_atoms) for
-			i in 1:num_cfg
-		]
-
-		# Recover coefficients via OLS (torque-only weight).
-		weight = 1.0
-		j0_hat, jphi_hat = Optimize._fit_sce_model_internal(
-			design_E,
-			design_T,
-			observed_energy_list,
-			observed_torque_list,
-			Optimize.OLS(),
-			weight,
+		synth_dataset = SCEDataset(
+			basis,
+			dataset.spinconfigs,
+			dataset.X_E,
+			dataset.X_T,
+			y_E_synth,
+			y_T_synth,
 		)
 
-		@test isapprox(j0_hat, j0_true; rtol = 1e-8, atol = 1e-8)
-		@test isapprox(jphi_hat, jphi_true; rtol = 1e-8, atol = 1e-8)
+		# Recover the coefficients via OLS (torque-only weight = 1.0).
+		f = fit(SCEFit, synth_dataset, OLS(); torque_weight = 1.0)
+		@test isapprox(intercept(f), j0_true; rtol = 1e-8, atol = 1e-8)
+		@test isapprox(coef(f), jphi_true; rtol = 1e-8, atol = 1e-8)
 	end
 end

@@ -20,7 +20,7 @@ using ..Basis
 using ..SALCBases
 using ..SpinConfigs
 
-export Optimizer, SCEModel, fit_sce_model, predict_energy, AbstractEstimator, OLS, Ridge
+export AbstractEstimator, OLS, Ridge
 
 """
 	_cluster_scaling(n_sites::Integer) -> Float64
@@ -31,8 +31,8 @@ Return the SCE basis normalization factor `(4π)^(n_sites/2)` for an
 coefficients `Jφ` are in the input energy unit (typically eV).
 
 See the Magesty.jl technical notes for the derivation. This helper is
-internal; callers in this module and `EnergyTorque` invoke it directly
-as `_cluster_scaling(n_C)` to keep the scaling convention in one place.
+internal; callers in this module invoke it directly as
+`_cluster_scaling(n_C)` to keep the scaling convention in one place.
 """
 @inline _cluster_scaling(n_sites::Integer)::Float64 = (4π)^(n_sites / 2)
 
@@ -72,233 +72,6 @@ end
 Ridge(; lambda::Real = 0.0) = Ridge(Float64(lambda))
 
 # `alpha` is a deprecated remnant of the old ElasticNet(alpha, lambda) API.
-function _default_estimator(alpha::Real, lambda::Real)
-	if alpha != 0.0
-		@warn "alpha is deprecated and has no effect; pass `estimator = Ridge(lambda = ...)` explicitly" maxlog = 1
-	end
-	return Ridge(lambda = lambda)
-end
-
-"""
-	SCEModel
-
-A fitted SCE (Spin Cluster Expansion) model containing the coefficients and basis
-information required to make energy and torque predictions on new spin configurations.
-
-# Fields
-- `reference_energy::Float64`: Reference energy (bias term j0) in eV
-- `SCE::Vector{Float64}`: SCE coefficients (jphi)
-- `basisset::SALCBasis`: Basis function set used during fitting
-- `symmetry::Symmetry`: Symmetry information of the crystal structure
-- `num_atoms::Int`: Number of atoms in the supercell
-
-# Examples
-```julia
-# Construct a hypothetical model directly (e.g., for testing)
-model = SCEModel(0.0, [J], system.basisset, system.symmetry, system.structure.supercell.num_atoms)
-E = predict_energy(model, spin_directions)
-```
-"""
-struct SCEModel
-	reference_energy::Float64
-	SCE::Vector{Float64}
-	basisset::SALCBasis
-	symmetry::Symmetry
-	num_atoms::Int
-end
-
-"""
-	Optimizer
-
-Container for a fitted SCE problem: the design matrices, the fitted
-`(j0, jphi)`, basic metrics, and the per-configuration predictions.
-
-The outer constructor builds the design matrices from the supplied
-`structure`/`symmetry`/`basisset`, runs the regression via
-`fit_sce_model_*` helpers, and computes RMSE / R² statistics for both
-energy and torque blocks.
-
-# Fields
-- `spinconfig_list::Vector{SpinConfig}`: Training spin configurations.
-- `reference_energy::Float64`: Bias term `j0` (eV).
-- `SCE::Vector{Float64}`: SCE coefficients `jphi`.
-- `metrics::Dict{Symbol, Any}`: RMSE / R² for energy and torque.
-- `predicted_energy_list::Vector{Float64}`: Per-config predicted energy.
-- `predicted_torque_list::Vector{Matrix{Float64}}`: Per-config `3×n_atoms` predicted torque.
-- `design_matrix_energy::Matrix{Float64}`: Energy design matrix.
-- `design_matrix_torque::Matrix{Float64}`: Flattened torque design matrix.
-
-# Constructor
-
-    Optimizer(structure, symmetry, basisset, alpha, lambda, weight,
-              spinconfig_list; verbosity=true, estimator=...)
-
-# Arguments
-- `structure::Structure`, `symmetry::Symmetry`, `basisset::SALCBasis`:
-  problem context used to build the design matrices.
-- `alpha::Real`: Deprecated and ignored; kept only to preserve the
-  legacy positional signature. A non-zero value emits a one-shot
-  `@warn` and is then dropped.
-- `lambda::Real`: L2 regularization strength used when `estimator` is
-  not passed explicitly (the default `estimator` is
-  `Ridge(lambda=lambda)`).
-- `weight::Real`: Trade-off between energy `(1 - weight)` and torque
-  `weight`.
-- `spinconfig_list`: Training configurations.
-
-# Keyword arguments
-- `verbosity::Bool = true`: Print progress to stdout.
-- `estimator::AbstractEstimator`: Regression method. Defaults to
-  `Ridge(lambda=lambda)` via `_default_estimator(alpha, lambda)`. When
-  passed explicitly, the positional `alpha` and `lambda` arguments are
-  ignored — `alpha` is consulted only to emit the deprecation warning.
-"""
-struct Optimizer
-	spinconfig_list::Vector{SpinConfig}
-	reference_energy::Float64
-	SCE::Vector{Float64}
-	metrics::Dict{Symbol, Any}
-	predicted_energy_list::Vector{Float64}
-	predicted_torque_list::Vector{Matrix{Float64}}
-	design_matrix_energy::Matrix{Float64}
-	design_matrix_torque::Matrix{Float64}
-
-	function Optimizer(
-		structure::Structure,
-		symmetry::Symmetry,
-		basisset::SALCBasis,
-		alpha::Real,
-		lambda::Real,
-		weight::Real,
-		spinconfig_list::AbstractVector{SpinConfig},
-		;
-		verbosity::Bool = true,
-		estimator::AbstractEstimator = _default_estimator(alpha, lambda),
-	)
-		# Start timing
-		start_time = time_ns()
-
-		if verbosity
-			println("""
-
-			OPTIMIZATION
-			============
-
-			""")
-		end
-
-		# construct design matrix for energy and torque
-		# salc_list is Vector{Vector{...}} where each inner vector represents one key group
-		# design_matrix should have width = length(salc_list) + 1 (one column per key group + bias)
-		if verbosity
-			println("Constructing design matrix for energy...")
-		end
-		design_matrix_energy = build_design_matrix_energy(
-			basisset.salc_list,
-			spinconfig_list,
-			symmetry,
-		)
-		if verbosity
-			println("Constructing design matrix for torque...")
-		end
-
-		design_matrix_torque = build_design_matrix_torque(
-			basisset.salc_list,
-			spinconfig_list,
-			structure.supercell.num_atoms,
-			symmetry,
-		)
-
-		# construct observed_energy_list and observed_torque_list
-		if verbosity
-			println("Constructing observed data for energy and torque...")
-		end
-		observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_list]
-		observed_torque_list = [spinconfig.torques for spinconfig in spinconfig_list]
-
-		if verbosity
-			println("Fitting SCE coefficients...\n")
-		end
-		j0, jphi = _fit_sce_model_internal(
-			design_matrix_energy,
-			design_matrix_torque,
-			observed_energy_list,
-			observed_torque_list,
-			estimator,
-			weight,
-		)
-
-		predicted_energy_list = design_matrix_energy[:, 2:end] * jphi .+ j0
-		predicted_torque_flattened_list::Vector{Float64} = design_matrix_torque * jphi
-
-		# Reshape predicted_torque_flattened_list to a vector of matrices
-		block_size = 3 * structure.supercell.num_atoms
-		num_configs = length(spinconfig_list)
-		predicted_torque_list::Vector{Matrix{Float64}} = [
-			reshape(
-				predicted_torque_flattened_list[((i-1)*block_size+1):(i*block_size)],
-				3,
-				structure.supercell.num_atoms,
-			)
-			for i = 1:num_configs
-		]
-
-		metrics = calc_metrics(
-			observed_energy_list,
-			predicted_energy_list,
-			observed_torque_list,
-			predicted_torque_list,
-		)
-
-		if verbosity
-			print_sce_coeffs(j0, jphi)
-			print_metrics(metrics)
-
-			println(@sprintf(
-				"""
-
-				Time Elapsed: %.6f sec.
-				""",
-				(time_ns() - start_time) / 1e9,
-			))
-		end
-
-		return new(
-			spinconfig_list,
-			j0,
-			jphi,
-			metrics,
-			predicted_energy_list,
-			predicted_torque_list,
-			design_matrix_energy,
-			design_matrix_torque,
-		)
-	end
-
-	# Internal constructor for creating Optimizer from fitted coefficients
-	function Optimizer(
-		spinconfig_list::AbstractVector{SpinConfig},
-		j0::Float64,
-		jphi::Vector{Float64},
-		metrics::Dict{Symbol, Any},
-		predicted_energy_list::Vector{Float64},
-		predicted_torque_list::Vector{Matrix{Float64}},
-		design_matrix_energy::Matrix{Float64},
-		design_matrix_torque::Matrix{Float64},
-	)
-		return new(
-			spinconfig_list,
-			j0,
-			jphi,
-			metrics,
-			predicted_energy_list,
-			predicted_torque_list,
-			design_matrix_energy,
-			design_matrix_torque,
-		)
-	end
-end
-
 @inline function _atoms_hash_key(atoms_sorted::AbstractVector{Int})::UInt
 	h = UInt(0x9e3779b97f4a7c15)
 	@inbounds for a in atoms_sorted
@@ -307,53 +80,6 @@ end
 	end
 	return h ⊻ UInt(length(atoms_sorted))
 end
-
-function Optimizer(
-	structure::Structure,
-	symmetry::Symmetry,
-	basisset::SALCBasis,
-	alpha::Real,
-	lambda::Real,
-	weight::Real,
-	datafile::AbstractString,
-	;
-	verbosity::Bool = true,
-)
-	# read datafile
-	spinconfig_list = SpinConfigs.read_embset(datafile)
-
-	return Optimizer(
-		structure,
-		symmetry,
-		basisset,
-		alpha,
-		lambda,
-		weight,
-		spinconfig_list,
-		verbosity = verbosity,
-	)
-end
-
-function Optimizer(
-	structure::Structure,
-	symmetry::Symmetry,
-	basisset::SALCBasis,
-	config::Config4Optimize,
-	;
-	verbosity::Bool = true,
-)
-	return Optimizer(
-		structure,
-		symmetry,
-		basisset,
-		config.alpha,
-		config.lambda,
-		config.weight,
-		config.datafile,
-		verbosity = verbosity,
-	)
-end
-
 
 function build_design_matrix_energy(
 	salc_list::AbstractVector{Vector{Basis.CoupledBasis_with_coefficient}},
@@ -715,182 +441,21 @@ function calc_∇ₑu(
 	return Vector{Float64}(result)
 end
 
-"""
-	fit_sce_model(system, spinconfig_list, estimator, weight)
-
-Fit SCE coefficients using the specified estimator.
-
-# Description
-- Builds design matrices internally from the System and spin configurations.
-- Dispatches to the appropriate fitting method based on the estimator type.
-- Supports OLS and Ridge estimators.
-- User-facing function for fitting SCE coefficients.
-- Returns an `Optimizer` instance.
-
-# Arguments
-- `system`: System instance containing structure, symmetry, cluster, and basis set
-- `spinconfig_list`: Vector of spin configurations
-- `estimator::AbstractEstimator`: Estimator to use (default: OLS())
-- `weight::Real`: Trade-off between energy (1-weight) and torque (weight). Default: 0.5
-- `verbosity::Bool`: Whether to print detailed information (default: false)
-
-# Returns
-- `Optimizer`: Optimizer instance containing fitted coefficients and metrics
-
-# Examples
-```julia
-# Using OLS with default weight (0.5)
-optimizer = fit_sce_model(system, spinconfig_list)
-
-# Using Ridge with custom regularization and weight
-estimator = Ridge(lambda=0.1)
-optimizer = fit_sce_model(system, spinconfig_list, estimator, 0.7)
-```
-"""
-function fit_sce_model(
-	system,
-	spinconfig_list::AbstractVector{SpinConfig},
-	estimator::AbstractEstimator = OLS(),
-	weight::Real = 0.5,
-	;
-	verbosity::Bool = false,
-)
-	# Extract components from System
-	structure = system.structure
-	symmetry = system.symmetry
-	basisset = system.basisset
-
-	# Start timing
-	start_time = time_ns()
-
-	if verbosity
-		println("""
-
-		FITTING SCE COEFFICIENTS
-		========================
-
-		""")
-		println("Constructing design matrix for energy...")
-	end
-
-	# Construct design matrices
-	design_matrix_energy = build_design_matrix_energy(
-		basisset.salc_list,
-		spinconfig_list,
-		symmetry,
-	)
-
-	if verbosity
-		println("Constructing design matrix for torque...")
-	end
-
-	design_matrix_torque = build_design_matrix_torque(
-		basisset.salc_list,
-		spinconfig_list,
-		structure.supercell.num_atoms,
-		symmetry,
-	)
-
-	# Construct observed data
-	if verbosity
-		println("Constructing observed data for energy and torque...")
-	end
-	observed_energy_list = [spinconfig.energy for spinconfig in spinconfig_list]
-	observed_torque_list = [spinconfig.torques for spinconfig in spinconfig_list]
-
-	# Fit coefficients
-	if verbosity
-		println("Fitting SCE coefficients...\n")
-	end
-	j0, jphi = _fit_sce_model_internal(
-		design_matrix_energy,
-		design_matrix_torque,
-		observed_energy_list,
-		observed_torque_list,
-		estimator,
-		weight,
-	)
-
-	# Calculate predicted values
-	predicted_energy_list = design_matrix_energy[:, 2:end] * jphi .+ j0
-	predicted_torque_flattened_list::Vector{Float64} = design_matrix_torque * jphi
-
-	# Reshape predicted_torque_flattened_list to a vector of matrices
-	block_size = 3 * structure.supercell.num_atoms
-	num_configs = length(spinconfig_list)
-	predicted_torque_list::Vector{Matrix{Float64}} = [
-		reshape(
-			predicted_torque_flattened_list[((i-1)*block_size+1):(i*block_size)],
-			3,
-			structure.supercell.num_atoms,
-		)
-		for i = 1:num_configs
-	]
-
-	# Calculate metrics
-	metrics = calc_metrics(
-		observed_energy_list,
-		predicted_energy_list,
-		observed_torque_list,
-		predicted_torque_list,
-	)
-
-	if verbosity
-		print_sce_coeffs(j0, jphi)
-		print_metrics(metrics)
-
-		println(@sprintf(
-			"""
-
-			Time Elapsed: %.6f sec.
-			""",
-			(time_ns() - start_time) / 1e9,
-		))
-	end
-
-	# Return Optimizer
-	return Optimizer(
-		spinconfig_list,
-		j0,
-		jphi,
-		metrics,
-		predicted_energy_list,
-		predicted_torque_list,
-		design_matrix_energy,
-		design_matrix_torque,
-	)
-end
-
 
 """
-	predict_energy(model::SCEModel, spin_directions::AbstractMatrix{<:Real}) -> Float64
+	_predict_energy(j0, jphi, salc_list, symmetry, spin_directions) -> Float64
 
-Predict the energy of a spin configuration using an SCE model.
-
-# Arguments
-- `model::SCEModel`: SCE model containing coefficients and basis information.
-- `spin_directions::AbstractMatrix{<:Real}`: `3×N` matrix of spin unit vectors,
-  where `N` is the number of atoms in the supercell.
-
-# Returns
-- `Float64`: Predicted energy in eV (`j0 + Σ jphi · ϕ(spin)`).
-
-# Examples
-```julia
-sc = SpinCluster("input.toml")
-model = SCEModel(get_j0(sc), get_jphi(sc), sc.basisset, sc.symmetry,
-                 sc.structure.supercell.num_atoms)
-
-num_atoms = sc.structure.supercell.num_atoms
-fm = zeros(3, num_atoms); fm[3, :] .= 1.0
-E_fm = predict_energy(model, fm)
-```
+Internal SCE energy evaluation from raw pieces. The `SCEModel`-typed
+`predict_energy` method (in `Magesty`) unpacks a model and delegates
+here. Returns `j0 + Σ jphi · ϕ(spin)` in eV.
 """
-function predict_energy(
-	model::SCEModel,
+function _predict_energy(
+	j0::Float64,
+	jphi::AbstractVector{<:Real},
+	salc_list::AbstractVector{Vector{Basis.CoupledBasis_with_coefficient}},
+	symmetry::Symmetry,
 	spin_directions::AbstractMatrix{<:Real},
 )::Float64
-	salc_list = model.basisset.salc_list
 	num_salcs = length(salc_list)
 	design_vector = Vector{Float64}(undef, num_salcs)
 
@@ -900,95 +465,69 @@ function predict_energy(
 		scaling_factor = _cluster_scaling(n_C)
 		group_value = 0.0
 		for cbc in key_group
-			group_value += design_matrix_energy_element(cbc, spin_directions, model.symmetry)
+			group_value += design_matrix_energy_element(cbc, spin_directions, symmetry)
 		end
 		design_vector[i] = group_value * scaling_factor
 	end
 
-	return dot(design_vector, model.SCE) + model.reference_energy
-end
-
-
-# Internal function that returns tuple (used by Optimizer constructor and fit_sce_model)
-function _fit_sce_model_internal(
-	design_matrix_energy::AbstractMatrix{<:Real},
-	design_matrix_torque::AbstractMatrix{<:Real},
-	observed_energy_list::AbstractVector{<:Real},
-	observed_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
-	estimator::AbstractEstimator,
-	weight::Real,
-)
-	X, y, bias_col = assemble_weighted_problem(
-		design_matrix_energy,
-		design_matrix_torque,
-		observed_energy_list,
-		observed_torque_list,
-		weight,
-	)
-	j_values = solve_coefficients(estimator, X, y; bias_col = bias_col)
-	return extract_j0_jphi(j_values, design_matrix_energy, observed_energy_list)
+	return dot(design_vector, jphi) + j0
 end
 
 """
-	fit_sce_model_ols(design_matrix_energy, design_matrix_torque, observed_energy_list, observed_torque_list, weight)
+	_predict_torque(jphi, salc_list, symmetry, spin_directions) -> Matrix{Float64}
 
-Fit SCE coefficients using Ordinary Least Squares (no regularization).
+Internal SCE per-atom torque evaluation from raw pieces. The
+`SCEModel`-typed `predict_torque` method (in `Magesty`) unpacks a model
+and delegates here. Returns a `3×N` torque matrix (eV); column `i` is
+the torque on atom `i`. The sign convention matches
+`build_design_matrix_torque` (`cross(spin, ∇ₑu)`).
 
-# Arguments
-- `weight::Real`: Trade-off between energy (1-weight) and torque (weight)
-
-# Returns
-- `(j0::Float64, jphi::Vector{Float64})`: Bias and coefficients
+Throws `ArgumentError` if `spin_directions` is not a `3×N` matrix.
 """
-function fit_sce_model_ols(
-	design_matrix_energy::AbstractMatrix{<:Real},
-	design_matrix_torque::AbstractMatrix{<:Real},
-	observed_energy_list::AbstractVector{<:Real},
-	observed_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
-	weight::Real,
-)
-	return _fit_sce_model_internal(
-		design_matrix_energy,
-		design_matrix_torque,
-		observed_energy_list,
-		observed_torque_list,
-		OLS(),
-		weight,
-	)
+function _predict_torque(
+	jphi::AbstractVector{<:Real},
+	salc_list::AbstractVector{Vector{Basis.CoupledBasis_with_coefficient}},
+	symmetry::Symmetry,
+	spin_directions::AbstractMatrix{<:Real},
+)::Matrix{Float64}
+	if size(spin_directions, 1) != 3
+		throw(ArgumentError("spin_directions must be a 3xN matrix"))
+	end
+	num_atoms = size(spin_directions, 2)
+	torque = zeros(Float64, 3, num_atoms)
+	grad_u_buf = MVector{3, Float64}(0.0, 0.0, 0.0)
+
+	@inbounds for iatom = 1:num_atoms
+		dir_iatom = SVector{3, Float64}(@view spin_directions[:, iatom])
+		for (salc_idx, key_group) in enumerate(salc_list)
+			group_grad = MVector{3, Float64}(0.0, 0.0, 0.0)
+			for cbc in key_group
+				calc_∇ₑu!(grad_u_buf, cbc, iatom, spin_directions, symmetry)
+				group_grad .+= grad_u_buf
+			end
+			n_C = length(key_group[1].atoms)
+			scaling_factor = _cluster_scaling(n_C)
+			torque[:, iatom] .+=
+				cross(dir_iatom, SVector{3, Float64}(group_grad)) .*
+				scaling_factor .* jphi[salc_idx]
+		end
+	end
+
+	return torque
 end
 
-"""
-	fit_sce_model_ridge(design_matrix_energy, design_matrix_torque, observed_energy_list, observed_torque_list, lambda, weight)
-
-Fit SCE coefficients using L2-regularized (ridge) regression.
-
-# Returns
-- `(j0::Float64, jphi::Vector{Float64})`: Bias and coefficients
-"""
-function fit_sce_model_ridge(
-	design_matrix_energy::AbstractMatrix{<:Real},
-	design_matrix_torque::AbstractMatrix{<:Real},
-	observed_energy_list::AbstractVector{<:Real},
-	observed_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
-	lambda::Real,
-	weight::Real,
-)
-	return _fit_sce_model_internal(
-		design_matrix_energy,
-		design_matrix_torque,
-		observed_energy_list,
-		observed_torque_list,
-		Ridge(lambda = lambda),
-		weight,
-	)
-end
 
 """
 	assemble_weighted_problem(design_matrix_energy, design_matrix_torque,
-	                          observed_energy_list, observed_torque_list, weight)
+	                          observed_energy_list, observed_torque, weight)
 	    -> (X::Matrix{Float64}, y::Vector{Float64}, bias_col::Int)
 
 Build the augmented `(X, y)` linear system that all estimators solve.
+
+`observed_torque` may be passed either as a vector of `3×n_atoms`
+matrices (one per config) or as the already-flattened
+`3 * n_atoms * n_config` vector; the matrix form is flattened internally
+and both produce identical output.
 
 Energy rows are scaled by `√((1 - weight) / n_E)` and torque rows
 (after flattening) by `√(weight / n_T)`, where `n_E` is the number of
@@ -1007,7 +546,8 @@ two blocks share `bias_col = 1`.
 - `design_matrix_energy`: Energy design matrix (bias column at column 1).
 - `design_matrix_torque`: Torque design matrix (no bias column).
 - `observed_energy_list`: Observed energies.
-- `observed_torque_list`: Observed torques as `3×n_atoms` matrices per config.
+- `observed_torque`: Observed torques, either as `3×n_atoms` matrices per
+  config or as the flattened `3 * n_atoms * n_config` vector.
 - `weight`: Trade-off; energy weight = `1 - weight`, torque weight = `weight`.
 
 # Returns
@@ -1022,12 +562,25 @@ function assemble_weighted_problem(
 	observed_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
 	weight::Real,
 )
+	return assemble_weighted_problem(
+		design_matrix_energy,
+		design_matrix_torque,
+		observed_energy_list,
+		convert(Vector{Float64}, vcat(vec.(observed_torque_list)...)),
+		weight,
+	)
+end
+
+function assemble_weighted_problem(
+	design_matrix_energy::AbstractMatrix{<:Real},
+	design_matrix_torque::AbstractMatrix{<:Real},
+	observed_energy_list::AbstractVector{<:Real},
+	observed_torque_flattened::AbstractVector{<:Real},
+	weight::Real,
+)
 	# weight parameters
 	w_e = 1 - weight
 	w_m = weight
-
-	# Flatten observed torque
-	observed_torque_flattened = vcat(vec.(observed_torque_list)...)
 
 	# Per-sample MSE normalization. The objective we want to minimize is
 	#   L = (1 - weight) * MSE_energy + weight * MSE_torque
@@ -1182,48 +735,14 @@ function calc_metrics(
 	observed_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
 	predicted_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
 )::Dict{Symbol, Any}
-	observed_torque_flattened_list = vcat(vec.(observed_torque_list)...)
-	predicted_torque_flattened_list = vcat(vec.(predicted_torque_list)...)
+	observed_torque_flattened_list::Vector{Float64} = vcat(vec.(observed_torque_list)...)
+	predicted_torque_flattened_list::Vector{Float64} = vcat(vec.(predicted_torque_list)...)
 	return Dict(
 		:rmse_energy => calc_rmse(observed_energy_list, predicted_energy_list),
 		:rmse_torque => calc_rmse(observed_torque_flattened_list, predicted_torque_flattened_list),
 		:r2score_energy => calc_r2score(observed_energy_list, predicted_energy_list),
 		:r2score_torque =>
 			calc_r2score(observed_torque_flattened_list, predicted_torque_flattened_list),
-	)
-end
-
-function print_sce_coeffs(reference_energy::Float64, sce_coeffs::Vector{Float64})
-	ndigit = ndigits(length(sce_coeffs))
-	println("	SCE coefficients:")
-	println(@sprintf("	  E_ref: % .10f eV", reference_energy))
-	for (i, sce_coeff) in enumerate(sce_coeffs)
-		println(@sprintf("    %*d: % .10f", ndigit, i, sce_coeff))
-	end
-	println()
-end
-
-function print_metrics(
-	metrics::Dict{Symbol, Any},
-)
-	println(
-		@sprintf(
-			"""
-			Root Mean Square Error (RMSE)
-			-----------------------------
-			RMSE for energy: %.6f meV
-			RMSE for magnetic field: %.6f meV
-
-			R^2 Score
-			---------
-			R^2 for energy: %.6f
-			R^2 for magnetic field: %.6f
-			""",
-			metrics[:rmse_energy] * 1000,
-			metrics[:rmse_torque] * 1000,
-			metrics[:r2score_energy],
-			metrics[:r2score_torque],
-		)
 	)
 end
 

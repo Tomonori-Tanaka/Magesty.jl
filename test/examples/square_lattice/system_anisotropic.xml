@@ -16,7 +16,7 @@
       <pos atom_index="3" element="A">0.000000000000 0.500000000000 0.000000000000</pos>
       <pos atom_index="4" element="A">0.500000000000 0.500000000000 0.000000000000</pos>
     </Positions>
-    <Symmetry>
+    <Symmetry tolerance_sym="1.0e-5">
       <NumberOfTranslations>4</NumberOfTranslations>
       <Translations>
         <map trans="1" atom="1">1</map>
@@ -25,7 +25,7 @@
         <map trans="4" atom="1">4</map>
       </Translations>
     </Symmetry>
-    <SCEBasis num_salc="5">
+    <SCEBasis isotropy="false" num_salc="5">
       <SALC index="1" num_basis="1" body="2" Lf="0">
         <basis multiplicity="4" atoms="1 4" ls="1 1" Lseq="" index="1">1.0</basis>
       </SALC>
@@ -37,12 +37,12 @@
         <basis multiplicity="2" atoms="1 3" ls="1 1" Lseq="" index="2">0.7071067811865477</basis>
       </SALC>
       <SALC index="4" num_basis="2" body="2" Lf="2">
-        <basis multiplicity="2" atoms="1 2" ls="1 1" Lseq="" index="1">-0.0 -0.0 0.5075547089722874 -0.0 0.4923293789731187</basis>
+        <basis multiplicity="2" atoms="1 2" ls="1 1" Lseq="" index="1">0.0 0.0 0.5075547089722874 0.0 0.4923293789731187</basis>
         <basis multiplicity="2" atoms="1 3" ls="1 1" Lseq="" index="2">0.0 0.0 0.5075547089722874 0.0 -0.4923293789731187</basis>
       </SALC>
       <SALC index="5" num_basis="2" body="2" Lf="2">
-        <basis multiplicity="2" atoms="1 2" ls="1 1" Lseq="" index="1">-0.0 -0.0 0.4923293789731187 -0.0 -0.5075547089722874</basis>
-        <basis multiplicity="2" atoms="1 3" ls="1 1" Lseq="" index="2">-0.0 0.0 0.4923293789731187 0.0 0.5075547089722874</basis>
+        <basis multiplicity="2" atoms="1 2" ls="1 1" Lseq="" index="1">0.0 0.0 0.4923293789731187 0.0 -0.5075547089722874</basis>
+        <basis multiplicity="2" atoms="1 3" ls="1 1" Lseq="" index="2">0.0 0.0 0.4923293789731187 0.0 0.5075547089722874</basis>
       </SALC>
     </SCEBasis>
     <AngularMomentumCouplings num_couplings="3">
