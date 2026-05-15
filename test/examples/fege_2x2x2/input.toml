@@ -21,12 +21,6 @@ cutoff."Fe-Ge" = -1
 cutoff."Ge-Ge" = 0
 lsum = 2
 
-[regression]
-datafile = "EMBSET"
-weight = 1.0
-alpha = 0
-lambda = 0.0
-
 [structure]
 lattice = [
   [9.378, 0.0, 0.0],

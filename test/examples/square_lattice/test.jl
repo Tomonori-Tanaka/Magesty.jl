@@ -18,9 +18,8 @@ using Magesty
 
 	@testset "Hypothetical SCE model (isotropic)" begin
 		input = TOML.parse(open(joinpath(@__DIR__, "input_isotropic.toml"), "r"))
-		system = System(input, verbosity = false)
 		basis = SCEBasis(input; verbosity = false)
-		Magesty.write_xml(system, joinpath(@__DIR__, "system_isotropic.xml"))
+		save(basis, joinpath(@__DIR__, "system_isotropic.xml"))
 		# Heisenberg model: E = Σ_{<ij>} Jij * Si·Sj, Jij = -1.0 eV (ferromagnetic) for all pairs.
 		#
 		# Square lattice (4 atoms, PBC): 8 NN pairs + 8 diagonal (NNN) pairs within the supercell.
@@ -33,9 +32,9 @@ using Magesty
 		# where the √3 comes from the l=1 spherical harmonics coupling:
 		#   (4π) × (1/√3) × (3/4π) = √3  per pair.
 		J = -1.0
-		# Read SALC coefficients from system to be robust against ordering changes.
+		# Read SALC coefficients from the basis to be robust against ordering changes.
 		# When a SALC has multiple bases, the norm of the first basis's coefficient vector is used.
-		salc_coeffs = [norm(salc[1].coefficient) for salc in system.basisset.salc_list]
+		salc_coeffs = [norm(salc[1].coefficient) for salc in basis.salcbasis.salc_list]
 		jphi_list = [J / (c * sqrt(3)) for c in salc_coeffs]
 		model = SCEModel(basis, 0.0, jphi_list)
 
@@ -76,21 +75,15 @@ using Magesty
 			0.0 0.0 0.0 0.0]
 
 		input = TOML.parse(open(joinpath(@__DIR__, "input_anisotropic.toml"), "r"))
-		system = System(input, verbosity = false)
-		Magesty.write_xml(system, joinpath(@__DIR__, "system_anisotropic.xml"))
+		basis = SCEBasis(input; verbosity = false)
+		save(basis, joinpath(@__DIR__, "system_anisotropic.xml"))
 
 		# Only Lf=2 SALCs contribute to the symmetric anisotropic exchange; set others to zero.
 		# Use norm of the coefficient vector (length = 2*Lf+1) to get the scalar SALC weight.
-		salc_coeffs = [salc[1].Lf == 2 ? norm(salc[1].coefficient) : 0.0 for salc in system.basisset.salc_list]
+		salc_coeffs = [salc[1].Lf == 2 ? norm(salc[1].coefficient) : 0.0 for salc in basis.salcbasis.salc_list]
 
 		# TODO: Add test for SCEModel
-		# model = SCEModel(
-		# 	0.0, # reference_energy
-		# 	jphi_list,
-		# 	system.basisset,
-		# 	system.symmetry,
-		# 	system.structure.supercell.num_atoms,
-		# )
+		# model = SCEModel(basis, 0.0, jphi_list)
 
 
 	end
