@@ -28,7 +28,7 @@
       <pos atom_index="15" element="Pt">0.750000000000 0.750000000000 0.250000000000</pos>
       <pos atom_index="16" element="Pt">0.750000000000 0.750000000000 0.750000000000</pos>
     </Positions>
-    <Symmetry>
+    <Symmetry tolerance_sym="1.0e-5">
       <NumberOfTranslations>8</NumberOfTranslations>
       <Translations>
         <map trans="1" atom="1">1</map>
@@ -49,7 +49,7 @@
         <map trans="8" atom="9">16</map>
       </Translations>
     </Symmetry>
-    <SCEBasis num_salc="31">
+    <SCEBasis isotropy="false" num_salc="31">
       <SALC index="1" num_basis="1" body="1" Lf="2">
         <basis multiplicity="1" atoms="1" ls="2" Lseq="" index="1">0.0 -0.0 1.0 -0.0 0.0</basis>
       </SALC>

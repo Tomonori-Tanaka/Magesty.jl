@@ -82,6 +82,7 @@ export predict_energy, predict_torque
 export fit, coef, intercept, nobs, dof
 export r2_energy, r2_torque, rss_energy, rss_torque
 export residuals_energy, residuals_torque, rmse_energy, rmse_torque
+export save, load
 export build_sce_basis, build_sce_basis_from_xml
 export write_xml
 
@@ -262,11 +263,16 @@ computed inside the constructor to build `salcbasis`, then discarded.
 - `structure::Structure`: Crystal structure information.
 - `symmetry::Symmetry`: Symmetry operations.
 - `salcbasis::SALCBasis`: SALC basis functions.
+- `isotropy::Bool`: Whether the basis was built with the isotropic
+  restriction (only `Lf = 0` terms). Provenance metadata: it is not
+  derivable from `salcbasis` alone without inspecting every basis
+  function.
 """
 struct SCEBasis
 	structure::Structure
 	symmetry::Symmetry
 	salcbasis::SALCBasis
+	isotropy::Bool
 end
 
 """
@@ -293,7 +299,7 @@ function SCEBasis(
 	salcbasis::SALCBasis =
 		SALCBasis(structure, symmetry, cluster, config, verbosity = verbosity)
 	# `cluster` is a construction step only; it is not stored in SCEBasis.
-	return SCEBasis(structure, symmetry, salcbasis)
+	return SCEBasis(structure, symmetry, salcbasis, config.isotropy)
 end
 
 function SCEBasis(toml_path::AbstractString; verbosity::Bool = true)
@@ -899,6 +905,97 @@ function rmse_torque(predictor::Union{SCEModel, SCEFit}, data::SCEEvalData)::Flo
 	return Optimize.calc_rmse(observed, predicted)
 end
 rmse_torque(f::SCEFit)::Float64 = rmse_torque(f, f.dataset)
+
+
+# --- save / load --------------------------------------------------------
+
+function _require_xml_extension(path::AbstractString)
+	endswith(lowercase(path), ".xml") || throw(ArgumentError(
+		"save / load handle XML only; the path must end in '.xml', got: $path"))
+	return nothing
+end
+
+"""
+	save(obj::SCEBasis, path::AbstractString)
+	save(obj::SCEModel, path::AbstractString)
+
+Write `obj` to an XML file at `path`. An `SCEBasis` is written as
+structure, symmetry parameters, and SALC basis; an `SCEModel` adds the
+fitted reference energy and SCE coefficients in a `<JPhi>` block.
+
+The path must end in `.xml`; any other extension is an error. Use
+`load` to read the file back.
+
+# Arguments
+- `obj::Union{SCEBasis, SCEModel}`: The object to serialize.
+- `path::AbstractString`: Output file path; must end in `.xml`.
+
+# Throws
+- `ArgumentError` if `path` does not end in `.xml`.
+"""
+function save(obj::SCEBasis, path::AbstractString)
+	_require_xml_extension(path)
+	XMLIO.write_basis_xml(
+		obj.structure,
+		obj.symmetry,
+		obj.salcbasis,
+		obj.isotropy,
+		path,
+	)
+	return nothing
+end
+
+function save(obj::SCEModel, path::AbstractString)
+	_require_xml_extension(path)
+	XMLIO.write_model_xml(
+		obj.basis.structure,
+		obj.basis.symmetry,
+		obj.basis.salcbasis,
+		obj.basis.isotropy,
+		obj.j0,
+		obj.jphi,
+		path,
+	)
+	return nothing
+end
+
+"""
+	load(::Type{SCEBasis}, path::AbstractString) -> SCEBasis
+	load(::Type{SCEModel}, path::AbstractString) -> SCEModel
+
+Read an `SCEBasis` or `SCEModel` from the XML file at `path`. `structure`
+is parsed from the file, `symmetry` is recomputed from `structure` and
+the stored `tolerance_sym`, and the SALC basis is reconstructed from the
+stored SALC data (the expensive SALC computation is skipped).
+
+`load(SCEModel, path)` additionally reads the `<JPhi>` block;
+`load(SCEBasis, path)` accepts an `SCEModel` XML as well and simply
+ignores the `<JPhi>` block.
+
+The path must end in `.xml`; any other extension is an error.
+
+# Arguments
+- `T::Type`: `SCEBasis` or `SCEModel`.
+- `path::AbstractString`: Input file path; must end in `.xml`.
+
+# Throws
+- `ArgumentError` if `path` does not end in `.xml`, if a required schema
+  attribute is missing, or (for `SCEModel`) if the `<JPhi>` block is
+  absent.
+"""
+function load(::Type{SCEBasis}, path::AbstractString)::SCEBasis
+	_require_xml_extension(path)
+	structure, symmetry, salcbasis, isotropy =
+		XMLIO.read_basis_components_from_xml(path)
+	return SCEBasis(structure, symmetry, salcbasis, isotropy)
+end
+
+function load(::Type{SCEModel}, path::AbstractString)::SCEModel
+	_require_xml_extension(path)
+	structure, symmetry, salcbasis, isotropy, j0, jphi =
+		XMLIO.read_model_components_from_xml(path)
+	return SCEModel(SCEBasis(structure, symmetry, salcbasis, isotropy), j0, jphi)
+end
 
 
 """
