@@ -14,7 +14,7 @@
 
 ## ファイル命名規約
 
-- 英語の kebab-case（`sce-public-api.md`、`estimator-dispatch.md` のように）。
+- 英語の kebab-case（`<topic>.md` または `<topic>-<aspect>.md`）。
 - 日付プレフィックスは付けない（トピックで引きやすくするため）。タイムスタンプはファイル内の Status 行で管理。
 - 1 ファイル = 1 トピック（設計案 1 つ、または関連する調査群）。
 - 「調査・ベンチマーク・採用判断」のような事後参照系は `investigations/` サブディレクトリへ。

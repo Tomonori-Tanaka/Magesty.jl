@@ -4,10 +4,7 @@ using LinearAlgebra
 using WignerSymbols
 using OffsetArrays
 
-mkpath("./result")
-io = open("./result/AngularMomentumCoupling.md", "w")
-try
-	@testset "AngularMomentumCoupling" begin
+@testset "AngularMomentumCoupling" begin
 	@testset "mrange" begin
 		@test mrange(0) == [0]
 		@test mrange(1) == [-1, 0, 1]
@@ -333,7 +330,4 @@ try
 
 
 
-	end
-finally
-	close(io)
 end
