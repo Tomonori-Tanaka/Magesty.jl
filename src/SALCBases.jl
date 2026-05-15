@@ -581,7 +581,17 @@ function tensor_inner_product(
 	tensor1::AbstractArray{T, N},
 	tensor2::AbstractArray{T, N},
 ) where {T, N}
-	return sum(conj.(tensor1) .* tensor2)
+	size(tensor1) == size(tensor2) || throw(DimensionMismatch(
+		"tensor sizes must match: got $(size(tensor1)) and $(size(tensor2))",
+	))
+	# Scalar accumulation (no `@simd`) gives a reduction order that does
+	# not depend on the BLAS / LAPACK SIMD lane width, so the SALC
+	# projection matrix is bit-identical across x86 and arm64 builds.
+	acc = zero(T)
+	@inbounds for i in eachindex(tensor1, tensor2)
+		acc += conj(tensor1[i]) * tensor2[i]
+	end
+	return acc
 end
 
 
