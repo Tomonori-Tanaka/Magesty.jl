@@ -389,8 +389,8 @@ end
 	SCEFit
 
 A fitted SCE regression. Holds the dataset it was fit on, the fitted
-coefficients, the estimator and torque weight used, the residuals of the
-augmented (weighted) least-squares system, and cached in-sample metrics.
+coefficients, the estimator and torque weight used, and the residuals
+of the augmented (weighted) least-squares system.
 
 `SCEFit <: StatsAPI.RegressionModel`. The response-block-independent
 verbs `coef`, `intercept`, `nobs`, `dof` are defined for it.
@@ -404,10 +404,8 @@ verbs `coef`, `intercept`, `nobs`, `dof` are defined for it.
 - `residuals::Vector{Float64}`: Residuals of the augmented *weighted*
   least-squares system (energy rows stacked above flattened torque rows).
   These carry the `torque_weight` scaling and are not in physical units;
-  use `metrics` for interpretable in-sample errors.
-- `metrics::Dict{Symbol, Any}`: In-sample RMSE / R² for energy and torque
-  (`:rmse_energy`, `:rmse_torque`, `:r2score_energy`, `:r2score_torque`),
-  computed on the unweighted predictions.
+  use `rmse_energy(f)` / `rmse_torque(f)` / `r2_energy(f)` /
+  `r2_torque(f)` for interpretable in-sample errors.
 """
 struct SCEFit <: StatsAPI.RegressionModel
 	dataset::SCEDataset
@@ -416,7 +414,6 @@ struct SCEFit <: StatsAPI.RegressionModel
 	estimator::AbstractEstimator
 	torque_weight::Float64
 	residuals::Vector{Float64}
-	metrics::Dict{Symbol, Any}
 end
 
 """
@@ -449,14 +446,6 @@ function fit(
 	j_values = Optimize.solve_coefficients(estimator, X, y; bias_col = bias_col)
 	j0, jphi = Optimize.extract_j0_jphi(j_values, dataset.X_E, dataset.y_E)
 	residuals::Vector{Float64} = y .- X * j_values
-	predicted_energy::Vector{Float64} = dataset.X_E[:, 2:end] * jphi .+ j0
-	predicted_torque::Vector{Float64} = dataset.X_T * jphi
-	metrics = Dict{Symbol, Any}(
-		:rmse_energy => Optimize.calc_rmse(dataset.y_E, predicted_energy),
-		:rmse_torque => Optimize.calc_rmse(dataset.y_T, predicted_torque),
-		:r2score_energy => Optimize.calc_r2score(dataset.y_E, predicted_energy),
-		:r2score_torque => Optimize.calc_r2score(dataset.y_T, predicted_torque),
-	)
 	return SCEFit(
 		dataset,
 		j0,
@@ -464,7 +453,6 @@ function fit(
 		estimator,
 		Float64(torque_weight),
 		residuals,
-		metrics,
 	)
 end
 
@@ -515,8 +503,8 @@ dof(f::SCEFit)::Int = length(f.jphi) + 1
 	SCEModel(f::SCEFit) -> SCEModel
 
 Extract a lightweight `SCEModel` from a fitted `SCEFit`: the `SCEBasis`
-together with the fitted `(j0, jphi)`. The training dataset, residuals,
-and cached metrics held by the `SCEFit` are dropped.
+together with the fitted `(j0, jphi)`. The training dataset and
+residuals held by the `SCEFit` are dropped.
 """
 SCEModel(f::SCEFit)::SCEModel = SCEModel(f.dataset.basis, f.j0, f.jphi)
 

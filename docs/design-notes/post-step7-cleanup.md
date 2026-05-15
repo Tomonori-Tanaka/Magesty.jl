@@ -30,8 +30,6 @@ in `.claude/bench_log.md`.
 - **B3**: same files — `cbc.coeff_tensor[idx_buf..., mf_idx]` splat
   indexing is not statically resolvable. Try `CartesianIndex`-based
   indexing or `@generated` dispatch by rank.
-- **B4**: `src/Magesty.jl:SCEFit.metrics` — `Dict{Symbol, Any}` →
-  `Dict{Symbol, Float64}` (only four `Float64` values stored).
 
 ## Minor follow-ups
 
