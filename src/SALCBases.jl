@@ -75,6 +75,33 @@ struct SALCBasis
 	angular_momentum_couplings::Vector{Basis.AngularMomentumCouplingResult}
 end
 
+"""
+	_canonicalize_sign!(v::AbstractVector{<:Real}, tol::Real = 1e-8) -> v
+
+Apply a deterministic sign convention to `v` in place. Scans from index
+1 and flips the entire vector iff the first entry with `abs(x) > tol`
+is negative. Entries with `abs(x) ≤ tol` — including `+0.0` and `-0.0`
+— are skipped, so the choice is robust to round-off noise and to the
+IEEE-754 negative-zero / positive-zero distinction.
+
+This replaces the older `sum(v) < 0` convention, which fails to
+disambiguate any vector with `sum(v) ≈ 0` (e.g., `(0, a, -a)` and
+`(0, -a, a)` both have `sum = 0` and were preserved as distinct,
+breaking cross-platform reproducibility).
+"""
+function _canonicalize_sign!(
+	v::AbstractVector{<:Real},
+	tol::Real = 1e-8,
+)::AbstractVector{<:Real}
+	@inbounds for x in v
+		if abs(x) > tol
+			x < 0 && (v .= -v)
+			return v
+		end
+	end
+	return v
+end
+
 function _compute_salc_groups(
 	coupled_basislist::SortedCounter{Basis.CoupledBasis},
 	symmetry::Symmetry,
@@ -99,10 +126,11 @@ function _compute_salc_groups(
 		eigenvec = eigenvecs[:, idx_eigenval]
 		eigenvec = real.(eigenvec)
 		eigenvec = round.(eigenvec .* (abs.(eigenvec) .≥ 1e-8), digits = 10)
+		# IEEE 754: -0.0 + +0.0 == +0.0, so this normalizes any negative
+		# zeros that survived rounding into canonical positive zeros.
+		eigenvec .+= 0.0
 		eigenvec = eigenvec / norm(eigenvec)
-		if sum(eigenvec) < 0
-			eigenvec .= -eigenvec
-		end
+		_canonicalize_sign!(eigenvec)
 		salc_group = Vector{Basis.CoupledBasis_with_coefficient}()
 		for (idx_basis, cb) in enumerate(coupled_basislist)
 			coeff_start = (idx_basis - 1) * submatrix_dim + 1
