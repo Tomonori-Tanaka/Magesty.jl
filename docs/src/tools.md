@@ -38,7 +38,7 @@ vasp2extxyz --vasprun vasprun.xml --oszicar OSZICAR --output out.xyz
 | `pos` | R:3 | Cartesian positions (Å) |
 | `forces` | R:3 | Forces (eV/Å) |
 | `rwigs` | R:1 | Per-atom RWIGS radius (Å); present when `RWIGS` is set in INCAR |
-| `magmom_smoothed` | R:3 | Wannier-interpolated magnetic moments `MW_int` (μB); present with `--oszicar` |
+| `magmom_smoothed` | R:3 | Smooth-window integrated magnetic moments `MW_int` (μB; integrated with a weight that decays to zero at the Wigner-Seitz sphere boundary — the form used by VASP `I_CONSTRAINED_M`); present with `--oszicar` |
 | `magmom_raw` | R:3 | Directly integrated magnetic moments `M_int` (μB); present with `--oszicar` |
 | `constr_field` | R:3 | Penalty constraint field λ·MW_perp (eV/μB); present with `--oszicar` |
 
@@ -134,6 +134,22 @@ julia tools/extract.jl -f OUTCAR1 OUTCAR2 -e f -s 1 0 0 --randomize
 
 ---
 
+### tools/vasp/oszicar2magmom.jl
+
+Extract magnetic moments from the last SCF step of a VASP `OSZICAR` file and print them as a single-line INCAR `MAGMOM = ...` entry. Useful for seeding a follow-up VASP run from the magnetic state of a previous calculation.
+
+**Usage:**
+```bash
+julia tools/vasp/oszicar2magmom.jl OSZICAR
+julia tools/vasp/oszicar2magmom.jl OSZICAR --type M_int
+julia tools/vasp/oszicar2magmom.jl OSZICAR --output magmom.txt
+```
+
+**Arguments:**
+- `oszicar_file` (positional): Path to `OSZICAR` (required)
+- `--type`, `-t`: Magnetic moment type, `MW_int` (smooth-window integrated moment used by VASP `I_CONSTRAINED_M`; integrated with a weight that vanishes at the Wigner-Seitz sphere boundary) or `M_int` (direct integration over the PAW sphere) (default: `MW_int`)
+- `--output`, `-o`: Output filename. If omitted, the `MAGMOM = ...` line is written to stdout (informational messages go to stderr)
+
 ## Visualization Tools
 
 ### tools/FitCheck_energy.py
@@ -217,6 +233,70 @@ julia tools/histogram_magmom.jl EMBSET.txt --atoms 1,2,3-5 --bin_width 0.1
 - Histograms of magnetic moment magnitude distributions from EMBSET data
 - Statistical summary (mean, variance, std)
 
+---
+
+### tools/plot_jij_atom.jl
+
+Plot isotropic `Jij` vs interatomic distance for all pairs involving a specified reference atom. Requires Plots.jl. Displays the figure interactively (no `-o` save option).
+
+**Usage:**
+```bash
+julia tools/plot_jij_atom.jl jphi.xml 1
+julia tools/plot_jij_atom.jl jphi.xml 1 --invert-sign --ymin -10 --ymax 10
+```
+
+**Arguments:**
+- `input` (positional): Input XML file (e.g. `jphi.xml`) (required)
+- `reference_atom` (positional): 1-based atom index used as the reference for `Jij` pairs (required)
+- `--invert-sign`, `-i`: Invert the sign of `Jij` values (flag)
+- `--half-jij`, `-H`: Plot `Jij/2` instead of `Jij` (flag)
+- `--ymin`, `--ymax`: Y-axis bounds (default: auto)
+- `--markersize`, `-m`: Marker size (default: 5)
+- `--no-legend`: Hide the legend (flag)
+
+---
+
+### tools/plot_jij.jl
+
+Plot isotropic `Jij` vs distance for **all pairs** in the system across one or more XML files, with optional element-pair filtering. Multiple input files are drawn as distinct series. Requires Plots.jl.
+
+**Usage:**
+```bash
+julia tools/plot_jij.jl jphi.xml
+julia tools/plot_jij.jl runA.xml runB.xml --label 'A,B'
+julia tools/plot_jij.jl jphi.xml --element1 Fe --element2 Co
+```
+
+**Arguments:**
+- `input` (positional, one or more): Input XML files (required)
+- `--label`, `-l`: Comma-separated labels for each input file (default: file basename)
+- `--element1`, `-e` / `--element2`, `-E`: Filter to pairs with this element on each side (both required together)
+- `--invert-sign`, `-i`: Invert the sign of `Jij` values (flag)
+- `--half-jij`, `-H`: Plot `Jij/2` instead of `Jij` (flag)
+- `--ymin`, `--ymax`: Y-axis bounds (default: auto)
+- `--markersize`, `-m`: Marker size (default: 5)
+- `--no-legend`: Hide the legend (flag)
+
+---
+
+### tools/plot_jphi_cluster_distance.jl
+
+Plot each SALC coefficient `jφ` (from `write_xml` / `save(model, ...)`) against the maximum over cluster atom pairs of the minimum-image (MIC) distance. Different N-body terms are drawn as separate series. Requires Plots.jl.
+
+**Usage:**
+```bash
+julia tools/plot_jphi_cluster_distance.jl jphi.xml
+julia tools/plot_jphi_cluster_distance.jl jphi.xml --bodies 2,3 -o jphi.png
+julia tools/plot_jphi_cluster_distance.jl jphi.xml --per-cluster
+```
+
+**Arguments:**
+- `input` (positional): Path to a Magesty XML file (e.g. `jphi.xml`) (required)
+- `--bodies`, `-b`: Comma-separated N-body values to include (e.g. `2,3`); omit or `all` for all clusters
+- `--output`, `-o`: Output path (PNG, etc.). If set, save and exit without interactive display. Sets `GKSwstype=100` for GR when unset (headless-friendly).
+- `--title`: Plot title (default: auto)
+- `--per-cluster`: Divide each SALC coefficient by `√num_basis` (exact for scalar `Lf=0` SALCs; RMS approximation otherwise) (flag)
+
 ## Sampling Tools
 
 ### tools/sampling_mfa.jl
@@ -246,6 +326,31 @@ julia tools/sampling_mfa.jl config.toml tau --start 0.1 --end 1.0 --step 0.1 --n
 
 This generates 50 samples at each step for $\tau$ = 0.1, 0.2, …, 1.0.
 
+---
+
+### tools/sampling_mfa_lebedev.jl
+
+Sample spin configurations using the Mean-Field Approximation (MFA) with quantization axes placed at the points of a Lebedev quadrature grid on the sphere. Reuses the MFA core from `sampling_mfa.jl`.
+
+**Usage:**
+```bash
+julia tools/sampling_mfa_lebedev.jl config.toml tau 0.5 --order 9 --num_samples 5
+julia tools/sampling_mfa_lebedev.jl config.toml m 0.8 --lebedev grid.txt
+julia tools/sampling_mfa_lebedev.jl config.toml tau 0.5 --order 13 --theta-min 30 --theta-max 90
+```
+
+**Arguments:**
+- `input` (positional): Path to `input.toml` (required)
+- `variable` (positional): Sampling variable: `tau` ($T/T_\mathrm{c}^\mathrm{MFA}$) or `m` (magnetization) (required)
+- `value` (positional): Single value of the sampling variable (required, `Float64`)
+- `--order`: Lebedev quadrature order (generate grid in-script; e.g. `9` → 38 points). If set (`> 0`), `--lebedev` is ignored. (default: `0`)
+- `--num_samples`, `-n`: Number of samples per Lebedev direction (default: `1`)
+- `--lebedev`, `-l`: Path to a Lebedev grid file (used only when `--order` is `0`) (default: `grid.txt`)
+- `--theta-min` / `--theta-max`: Polar angle bounds in degrees (default: `0`, `180`)
+- `--phi-min` / `--phi-max`: Azimuthal angle bounds in degrees (default: `0`, `360`)
+- `--output-grid`, `-o`: Write the (filtered) grid points to a file as `x y z [weight]`; no output if omitted
+- `--fix`: Fix magnetic moments for 1-based atom indices (e.g. `"1-10,12"`); the same uniform rotation as other atoms is applied
+
 ## Advanced Analysis Tools
 
 ### tools/micromagnetics.jl
@@ -267,15 +372,33 @@ julia tools/micromagnetics.jl -x jphi.xml --cutoff 5.0
 ---
 
 ### tools/convert2tensor.jl
-Convert SCE coefficients to pairwise interaction tensor representation.
+Convert SCE coefficients to a pairwise interaction tensor (isotropic `Jij`, symmetric anisotropy, DM vector) for a single atom pair. The tensor is printed to stdout in human-readable form. Also exports the `ExchangeTensor` module for use from other scripts (`tools/micromagnetics.jl` reuses it).
 
 **Usage:**
 ```bash
-julia tools/convert2tensor.jl jphi.xml --atoms 1 3 --output tensor.dat
+julia tools/convert2tensor.jl jphi.xml --atoms 1 3
 ```
 
 **Arguments:**
-- `input` (positional): Input XML file (required)
-- `--atoms`, `-a`: Two atom indices (required)
-- `--output`, `-o`: Output file name (default: `"tensor.dat"`)
-- `--format`: Output format: `matrix` or `vector` (default: `"matrix"`)
+- `input` (positional): Input XML file with SCE basis and coefficients (e.g. `jphi.xml`) (required)
+- `--atoms`, `-a`: Two atom indices in the supercell (required, exactly 2)
+
+---
+
+### tools/mfa_analysis.jl
+
+Mean-field analysis of an SCE model. Fourier-transforms the exchange interactions to obtain $J(q)$ on a uniform reciprocal grid, finds the wave vector that minimizes the lowest eigenvalue of $J(q)$ (i.e. the MFA ordering vector), and optionally refines that minimum with gradient descent.
+
+**Usage:**
+```bash
+julia tools/mfa_analysis.jl -x jphi.xml
+julia tools/mfa_analysis.jl -x jphi.xml --nk 40 --spin 2.5
+julia tools/mfa_analysis.jl -x jphi.xml --no-refine --eigvec 1,2,3
+```
+
+**Arguments:**
+- `--xml`, `-x`: Path to `jphi.xml` or `scecoeffs.xml` (required)
+- `--nk`, `-n`: Number of q-points per reciprocal direction (default: `20`)
+- `--spin`, `-s`: Spin magnitude `S`. Omit for classical spins (`Tc ∝ S^2/3`, `S=1`); provide a value for quantum spins (`Tc ∝ S(S+1)/3`)
+- `--no-refine`: Skip gradient-descent refinement of the grid-search minimum (flag)
+- `--eigvec`, `-e`: Comma-separated indices of eigenvectors to print at the minimum (e.g. `1,2,3`; `1` is the smallest eigenvalue)
