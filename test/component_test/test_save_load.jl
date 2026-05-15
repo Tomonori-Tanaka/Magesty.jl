@@ -10,10 +10,6 @@ const SL_FEPT_EMBSET =
 	joinpath(@__DIR__, "..", "examples", "fept_tetragonal_2x2x2", "EMBSET.dat")
 const SL_BASELINE_DIR = joinpath(@__DIR__, "baselines")
 
-# Fixed, deterministic fit parameters for the SCEModel baseline. Kept in
-# sync with the parameters used to generate the committed baseline XML.
-const SL_FIT_LAMBDA = 1e-4
-const SL_FIT_TORQUE_WEIGHT = 0.5
 
 # Structural + numerical equality of two SALC bases. After an XML
 # round-trip the SALC basis is a fresh object (`===` does not hold), so
@@ -136,57 +132,33 @@ end
 		end
 	end
 
-	# Byte-diff regression against committed baselines. Catches accidental
-	# schema drift in the XML writer / reader.
+	# Byte-diff regression against committed baselines: catches accidental
+	# schema drift in the XML writer / reader. The check is a load -> re-save
+	# round-trip — fully deterministic (no SALC eigensolve), so byte equality
+	# holds regardless of platform.
 	#
-	# Two complementary checks:
-	#  - fept fresh build: `SCEBasis(toml)` / fitted `SCEModel` re-saved
-	#    and byte-compared. fept is small and degeneracy-free, so its
-	#    SALC build is byte-reproducible; this covers the build + writer.
-	#  - load -> re-save round-trip for fept and fege: fully
-	#    deterministic (no SALC eigensolve), so it catches reader / writer
-	#    schema drift on a large system (fege) without depending on
-	#    bit-reproducible numerics. The committed baselines are generated
-	#    under `--check-bounds=yes` to match the test environment.
+	# A "fresh build" byte-diff (`SCEBasis(toml)` -> save -> byte-compare to
+	# committed baseline) is intentionally not done here: both fept and fege
+	# have Lf=2 SALC groups that span 2D degenerate eigenvalue subspaces, and
+	# LAPACK eigensolvers do not guarantee a platform-stable choice of basis
+	# within such a subspace. Per-platform consistency of the build is still
+	# verified by the "basis identity (design matrices) after reload" testset
+	# above, which compares design matrices with `≈`.
+	#
+	# A principled fix (subspace-span comparison or canonical gauge fix at
+	# SALC build) is tracked in `docs/design-notes/post-step7-cleanup.md`.
 	@testset "byte-diff regression vs committed baseline" begin
-		@testset "fept fresh build" begin
-			basis = SCEBasis(SL_FEPT_TOML; verbosity = false)
+		for (name, T) in (
+			("fept_basis", SCEBasis),
+			("fept_model", SCEModel),
+			("fege_basis", SCEBasis),
+		)
+			baseline = joinpath(SL_BASELINE_DIR, "$name.xml")
+			obj = load(T, baseline)
 			mktempdir() do dir
-				path = joinpath(dir, "fept_basis.xml")
-				save(basis, path)
-				@test read(path, String) ==
-					  read(joinpath(SL_BASELINE_DIR, "fept_basis.xml"), String)
-			end
-
-			dataset = SCEDataset(basis, SL_FEPT_EMBSET)
-			fitted = fit(
-				SCEFit,
-				dataset,
-				Ridge(lambda = SL_FIT_LAMBDA);
-				torque_weight = SL_FIT_TORQUE_WEIGHT,
-			)
-			model = SCEModel(fitted)
-			mktempdir() do dir
-				path = joinpath(dir, "fept_model.xml")
-				save(model, path)
-				@test read(path, String) ==
-					  read(joinpath(SL_BASELINE_DIR, "fept_model.xml"), String)
-			end
-		end
-
-		@testset "load / re-save round-trip" begin
-			for (name, T) in (
-				("fept_basis", SCEBasis),
-				("fept_model", SCEModel),
-				("fege_basis", SCEBasis),
-			)
-				baseline = joinpath(SL_BASELINE_DIR, "$name.xml")
-				obj = load(T, baseline)
-				mktempdir() do dir
-					path = joinpath(dir, "$name.xml")
-					save(obj, path)
-					@test read(path, String) == read(baseline, String)
-				end
+				path = joinpath(dir, "$name.xml")
+				save(obj, path)
+				@test read(path, String) == read(baseline, String)
 			end
 		end
 	end
