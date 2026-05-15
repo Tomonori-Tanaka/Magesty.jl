@@ -485,7 +485,8 @@ For m < 0:  Zₗₘ = (-1)ⁿ√2 P̄ₗₘ(r̂z) ∑ₖ (-1)ᵏ (n,2k+1) r̂x^(
 
 where n = |m| and (n,k) denotes binomial coefficient.
 
-Reference: Equation (***) in T. Tanaka and Y. Gohda, ***
+Reference: see the "Tesseral harmonics convention" entry in the Magesty.jl
+technical notes at https://Tomonori-Tanaka.github.io/Magesty.jl/technical_notes/.
 
 # Notes
 - For repeated calls with inputs already checked, use [`Zₗₘ_unsafe`](@ref).
@@ -571,7 +572,8 @@ Special case: For m = -1, ∂Zₗₘ/∂r̂x = 0
 # Returns
 - Value of ∂Zₗₘ/∂r̂x
 
-Reference: Equation (***) in T. Tanaka and Y. Gohda, ***
+Reference: see the "Tesseral harmonics convention" entry in the Magesty.jl
+technical notes at https://Tomonori-Tanaka.github.io/Magesty.jl/technical_notes/.
 
 # Notes
 - For hot paths, use [`∂Zₗₘ_∂r̂x_unsafe`](@ref).
