@@ -102,6 +102,49 @@ function _canonicalize_sign!(
 	return v
 end
 
+"""
+	_canonicalize_eigenspace(V::AbstractMatrix{<:Real}; tol::Real = 1e-8) -> Matrix{Float64}
+
+Given `V` whose `d` columns are an orthonormal basis of a subspace
+`S ⊂ ℝⁿ`, return a deterministic orthonormal basis `W` of the same
+subspace. The construction projects standard axis vectors `eⱼ` for
+`j = 1, 2, ..., n` (fixed order) onto `S` via the basis-invariant
+projector `P := V Vᵀ`, then keeps each successive projection that is
+linearly independent of the previously accepted ones (modified
+Gram-Schmidt with axis-order pivoting).
+
+Any orthonormal `V` spanning the same `S` produces the same `W` (up
+to round-off below `tol`), so the result is LAPACK-implementation
+independent and lifts the gauge ambiguity within degenerate
+eigenspaces of the SALC projection matrix.
+"""
+function _canonicalize_eigenspace(
+	V::AbstractMatrix{<:Real};
+	tol::Real = 1e-8,
+)::Matrix{Float64}
+	n, d = size(V)
+	P = V * V'                                # projector onto span(V); basis-invariant
+	W = Matrix{Float64}(undef, n, d)
+	k = 0
+	for j in 1:n
+		u = P[:, j]
+		for i in 1:k
+			u .-= dot(view(W, :, i), u) .* view(W, :, i)
+		end
+		nu = norm(u)
+		if nu > tol
+			k += 1
+			@views W[:, k] .= u ./ nu
+		end
+		k == d && break
+	end
+	k == d || error(
+		"Canonical eigenspace extraction failed: kept $k of $d basis vectors " *
+		"(tol = $tol).",
+	)
+	return W
+end
+
 function _compute_salc_groups(
 	coupled_basislist::SortedCounter{Basis.CoupledBasis},
 	symmetry::Symmetry,
@@ -121,10 +164,19 @@ function _compute_salc_groups(
 	Lf = coupled_basislist[1].Lf
 	submatrix_dim = 2 * Lf + 1
 
+	# LAPACK eigensolvers do not promise a platform-stable basis within a
+	# degenerate eigenspace, so replace the raw eigenvectors with a
+	# canonical, axis-ordered orthonormal basis of the same subspace. This
+	# makes SALC coefficients reproducible across BLAS/LAPACK
+	# implementations.
+	eigval1_indices = findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
+	isempty(eigval1_indices) &&
+		return Vector{Vector{Basis.CoupledBasis_with_coefficient}}()
+	canonical_basis = _canonicalize_eigenspace(eigenvecs[:, eigval1_indices])
+
 	key_salc_groups = Vector{Vector{Basis.CoupledBasis_with_coefficient}}()
-	for idx_eigenval in findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
-		eigenvec = eigenvecs[:, idx_eigenval]
-		eigenvec = real.(eigenvec)
+	for col in axes(canonical_basis, 2)
+		eigenvec = canonical_basis[:, col]
 		eigenvec = round.(eigenvec .* (abs.(eigenvec) .≥ 1e-8), digits = 10)
 		# IEEE 754: -0.0 + +0.0 == +0.0, so this normalizes any negative
 		# zeros that survived rounding into canonical positive zeros.
