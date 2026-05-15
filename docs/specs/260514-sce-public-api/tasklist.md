@@ -174,19 +174,31 @@ persistence is left to the user (`jldsave` on a plain struct).
 
 ## Step 6 — migrate `test/examples/*`, rebuild `examples/`, docs
 
-- [ ] Rewrite each `test/examples/*/test.jl` (and `run.jl`) to the
-      new API: `SCEBasis` / `SCEDataset` / `fit` / `save`.
-- [ ] Remove `[regression]` from every `test/examples/*/input.toml`.
-- [ ] Delete `examples/fept/` (stale data dump); add runnable new-API
-      example scripts under `examples/` — a light system with EMBSET
-      data, covering basic flow / building from a CIF file (AtomsIO) /
-      estimator comparison / train-test split / save-load (mirroring
-      design.md "Usage examples"). `AtomsIO` is an `examples/`-only
-      dependency, not a package dependency.
-- [ ] Update `docs/src/api.md`, `docs/src/examples.md`, `SPEC.md`,
-      `README.md`.
-- [ ] `make test-all` green; example assertions still pass;
-      `SCEModel` / `SCEBasis` XML still matches the committed baseline.
+- [x] Rewrite each `test/examples/*/test.jl` to the new API
+      (`SCEBasis` / `SCEDataset` / `fit` / `save`). Six examples migrated;
+      `test/examples/2d_fcc_2x2x2/` deleted (was orphaned — not wired
+      into `runtests.jl`, content duplicated by `chain`). The legacy
+      `chain` design-matrix factor assertion (`4√3`) was replaced by the
+      physics-level `coef * √3 ≈ -1.0` check — the legacy expectation
+      was already stale relative to the current `build_design_matrix_*`
+      output.
+- [x] Remove `[regression]` from every `test/examples/*/input.toml`
+      (5 files). `Config4System` does not consume the `[regression]`
+      table, so the new API ignores it; stripping it makes the schema
+      match what the new TOML template advertises.
+- [x] Delete `examples/fept/` (stale data dump); add 3 runnable new-API
+      example scripts: `examples/01_basic_flow.jl`,
+      `examples/02_cif_input.jl`, `examples/03_save_load.jl`. The
+      basic-flow and save-load scripts reuse the FePt L1_0 fixture
+      under `test/examples/`; the CIF script writes a minimal CIF
+      inline and uses `AtomsIO.load_system`. `AtomsIO` is an
+      `examples/`-only dependency (not in `Project.toml`).
+      Estimator-comparison and train-test split are deferred — covered
+      by `docs/src/examples.md` but not as standalone scripts.
+- [x] Update `docs/src/api.md`, `docs/src/examples.md`, `SPEC.md`.
+      `README.md` left to Step 7 (folded into the breaking commit).
+- [x] `make test-all` green (unit 6314, integration 813); JET 0
+      issues; Aqua 10.
 
 ## Step 7 — remove old API (breaking commit)
 

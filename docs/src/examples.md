@@ -1,188 +1,153 @@
 # Examples
 
-This page provides examples of using Magesty.jl for various magnetic structure analysis tasks.
+This page demonstrates the new SCE public API:
+`SCEBasis` → `SCEDataset` → `fit(SCEFit, ...)` → `SCEModel` →
+`save` / `load`. Runnable versions of these examples live in the
+`examples/` directory of the repository.
 
-## Example 1: BCC Iron — Full Workflow
+## Example 1: Basic flow
 
-Load a TOML configuration, fit the SCE model, and export results.
-
-```julia
-using Magesty
-
-sc = SpinCluster("input.toml")
-
-write_xml(sc, "bcc_fe_results.xml")
-Magesty.write_energies(sc, "energy_list.txt")
-Magesty.write_torques(sc, "torque_list.txt")
-
-j0   = Magesty.get_j0(sc)
-jphi = Magesty.get_jphi(sc)
-println("Reference energy: ", j0, " eV")
-println("Number of SCE coefficients: ", length(jphi))
-```
-
-## Example 2: Programmatic Fitting with `fit_sce_model`
-
-Use the lower-level API for more control over the fitting process.
-
-```julia
-using Magesty, TOML
-
-input  = TOML.parsefile("input.toml")
-system = build_sce_basis(input)
-
-spinconfigs = read_embset("EMBSET.dat")
-
-# OLS fit
-optimizer = fit_sce_model(system, spinconfigs)
-println("RMSE energy: ", optimizer.metrics[:rmse_energy] * 1000, " meV")
-println("RMSE torque: ", optimizer.metrics[:rmse_torque] * 1000, " meV")
-
-# Ridge fit (weight=0.5: balanced energy/torque)
-estimator = Ridge(lambda = 1e-4)
-optimizer_reg = fit_sce_model(system, spinconfigs, estimator, 0.5)
-```
-
-## Example 3: Ferromagnetic vs Antiferromagnetic Energies
-
-```julia
-using Magesty, LinearAlgebra
-
-sc        = SpinCluster("input.toml")
-num_atoms = sc.structure.supercell.num_atoms
-
-# Ferromagnetic: all spins along +z
-fm_config       = zeros(3, num_atoms)
-fm_config[3, :] .= 1.0
-
-# Antiferromagnetic: alternating +z/-z
-afm_config = zeros(3, num_atoms)
-for i in 1:num_atoms
-    afm_config[3, i] = iseven(i) ? -1.0 : 1.0
-end
-
-fm_energy  = Magesty.calc_energy(sc, fm_config)
-afm_energy = Magesty.calc_energy(sc, afm_config)
-
-println("FM  energy: ", fm_energy,  " eV")
-println("AFM energy: ", afm_energy, " eV")
-println("ΔE (AFM-FM): ", (afm_energy - fm_energy) * 1000, " meV")
-```
-
-## Example 4: Symmetry Analysis
+Load a TOML template, build the dataset, fit, and inspect in-sample
+metrics.
 
 ```julia
 using Magesty
 
-system = build_sce_basis(TOML.parsefile("input.toml"))
-sym    = system.symmetry
+basis   = SCEBasis("input.toml")
+dataset = SCEDataset(basis, "EMBSET.dat")
+f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
 
-println("Space group: ", sym.international_symbol, " (#", sym.spacegroup_number, ")")
-println("Number of symmetry operations: ", sym.nsym)
-println("Number of pure translations: ", sym.ntran)
-println("Atoms in primitive cell: ", sym.atoms_in_prim)
+println("RMSE energy: ", rmse_energy(f) * 1000, " meV")
+println("R^2  energy: ", r2_energy(f))
+println("RMSE torque: ", rmse_torque(f) * 1000, " meV")
+println("j0: ", intercept(f), "  number of SCE coefficients: ", length(coef(f)))
 
-for (i, symop) in enumerate(sym.symdata)
-    println("Operation $i: proper=", symop.is_proper,
-            "  translation=", symop.translation_frac)
+save(SCEModel(f), "model.xml")
+```
+
+## Example 2: Building from a CIF file (AtomsIO)
+
+`AtomsIO` is not a Magesty dependency — install it into the active
+environment when you want to load structure files. The `interaction`
+keyword mirrors the TOML `[interaction]` table.
+
+```julia
+using Magesty
+using AtomsIO   # ] add AtomsIO
+
+system  = load_system("FePt.cif")
+basis   = SCEBasis(
+    system;
+    interaction = (
+        body1 = (lmax = Dict(:Fe => 2, :Pt => 2),),
+        body2 = (lsum = 2,
+                 cutoff = Dict((:Fe, :Fe) => -1.0,
+                               (:Fe, :Pt) => -1.0,
+                               (:Pt, :Pt) => -1.0)),
+    ),
+    tolerance_sym = 1e-5,
+    isotropy = false,
+)
+dataset = SCEDataset(basis, "EMBSET.dat")
+f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
+```
+
+## Example 3: Estimator comparison (reuse one dataset)
+
+`SCEDataset` stores the unweighted energy and torque design matrices, so
+you can sweep estimators and torque weights without rebuilding it.
+
+```julia
+using Magesty
+
+dataset = SCEDataset(SCEBasis("input.toml"), "EMBSET.dat")
+for est in (OLS(), Ridge(lambda = 1e-4), Ridge(lambda = 1e-2))
+    f = fit(SCEFit, dataset, est; torque_weight = 0.5)
+    println(est, ": RMSE energy = ", rmse_energy(f))
 end
 ```
 
-## Example 5: Structure Information
+## Example 4: Train / test split
+
+`SCEDataset` supports vector indexing; the slice is a fresh dataset that
+shares the same `SCEBasis`.
 
 ```julia
 using Magesty
 
-system = build_sce_basis(TOML.parsefile("input.toml"))
-cell   = system.structure.supercell
+dataset = SCEDataset(SCEBasis("input.toml"), "EMBSET.dat")
+n_train = round(Int, 0.8 * length(dataset))
+train   = dataset[1:n_train]
+test    = dataset[(n_train + 1):end]
 
-println("Number of atoms: ", cell.num_atoms)
-println("Lattice vectors (columns):")
-display(Matrix(cell.lattice_vectors))
-
-println("Atomic positions (fractional):")
-for i in 1:cell.num_atoms
-    elem = system.structure.kd_name[cell.kd_int_list[i]]
-    println("  $elem: ", cell.x_frac[:, i])
-end
+f = fit(SCEFit, train, Ridge(lambda = 1e-4); torque_weight = 0.5)
+println("in-sample  RMSE energy: ", rmse_energy(f))
+println("out-sample RMSE energy: ", rmse_energy(f, test))
 ```
 
-## Example 6: Basis Set Information
+## Example 5: Cache the SALC basis
+
+Building an `SCEBasis` runs the heavy SALC construction. Persist it to
+XML and reload it later to skip that step.
 
 ```julia
 using Magesty
 
-system = build_sce_basis(TOML.parsefile("input.toml"))
-bs     = system.basisset
+# Session 1: cache the basis.
+save(SCEBasis("input.toml"), "basis.xml")
 
-println("Number of SALCs: ", length(bs.salc_list))
-println("Number of coupled basis functions: ", length(bs.coupled_basislist))
+# Session 2: reload, fit, save the model.
+basis   = load(SCEBasis, "basis.xml")
+dataset = SCEDataset(basis, "EMBSET.dat")
+f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
+save(SCEModel(f), "model.xml")
 ```
 
-## Example 7: Custom Spin Configurations
-
-Evaluate energy and torque for arbitrary spin configurations.
+## Example 6: Predict and evaluate on custom configurations
 
 ```julia
-using Magesty, LinearAlgebra
+using Magesty
+using LinearAlgebra
 
-sc        = SpinCluster("input.toml")
-num_atoms = sc.structure.supercell.num_atoms
+basis   = SCEBasis("input.toml")
+dataset = SCEDataset(basis, "EMBSET.dat")
+f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
+model   = SCEModel(f)
 
-# Spiral configuration in the xy-plane
-spiral = zeros(3, num_atoms)
+num_atoms = basis.structure.supercell.num_atoms
+
+# Ferromagnetic spin configuration along +z.
+spins_fm = zeros(3, num_atoms)
+spins_fm[3, :] .= 1.0
+println("FM energy: ", predict_energy(model, spins_fm), " eV")
+
+# Spiral configuration in the xy-plane.
+spins_spiral = zeros(3, num_atoms)
 for i in 1:num_atoms
     angle = 2π * (i - 1) / num_atoms
-    spiral[1, i] = cos(angle)
-    spiral[2, i] = sin(angle)
+    spins_spiral[1, i] = cos(angle)
+    spins_spiral[2, i] = sin(angle)
 end
-
-energy = Magesty.calc_energy(sc, spiral)
-torque = Magesty.calc_torque(sc, spiral)
-println("Spiral energy: ", energy, " eV")
-println("Max torque magnitude: ", maximum(norm.(eachcol(torque))), " eV")
+T = predict_torque(model, spins_spiral)
+println("Max torque magnitude: ", maximum(norm.(eachcol(T))))
 ```
 
-## Example 8: Batch Energy Evaluation
+## Example 7: Inspect symmetry, structure, and SALCs
 
 ```julia
-using Magesty, LinearAlgebra, Statistics
+using Magesty
 
-sc        = SpinCluster("input.toml")
-num_atoms = sc.structure.supercell.num_atoms
+basis = SCEBasis("input.toml")
 
-n_configs = 100
-energies  = Vector{Float64}(undef, n_configs)
+sym = basis.symmetry
+println("Space group: ", sym.international_symbol,
+        " (#", sym.spacegroup_number, ")")
+println("Number of symmetry operations: ", sym.nsym)
 
-for i in 1:n_configs
-    config = randn(3, num_atoms)
-    for j in 1:num_atoms
-        config[:, j] ./= norm(config[:, j])
-    end
-    energies[i] = Magesty.calc_energy(sc, config)
-end
+cell = basis.structure.supercell
+println("Number of atoms: ", cell.num_atoms)
+println("Lattice (columns):")
+display(Matrix(cell.lattice_vectors))
 
-println("Min energy: ",  minimum(energies) * 1000, " meV")
-println("Max energy: ",  maximum(energies) * 1000, " meV")
-println("Mean energy: ", mean(energies)    * 1000, " meV")
-println("Std dev: ",     std(energies)     * 1000, " meV")
-```
-
-## Example 9: Load Basis from XML and Refit
-
-Reuse a previously computed basis set to refit with different training data or
-regularization without recomputing SALCs:
-
-```julia
-using Magesty, TOML
-
-input  = TOML.parsefile("input.toml")
-system = build_sce_basis_from_xml(input, "scecoeffs.xml")
-
-spinconfigs = read_embset("new_EMBSET.dat")
-estimator   = Ridge(lambda = 1e-3)
-optimizer   = fit_sce_model(system, spinconfigs, estimator, 0.5)
-
-sclus = SpinCluster(system.structure, system.symmetry, system.cluster, system.basisset, optimizer)
-write_xml(sclus, "new_results.xml")
+println("Number of SALCs: ", length(basis.salcbasis.salc_list))
 ```

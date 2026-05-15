@@ -4,59 +4,104 @@
 CurrentModule = Magesty
 ```
 
-## Main Types
+The user-facing API is built around four types: `SCEBasis`, `SCEDataset`,
+`SCEFit`, and `SCEModel`. The legacy `System` / `SpinCluster` /
+`build_sce_basis` / `fit_sce_model` / `write_xml` entry points are still
+exported for backwards compatibility and will be removed in a future
+release.
 
-### System
+## Main types
+
 ```@docs
-System
+SCEBasis
+SCEDataset
+SCEFit
+SCEModel
 ```
 
-### SpinCluster
+## Fitting
+
 ```@docs
-SpinCluster
+fit
+coef
+intercept
+nobs
+dof
 ```
 
-## Main Functions
+## Prediction
 
-### System Building
 ```@docs
-build_sce_basis
-build_sce_basis_from_xml
+predict_energy
+predict_torque
 ```
 
-### SpinCluster Creation
+## Evaluation
+
 ```@docs
-SpinCluster(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)
-SpinCluster(system::System, input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)
-SpinCluster(system::System, input_dict::AbstractDict{<:AbstractString, <:Any}, spinconfig_list::AbstractVector{SpinConfig}; verbosity::Bool = true)
+r2_energy
+r2_torque
+rmse_energy
+rmse_torque
+rss_energy
+rss_torque
+residuals_energy
+residuals_torque
 ```
 
-### Model Fitting
+## Persistence
+
 ```@docs
-fit_sce_model
+save
+load
 ```
 
-### Estimators
+## Estimators
+
 ```@docs
 AbstractEstimator
 OLS
 Ridge
 ```
 
-### Output Functions
-```@docs
-write_xml
-```
+## Data loading
 
-### Data Loading
 ```@docs
 read_embset
 ```
 
-## Non-Exported Convenience Functions
+## Legacy API (to be removed)
 
-The following functions are defined in the `Magesty` module but are **not exported**.
-After `using Magesty`, access them with the `Magesty.` prefix:
+The legacy entry points remain exported during the public-API refactor.
+New code should prefer the four-type API above.
+
+### Legacy types
+
+```@docs
+System
+SpinCluster
+```
+
+### Legacy construction
+
+```@docs
+build_sce_basis
+build_sce_basis_from_xml
+SpinCluster(input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)
+SpinCluster(system::System, input_dict::Dict{<:AbstractString, <:Any}; verbosity::Bool = true)
+SpinCluster(system::System, input_dict::AbstractDict{<:AbstractString, <:Any}, spinconfig_list::AbstractVector{SpinConfig}; verbosity::Bool = true)
+```
+
+### Legacy fitting and output
+
+```@docs
+fit_sce_model
+write_xml
+```
+
+### Legacy non-exported helpers
+
+After `using Magesty`, access these with the `Magesty.` prefix:
 
 ```julia
 Magesty.calc_energy(sc, spin_config)
@@ -103,34 +148,34 @@ Clusters.cluster_orbits
 SALCBases.SALCBasis
 ```
 
-### Spin Configurations
+### Spin configurations
 ```@docs
 SpinConfigs.SpinConfig
 SpinConfigs.read_embset
 ```
 
-## Utility Types
+## Utility types
 
-### Spherical Harmonics Transforms
+### Spherical harmonics transforms
 ```@docs
 SphericalHarmonicsTransforms.c2r_sph_harm_matrix
 SphericalHarmonicsTransforms.r2c_sph_harm_matrix
 ```
 
-### Atom Cells
+### Atom cells
 ```@docs
 AtomCells.AtomCell
 ```
 
-### Configuration Parsers
+### Configuration parsers
 ```@docs
 ConfigParser.Config4System
 ConfigParser.Config4Optimize
 ```
 
-## Utility Functions
+## Utility functions
 
-### Spherical Harmonics
+### Spherical harmonics
 ```@docs
 MySphericalHarmonics.Zₗₘ
 MySphericalHarmonics.Zₗₘ_unsafe
@@ -138,18 +183,18 @@ MySphericalHarmonics.∂ᵢZlm
 MySphericalHarmonics.∂ᵢZlm_unsafe
 ```
 
-### Rotation Matrices
+### Rotation matrices
 ```@docs
 RotationMatrix.rotmat2euler
 RotationMatrix.Δl
 ```
 
-### Energy Calculations
+### Energy calculations
 ```@docs
 EnergyTorque.calc_energy
 ```
 
-### Version Information
+### Version information
 ```@docs
 Version.version_string
 ```
