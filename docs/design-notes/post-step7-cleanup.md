@@ -89,17 +89,20 @@ the `interactiong_atoms` typo in `src/Clusters.jl`, and a redundant
 
 ## Out-of-scope reminders
 
-- `tools/check_convergence_embset.jl`, `tools/convert2tensor.jl`,
+- ~~`tools/check_convergence_embset.jl`, `tools/convert2tensor.jl`,
   `tools/micromagnetics.jl`, `tools/plot_jphi_cluster_distance.jl`, and
-  `tools/personal/*` still reference legacy symbols (`System`,
-  `SpinCluster`, `fit_sce_model`, `_fit_sce_model_internal`,
-  `get_j0_jphi`, `calc_energy`). Per user decision (2026-05-16) these
-  are kept on hold — migrate when someone needs them next, no migration
-  scheduled. `tools/CrossValidation.jl` (LOOCV module) was deleted in
-  the same pass.
-- `docs/src/tools.md` still mentions the legacy `System` struct and
-  `system.jld2` caching pattern. Update alongside the tools migration
-  above so the tool docs match the live scripts.
+  `tools/personal/*` still reference legacy symbols~~ *(resolved
+  2026-05-16: `check_convergence_embset.jl` was deleted (recreate when
+  needed); `micromagnetics.jl` was migrated to the `SCEBasis` API and
+  now loads the basis from the same XML the coefficients live in.
+  `convert2tensor.jl` and `plot_jphi_cluster_distance.jl` turned out
+  to use only `Structure` / `Symmetry`, which survived Step 7 — they
+  needed no migration. `tools/personal/*` is gitignored and migrated by
+  the owning user when needed. `tools/CrossValidation.jl` (LOOCV
+  module) was deleted in an earlier pass.)*
+- ~~`docs/src/tools.md` still mentions the legacy `System` struct and
+  `system.jld2` caching pattern~~ *(resolved 2026-05-16 alongside the
+  tools migration.)*
 - ~~`test/benchmark_*.jl` (except `benchmark_salcbasis_hotspots.jl`) and
   `test/profile_run.jl` still reference legacy symbols~~ *(resolved
   2026-05-16: deleted `benchmark_optimize.jl`,
