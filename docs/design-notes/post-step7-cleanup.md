@@ -62,25 +62,28 @@ and the "fresh build" byte-diff regression test in
 `test/component_test/test_save_load.jl` is restored for fept and
 fege.
 
-## Variable naming vs. mathematical content
+## Variable naming vs. mathematical content *(resolved 2026-05-16)*
 
 A recurring smell exposed during the Step 7 audit: variables named after
 one mathematical object actually hold a different one. Misleads readers
 and silently invites incorrect changes (e.g. checking unitarity on a
 "projection matrix" only makes sense if it's actually a representation).
 
-Known mismatches:
+Resolved mismatches:
 
-- ~~`src/SALCBases.jl:projection_matrix_coupled_basis::temp_projection_mat`~~
-  *(resolved 2026-05-16: renamed to `representation_mat`)*
-- ~~Same function, `check_unitary` kwarg~~ *(resolved 2026-05-16:
-  renamed to `check_irrep_unitary`; env var renamed to
-  `MAGESTY_CHECK_IRREP_UNITARY`)*
+- `src/SALCBases.jl:projection_matrix_coupled_basis::temp_projection_mat`
+  → renamed to `representation_mat`.
+- Same function, `check_unitary` kwarg → renamed to
+  `check_irrep_unitary`; env var renamed to
+  `MAGESTY_CHECK_IRREP_UNITARY`.
 
-Broader sweep task: walk `src/` and flag `*_mat` / `*_matrix` / `*_list`
-/ `*_dict` variables whose name implies one mathematical object but
-stores another. Output a list of rename candidates plus the scope of
-caller-site updates each rename would require.
+Broader sweep across `src/` (SALCBases, Optimize, Symmetries, Clusters,
+Magesty, types/Basis, utils/xml_io) found no further mathematically
+misleading `*_mat` / `*_matrix` / `*_list` / `*_dict` / `*_set` / `*_vec`
+names — the remaining names accurately describe their runtime values.
+Two non-naming items surfaced during the sweep and were fixed alongside:
+the `interactiong_atoms` typo in `src/Clusters.jl`, and a redundant
+`sort()` on an already-sorted vector in `irreducible_clusters`.
 
 ## Out-of-scope reminders
 
