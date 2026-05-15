@@ -1,8 +1,8 @@
 # リファクタリング候補スイープ R1-R11
 
-**Status**: ほぼ完了（2026-05-13 開始、2026-05-14 完了）。R1-R7, R9, R10, R11 完了。R8 は Plan B (重複集約) 完了、Plan C (バグ修正) は `replace-sorted-container.md` の DataStructures.jl 置き換え案で吸収予定のため保留。
+**Status**: ほぼ完了（2026-05-13 開始、2026-05-14 完了）。R1-R7, R9, R10, R11 完了。R8 は Plan B (重複集約) 完了、Plan C (バグ修正) は自作コンテナ削除リファクタの DataStructures.jl 置き換え案で吸収予定のため保留。
 
-**目的**: `src/` 全体（~9.4k 行）を対象に「構造的に整理すべき」候補を洗い出した結果。Optimize.jl は `estimator-dispatch.md` で個別カバー済みなので、本ファイルでは触れない。
+**目的**: `src/` 全体（~9.4k 行）を対象に「構造的に整理すべき」候補を洗い出した結果。Optimize.jl は estimator dispatch リファクタで個別カバー済みなので、本ファイルでは触れない。
 
 **着手判断**: 個別の項目を実装する前に CLAUDE.md の方針に従い、中規模リファクタリングは spec 化（`docs/specs/[YYMMDD]-[slug]/`）が必要。バグ修正やドキュメント追加で完結する小規模項目は spec なしで進めてよい。「要 verify」マーク付きの項目は、着手前に該当ファイルを読んで実態を確認する。
 
@@ -209,7 +209,7 @@ L554 に「Remove this exceptional handling when the bug is fixed in the project
 **数値結果**: 完全に identical (式不変、Float64 で `4*pi` も `4π` も同じ値)。integration tests (energy / torque を baseline と比較) で確認。
 
 **スコープ外 (将来の整理候補)**:
-- `EnergyTorque.calc_energy` ≈ `Optimize.predict_energy`、`EnergyTorque.calc_torque` と `Optimize.build_design_matrix_torque` の構造重複は本 R11 では触らない。`sce-public-api.md` の predict 系 API 整理と整合させて対応 (`EnergyTorque.jl` を deprecate or 統合)。
+- `EnergyTorque.calc_energy` ≈ `Optimize.predict_energy`、`EnergyTorque.calc_torque` と `Optimize.build_design_matrix_torque` の構造重複は本 R11 では触らない。SCE 公開 API リファクタの predict 系 API 整理と整合させて対応 (`EnergyTorque.jl` を deprecate or 統合)。
 
 **連動箇所**: 物理規約は不変。CLAUDE.md「連動箇所」セクションに「`_cluster_scaling` の規約は技術ノートと整合」項目を追加する候補だが、helper 化により drift リスクは大幅減 (5 箇所 → 1 箇所)。テスト: `test-unit` 6203/6203、`test-integration` 155/155、`test-jet`、`test-aqua` 全パス。
 
@@ -223,4 +223,4 @@ L554 に「Remove this exceptional handling when the bug is fixed in the project
 
 ## Optimize.jl 関連項目（クロスリファレンス）
 
-`alpha` パラメータの "currently unused"、`_fit_sce_model_internal` の `isa` 分岐、`elastic_net_regression` の責務混在、`Optimizer` コンストラクタの曖昧な API は、`estimator-dispatch.md`（完了済み）で詳細カバー済み。重複記述しない。
+`alpha` パラメータの "currently unused"、`_fit_sce_model_internal` の `isa` 分岐、`elastic_net_regression` の責務混在、`Optimizer` コンストラクタの曖昧な API は、estimator dispatch リファクタ（完了済み）で詳細カバー済み。重複記述しない。

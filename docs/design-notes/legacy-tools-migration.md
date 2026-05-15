@@ -38,12 +38,11 @@ Status: 保留中（作成 2026-05-16）。
 
 ## 削除済みの関連スクリプト（参考）
 
-2026-05-16 にまとめて削除済み（`b163fb3 chore(bench): delete legacy benchmark and profile scripts` 参照）:
+2026-05-16 にまとめて削除済み（commit `b163fb3` 参照）:
 
 - `tools/CrossValidation.jl` — LOOCV モジュール、外部参照なし。
 - `test/benchmark_optimize.jl`, `test/benchmark_optimize_hotspots.jl`, `test/benchmark_optimize_sphericart.jl`, `test/benchmark_threads.jl`, `test/profile_run.jl` — Makefile target / TEST_MODE 分岐ごと削除。
 
 ## 参考
 
-- `docs/design-notes/post-step7-cleanup.md` — Step 7 直後の追走項目全体。Out-of-scope 節で同じ tools/ に言及している。
-- `docs/specs/260514-sce-public-api/` — Step 7 の元 spec（旧 → 新 API の確定経緯）。
+- Step 7 (SCE 公開 API 破壊コミット) の確定経緯は `docs/specs/` 配下の SCE 公開 API spec を参照。
