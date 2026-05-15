@@ -35,8 +35,6 @@ end
         @test f.torque_weight == 0.3
         # residuals span the augmented system: n_E + n_T rows
         @test length(f.residuals) == size(dataset.X_E, 1) + size(dataset.X_T, 1)
-        @test Set(keys(f.metrics)) ==
-              Set([:rmse_energy, :rmse_torque, :r2score_energy, :r2score_torque])
     end
 
     @testset "StatsAPI verbs" begin
@@ -105,12 +103,8 @@ end
         end
     end
 
-    @testset "evaluation verbs in-sample match cached metrics" begin
+    @testset "evaluation verbs are self-consistent" begin
         f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3)
-        @test r2_energy(f) == f.metrics[:r2score_energy]
-        @test r2_torque(f) == f.metrics[:r2score_torque]
-        @test rmse_energy(f) == f.metrics[:rmse_energy]
-        @test rmse_torque(f) == f.metrics[:rmse_torque]
 
         # residuals / rss are self-consistent
         re = residuals_energy(f)

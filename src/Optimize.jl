@@ -721,30 +721,5 @@ function calc_r2score(
 	return 1 - ss_res / ss_tot
 end
 
-"""
-	calc_metrics(observed_energy_list, predicted_energy_list, observed_torque_list, predicted_torque_list) -> Dict{Symbol,Any}
-
-Compute RMSE and R² metrics for energy and torque.
-
-# Returns
-- `Dict{Symbol,Any}` with keys: `:rmse_energy`, `:rmse_torque`, `:r2score_energy`, `:r2score_torque`
-"""
-function calc_metrics(
-	observed_energy_list::AbstractVector{<:Real},
-	predicted_energy_list::AbstractVector{<:Real},
-	observed_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
-	predicted_torque_list::AbstractVector{<:AbstractMatrix{<:Real}},
-)::Dict{Symbol, Any}
-	observed_torque_flattened_list::Vector{Float64} = vcat(vec.(observed_torque_list)...)
-	predicted_torque_flattened_list::Vector{Float64} = vcat(vec.(predicted_torque_list)...)
-	return Dict(
-		:rmse_energy => calc_rmse(observed_energy_list, predicted_energy_list),
-		:rmse_torque => calc_rmse(observed_torque_flattened_list, predicted_torque_flattened_list),
-		:r2score_energy => calc_r2score(observed_energy_list, predicted_energy_list),
-		:r2score_torque =>
-			calc_r2score(observed_torque_flattened_list, predicted_torque_flattened_list),
-	)
-end
-
 end
 
