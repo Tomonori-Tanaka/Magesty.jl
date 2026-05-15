@@ -16,8 +16,10 @@ const SL_BASELINE_DIR = joinpath(@__DIR__, "baselines")
 # Structural + numerical equality of two SALC bases. After an XML
 # round-trip the SALC basis is a fresh object (`===` does not hold), so
 # the design-matrix `(l, m, site)` ordering is verified by comparing the
-# salc_list contents element-by-element.
-function _assert_salcbasis_equal(a, b)
+# salc_list contents element-by-element. The default `atol = 1e-10`
+# matches the SALC writer precision; relax to `1e-8` for cross-platform
+# fresh-build comparisons where BLAS / LAPACK round-off accumulates.
+function _assert_salcbasis_equal(a, b; atol::Real = 1e-10)
 	@test length(a.salc_list) == length(b.salc_list)
 	for (group_a, group_b) in zip(a.salc_list, b.salc_list)
 		@test length(group_a) == length(group_b)
@@ -27,9 +29,9 @@ function _assert_salcbasis_equal(a, b)
 			@test cbc_a.Lseq == cbc_b.Lseq
 			@test cbc_a.atoms == cbc_b.atoms
 			@test cbc_a.multiplicity == cbc_b.multiplicity
-			@test isapprox(cbc_a.coefficient, cbc_b.coefficient, atol = 1e-10)
+			@test isapprox(cbc_a.coefficient, cbc_b.coefficient, atol = atol)
 			@test size(cbc_a.coeff_tensor) == size(cbc_b.coeff_tensor)
-			@test isapprox(cbc_a.coeff_tensor, cbc_b.coeff_tensor, atol = 1e-10)
+			@test isapprox(cbc_a.coeff_tensor, cbc_b.coeff_tensor, atol = atol)
 		end
 	end
 	return nothing
@@ -134,16 +136,18 @@ end
 		end
 	end
 
-	# Byte-diff regression against committed baselines: catches accidental
-	# schema drift in the XML writer / reader and unintended changes to
-	# SALC coefficients. The load -> re-save loop is fully deterministic;
-	# the fresh-build loop additionally exercises the eigensolver-based
-	# SALC construction. Both rely on the canonical gauge fix inside
-	# `_compute_salc_groups` to pin the eigenbasis within degenerate
-	# eigenspaces, so byte equality holds across BLAS/LAPACK
-	# implementations.
-	@testset "byte-diff regression vs committed baseline" begin
-		@testset "load -> re-save" begin
+	# Regression against committed baselines: catches accidental schema
+	# drift in the XML writer / reader and unintended changes to SALC
+	# coefficients. The load -> re-save loop is fully deterministic
+	# (byte equality). The fresh-build loop additionally exercises the
+	# eigensolver-based SALC construction, where the canonical gauge fix
+	# in `_compute_salc_groups` collapses the degenerate-eigenspace
+	# ambiguity to numerical noise — but BLAS / LAPACK round-off
+	# (different SIMD lane widths on x86 vs arm64) still accumulates
+	# below ~1e-8, so the fresh-build check uses `≈` at that tolerance
+	# instead of byte equality.
+	@testset "regression vs committed baseline" begin
+		@testset "load -> re-save (byte equality)" begin
 			for (name, T) in (
 				("fept_basis", SCEBasis),
 				("fept_model", SCEModel),
@@ -159,18 +163,14 @@ end
 			end
 		end
 
-		@testset "fresh build vs committed baseline (SCEBasis)" begin
+		@testset "fresh build ≈ committed baseline (SCEBasis, atol=1e-8)" begin
 			for (name, toml) in (
 				("fept_basis", SL_FEPT_TOML),
 				("fege_basis", SL_FEGE_TOML),
 			)
-				baseline = joinpath(SL_BASELINE_DIR, "$name.xml")
-				basis = SCEBasis(toml; verbosity = false)
-				mktempdir() do dir
-					path = joinpath(dir, "$name.xml")
-					save(basis, path)
-					@test read(path, String) == read(baseline, String)
-				end
+				baseline = load(SCEBasis, joinpath(SL_BASELINE_DIR, "$name.xml"))
+				fresh = SCEBasis(toml; verbosity = false)
+				_assert_salcbasis_equal(baseline.salcbasis, fresh.salcbasis; atol = 1e-8)
 			end
 		end
 	end
