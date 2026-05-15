@@ -55,10 +55,12 @@ in `.claude/bench_log.md`.
 
 ## Documentation cleanup (audit C2)
 
-- **C2**: `src/utils/MySphericalHarmonics.jl:488` — placeholder `Reference:
-  Equation (***) in T. Tanaka and Y. Gohda, ***` in the `Zₗₘ` /
-  `∂Zₗₘ_∂r̂x` docstrings. Replace with the published reference once the
-  paper is out.
+- **C2** *(interim fix landed 2026-05-15)*: the placeholders
+  `Reference: Equation (***) in T. Tanaka and Y. Gohda, ***` in the `Zₗₘ`
+  (`src/utils/MySphericalHarmonics.jl:488`) and `∂Zₗₘ_∂r̂x`
+  (`:574`) docstrings now point to the technical notes
+  (`https://Tomonori-Tanaka.github.io/Magesty.jl/technical_notes/`). Swap
+  in the published paper reference once it is out.
 
 ## SALC build determinism across platforms (degenerate eigenvalues)
 
