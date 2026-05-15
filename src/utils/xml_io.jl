@@ -4,7 +4,6 @@ using ..Version
 using ..Structures
 using ..Symmetries
 using ..SALCBases
-using ..Optimize
 using EzXML
 using Printf
 using LinearAlgebra
@@ -52,18 +51,6 @@ const ATTR_MF_SIZE         = "Mf_size"
 fmt_lattice(x::Real)    = @sprintf("%.8e", x)
 fmt_fractional(x::Real) = @sprintf("%.12f", x)
 fmt_tensor(x::Real)     = @sprintf("%.15e", x)
-
-"""
-	_isotropy_from_salcbasis(salc_basis::SALCBasis) -> Bool
-
-Best-effort isotropy provenance for callers that do not carry an explicit
-flag (the legacy `write_xml` overloads): `true` when every SALC has
-`Lf == 0`. The new `SCEBasis` path stores `isotropy` explicitly and does
-not go through this.
-"""
-function _isotropy_from_salcbasis(salc_basis::SALCBasis)::Bool
-	return all(cbc.Lf == 0 for key_group in salc_basis.salc_list for cbc in key_group)
-end
 
 """
 	_write_system_subtree!(root, structure, symmetry, salc_basis, isotropy)
@@ -273,59 +260,6 @@ function write_model_xml(
 	open(filename, "w") do f
 		EzXML.prettyprint(f, doc)
 	end
-end
-
-"""
-	write_xml(structure, symmetry, salc_basis, optimize::Optimizer, filename; write_jphi = true)
-
-Legacy writer for the `System` / `SpinCluster` API. Delegates to
-`write_basis_xml` / `write_model_xml`; `isotropy` is recovered from the
-SALC basis (`_isotropy_from_salcbasis`) since the legacy types do not
-carry the flag. Removed in the SCE public-API step 7.
-"""
-function write_xml(
-	structure::Structure,
-	symmetry::Symmetry,
-	salc_basis::SALCBasis,
-	optimize::Optimizer,
-	filename::AbstractString;
-	write_jphi::Bool = true,
-)
-	isotropy = _isotropy_from_salcbasis(salc_basis)
-	if write_jphi
-		write_model_xml(
-			structure,
-			symmetry,
-			salc_basis,
-			isotropy,
-			optimize.reference_energy,
-			optimize.SCE,
-			filename,
-		)
-	else
-		write_basis_xml(structure, symmetry, salc_basis, isotropy, filename)
-	end
-end
-
-"""
-	write_xml(structure, symmetry, salc_basis, filename)
-
-Legacy basis-only writer for the `System` API. Delegates to
-`write_basis_xml`. Removed in the SCE public-API step 7.
-"""
-function write_xml(
-	structure::Structure,
-	symmetry::Symmetry,
-	salc_basis::SALCBasis,
-	filename::AbstractString,
-)
-	write_basis_xml(
-		structure,
-		symmetry,
-		salc_basis,
-		_isotropy_from_salcbasis(salc_basis),
-		filename,
-	)
 end
 
 """

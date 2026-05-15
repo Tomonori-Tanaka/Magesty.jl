@@ -126,14 +126,14 @@ This function takes a new set of atom indices `new_atoms` and:
 3. Permutes the first N dimensions of `coeff_tensor` to correspond to the reordered sites,
    while keeping the last dimension (Mf) unchanged
 
-**Arguments:**
+# Arguments
 - `cb`        : The `CoupledBasis` to modify
 - `new_atoms` : New atom indices (length must equal the number of sites N)
 
-**Returns:**
+# Returns
 A new `CoupledBasis` with updated atom indices and reordered tensor dimensions.
 
-**Example:**
+# Example
 ```julia
 # If new_atoms = [5, 1, 2], it will be sorted to [1, 2, 5]
 # The permutation p = [2, 3, 1] is applied to reorder ls and coeff_tensor dimensions
@@ -398,15 +398,15 @@ This function takes a new set of atom indices `new_atoms` and:
    while keeping the last dimension (Mf) unchanged
 4. Keeps the `coefficient` vector unchanged (since it corresponds to the Mf dimension which is not permuted)
 
-**Arguments:**
+# Arguments
 - `cbc`       : The `CoupledBasis_with_coefficient` to modify
 - `new_atoms` : New atom indices (length must equal the number of sites N)
 
-**Returns:**
+# Returns
 A new `CoupledBasis_with_coefficient` with updated atom indices and reordered tensor dimensions.
 The `coefficient` vector is preserved as-is since it corresponds to the Mf dimension.
 
-**Example:**
+# Example
 ```julia
 # If new_atoms = [5, 1, 2], it will be sorted to [1, 2, 5]
 # The permutation p = [2, 3, 1] is applied to reorder ls and coeff_tensor dimensions

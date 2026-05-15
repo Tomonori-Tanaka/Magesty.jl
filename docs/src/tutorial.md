@@ -1,10 +1,13 @@
 # Tutorial
 
-This tutorial will guide you through the basic usage of Magesty.jl for magnetic structure analysis and spin cluster expansion calculations.
+This tutorial walks through the basic usage of Magesty.jl for spin-cluster
+expansion (SCE) analysis.
 
-## Configuration File Format
+## Configuration file format
 
-Magesty.jl uses TOML configuration files. Below is an annotated example for a BCC Fe supercell:
+Magesty.jl reads structure and interaction settings from a TOML file.
+Fit parameters (estimator, regularization, torque weight) are passed in
+Julia at `fit` time and **do not** live in the TOML.
 
 ```toml:input.toml
 [general]
@@ -14,181 +17,109 @@ nat  = 16               # total number of atoms in the supercell
 periodicity = [true, true, true]  # apply periodic boundary to all (x, y, z) directions
 
 [symmetry]
-tolerance = 1e-5        # symmetry detection tolerance (optional, default 1e-3)
-isotropy = true
+tolerance = 1e-5        # symmetry detection tolerance
+isotropy = true         # restrict to Lf = 0 (isotropic exchange) terms
 
 [interaction]
-nbody = 2               # maximum interaction body
+nbody = 2               # maximum interaction body order
 [interaction.body1]
-lmax.Fe = 0             # 1-body maximum angular momentum per element, i.e. this represents on-site anisotropy
+lmax.Fe = 0             # on-site (1-body) maximum angular momentum per element
 [interaction.body2]
-lsum = 2                # cutoff summation of l values for basis functions
-cutoff."Fe-Fe" = -1     # pairwise cutoff radius in Å (-1 uses all possible pairs)
-
-[regression]
-datafile = "EMBSET" # path to training data
-weight   = 0.5          # 0 = torque only, 1 = energy only, 0.5 = balanced
-alpha    = 0.0          # elastic-net mixing (0 = ridge)
-lambda   = 0.0          # regularization strength (0 = no regularization)
+lsum = 2                # cutoff sum of l values for 2-body basis functions
+cutoff."Fe-Fe" = -1     # pairwise cutoff radius in Å (-1 = include all pairs)
 
 [structure]
 kd_list  = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]  # element index per atom
-lattice  = [            # lattice parameters
+lattice  = [
   [5.66, 0.0, 0.0],
   [0.0, 5.66, 0.0],
   [0.0, 0.0, 5.66],
 ]
-position = [            # fractional coordinates
+position = [
   [0.00, 0.00, 0.00],
   [0.25, 0.25, 0.25],
-  [0.00, 0.00, 0.50],
-  [0.50, 0.00, 0.00],
-  [0.00, 0.50, 0.00],
-  [0.25, 0.25, 0.75],
-  [0.75, 0.25, 0.25],
-  [0.25, 0.75, 0.25],
-  [0.00, 0.50, 0.50],
-  [0.50, 0.00, 0.50],
-  [0.50, 0.50, 0.00],
-  [0.25, 0.75, 0.75],
-  [0.75, 0.25, 0.75],
-  [0.75, 0.75, 0.25],
-  [0.50, 0.50, 0.50],
-  [0.75, 0.75, 0.75],
+  # ... (16 atoms total)
 ]
 ```
 
 For a full key reference see [Input Keys](input_keys.md).
 
-## Basic Workflow
-
-### 1. Creating a SpinCluster (All-in-One)
-
-The simplest approach reads the TOML file, builds the basis, loads the training set, and fits the SCE model in one call:
+## Basic workflow
 
 ```julia
 using Magesty
 
-sc = SpinCluster("config.toml")
+# 1. Build the SCE basis (heavy: runs SALC construction).
+basis = SCEBasis("input.toml")
+
+# 2. Pair the basis with training data to form a dataset.
+dataset = SCEDataset(basis, "EMBSET.dat")
+
+# 3. Fit. `torque_weight` is the convex combination of per-sample
+#    energy MSE and torque MSE that the augmented least-squares problem
+#    minimizes — `0.5` weights both equally.
+f = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
+
+println("Reference energy j0: ", intercept(f), " eV")
+println("Number of SCE coefficients: ", length(coef(f)))
+println("RMSE energy: ", rmse_energy(f) * 1000, " meV")
+println("R²    energy: ", r2_energy(f))
 ```
 
-### 2. Accessing Fitted Results
+## Exporting and reloading results
+
+`save` / `load` round-trip a basis or model via XML. The XML schema is
+shared with the Monte Carlo package `SpinClusterMC.jl`.
 
 ```julia
-# Reference energy (eV)
-j0 = Magesty.get_j0(sc)
+# Persist a fitted model.
+save(SCEModel(f), "model.xml")
 
-# SCE coefficients
-jphi = Magesty.get_jphi(sc)
+# Persist just the basis (skip the expensive SALC build next time).
+save(basis, "basis.xml")
 
-# Both at once
-j0, jphi = Magesty.get_j0_jphi(sc)
+# Later session: reload and refit without recomputing SALCs.
+basis   = load(SCEBasis, "basis.xml")
+dataset = SCEDataset(basis, "EMBSET.dat")
+f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
 ```
 
-### 3. Exporting Results
+## Predicting on new configurations
 
 ```julia
-# Write SCE coefficients to XML
-# This XML file can be used for the Monte Carlo package, `SpinClusterMC.jl`.
-write_xml(sc, "results.xml")
+model = SCEModel(f)
 
-# Write energy and torque comparison files
-Magesty.write_energies(sc, "energy_list.txt")
-Magesty.write_torques(sc, "torque_list.txt")
+# Single configuration (3 × num_atoms matrix of unit spin directions).
+spin_directions = ones(3, basis.structure.supercell.num_atoms)  # all spins along +x
+E = predict_energy(model, spin_directions)
+T = predict_torque(model, spin_directions)  # 3 × num_atoms matrix
 ```
 
-## Programmatic Fitting with `fit_sce_model`
+## Evaluation on held-out data
 
-For more control—e.g., cross-validation or custom training sets—use the
-lower-level `fit_sce_model` API:
+`SCEDataset` supports indexing, so a train / test split is one line:
 
 ```julia
-using Magesty, TOML
+n_train = round(Int, 0.8 * length(dataset))
+train, test = dataset[1:n_train], dataset[(n_train + 1):end]
 
-input  = TOML.parsefile("config.toml")
-system = build_sce_basis(input)
-
-# Load training data
-spinconfigs = read_embset("EMBSET.dat")
-
-# OLS fit
-optimizer = fit_sce_model(system, spinconfigs)
-
-# Ridge fit
-estimator = Ridge(lambda = 1e-4)
-optimizer = fit_sce_model(system, spinconfigs, estimator, 0.5)
-
-j0   = optimizer.reference_energy
-jphi = optimizer.SCE
-println("RMSE energy: ", optimizer.metrics[:rmse_energy] * 1000, " meV")
-println("RMSE torque: ", optimizer.metrics[:rmse_torque] * 1000, " meV")
+f = fit(SCEFit, train, Ridge(lambda = 1e-4); torque_weight = 0.5)
+println("in-sample  RMSE energy: ", rmse_energy(f))
+println("out-sample RMSE energy: ", rmse_energy(f, test))
 ```
 
-### Creating a SpinCluster from an Existing System
+## Inspecting the basis
 
 ```julia
-# Reuse a System built above
-sc = SpinCluster(system, input)
-```
-
-### Creating a SpinCluster with a Pre-loaded Training Set
-
-```julia
-spinconfigs = read_embset("EMBSET.dat")
-sc = SpinCluster(system, input, spinconfigs)
-```
-
-## Building Basis from XML
-
-If the basis set has already been saved to XML, load it directly to skip the
-expensive SALC computation:
-
-```julia
-using Magesty, TOML
-
-input  = TOML.parsefile("config.toml")
-system = build_sce_basis_from_xml(input, "scecoeffs.xml")
-```
-
-## Advanced Usage
-
-### Symmetry Information
-
-```julia
-sym = sc.symmetry
-println("Space group: ", sym.international_symbol, " (#", sym.spacegroup_number, ")")
+sym = basis.symmetry
+println("Space group: ", sym.international_symbol,
+        " (#", sym.spacegroup_number, ")")
 println("Number of symmetry operations: ", sym.nsym)
 
-for (i, symop) in enumerate(sym.symdata)
-    println("Operation $i:")
-    println("  Rotation (fractional): ", symop.rotation_frac)
-    println("  Translation (fractional): ", symop.translation_frac)
-    println("  Is proper: ", symop.is_proper)
-end
-```
-
-### Structure Information
-
-```julia
-cell = sc.structure.supercell
+cell = basis.structure.supercell
 println("Number of atoms: ", cell.num_atoms)
-println("Lattice vectors:")
-for i in 1:3
-    println("  a$i: ", cell.lattice_vectors[:, i])
-end
-println("Atomic positions (fractional):")
-for i in 1:cell.num_atoms
-    elem = sc.structure.kd_name[cell.kd_int_list[i]]
-    println("  $elem: ", cell.x_frac[:, i])
-end
+println("Number of SALCs: ", length(basis.salcbasis.salc_list))
 ```
 
-### Basis Set Information
-
-```julia
-basisset = sc.basisset
-println("Number of SALCs: ", length(basisset.salc_list))
-```
-
-For detailed function documentation see the [API Reference](@ref).
-For more complex use cases see [Examples](examples.md).
+For detailed function documentation see the [API Reference](@ref). More
+complex use cases live in [Examples](examples.md).

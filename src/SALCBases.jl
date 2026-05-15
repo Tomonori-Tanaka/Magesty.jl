@@ -85,9 +85,11 @@ function _compute_salc_groups(
 	eigenvals = real.(round.(eigenvals, digits = 6))
 	eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
 	if !is_proper_eigenvals(eigenvals)
-		@show eigenvals
-		display(coupled_basislist)
-		@warn "Critical error: Eigenvalues must be either 0 or 1."
+		# Projection eigenvalues must be exactly 0 or 1 (the projector is
+		# idempotent). A drift here means the coupled-basis tensor or the
+		# symmetry input is inconsistent — downstream SALCs would be wrong,
+		# so stop instead of silently continuing.
+		error("SALC projection eigenvalues must be 0 or 1, got: $eigenvals")
 	end
 	Lf = coupled_basislist[1].Lf
 	submatrix_dim = 2 * Lf + 1
@@ -671,9 +673,14 @@ function projection_matrix_coupled_basis(
 		end
 
 		if check_unitary && !is_unitary(temp_projection_mat, tol = 1e-8)
-			#@warn "Projection matrix is not unitary. symmetry operation index: $n"
-			display(temp_projection_mat' * temp_projection_mat)
-			error("Projection matrix is not unitary. symmetry operation index: $n")
+			# `temp_projection_mat` here is the single-operation representation
+			# matrix D(g), not the accumulated projection — a unitary irrep
+			# requires each D(g) to be unitary.
+			error(
+				"Representation matrix D(g) is not unitary " *
+				"(symmetry operation index n = $n). P'P = " *
+				"$(temp_projection_mat' * temp_projection_mat)",
+			)
 		end
 
 		# Accumulate the projection matrix in place.
@@ -779,108 +786,6 @@ function is_translationally_equivalent_coupled_basis(
 
 	return false
 end
-
-"""
-	push_unique_coupled_basis!(target, cb, count, symmetry)
-
-Add a `CoupledBasis` to the target list only if it is not translationally equivalent
-to any existing `CoupledBasis` in the list.
-
-# Arguments
-- `target::SortedCounter{Basis.CoupledBasis}`: Target list to add to
-- `cb::Basis.CoupledBasis`: Coupled basis function to add
-- `count::Integer`: Multiplicity count for the basis function
-- `symmetry::Symmetry`: Symmetry information for checking translational equivalence
-
-# Note
-- If an equivalent basis function is found, the function returns without adding
-- Otherwise, adds the basis function with the given count
-"""
-function push_unique_coupled_basis!(
-	target::SortedCounter{Basis.CoupledBasis},
-	cb::Basis.CoupledBasis,
-	count::Integer,
-	symmetry::Symmetry,
-)
-	# Quick check: sum of l values
-	lsum_cb = sum(collect(cb.ls))
-	for existing_cb in target
-		lsum_existing = sum(collect(existing_cb.ls))
-		if lsum_cb != lsum_existing
-			continue
-		end
-		# Check if physically equivalent (same Lf, Lseq, (atom, l) pairs, and coeff_list)
-		# This checks for exact matches (same atoms, same ls order)
-		if is_translationally_equivalent_coupled_basis(cb, existing_cb, symmetry)
-			return
-		end
-	end
-	# No translationally-equivalent CoupledBasis found: add with the given count
-	push!(target, cb, count)
-end
-
-
-
-
-"""
-	classify_coupled_basislist_test(
-		coupled_basislist::AbstractVector{Basis.CoupledBasis},
-	) -> Dict{Int, SortedCounter{Basis.CoupledBasis}}
-
-Simplified classifier for `CoupledBasis` objects used in tests.
-
-This version ignores spatial symmetry and groups basis functions solely by
-interaction order (number of sites), final angular momentum `Lf`, sum of `ls`, and sorted `ls`.
-It trades efficiency for robustness so that test fixtures can rely on deterministic
-grouping without depending on symmetry metadata.
-
-# Arguments
-- `coupled_basislist::AbstractVector{Basis.CoupledBasis}`: List of CoupledBasis objects
-
-# Returns
-- `Dict{Int, SortedCounter{Basis.CoupledBasis}}`: Dictionary keyed by
-  labels assigned per `(nbody, Lf, sum(ls), Tuple(sort(ls)...))` tuple
-"""
-function classify_coupled_basislist_test(
-	coupled_basislist::AbstractVector{<:Basis.CoupledBasis},
-)::Dict{Int, SortedCounter{Basis.CoupledBasis}}
-	if isempty(coupled_basislist)
-		return OrderedDict{Int, SortedCounter{Basis.CoupledBasis}}()
-	end
-
-	label_map = Dict{Any, Int}()
-	label_list = Vector{Int}(undef, length(coupled_basislist))
-	next_label = 0
-
-	for (idx, cb) in enumerate(coupled_basislist)
-		ls_sorted = Tuple(sort(cb.ls))
-		key = (length(cb.atoms), cb.Lf, sum(cb.ls), ls_sorted)
-		label = get(label_map, key, 0)
-		if label == 0
-			next_label += 1
-			label = next_label
-			label_map[key] = label
-		end
-		label_list[idx] = label
-	end
-
-	dict = OrderedDict{Int, SortedCounter{Basis.CoupledBasis}}()
-	for label in 1:next_label
-		dict[label] = SortedCounter{Basis.CoupledBasis}()
-	end
-
-	for (cb, label) in zip(coupled_basislist, label_list)
-		if coupled_basislist isa SortedCounter
-			count_val = get(coupled_basislist.counts, cb, 1)
-			push!(dict[label], cb, count_val)
-		else
-			push!(dict[label], cb, 1)
-		end
-	end
-
-	return dict
-end
-
 
 
 """
@@ -1023,30 +928,6 @@ function filter_basisdict(
 		new_label += 1
 	end
 	return result_basisdict
-end
-
-"""
-	flip_vector_if_negative_sum(v::AbstractVector{<:Real}; tol::Real=1e-10)::AbstractVector{<:Real}
-
-Flip the sign of the vector if the sum of the elements is negative.
-If the sum is approximately zero (within tolerance), return the original vector.
-
-# Arguments
-- `v::AbstractVector{<:Real}`: Input vector
-- `tol::Real=1e-10`: Tolerance for considering sum as zero
-
-# Returns
-- `AbstractVector{<:Real}`: Vector with sign flipped if sum is negative
-"""
-function flip_vector_if_negative_sum(
-	v::AbstractVector{<:Real};
-	tol::Real = 1e-10,
-)::AbstractVector{<:Real}
-	sum_v = sum(v)
-	if abs(sum_v) < tol
-		return v
-	end
-	return sum_v < 0 ? -v : v
 end
 
 """

@@ -1,7 +1,10 @@
 # Input Keys Reference
 
-Magesty.jl uses TOML configuration files. Below is an annotated example for a BCC Fe supercell,
-followed by a full reference for every supported key.
+Magesty.jl reads structure and interaction settings from a TOML file
+(consumed by `SCEBasis(toml_path)` / `SCEBasis(input_dict)`). Fit
+parameters (estimator, regularization, torque weight) are **not** part
+of the TOML — they are passed in Julia at `fit` time, e.g.
+`fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)`.
 
 ## Annotated Example
 
@@ -14,7 +17,7 @@ periodicity = [true, true, true]  # apply periodic boundary to all (x, y, z) dir
 
 [symmetry]
 tolerance = 1e-5        # symmetry detection tolerance (optional, default 1e-3)
-isotropy = true
+isotropy = true         # restrict to Lf = 0 (isotropic exchange) terms
 
 [interaction]
 nbody = 2               # maximum interaction body
@@ -23,12 +26,6 @@ lmax.Fe = 0             # 1-body maximum angular momentum per element, i.e. this
 [interaction.body2]
 lsum = 2                # cutoff summation of l values for basis functions
 cutoff."Fe-Fe" = -1     # pairwise cutoff radius in Å (-1 uses all possible pairs)
-
-[regression]
-datafile = "EMBSET" # path to training data
-weight   = 0.5          # 0 = torque only, 1 = energy only, 0.5 = balanced
-alpha    = 0.0          # elastic-net mixing (0 = ridge)
-lambda   = 0.0          # regularization strength (0 = no regularization)
 
 [structure]
 kd_list  = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]  # element index per atom
@@ -73,7 +70,7 @@ position = [            # fractional coordinates
 | Key | Type | Required | Description |
 |-----|------|----------|-------------|
 | `tolerance` | Float64 | no | Symmetry detection tolerance (default: `1e-3`) |
-| `isotropy` | Bool | no | Only include isotropic (L=0) terms (default: `false`) |
+| `isotropy` | Bool | no | Only include isotropic (`Lf = 0`) terms (default: `false`) |
 
 ### `[interaction]`
 
@@ -82,17 +79,7 @@ position = [            # fractional coordinates
 | `nbody` | Int | yes | Maximum interaction order |
 | `body1.lmax.<elem>` | Int | no | On-site max angular momentum per element |
 | `body<n>.lsum` | Int | yes (n≥2) | Max L sum for n-body basis |
-| `body<n>.cutoff."<e1>-<e2>"` | Float64 | yes (n≥2) | Pairwise cutoff radius in Å |
-
-### `[regression]`
-
-| Key | Type | Required | Description |
-|-----|------|----------|-------------|
-| `datafile` | String | yes | Path to EMBSET training data |
-| `ndata` | Int | no | Number of data points to use (default: `-1` = all) |
-| `weight` | Float64 | no | Energy/torque balance: 0=torque only, 1=energy only (default: `0.0`) |
-| `alpha` | Float64 | no | Elastic-net mixing parameter (default: `0.0`) |
-| `lambda` | Float64 | no | Regularization strength (default: `0.0`) |
+| `body<n>.cutoff."<e1>-<e2>"` | Float64 | yes (n≥2) | Pairwise cutoff radius in Å (`-1` = include all pairs) |
 
 ### `[structure]`
 
@@ -101,3 +88,28 @@ position = [            # fractional coordinates
 | `kd_list` | Vector{Int} | yes | Element index (1-based, into `kd`) per atom |
 | `lattice` | 3×3 Float64 | yes | Lattice vectors in Å; each of the three rows in the TOML array defines one lattice vector (a₁, a₂, a₃) |
 | `position` | Vector of 3-vectors | yes | Fractional atomic coordinates |
+
+## Fit parameters
+
+The TOML covers the *material* — structure, symmetry, interaction. The
+*fit* — estimator, regularization, torque weight, training data path —
+is configured in Julia at `fit` time. The training data path is also
+passed in Julia (to `SCEDataset`), not in the TOML.
+
+```julia
+basis   = SCEBasis("input.toml")
+dataset = SCEDataset(basis, "EMBSET.dat")
+f = fit(
+    SCEFit, dataset,
+    Ridge(lambda = 1e-4);   # estimator: OLS() or Ridge(; lambda)
+    torque_weight = 0.5,    # ∈ [0, 1]: 0 = energy only, 1 = torque only,
+                            # 0.5 = balanced (per-sample MSE convex combination)
+)
+```
+
+- **`torque_weight`** ∈ `[0, 1]` — the convex weight applied to the
+  per-sample torque MSE; the energy MSE gets `1 - torque_weight`.
+  `0` = fit energies only; `1` = fit torques only. Default: `0.5`.
+- **Estimator** — `OLS()` for no regularization, or `Ridge(lambda = λ)`
+  for L2 with strength `λ ≥ 0`. The bias column (`j0`) is excluded
+  from the penalty.

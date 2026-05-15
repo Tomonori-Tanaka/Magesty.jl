@@ -9,7 +9,7 @@
 
 | トピック | Status | 最終更新 |
 |---|---|---|
-| [SCE 公開 API: 4 型構成 + StatsAPI 化](docs/design-notes/sce-public-api.md) | 未着手 | 2026-05-14 |
+| [SCE 公開 API: 4 型構成 + StatsAPI 化](docs/design-notes/sce-public-api.md) | 完了（spec: [260514-sce-public-api](docs/specs/260514-sce-public-api/)） | 2026-05-15 |
 | [自作コンテナ (SortedContainer / CountingContainer) の削除と置き換え](docs/design-notes/replace-sorted-container.md) | 完了（spec: [260514-replace-sorted-container](docs/specs/260514-replace-sorted-container/)） | 2026-05-14 |
 | [Optimize.jl estimator dispatch](docs/design-notes/estimator-dispatch.md) | 完了 (branch `refactor/estimator-dispatch`) | 2026-05-13 |
 | [Config4System の役割の見直し](docs/design-notes/config4system-role.md) | 未着手（SCE 公開 API spec 完了後に判断） | 2026-05-14 |
@@ -25,3 +25,4 @@
 ## パフォーマンスバックログ
 
 - [Zₗₘ / Legendre / SH バッファ系の改善案](docs/design-notes/backlog.md) — 軽量な思いつきメモ、保留候補
+- [Post-Step 7 cleanup](docs/design-notes/post-step7-cleanup.md) — SCE 公開 API 破壊コミット完了後の追走項目（hot-path 型安定性、XML I/O 再パース、変数名と中身の乖離スイープなど）
