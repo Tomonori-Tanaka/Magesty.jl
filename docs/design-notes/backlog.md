@@ -89,7 +89,7 @@
 第二弾調査で試行→ B/F だけ採用。以下はメモリ/allocs では効果あったが時間は noise レベル（±5%）に収まっていたため非採用。GC 圧の高いシナリオなどで再検討余地あり。
 
 - **`representation_mat[row_range, col_range] = rot_mat * phase` の broadcast in-place 化**: SALCBasis メモリ -3.9%、allocs -224k。1 行修正だが時間効果なし。（旧名 `temp_projection_mat`、2026-05-16 改名）
-- **`tensor_inner_product` の `sum(conj.(t1) .* t2)` を融合 `@simd` ループに置換**: SALCBasis メモリ -8.8%、allocs -224k。時間は noise。
+- ~~**`tensor_inner_product` の `sum(conj.(t1) .* t2)` を融合 `@simd` ループに置換**: SALCBasis メモリ -8.8%、allocs -224k。時間は noise。~~ *(2026-05-16: 決定論的なスカラーループに置換済み。動機は cross-platform 一致 (BLAS/LAPACK SIMD lane width に依らない reduction order) で、メモリ/allocs 削減は副産物。`@simd` ではなくプレーンな `@inbounds for` を採用。)*
 
 詳細測定値は `.claude/bench_log.md` の "C" / "D" セクション参照（perf-2 ブランチ commit 履歴に残存）。
 
