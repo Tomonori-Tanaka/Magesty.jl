@@ -33,25 +33,11 @@ in `.claude/bench_log.md`.
 - **B4**: `src/Magesty.jl:SCEFit.metrics` — `Dict{Symbol, Any}` →
   `Dict{Symbol, Float64}` (only four `Float64` values stored).
 
-## I/O performance (audit B6)
-
-- **B6**: `src/utils/xml_io.jl` — `read_model_components_from_xml` /
-  `read_basis_components_from_xml` / `read_salcbasis_from_xml` /
-  `_read_tolerance_sym` / `_read_isotropy` each call `readxml(path)`
-  independently. A single large `load(SCEModel, path)` re-parses the XML
-  up to four times. Split the internals into `(::EzXML.Document, ...)`
-  overloads and parse the document once at the public-entry boundary.
-
 ## Minor follow-ups
 
 - **B5**: `src/utils/xml_io.jl:394` — `Vector{Any}` of `Colon()` for
   tensor slicing. Cosmetic; the path is I/O-bound so perf impact is
   small. Replace with chained `selectdim`.
-- **B14**: `src/utils/MySphericalHarmonics.jl:735–736` — `d_Zlm` /
-  `d_Zlm_unsafe` are exported, mutable (no `const`), and typed implicitly
-  as `Vector{Any}`. They are exported, so type-instability here leaks
-  into user code. At minimum, `const ... ::Vector{Function} = [...]`;
-  ideally an `NTuple` of concrete function types.
 
 ## Documentation cleanup (audit C2)
 

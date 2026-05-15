@@ -14,7 +14,6 @@ This module provides functions to compute spherical harmonics ( Y_{l,m} ) and re
 - `Zₗₘ(l, m, uvec)`: Compute the tesseral harmonic (validates inputs).
 - `Zₗₘ_unsafe(l, m, uvec)`: Same as `Zₗₘ` without validation (for hot paths).
 - `∂Yₗₘ_∂r̂x`, `∂Yₗₘ_∂r̂y`, `∂Yₗₘ_∂r̂z`, `yₗₘ`, `dP̄ₗₘ`, `∂Zₗₘ_∂r̂x`, `∂Zₗₘ_∂r̂y`, `∂Zₗₘ_∂r̂z`, `zzₗₘ`, `∂Zₗₘ_∂x`, `∂Zₗₘ_∂y`, `∂Zₗₘ_∂z`, `∂ᵢZlm`: validate then compute; each has a `…_unsafe` twin for hot paths.
-- `d_Zlm` / `d_Zlm_unsafe`: length-3 lists of the Cartesian `∂Z` callbacks (safe vs unsafe).
 
 # Buffer requirements (for buffered overloads)
 
@@ -45,10 +44,10 @@ using LinearAlgebra
 using StaticArrays
 
 # abstract type SphericalHarmonicsProduct end
-export Zₗₘ, d_Zlm, ∂ᵢZlm
+export Zₗₘ, ∂ᵢZlm
 export dP̄ₗₘ_unsafe, Yₗₘ_unsafe, ∂Yₗₘ_∂r̂x_unsafe, ∂Yₗₘ_∂r̂y_unsafe, ∂Yₗₘ_∂r̂z_unsafe, yₗₘ_unsafe
 export Zₗₘ_unsafe, ∂Zₗₘ_∂r̂x_unsafe, ∂Zₗₘ_∂r̂y_unsafe, ∂Zₗₘ_∂r̂z_unsafe, zzₗₘ_unsafe
-export ∂Zₗₘ_∂x_unsafe, ∂Zₗₘ_∂y_unsafe, ∂Zₗₘ_∂z_unsafe, d_Zlm_unsafe, ∂ᵢZlm_unsafe
+export ∂Zₗₘ_∂x_unsafe, ∂Zₗₘ_∂y_unsafe, ∂Zₗₘ_∂z_unsafe, ∂ᵢZlm_unsafe
 
 # Fast integer parity: (-1)^n without float exponentiation
 @inline _parity(n::Integer) = isodd(n) ? -1 : 1
@@ -733,9 +732,6 @@ function ∂Zₗₘ_∂z(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::
 	validate_uvec(uvec)
 	return ∂Zₗₘ_∂z_unsafe(l, m, uvec)
 end
-
-d_Zlm = [∂Zₗₘ_∂x, ∂Zₗₘ_∂y, ∂Zₗₘ_∂z]
-d_Zlm_unsafe = [∂Zₗₘ_∂x_unsafe, ∂Zₗₘ_∂y_unsafe, ∂Zₗₘ_∂z_unsafe]
 
 """
 	∂ᵢZlm_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Vector{Float64}
