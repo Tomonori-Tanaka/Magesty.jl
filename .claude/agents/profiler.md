@@ -18,22 +18,22 @@ Magesty.jl のパフォーマンス解析エージェント。ベンチマーク
 | ターゲット | 測定対象 | 使うタイミング |
 |---|---|---|
 | `make bench-sphericart` | `MySphericalHarmonics` vs SpheriCart の比較 | 球面調和関数の規約・性能変更時 |
-| `make bench-optimize-sphericart` | `design_matrix_energy_element` / `calc_∇ₑu` / `build_design_matrix_torque` の SpheriCart 比較 | Optimize ホットパスの SpheriCart 比較 |
-| `make bench-optimize-sphericart-fept` | 同上、`fept_tetragonal_2x2x2` を対象 | lmax = 2 系での確認 |
 
 ### 直接スクリプト実行
 
 | スクリプト | 測定対象 |
 |---|---|
-| `test/benchmark_optimize.jl` | `Optimize.jl` 全体（design matrix 構築・係数推定） |
-| `test/benchmark_optimize_hotspots.jl` | Optimize ホットパスの個別関数 |
 | `test/benchmark_spherical_harmonics.jl` | `Zₗₘ` / `Zₗₘ_unsafe` / `∂ᵢZlm_unsafe` / `P̄ₗₘ` の単体性能（safe vs unsafe） |
-| `test/benchmark_basisset_hotspots.jl` | SALC 構築（`BasisSets.jl`）のホットスポット |
-| `test/benchmark_threads.jl` | スレッド並列のスケーリング |
+| `test/benchmark_salcbasis_hotspots.jl` | SALC 構築（`SALCBases.jl`）のホットスポット |
+| `test/benchmark_sphericart.jl` | `MySphericalHarmonics` vs SpheriCart の詳細比較（`bench-sphericart` の本体） |
+
+Optimize ホットパス（`design_matrix_energy_element` / `calc_∇ₑu!` /
+`build_design_matrix_torque`）専用のベンチは現状ない。必要になったら
+`benchmark_salcbasis_hotspots.jl` の構成を雛型に新規作成すること。
 
 実行例:
 ```bash
-julia --project test/benchmark_optimize.jl --input test/examples/fege_2x2x2/input.toml --samples 10
+julia --project test/benchmark_salcbasis_hotspots.jl --input test/examples/fege_2x2x2/input.toml --samples 10
 julia --project test/benchmark_spherical_harmonics.jl --lmax 4 --samples 15
 ```
 
@@ -47,23 +47,18 @@ julia --project test/benchmark_spherical_harmonics.jl --lmax 4 --samples 15
 
 ## 実行手順
 
-### 1. まず総合ベンチマークを実行する
+### 1. まず疑わしい層のベンチを実行する
 
-```bash
-julia --project test/benchmark_optimize.jl --samples 10
-```
-
-主要関数の median 時間を読み取る:
-- `design_matrix_energy_element` （μs/call）
-- `calc_∇ₑu` （μs/call）
-- `build_design_matrix_torque`（ms/config）
-- SALC ロード時間（ワンタイム）
-
-### 2. ボトルネックの特定後に詳細ベンチを追加実行する
-
-- 球面調和関数が疑わしいとき → `test/benchmark_spherical_harmonics.jl`
-- SALC 構築が疑わしいとき → `test/benchmark_basisset_hotspots.jl`
+- SALC 構築が疑わしいとき → `julia --project test/benchmark_salcbasis_hotspots.jl --samples 10`
+- 球面調和関数が疑わしいとき → `julia --project test/benchmark_spherical_harmonics.jl --lmax 4 --samples 15`
 - 規約変更検証時 → `make bench-sphericart`
+
+### 2. Optimize ホットパスの詳細測定が必要な場合
+
+該当する既存ベンチはない。`benchmark_salcbasis_hotspots.jl` の構成を
+雛型に新規ファイルを作成し、`design_matrix_energy_element` /
+`calc_∇ₑu!` / `build_design_matrix_torque` を `@benchmark` で囲む。
+親エージェントに依頼し、新規ベンチファイル作成の方針を user に確認させる。
 
 ## ボトルネック判定の指針
 

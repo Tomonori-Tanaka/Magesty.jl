@@ -89,17 +89,25 @@ the `interactiong_atoms` typo in `src/Clusters.jl`, and a redundant
 
 ## Out-of-scope reminders
 
-- `tools/CrossValidation.jl`, `tools/check_convergence_embset.jl`,
+- `tools/check_convergence_embset.jl`, `tools/convert2tensor.jl`,
+  `tools/micromagnetics.jl`, `tools/plot_jphi_cluster_distance.jl`, and
   `tools/personal/*` still reference legacy symbols (`System`,
   `SpinCluster`, `fit_sce_model`, `_fit_sce_model_internal`,
-  `get_j0_jphi`, `calc_energy`). These were intentionally left untouched
-  during Step 7 — re-evaluate each tool's usefulness before migrating or
-  deleting.
+  `get_j0_jphi`, `calc_energy`). Per user decision (2026-05-16) these
+  are kept on hold — migrate when someone needs them next, no migration
+  scheduled. `tools/CrossValidation.jl` (LOOCV module) was deleted in
+  the same pass.
 - `docs/src/tools.md` still mentions the legacy `System` struct and
   `system.jld2` caching pattern. Update alongside the tools migration
   above so the tool docs match the live scripts.
-- `test/benchmark_*.jl` (except `benchmark_salcbasis_hotspots.jl`) and
-  `test/profile_run.jl` still reference legacy symbols. Migrate when
-  someone needs them next; the patterns are all `System(input)` →
-  `SCEBasis(input)` and `SpinCluster(system, input)` →
-  `SCEDataset(basis, ...)` + `fit(SCEFit, ...)`.
+- ~~`test/benchmark_*.jl` (except `benchmark_salcbasis_hotspots.jl`) and
+  `test/profile_run.jl` still reference legacy symbols~~ *(resolved
+  2026-05-16: deleted `benchmark_optimize.jl`,
+  `benchmark_optimize_hotspots.jl`,
+  `benchmark_optimize_sphericart.jl`, `benchmark_threads.jl`,
+  `profile_run.jl`; the `bench-optimize-sphericart{,-fept}` Makefile
+  targets and the `bench_optimize_sphericart` TEST_MODE branch were
+  removed in the same pass. `benchmark_salcbasis_hotspots.jl`,
+  `benchmark_sphericart.jl`, and `benchmark_spherical_harmonics.jl`
+  remain as the modern templates; new perf work creates fresh benches
+  from those.)*
