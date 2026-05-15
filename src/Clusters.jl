@@ -383,9 +383,9 @@ function generate_clusters(
 
 	for body in 2:nbody, prim_atom_sc in symmetry.atoms_in_prim
 		prim_atom_ac::AtomCell = AtomCell(prim_atom_sc, 1)
-		interactiong_atoms::Vector{AtomCell} = interaction_cutoff_dict[body][prim_atom_sc]
+		interaction_atoms::Vector{AtomCell} = interaction_cutoff_dict[body][prim_atom_sc]
 		if body == 2
-			for other_atom_ac::AtomCell in interactiong_atoms
+			for other_atom_ac::AtomCell in interaction_atoms
 				distance = distance_atomcells(prim_atom_ac, other_atom_ac, structure.x_image_cart)
 				rc = cutoff_radii[
 					body,
@@ -398,7 +398,7 @@ function generate_clusters(
 			end
 		else
 			for atom_combination::Vector{AtomCell} in
-				collect(combinations(interactiong_atoms, body - 1))
+				collect(combinations(interaction_atoms, body - 1))
 				atom_cell_list_all = vcat([prim_atom_ac], atom_combination)
 				atom_list_all = [atom_cell.atom for atom_cell in atom_cell_list_all]
 				if is_within_cutoff(
@@ -640,9 +640,7 @@ function irreducible_clusters(
 					continue
 				end
 
-				# If no equivalent cluster found, add this cluster with its count
-				sorted_cluster_list = sort(cluster_list)
-				push!(result[body], sorted_cluster_list, original_count)
+				push!(result[body], cluster_list, original_count)
 			end
 		end
 	end
