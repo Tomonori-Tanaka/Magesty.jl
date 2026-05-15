@@ -15,7 +15,7 @@ using Printf
 using LinearAlgebra
 import Base: show
 
-export SpinConfig, detect_num_atoms
+export SpinConfig, read_embset
 
 """
 	calc_local_magfield_vertical(spin_directions, local_magfield) -> Matrix{Float64}

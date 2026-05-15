@@ -125,24 +125,6 @@ AbstractEstimator, OLS, Ridge
 read_embset(path)                  # EMBSET.dat -> Vector{SpinConfig}
 ```
 
-### レガシー API（将来削除予定）
-
-```julia
-System(input_dict)
-SpinCluster(input_dict)
-build_sce_basis(input_dict)
-build_sce_basis_from_xml(input_dict, xml_file)
-fit_sce_model(system, configs, est, weight)
-write_xml(sc, path)
-Magesty.calc_energy(sc, spin_config)
-Magesty.calc_torque(sc, spin_config)
-Magesty.get_j0(sc), Magesty.get_jphi(sc), Magesty.get_j0_jphi(sc)
-Magesty.write_energies(sc, path), Magesty.write_torques(sc, path)
-```
-
-新 API への移行表は `docs/specs/260514-sce-public-api/design.md` の
-"Migration map" を参照。
-
 ## 主要な外部ライブラリ
 
 | ライブラリ | 用途 |

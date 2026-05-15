@@ -202,20 +202,68 @@ persistence is left to the user (`jldsave` on a plain struct).
 
 ## Step 7 — remove old API (breaking commit)
 
-- [ ] Remove from `Magesty`: `System`, `SpinCluster`,
+- [x] Remove from `Magesty`: `System`, `SpinCluster`,
       `build_sce_basis`, `build_sce_basis_from_xml`, `fit_sce_model`,
-      `write_xml`, `predict_energy`, `Optimizer` export, `get_j0` /
-      `get_jphi` / `get_j0_jphi`, `calc_energy` / `calc_torque`.
-- [ ] Delete now-dead code paths; `Optimizer` struct becomes internal
-      or is removed if fully superseded by `SCEFit`.
-- [ ] `grep` for old symbol names across `src/` `test/` `docs/`
-      returns no hits (except historical mentions in `docs/specs/`
-      and `docs/design-notes/`).
-- [ ] `make test-all`, `make test-jet`, `make test-aqua` green.
-- [ ] Mark `docs/design-notes/sce-public-api.md` and `DESIGN_NOTES.md`
-      complete.
+      `write_xml`, `Optimizer` export, `get_j0` /
+      `get_jphi` / `get_j0_jphi`, `calc_energy` / `calc_torque`,
+      `write_energies` / `write_torques`. `predict_energy` /
+      `predict_torque` survive as the new-API verbs (the legacy
+      `Optimizer`-typed methods are gone with `Optimizer`).
+- [x] Delete now-dead code paths. `Optimizer` struct removed (fully
+      superseded by `SCEFit`); `_fit_sce_model_internal`,
+      `fit_sce_model_ols`, `fit_sce_model_ridge`, `_default_estimator`,
+      `print_sce_coeffs`, `print_metrics` deleted. The entire
+      `src/utils/EnergyTorque.jl` module deleted (only the legacy
+      `calc_energy`/`calc_torque` wrappers used it). Legacy
+      `write_xml(::System)` / `write_xml(::SpinCluster)` / `write_xml(...,
+      ::Optimizer, ...)` overloads removed from `xml_io.jl`. Removed
+      `_isotropy_from_salcbasis` (legacy-only) and the `using
+      ..Optimize` dependency in `xml_io.jl`.
+- [x] Audit fold-ins (see Step 7 audit triage, 2026-05-15):
+      - B7+B8 SALCBases debug prints (`@show` / `display`) removed.
+      - B9 dead helpers (`push_unique_coupled_basis!`,
+        `flip_vector_if_negative_sum`) deleted.
+      - B10+B11 export trim (`detect_num_atoms`, `cluster_orbits`
+        no longer exported).
+      - B12 `classify_coupled_basislist_test` moved out of
+        `src/SALCBases.jl` into `test/benchmark_salcbasis_hotspots.jl`
+        as a local helper.
+      - B13 `read_embset` re-export pattern fixed
+        (`const = …; export` → `using .SpinConfigs: read_embset; export
+        read_embset`).
+      - C1 module docstring updated to the new API.
+      - C3 `x_frac` shape docstring tightened to `[3 × num_atoms]`.
+      - C4 docstring style normalized (`**Arguments:**` → `# Arguments`).
+      - C5 SALCBases unitary mismatch — message corrected (the
+        variable is the single-op representation matrix `D(g)`, not the
+        projector; check is for unitary irrep, not `P` unitarity);
+        `@warn "Critical error"` replaced with `error(...)`.
+      - Critical [B] items (B1–B6, B14) deferred to follow-ups —
+        tracked in `docs/design-notes/post-step7-cleanup.md`.
+      - `Config4Optimize` (and `REQUIRED_SECTIONS_OPTIMIZE` /
+        `DEFAULT_VALUES_OPTIMIZE` / `validate_optimize_parameters`)
+        deleted as dead code: the only consumer was the legacy
+        `Optimizer` constructor, gone with this commit. The
+        `Config4Optimize` test set in `test_ConfigParser.jl` was
+        removed in turn.
+      - `docs/src/input_keys.md` rewritten: the `[regression]`
+        section is no longer part of the TOML schema (the new API
+        does not consume it). The `weight` description had been
+        inverted (it now correctly says `0 = energy only`,
+        `1 = torque only` and is moved to a Julia-side
+        `torque_weight` example with default `0.5`).
+- [x] `grep` for old symbol names across `src/`, `test/component_test/`,
+      `test/examples/`, `docs/src/`, `SPEC.md`, `README.md` returns no
+      hits. `test/develop_tmp/` (gitignored, slated for deletion),
+      `test/benchmark_*.jl`, `test/profile_run.jl`, and `tools/` are
+      out of scope.
+- [x] `make test-all` (unit 6314, integration 813), `make test-jet`
+      (0 issues), `make test-aqua` (10) all green.
+- [x] `docs/design-notes/sce-public-api.md` and `DESIGN_NOTES.md`
+      updated. Post-Step-7 follow-up note:
+      `docs/design-notes/post-step7-cleanup.md`.
 - [ ] `code-reviewer` agent pass on the cumulative diff.
-- [ ] Single breaking commit via `git-helper`; merge to `main` after
+- [ ] Single breaking commit via `git-helper`. Merge to `main` pending
       explicit user confirmation.
 
 ## After merge

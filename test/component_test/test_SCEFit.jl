@@ -63,17 +63,6 @@ end
         @test f.estimator isa Ridge
     end
 
-    @testset "golden (j0, jphi) match the legacy fit_sce_model path" begin
-        system = System(input; verbosity = false)
-        for (est, w) in ((OLS(), 0.3), (Ridge(lambda = 1e-4), 0.3),
-                         (OLS(), 0.0), (OLS(), 1.0))
-            f = fit(SCEFit, dataset, est; torque_weight = w)
-            opt = fit_sce_model(system, configs, est, w; verbosity = false)
-            @test intercept(f) ≈ opt.reference_energy
-            @test coef(f) ≈ opt.SCE
-        end
-    end
-
     @testset "SCEModel conversion" begin
         f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3)
         m = SCEModel(f)

@@ -72,7 +72,7 @@ using Magesty
             ),
         )
 
-        system = Magesty.System(input_dict; verbosity = false)
-        @test length(system.basisset.salc_list) > 0
+        basis = SCEBasis(input_dict; verbosity = false)
+        @test length(basis.salcbasis.salc_list) > 0
     end
 end
