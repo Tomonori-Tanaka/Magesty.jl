@@ -35,11 +35,16 @@ struct SCEBasis
     structure::Structure          # Magesty internal representation
     symmetry::Symmetry            # derived from structure + symmetry.tol; cached
     salcbasis::SALCBasis          # heavy SALC result
+    isotropy::Bool                # isotropic-restriction provenance flag
 end
 ```
 
 `SCEBasis` stores only what the finished basis *is*, not the
-construction scaffolding. `Cluster` is **not** a field: it is a
+construction scaffolding. `isotropy` is the one piece of build
+provenance kept as a field: whether the basis was built with the
+isotropic restriction (`Lf = 0` only). It is stored rather than derived
+because "all current basis functions have `Lf = 0`" does not by itself
+prove the basis was *built* isotropically. `Cluster` is **not** a field: it is a
 construction step (`structure` + `symmetry` + interaction params →
 `Cluster` → `SALCBasis`), computed inside the constructor and
 discarded once `SALCBasis` is built. `Cluster` stays an internal
@@ -358,17 +363,23 @@ depend on JLD2 or wrap it; the recommended pattern is shown in
 `examples/` (step 6). This keeps Magesty's `save` / `load` a single
 XML code path and adds no dependency.
 
-**XML writer.** The `xml_io.jl` writer is refactored to take
-`SCEBasis` / `SCEModel` directly (it currently takes loose
-`structure` / `symmetry` / `salc_basis` / `Optimizer` arguments). The
-basis-only path (`SCEBasis`) and the basis+coeff path (`SCEModel`)
-share the basis-writing code; `SCEModel` appends the `<JPhi>` block.
+**XML writer.** The `xml_io.jl` writer drops its `Optimizer`
+dependency. `xml_io.jl` is a submodule (`XMLIO`) included before the
+`SCEBasis` / `SCEModel` types are defined, so its functions cannot
+type-annotate those types; instead the `XMLIO` writers take loose
+component arguments (`structure` / `symmetry` / `salcbasis` /
+`isotropy`, plus `j0` / `jphi` for the model path) and the
+`SCEBasis` / `SCEModel` unpacking happens in the `save` / `load`
+methods at the `Magesty.jl` top level. The basis-only path and the
+basis+coeff path share the basis-writing code; the model path appends
+the `<JPhi>` block.
 
 The schema gains two attributes so the file is self-describing:
-- `tolerance_sym` on `<Symmetry>` — consumed on load.
-- `isotropy` on `<SCEBasis>` — provenance metadata (a human cannot
-  otherwise tell `isotropy = true` from `false` without inspecting
-  every basis function for `Lf = 0`); not used by `load`.
+- `tolerance_sym` on `<Symmetry>` — consumed on load (`Symmetry` is
+  recomputed from `structure` + `tolerance_sym`).
+- `isotropy` on `<SCEBasis>` — written from / read back into the
+  `SCEBasis.isotropy` field. It is provenance metadata for the basis
+  build, not consumed by SALC reconstruction.
 
 Adding these attributes means the XML is no longer byte-identical to
 the pre-refactor `write_xml` output — see requirements invariant 2 (it
@@ -515,11 +526,14 @@ path).
 
 ## Affected coupling points
 
-- **`xml_io.jl`**: `save`/`load` backends. The writer is refactored to
-  take `SCEBasis` / `SCEModel` (not loose args + `Optimizer`); the
-  schema gains `tolerance_sym` / `isotropy` attributes. New readers:
-  the `Symmetry` recompute path and the `<JPhi>` block reader. Byte-
-  regression against a regenerated `fept` / `fege` baseline.
+- **`xml_io.jl`**: `save`/`load` backends. The writer drops the
+  `Optimizer` argument (takes loose components + `isotropy` / `j0` /
+  `jphi`; `SCEBasis` / `SCEModel` are unpacked in the `Magesty.jl`
+  `save` / `load` methods, since `XMLIO` is included before those
+  types exist). The schema gains `tolerance_sym` / `isotropy`
+  attributes. New readers: the `Symmetry` recompute path and the
+  `<JPhi>` block reader. Byte-regression against a regenerated `fept`
+  / `fege` baseline.
 - **`Optimize.jl`**: `assemble_weighted_problem` already does
   per-sample MSE normalization; `fit(SCEFit, ...)` calls it with
   `torque_weight`. `extract_j0_jphi` unchanged.
@@ -566,8 +580,11 @@ path).
    5, after reading `xml_io.jl`). `Cluster` is a construction step,
    not persistent state — nothing reads `SCEBasis.cluster` after
    construction (verified across `src/`). It stays an internal struct;
-   only its role changes. This also makes `SCEBasis` exactly the
-   serializable triple `structure` / `symmetry` / `salcbasis`.
+   only its role changes. `SCEBasis` is then the serializable tuple
+   `structure` / `symmetry` / `salcbasis` plus the `isotropy`
+   provenance flag (step 5b: `isotropy` is stored as a field rather
+   than derived from `salcbasis`, since an all-`Lf = 0` basis does not
+   prove an isotropic *build*).
 5. **`SCEModel` holds a `SCEBasis`** rather than flat `salcbasis` /
    `symmetry` / `num_atoms` fields. It needs `structure` for a
    complete XML, and holding `basis` lets `save` reuse the `SCEBasis`

@@ -32,6 +32,7 @@ if TEST_MODE in ("unit", "all")
 		include("./component_test/test_SCEBasis.jl")
 		include("./component_test/test_SCEDataset.jl")
 		include("./component_test/test_SCEFit.jl")
+		include("./component_test/test_save_load.jl")
 		include("./component_test/test_Version.jl")
 	end
 end

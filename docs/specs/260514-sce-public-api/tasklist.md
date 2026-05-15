@@ -134,28 +134,43 @@ persistence is left to the user (`jldsave` on a plain struct).
 
 ### Step 5b — XML `save` / `load`
 
-- [ ] Extend the XML schema: `tolerance_sym` attribute on `<Symmetry>`,
-      `isotropy` attribute on `<SCEBasis>`. `isotropy` is provenance
-      metadata; `tolerance_sym` is consumed on load.
-- [ ] Refactor the `xml_io.jl` writer to take `SCEBasis` / `SCEModel`
-      (not loose args + `Optimizer`); basis-only and basis+coeff paths
-      share code.
-- [ ] XML readers: reconstruct `SCEBasis` via `Structure(xml)` +
+- [x] Extend the XML schema: `tolerance_sym` attribute on `<Symmetry>`,
+      `isotropy` attribute on `<SCEBasis>`. `tolerance_sym` is consumed
+      on load; `isotropy` is stored as the new 4th `SCEBasis` field
+      (decided in step 5b — provenance, not derived from `salcbasis`).
+- [x] Refactor the `xml_io.jl` writer to drop the `Optimizer`
+      argument; `XMLIO` writers take loose components (it is included
+      before the `SCEBasis` / `SCEModel` types), `SCEBasis` /
+      `SCEModel` unpacking is in the `Magesty.jl` `save` / `load`
+      methods. Basis-only and basis+coeff paths share
+      `_write_system_subtree!`.
+- [x] XML readers: reconstruct `SCEBasis` via `Structure(xml)` +
       `Symmetry(structure, tolerance_sym)` (recompute, not
       deserialize) + `read_salcbasis_from_xml`. `SCEModel` adds the
       `<JPhi>` reader. `load(SCEBasis, xml)` accepts an `SCEModel` XML.
-- [ ] `save(obj, path)` / `load(::Type{T}, path)` — XML only, `.xml`
+- [x] `save(obj, path)` / `load(::Type{T}, path)` — XML only, `.xml`
       extension required, clear error otherwise.
-- [ ] `make test-all` green.
+- [x] `make test-all` green (unit 6257, jet 0 issues, aqua 10,
+      integration 155).
 
 ### Step 5c — tests + baselines
 
-- [ ] Add `test_save_load.jl`: `.xml` round-trip for `SCEBasis` /
-      `SCEModel`, basis-identity after reload, non-`.xml` extension
-      error path.
-- [ ] Regenerate the committed baseline XML for `fept` / `fege` under
-      the new schema; byte-diff regression test against it.
-- [ ] `make test-all` green.
+- [x] Add `test_save_load.jl`: `.xml` round-trip for `SCEBasis` /
+      `SCEModel`, basis-identity (design matrices) after reload,
+      non-`.xml` extension error path, `load(SCEBasis)` from an
+      `SCEModel` XML.
+- [x] Regenerate the committed baseline XML for `fept` / `fege` under
+      the new schema (`test/component_test/baselines/`); byte-diff
+      regression test against it. Two checks: fept fresh-build
+      (`SCEBasis` + `SCEModel`, byte-reproducible — small,
+      degeneracy-free) and a load -> re-save round-trip for fept +
+      fege (deterministic, no SALC eigensolve — robust on the large
+      `fege` system). Baselines generated under `--check-bounds=yes`
+      to match the `Pkg.test` environment. `read_salcbasis_from_xml`
+      now preserves the `<AngularMomentumCouplings>` file order
+      (was `collect(values(::Dict))`) so the round-trip is byte-exact.
+- [x] `make test-all` green (unit 6314, jet 0 issues, aqua 10,
+      integration 155).
 
 ## Step 6 — migrate `test/examples/*`, rebuild `examples/`, docs
 

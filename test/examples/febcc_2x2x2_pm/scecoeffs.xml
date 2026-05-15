@@ -28,7 +28,7 @@
       <pos atom_index="15" element="Fe">0.500000000000 0.500000000000 0.500000000000</pos>
       <pos atom_index="16" element="Fe">0.750000000000 0.750000000000 0.750000000000</pos>
     </Positions>
-    <Symmetry>
+    <Symmetry tolerance_sym="1.0e-5">
       <NumberOfTranslations>16</NumberOfTranslations>
       <Translations>
         <map trans="1" atom="1">1</map>
@@ -49,7 +49,7 @@
         <map trans="16" atom="1">13</map>
       </Translations>
     </Symmetry>
-    <SCEBasis num_salc="7">
+    <SCEBasis isotropy="false" num_salc="7">
       <SALC index="1" num_basis="1" body="2" Lf="0">
         <basis multiplicity="8" atoms="1 15" ls="1 1" Lseq="" index="1">1.0</basis>
       </SALC>
