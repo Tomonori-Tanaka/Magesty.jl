@@ -117,7 +117,7 @@ end
         species        = ["Fe", "Fe"],
         positions      = zeros(3, 2),
         forces         = zeros(3, 2),
-        extra_per_atom = ["MAGMOM_smoothed" => magmom],
+        extra_per_atom = ["magmom_smoothed" => magmom],
     )
 
     buf = IOBuffer()
@@ -125,7 +125,7 @@ end
     lines = split(String(take!(buf)), "\n"; keepempty=false)
     hdr = lines[2]
 
-    @test occursin("MAGMOM_smoothed:R:3", hdr)
+    @test occursin("magmom_smoothed:R:3", hdr)
     # Each atom line: species + 3 pos + 3 forces + 3 magmom = 10 tokens
     @test length(split(lines[3])) == 10
 end

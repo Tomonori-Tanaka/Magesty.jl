@@ -27,7 +27,7 @@ vasp2extxyz --vasprun vasprun.xml --oszicar OSZICAR --output out.xyz
 
 **Arguments:**
 - `--vasprun`, `-v`: Path to `vasprun.xml` (required)
-- `--oszicar`, `-s`: Path to `OSZICAR` — enables per-atom magnetic moment (`MAGMOM_smoothed`, `magmom_raw`) and constraint field (`constr_field`) columns
+- `--oszicar`, `-s`: Path to `OSZICAR` — enables per-atom magnetic moment (`magmom_smoothed`, `magmom_raw`) and constraint field (`constr_field`) columns
 - `--output`, `-o`: Output filename (appends `.extxyz` automatically if omitted; default: stdout)
 
 **Output columns (extxyz Properties field):**
@@ -38,7 +38,7 @@ vasp2extxyz --vasprun vasprun.xml --oszicar OSZICAR --output out.xyz
 | `pos` | R:3 | Cartesian positions (Å) |
 | `forces` | R:3 | Forces (eV/Å) |
 | `rwigs` | R:1 | Per-atom RWIGS radius (Å); present when `RWIGS` is set in INCAR |
-| `MAGMOM_smoothed` | R:3 | Wannier-interpolated magnetic moments `MW_int` (μB); present with `--oszicar` |
+| `magmom_smoothed` | R:3 | Wannier-interpolated magnetic moments `MW_int` (μB); present with `--oszicar` |
 | `magmom_raw` | R:3 | Directly integrated magnetic moments `M_int` (μB); present with `--oszicar` |
 | `constr_field` | R:3 | Penalty constraint field λ·MW_perp (eV/μB); present with `--oszicar` |
 
