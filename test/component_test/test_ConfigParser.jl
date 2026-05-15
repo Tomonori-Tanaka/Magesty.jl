@@ -103,57 +103,6 @@ using Test
 		@test size(parent(config.bodyn_cutoff)) == (0, 1, 1)
 	end
 
-	@testset "Config4Optimize" begin
-		# Create a valid input dictionary
-		input_dict = Dict{String, Any}(
-			"regression" => Dict{String, Any}(
-				"datafile" => "test.dat",
-				"ndata" => 100,
-				"weight" => 0.5,
-				"alpha" => 0.0,
-				"lambda" => 0.01,
-			),
-		)
-
-		# Test valid input
-		config = Config4Optimize(input_dict)
-		@test config.datafile == "test.dat"
-		@test config.ndata == 100
-		@test config.weight ≈ 0.5
-		@test config.alpha ≈ 0.0
-		@test config.lambda ≈ 0.01
-
-		# Test missing required section
-		invalid_dict = copy(input_dict)
-		delete!(invalid_dict, "regression")
-		@test_throws ArgumentError Config4Optimize(invalid_dict)
-
-		# Test empty datafile name
-		invalid_dict = Dict{String, Any}("regression" => Dict{String, Any}("datafile" => ""))
-		@test_throws ArgumentError Config4Optimize(invalid_dict)
-
-		# Test invalid weight
-		invalid_dict = Dict{String, Any}(
-			"regression" => Dict{String, Any}(
-				"datafile" => "test.dat",
-				"weight" => 1.5,
-			),
-		)
-		@test_throws ArgumentError Config4Optimize(invalid_dict)
-
-		# A non-zero `alpha` is deprecated and emits a one-shot warning.
-		# (`maxlog = 1` means the warning fires at most once per Julia
-		# session, so this match only succeeds on the first invocation.)
-		deprecated_dict = Dict{String, Any}(
-			"regression" => Dict{String, Any}(
-				"datafile" => "test.dat",
-				"alpha" => 0.5,
-				"lambda" => 0.01,
-			),
-		)
-		@test_logs (:warn, r"\[regression\].alpha is deprecated") Config4Optimize(deprecated_dict)
-	end
-
 	@testset "parse_position" begin
 		num_atoms = 2
 		position_list = [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]]

@@ -16,12 +16,6 @@ lmax.X = 0
 cutoff."X-X" = -1
 lsum = 2
 
-[regression]
-datafile = "EMBSET.dat"
-weight = 0.0
-alpha = 0
-lambda = 0.0
-
 [structure]
 kd_list = [1, 1]
 lattice = [

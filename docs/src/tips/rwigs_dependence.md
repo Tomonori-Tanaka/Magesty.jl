@@ -210,15 +210,10 @@ position = [
 ```doc-run.jl
 using Magesty
 using TOML
-using JLD2
 
-input = TOML.parsefile("input.toml")
-system = build_sce_basis(input, verbosity = true)
-@save "system.jld2" system
-@load "system.jld2" system
-
-sclus = SpinCluster(system, input, verbosity = true)
-Magesty.write_energies(sclus)
-Magesty.write_torques(sclus)
-Magesty.write_xml(sclus, "jphi.xml")
+input   = TOML.parsefile("input.toml")
+basis   = SCEBasis(input; verbosity = true)
+dataset = SCEDataset(basis, "EMBSET.dat")
+fitted  = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
+save(SCEModel(fitted), "jphi.xml")
 ```

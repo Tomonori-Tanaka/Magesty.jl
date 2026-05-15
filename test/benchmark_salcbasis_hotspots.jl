@@ -69,27 +69,68 @@ function pick_atom_list_and_lsum(cluster, cfgsys)
     return [1, 2], max(2, cfgsys.bodyn_lsum[min(2, cfgsys.nbody)])
 end
 
+# Simplified classifier for `CoupledBasis` lists used in this benchmark.
+# Groups basis functions by `(nbody, Lf, sum(ls), Tuple(sort(ls)))`, ignoring
+# spatial symmetry — this gives a deterministic, fixture-independent grouping.
+function _classify_coupled_basislist(coupled_basislist)
+    Basis = Magesty.Basis
+    SortedCounter = Magesty.SortedCounters.SortedCounter
+
+    if isempty(coupled_basislist)
+        return Dict{Int, SortedCounter{Basis.CoupledBasis}}()
+    end
+
+    label_map = Dict{Any, Int}()
+    label_list = Vector{Int}(undef, length(coupled_basislist))
+    next_label = 0
+    for (idx, cb) in enumerate(coupled_basislist)
+        key = (length(cb.atoms), cb.Lf, sum(cb.ls), Tuple(sort(cb.ls)))
+        label = get(label_map, key, 0)
+        if label == 0
+            next_label += 1
+            label = next_label
+            label_map[key] = label
+        end
+        label_list[idx] = label
+    end
+
+    dict = Dict{Int, SortedCounter{Basis.CoupledBasis}}()
+    for label in 1:next_label
+        dict[label] = SortedCounter{Basis.CoupledBasis}()
+    end
+    for (cb, label) in zip(coupled_basislist, label_list)
+        count_val =
+            coupled_basislist isa SortedCounter ? get(coupled_basislist.counts, cb, 1) : 1
+        push!(dict[label], cb, count_val)
+    end
+    return dict
+end
+
 function load_context(cfg::Dict{Symbol, Any})
     input_path = abspath(cfg[:input])
     input = TOML.parsefile(input_path)
     workdir = dirname(input_path)
 
-    system = cd(workdir) do
-        Magesty.System(input; verbosity = cfg[:verbosity])
-    end
     cfgsys = Magesty.ConfigParser.Config4System(input)
+    structure, symmetry, cluster = cd(workdir) do
+        Magesty._build_structure_skeleton(cfgsys; verbosity = cfg[:verbosity])
+    end
+    salcbasis = cd(workdir) do
+        Magesty.SALCBases.SALCBasis(structure, symmetry, cluster, cfgsys;
+                                    verbosity = cfg[:verbosity])
+    end
 
-    classified = Magesty.SALCBases.classify_coupled_basislist_test(system.basisset.coupled_basislist)
+    classified = _classify_coupled_basislist(salcbasis.coupled_basislist)
     keys_sorted = sort(collect(keys(classified)))
     key = keys_sorted[1]
     representative_group = classified[key]
-    atom_list, lsum = pick_atom_list_and_lsum(system.cluster, cfgsys)
+    atom_list, lsum = pick_atom_list_and_lsum(cluster, cfgsys)
 
     return (
         input_path = input_path,
-        structure = system.structure,
-        symmetry = system.symmetry,
-        cluster = system.cluster,
+        structure = structure,
+        symmetry = symmetry,
+        cluster = cluster,
         config_system = cfgsys,
         atom_list = atom_list,
         lsum = lsum,

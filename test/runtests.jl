@@ -26,9 +26,12 @@ if TEST_MODE in ("unit", "all")
 		include("./component_test/test_Structures.jl")
 		include("./component_test/test_Symmetries.jl")
 		include("./component_test/test_Basis.jl")
-		# include("./component_test/test_Optimize.jl")
 		include("./component_test/test_Optimize_dispatch.jl")
 		include("./component_test/test_SALCBases_l13_regression.jl")
+		include("./component_test/test_SCEBasis.jl")
+		include("./component_test/test_SCEDataset.jl")
+		include("./component_test/test_SCEFit.jl")
+		include("./component_test/test_save_load.jl")
 		include("./component_test/test_Version.jl")
 	end
 end

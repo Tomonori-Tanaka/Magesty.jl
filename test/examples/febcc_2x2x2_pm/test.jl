@@ -3,20 +3,19 @@ using Printf
 using Test
 using StaticArrays
 using Random
-using Magesty.Optimize
-using Magesty.Structures
-using Magesty.Symmetries
+using Magesty
 
 
 input = TOML.parse(open(joinpath(@__DIR__, "input.toml"), "r"))
-input["regression"]["datafile"] = joinpath(@__DIR__, "EMBSET.dat")
+embset_path = joinpath(@__DIR__, "EMBSET.dat")
 
-system = System(input, verbosity = false)
+basis = SCEBasis(input; verbosity = false)
+spinconfigs_all = Magesty.read_embset(embset_path)
 
 const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring virtual cells
 @testset "Fe BCC 2x2x2 Tests" begin
 	@testset "Structure Tests" begin
-		structure = system.structure
+		structure = basis.structure
 
 		# Test lattice and basic properties
 		a = 2.83  # Fe lattice constant in angstrom
@@ -81,7 +80,7 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 	end
 
 	@testset "Symmetry Tests" begin
-		symmetry = system.symmetry
+		symmetry = basis.symmetry
 
 		# Test basic properties
 		@test symmetry.international_symbol == "Im-3m"  # Space group for BCC Fe
@@ -93,7 +92,7 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 		@test length(symmetry.atoms_in_prim) == symmetry.nat_prim
 
 		# Test that identity operation preserves atomic positions
-		structure = system.structure
+		structure = basis.structure
 		identity_op = symmetry.symdata[1]
 		for i in 1:structure.supercell.num_atoms
 			pos = SVector{3, Float64}(structure.supercell.x_frac[:, i])
@@ -102,70 +101,43 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 		end
 	end
 
-	sclus = SpinCluster(system, input, verbosity = false)
-	Magesty.write_xml(sclus, joinpath(@__DIR__, "scecoeffs.xml"))
-	# structure = Structure(joinpath(@__DIR__, "scecoeffs.xml"), verbosity = false)
+	# Fit on a subset and persist the model to XML — exercises the full
+	# SCEBasis → SCEDataset → SCEFit → save round-trip on a realistic system.
+	num_cfg_target = 2 * length(basis.salcbasis.salc_list)
+	num_cfg = min(length(spinconfigs_all), num_cfg_target)
+	spinconfigs = spinconfigs_all[1:num_cfg]
+	dataset = SCEDataset(basis, spinconfigs)
+	fitted = fit(SCEFit, dataset, OLS(); torque_weight = 0.5)
+	save(SCEModel(fitted), joinpath(@__DIR__, "scecoeffs.xml"))
 
 	@testset "SCE Regression Roundtrip (energy + torque)" begin
-		spinconfigs = sclus.optimize.spinconfig_list
-		# Use at most 2×(number of SALC groups) configs to keep test lightweight
-		num_cfg_target = 2 * length(sclus.basisset.salc_list)
-		num_cfg = min(length(spinconfigs), num_cfg_target)
-		spinconfigs = spinconfigs[1:num_cfg]
+		num_atoms = basis.structure.supercell.num_atoms
+		num_salcs = length(basis.salcbasis.salc_list)
 
-		num_atoms = sclus.structure.supercell.num_atoms
-		salc_list = sclus.basisset.salc_list
+		@test size(dataset.X_E, 2) == num_salcs + 1
+		@test size(dataset.X_T, 2) == num_salcs
 
-		# Build design matrices (bias column included for energy, not for torque)
-		design_E = Optimize.build_design_matrix_energy(salc_list, spinconfigs, sclus.symmetry)
-		design_T = Optimize.build_design_matrix_torque(
-			salc_list,
-			spinconfigs,
-			num_atoms,
-			sclus.symmetry,
-		)
-
-		num_salcs = length(salc_list)
-		@test size(design_E, 2) == num_salcs + 1
-		@test size(design_T, 2) == num_salcs
-
-		# Create synthetic coefficients and data
+		# Synthesize ground-truth coefficients and the matching observations.
 		rng = Xoshiro(0x12345678)
 		jphi_true = randn(rng, num_salcs)
 		j0_true = 0.1234
+		y_E_synth = dataset.X_E[:, 2:end] * jphi_true .+ j0_true
+		y_T_synth = dataset.X_T * jphi_true
 
-		observed_energy_list = design_E[:, 2:end] * jphi_true .+ j0_true
-		torque_flat = design_T * jphi_true
-		block_size = 3 * num_atoms
-		observed_torque_list = [
-			reshape(torque_flat[((i-1)*block_size+1):(i*block_size)], 3, num_atoms) for
-			i in 1:num_cfg
-		]
+		synth_dataset = SCEDataset(
+			basis,
+			dataset.spinconfigs,
+			dataset.X_E,
+			dataset.X_T,
+			y_E_synth,
+			y_T_synth,
+		)
 
-		# Run regression and check recovery
-		for weight in [0.0, 0.5, 1.0]
-			j0_hat, jphi_hat = Optimize._fit_sce_model_internal(
-				design_E,
-				design_T,
-				observed_energy_list,
-				observed_torque_list,
-				Optimize.OLS(),
-				weight,
-			)
-
-
-			@test isapprox(j0_hat, j0_true; rtol = 1e-8, atol = 1e-8)
-			@test isapprox(jphi_hat, jphi_true; rtol = 1e-8, atol = 1e-8)
+		# Recover the coefficients across the full torque-weight range.
+		for w in [0.0, 0.5, 1.0]
+			f = fit(SCEFit, synth_dataset, OLS(); torque_weight = w)
+			@test isapprox(intercept(f), j0_true; rtol = 1e-8, atol = 1e-8)
+			@test isapprox(coef(f), jphi_true; rtol = 1e-8, atol = 1e-8)
 		end
 	end
-
-	# @testset "calc_energy" begin
-	# 	spin_config_list = sclus.optimize.spinconfig_list
-	# 	energy_list_from_salc::Vector{Float64} = Vector{Float64}(undef, length(spin_config_list))
-	# 	for i in eachindex(spin_config_list)
-	# 		spin_directions::Matrix{Float64} = spin_config_list[i].spin_directions
-	# 		energy_list_from_salc[i] = Magesty.calc_energy(sclus, spin_directions)
-	# 		@test abs(energy_list_from_salc[i] - spin_config_list[i].energy) < 0.1
-	# 	end
-	# end
 end

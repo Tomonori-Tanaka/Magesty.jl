@@ -33,7 +33,7 @@ using ..Symmetries
 
 import Base: isless, ==
 
-export Cluster, cluster_orbits
+export Cluster
 
 # Constants
 const NUM_VIRTUAL_CELLS = 27  # Number of virtual cells in 3x3x3 supercell

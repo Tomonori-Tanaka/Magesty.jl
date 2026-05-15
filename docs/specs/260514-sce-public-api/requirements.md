@@ -20,10 +20,10 @@ shape.
 
 | Type | Replaces | Content (concept) | Weight |
 |---|---|---|---|
-| `SCEBasis` | `System` (basis side), `build_sce_basis`, `build_sce_basis_from_xml` | material + symmetry + cluster + SALC basis | heavy (SALC), independently persistable |
+| `SCEBasis` | `System` (basis side), `build_sce_basis`, `build_sce_basis_from_xml` | material (structure) + symmetry + SALC basis | heavy (SALC), independently persistable |
 | `SCEDataset` | (new abstraction) | `basis::SCEBasis` + unweighted `X_E`/`X_T`/`y_E`/`y_T` + spinconfigs | heavy, reusable, sliceable |
 | `SCEFit` | `SpinCluster`, `fit_sce_model`, `Optimizer` (export) | fit result: coefficients + metrics + residuals + estimator/weight used | medium; `<: StatsAPI.RegressionModel` |
-| `SCEModel` | (kept, already public) | lightweight predictor: `j0`, `jphi`, `salcbasis`, `symmetry`, `num_atoms` | lightweight, serializable |
+| `SCEModel` | (kept, already public) | lightweight predictor: `basis::SCEBasis` + `j0` + `jphi` | lightweight, serializable |
 
 `SCEBasis` was called `SCEProblem` in the original design note; renamed
 because it holds no data and cannot be "solved" — "Problem" carries the
@@ -50,16 +50,22 @@ done:
 
 In scope:
 
-- **New types**: `SCEBasis`, `SCEDataset`, `SCEFit`; `SCEModel` kept,
-  its field `basisset` renamed to `salcbasis` for consistency.
+- **New types**: `SCEBasis`, `SCEDataset`, `SCEFit`; `SCEModel` kept
+  but reshaped to hold a `SCEBasis` plus the fitted `j0` / `jphi`
+  (was: flat `j0` / `jphi` / `salcbasis` / `symmetry` / `num_atoms`).
+  `SCEBasis` stores `structure` / `symmetry` / `salcbasis` only —
+  `Cluster` is a construction step, not a stored field.
 - **AtomsBase.jl** as a first-class dependency. `SCEBasis` accepts any
   `AtomsBase.AbstractSystem`. Boundary conversion only: `ustrip` units
   at the constructor, internal representation stays `Float64` (see
   design.md "Unitful boundary").
 - **Species-based** parameter specification: `lmax` / `cutoff` keyed by
-  `ChemicalSpecies` (sublabel-aware, so `Fe_4a` / `Fe_8e` are distinct);
-  element-only specification (`Dict(:Fe => 2)`) is sugar that fans out
-  to all sublabels.
+  kind-name `Symbol`. The kind name comes from the per-atom
+  `atom.data[:atom_name]` (AtomsBase), or the element symbol when that
+  entry is absent — so `:Fe_4a` / `:Fe_8e` are distinct kinds.
+  (`ChemicalSpecies.atom_name` is unusable: 4-char cap, ignored by
+  `==`.) An element-only key (`Dict(:Fe => 2)`) is sugar that fans out
+  to all sublabels of that element.
 - **Constructor-level validation**: the `SCEBasis` constructor emits a
   `@warn` on odd `lmax` / `lsum` (time-reversal symmetry removes
   odd-`l` terms, so an odd value is equivalent to `value - 1`).
@@ -73,9 +79,14 @@ In scope:
   `rss_energy` / `rss_torque`, `residuals_energy` / `residuals_torque`,
   `rmse_energy` / `rmse_torque`, `predict_energy` / `predict_torque`.
   No `metrics` aggregator.
-- **`save` / `load`** with extension dispatch (`.xml` / `.jld2`).
-  `SCEBasis`: XML + JLD2. `SCEFit`: JLD2 only. `SCEModel`: XML + JLD2,
-  XML byte-identical to the current `write_xml` output.
+- **`save` / `load`** (`.xml` only). `SCEBasis` and `SCEModel`
+  round-trip through XML; the schema records `tolerance_sym` and
+  `isotropy` so a saved basis reloads without the original input
+  (`Symmetry` is recomputed from `structure` + `tolerance_sym`, not
+  deserialized; `isotropy` is provenance metadata). `SCEFit` is **not**
+  covered by Magesty's `save` / `load`: it is a plain struct, so users
+  who want to persist a fit use `JLD2` directly. JLD2 is intentionally
+  not a Magesty dependency.
 - **TOML** kept as a thin convenience layer (`SCEBasis("input.toml")`),
   but the `[regression]` section is removed — fit parameters
   (`lambda`, `torque_weight`, datafile) move to Julia code.
@@ -100,7 +111,8 @@ Out of scope (deferred to follow-up specs):
   but the SALC construction's reliance on translational symmetry is a
   separate effort.
 - **`AtomsIO.jl` as a hard dependency**: documented as the recommended
-  way to read CIF / POSCAR / extxyz, but not a `Project.toml` dep.
+  way to read CIF / POSCAR / extxyz and used in `examples/`, but not a
+  `Project.toml` dependency of the package itself.
 - **Cross-validation wrapper estimator** (`CV(...)`) and the `kfold`
   helper: the type hierarchy supports it, implementation is later.
 - **`view`-backed `SCEDataset` slicing**: `getindex` returns a copy in
@@ -119,8 +131,13 @@ Out of scope (deferred to follow-up specs):
 1. **SALC / coupled-basis numerics**: basis function values, signs,
    normalization, `(l, m, site)` ordering. Guarded by `test_Basis.jl`,
    `test_SALCBases_l13_regression.jl`, `test_sphericart_agreement.jl`.
-2. **`SCEModel` XML format**: `save(model, "x.xml")` is byte-identical
-   to the current `write_xml(sc, "x.xml")` output for the same inputs.
+2. **`SCEModel` / `SCEBasis` XML schema**: the XML schema is stable and
+   content-faithful, and `save(obj, "x.xml")` is regression-tested
+   byte-for-byte against a committed baseline. The baseline is
+   regenerated once for the schema introduced in this spec (which adds
+   `tolerance_sym` / `isotropy` attributes and is therefore *not*
+   byte-identical to the pre-refactor `write_xml` output); thereafter
+   any drift from the committed baseline is a regression.
 3. **Physics conventions**: unit-vector spin directions, real tesseral
    spherical harmonics, `3 × n_atoms` layout, energy in eV, torque in
    eV.
@@ -139,7 +156,8 @@ Out of scope (deferred to follow-up specs):
 - [ ] All `test/examples/*/input.toml` have `[regression]` removed;
       their Julia drivers build via `SCEBasis` / `SCEDataset` / `fit`.
 - [ ] `make test-all`, `make test-jet`, `make test-aqua` green.
-- [ ] `SCEModel` XML output byte-identical to baseline.
+- [ ] `SCEModel` / `SCEBasis` XML output byte-identical to the
+      committed (new-schema) baseline, and round-trips through `load`.
 - [ ] `docs/src/api.md`, `SPEC.md`, `README.md`, `docs/src/examples.md`
       reflect the new API.
 - [ ] `docs/design-notes/sce-public-api.md` and `DESIGN_NOTES.md`
@@ -150,7 +168,7 @@ Out of scope (deferred to follow-up specs):
 | Risk | Mitigation |
 |------|------------|
 | AtomsBase API churn (it is pre-1.0) | Pin a compat bound; isolate all AtomsBase calls in the `SCEBasis` constructor and a small adapter file so churn is localized. |
-| `SCEModel` XML drift breaks byte-identical guarantee | `save(::SCEModel, "*.xml")` delegates to the existing `xml_io.jl` writer unchanged; add a round-trip byte-diff check on `fept` / `fege` before merge. |
+| `SCEModel` / `SCEBasis` XML schema drift | `xml_io.jl` is the single source of the schema; a byte-diff round-trip test on `fept` / `fege` against committed baselines catches unintended drift. Baselines are regenerated deliberately when the schema changes. |
 | Intermediate commits leave the package in a non-importable state | Steps 1-5 are add-only; old and new APIs coexist until step 7. `make test-all` runs at every commit. |
 | `SCEDataset` design matrix memory blows up for large EMBSET | `X_E`/`X_T` stored unweighted and once; slicing returns views where asked. Document the memory model in design.md. |
 | Species-based `lmax` keying confuses users coming from element-only TOML | Provide the element-only fan-out sugar and document both forms; TOML path keeps element-only keys. |

@@ -18,12 +18,6 @@ cutoff."Fe-Pt" = -1
 cutoff."Pt-Pt" = -1 
 lsum = 2 # sum of the angular momenta of the two atoms
 
-[regression]
-alpha = 0
-datafile = "EMBSET.dat"
-lambda = 0
-weight = 1.0
-
 [structure]
 kd_list = [1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2]
 lattice = [

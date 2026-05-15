@@ -46,8 +46,8 @@ Represents the unit cell of a crystal structure with lattice vectors, atomic pos
 - `kd_int_list::Vector{Int}`  
   An integer list representing the atomic species or "kind" identifiers for each atom.
 
-- `x_frac::Matrix{Float64}`  
-  A matrix holding the fractional coordinates of the atoms within the cell (`[3 × num_atoms]` or `[num_atoms × 3]` depending on usage).
+- `x_frac::Matrix{Float64}`
+  A matrix holding the fractional coordinates of the atoms within the cell, laid out as `[3 × num_atoms]` (rows = x, y, z; columns = atoms).
 
 
 # Notes
