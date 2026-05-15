@@ -61,7 +61,9 @@ end
 Magnetic data extracted from the last complete SCF step in OSZICAR.
 
 Fields
-- `magmom_smoothed`: 3×N Wannier-interpolated magnetic moments (MW_int in VASP)
+- `magmom_smoothed`: 3xN smooth-window integrated magnetic moments (MW_int in VASP;
+  integrated with a weight that decays smoothly to zero at the Wigner-Seitz
+  sphere boundary; see VASP I_CONSTRAINED_M)
 - `magmom_raw`     : 3×N directly integrated magnetic moments (M_int in VASP)
 - `constr_field`   : 3×N constraint (penalty) field λ·MW_perp; zero for unconstrained atoms
 """
