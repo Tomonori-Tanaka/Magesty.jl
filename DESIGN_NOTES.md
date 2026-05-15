@@ -26,3 +26,7 @@
 
 - [Zₗₘ / Legendre / SH バッファ系の改善案](docs/design-notes/backlog.md) — 軽量な思いつきメモ、保留候補
 - [Post-Step 7 cleanup](docs/design-notes/post-step7-cleanup.md) — SCE 公開 API 破壊コミット完了後の追走項目（hot-path 型安定性、XML I/O 再パース、変数名と中身の乖離スイープなど）
+
+## 保留中の整理タスク
+
+- [Legacy tools migration](docs/design-notes/legacy-tools-migration.md) — `tools/check_convergence_embset.jl` / `tools/convert2tensor.jl` / `tools/micromagnetics.jl` / `tools/plot_jphi_cluster_distance.jl` の旧 API 依存。使う人が出てきた時点で移行（2026-05-16 時点でスケジュールなし）
