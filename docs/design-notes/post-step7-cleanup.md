@@ -71,16 +71,11 @@ and silently invites incorrect changes (e.g. checking unitarity on a
 
 Known mismatches:
 
-- `src/SALCBases.jl:projection_matrix_coupled_basis::temp_projection_mat`
-  — holds the single-symmetry-operation representation matrix `D(g)`
-  (Wigner D × `tensor_inner_product` phase), **not** the projector. The
-  projector is the accumulated sum after `/2nsym`. Rename candidates:
-  `representation_mat`, `D_g_mat`.
-- Same function, `check_unitary` kwarg — the name does not say *what*
-  must be unitary. The check tests "each `D(g)` is unitary as required
-  by a unitary irrep", not "`P` is unitary" (which would imply `P = I`).
-  Rename the kwarg or the helper (e.g. `check_irrep_unitary`) and update
-  the docstring.
+- ~~`src/SALCBases.jl:projection_matrix_coupled_basis::temp_projection_mat`~~
+  *(resolved 2026-05-16: renamed to `representation_mat`)*
+- ~~Same function, `check_unitary` kwarg~~ *(resolved 2026-05-16:
+  renamed to `check_irrep_unitary`; env var renamed to
+  `MAGESTY_CHECK_IRREP_UNITARY`)*
 
 Broader sweep task: walk `src/` and flag `*_mat` / `*_matrix` / `*_list`
 / `*_dict` variables whose name implies one mathematical object but

@@ -692,6 +692,12 @@ and projects onto the subspace of basis functions that are invariant under the s
 - `coupled_basislist::SortedCounter{Basis.CoupledBasis}`: List of coupled basis functions
 - `symmetry::Symmetry`: Symmetry information containing all symmetry operations
 
+# Keywords
+- `check_irrep_unitary::Bool`: If `true`, verify that each per-operation
+  representation matrix `D(g)` (built before the average) is unitary, as
+  required for a unitary irrep. Defaults to the environment variable
+  `MAGESTY_CHECK_IRREP_UNITARY` (`"1"` to enable, anything else off).
+
 # Returns
 - `Matrix{Float64}`: Projection matrix of size (nbasis * submatrix_dim) × (nbasis * submatrix_dim),
   where submatrix_dim = 2*Lf + 1 for the total angular momentum Lf
@@ -704,7 +710,7 @@ function projection_matrix_coupled_basis(
 	coupled_basislist::SortedCounter{Basis.CoupledBasis},
 	symmetry::Symmetry,
 	;
-	check_unitary::Bool = get(ENV, "MAGESTY_CHECK_UNITARY", "0") == "1",
+	check_irrep_unitary::Bool = get(ENV, "MAGESTY_CHECK_IRREP_UNITARY", "0") == "1",
 )::Matrix{Float64}
 	Lf = coupled_basislist[1].Lf
 	submatrix_dim = 2 * Lf + 1
@@ -723,14 +729,16 @@ function projection_matrix_coupled_basis(
 	end
 
 	projection_mat = zeros(Float64, full_matrix_dim, full_matrix_dim)
-	# Reuse a single scratch buffer across all symmetry iterations to avoid
-	# `2*nsym` heap allocations of `full_matrix_dim^2` Float64 matrices.
-	temp_projection_mat = zeros(Float64, full_matrix_dim, full_matrix_dim)
+	# Single-operation representation matrix D(g) for the current (symop,
+	# time_rev_sym). Reused as a scratch buffer to avoid `2*nsym` heap
+	# allocations of `full_matrix_dim^2` Float64 matrices; the accumulated
+	# projector is the average of these `D(g)`s.
+	representation_mat = zeros(Float64, full_matrix_dim, full_matrix_dim)
 	# All cbs in this list share the same cluster size, so allocate once and refill.
 	N_atoms = length(coupled_basislist[1].atoms)
 	atoms_shifted_list = Vector{Int}(undef, N_atoms)
 	for (n, symop) in enumerate(symmetry.symdata), time_rev_sym in [false, true]
-		fill!(temp_projection_mat, 0.0)
+		fill!(representation_mat, 0.0)
 		base_rot_mat = base_rot_mats[n]
 
 		for (i, cb1) in enumerate(coupled_basislist)
@@ -748,23 +756,22 @@ function projection_matrix_coupled_basis(
 				end
 				phase = tensor_inner_product(cb2.coeff_tensor, reordered_cb.coeff_tensor) / (2*Lf+1)
 				row_range = ((j-1)*submatrix_dim+1):(j*submatrix_dim)
-				temp_projection_mat[row_range, col_range] = rot_mat * phase
+				representation_mat[row_range, col_range] = rot_mat * phase
 			end
 		end
 
-		if check_unitary && !is_unitary(temp_projection_mat, tol = 1e-8)
-			# `temp_projection_mat` here is the single-operation representation
-			# matrix D(g), not the accumulated projection — a unitary irrep
-			# requires each D(g) to be unitary.
+		if check_irrep_unitary && !is_unitary(representation_mat, tol = 1e-8)
+			# A unitary irrep requires each per-operation D(g) to be unitary.
+			# The accumulated projector itself is not unitary (it is
+			# idempotent), so the check must run before the average.
 			error(
 				"Representation matrix D(g) is not unitary " *
-				"(symmetry operation index n = $n). P'P = " *
-				"$(temp_projection_mat' * temp_projection_mat)",
+				"(symmetry operation index n = $n). D(g)'D(g) = " *
+				"$(representation_mat' * representation_mat)",
 			)
 		end
 
-		# Accumulate the projection matrix in place.
-		projection_mat .+= temp_projection_mat
+		projection_mat .+= representation_mat
 	end
 
 	# Average over all symmetry operations (2 for time reversal)
