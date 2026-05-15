@@ -46,55 +46,21 @@ in `.claude/bench_log.md`.
   (`https://Tomonori-Tanaka.github.io/Magesty.jl/technical_notes/`). Swap
   in the published paper reference once it is out.
 
-## SALC build determinism across platforms (degenerate eigenvalues)
+## SALC build determinism across platforms (resolved)
 
-The "fresh build" byte-diff regression test in
-`test/component_test/test_save_load.jl` was dropped during the Step 7
-push because both `fept` and `fege` have 2-body `Lf=2` SALC groups that
-span 2D degenerate eigenvalue subspaces. LAPACK eigensolvers do not
-promise a platform-stable basis within a degenerate subspace, so the
-committed XML baseline (generated on macOS arm64) does not match the
-output on Linux x86 — the values differ by a unitary rotation inside the
-degenerate subspace (verified: the rotated entries satisfy
-`a² + b² = const`).
+*Resolved 2026-05-15 in `src/SALCBases.jl::_canonicalize_eigenspace`.*
 
-Per-platform reproducibility is still verified by the
-"basis identity (design matrices) after reload" testset (it compares
-the energy/torque design matrices with `≈`, which is invariant under
-rotations within a degenerate subspace).
-
-Two possible follow-up fixes:
-
-- **Subspace-span comparison**: group SALCs by `(atom-orbit, ls, Lf)` and
-  compare the orthogonal projection onto each group's span (or the QR
-  factorization's `R` block). Adds a helper to the test suite without
-  touching `src/`. Lets the byte-diff "fresh build" test come back in a
-  span-aware form.
-- **Canonical gauge fix at SALC build time**: post-process eigenvectors
-  within each degenerate subspace to a deterministic representative
-  (e.g., sort by first-nonzero entry magnitude, sign-fix on a chosen
-  pivot, then Gram-Schmidt). Makes the SALC output bit-stable across
-  LAPACK implementations and reinstates simple byte-diff regression at
-  the cost of changing a numerical convention (and regenerating
-  baselines). Treat the gauge convention as a physics decision — flag
-  it for review before landing.
-
-The example that triggered this (fept):
-
-```xml
-<SALC index="6" num_basis="2" body="2" Lf="2">
-  <basis multiplicity="2" atoms="9 11"  ls="1 1" ... >0.0 0.0 0.5076 0.0  0.4923</basis>
-  <basis multiplicity="2" atoms="9 13"  ls="1 1" ... >0.0 0.0 0.5076 0.0 -0.4923</basis>
-</SALC>
-<SALC index="7" num_basis="2" body="2" Lf="2">
-  <basis multiplicity="2" atoms="9 11"  ls="1 1" ... >0.0 0.0 0.4923 0.0 -0.5076</basis>
-  <basis multiplicity="2" atoms="9 13"  ls="1 1" ... >0.0 0.0 0.4923 0.0  0.5076</basis>
-</SALC>
-```
-
-SALC index 6 and 7 span a 4D subspace (2 groups × 2 basis each) that is
-4-fold degenerate; any orthogonal rotation within it is a valid
-eigenbasis.
+Degenerate eigenvalue subspaces of the SALC projection matrix used to
+produce LAPACK-implementation-dependent eigenbases — fept and fege
+both have `Lf=2` groups that span 2D degenerate eigenspaces, so the
+macOS-generated XML baselines did not match Linux x86 builds. The fix
+applies modified Gram-Schmidt on `P * eⱼ` (axis-ordered) where
+`P = V Vᵀ` is the basis-invariant projector onto the eigenspace,
+yielding a canonical orthonormal basis of the same subspace. SALC
+coefficients are now bit-stable across BLAS/LAPACK implementations,
+and the "fresh build" byte-diff regression test in
+`test/component_test/test_save_load.jl` is restored for fept and
+fege.
 
 ## Variable naming vs. mathematical content
 
