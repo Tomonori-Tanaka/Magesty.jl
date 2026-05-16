@@ -40,7 +40,7 @@ input = TOML.parse(open(joinpath(@__DIR__, "input.toml"), "r"))
 	model = SCEModel(fitted)
 	save(model, joinpath(@__DIR__, "chain.xml"))
 
-	@test Magesty.MySphericalHarmonics.Zₗₘ(1, 0, [0.0, 0.0, 1.0]) ≈ √(3 / 4π) atol = 1e-6
+	@test Magesty.TesseralHarmonics.Zₗₘ(1, 0, [0.0, 0.0, 1.0]) ≈ √(3 / 4π) atol = 1e-6
 
 	# The FM / AFM design rows are symmetric (flipping atom 2 flips the l=1 contribution),
 	# so the fit recovers j0 = 0 and a single SCE coefficient whose Heisenberg projection

@@ -233,7 +233,7 @@ function calculate_tensor_for_pair(doc, atom1::Int, atom2::Int)::ExchangeTensorD
 
 
 	# Scaling factor: (4π)^(n_C/2) where n_C=2 for pair
-	# This matches the scaling in design matrix (see Optimize.jl:266)
+	# This matches the scaling in design matrix (see Fitting.jl:266)
 	# Paper Eq. (3): Φ = (√(4π))^{n_C} ∏ Y_{lm}
 
 	# Store SALC information (salc_index, j_phi, coefficient) for each Lf

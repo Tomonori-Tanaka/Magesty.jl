@@ -7,10 +7,10 @@ using BenchmarkTools
 using Profile
 using LinearAlgebra
 using Magesty
-using Magesty.MySphericalHarmonics: P̄ₗₘ, dP̄ₗₘ, dP̄ₗₘ_unsafe, Yₗₘ, Yₗₘ_unsafe, Zₗₘ, Zₗₘ_unsafe, ∂ᵢZlm, ∂ᵢZlm_unsafe
+using Magesty.TesseralHarmonics: P̄ₗₘ, dP̄ₗₘ, dP̄ₗₘ_unsafe, Yₗₘ, Yₗₘ_unsafe, Zₗₘ, Zₗₘ_unsafe, ∂ᵢZlm, ∂ᵢZlm_unsafe
 
 """
-Micro-benchmark and line-profile for MySphericalHarmonics.jl.
+Micro-benchmark and line-profile for TesseralHarmonics.jl.
 Compares safe APIs (with `validate_lm` / `validate_uvec`) vs `*_unsafe` where applicable.
 Note: `P̄ₗₘ` has no validation in the library, so only `dP̄ₗₘ` is shown for Legendre-derivative safe/unsafe.
 
@@ -133,7 +133,7 @@ function run_bench(cfg::Dict{Symbol, Any})
     z = uvec[3]
     pairs = lm_pairs(lmax)
 
-    println("=== MySphericalHarmonics benchmark ===")
+    println("=== TesseralHarmonics benchmark ===")
     println("lmax: $lmax  ($(length(pairs)) (l,m) pairs)")
     println("uvec: $uvec")
     println("samples: $nsamples,  evals: $nevals")

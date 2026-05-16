@@ -2,7 +2,7 @@ using Test
 using Random
 using Magesty
 
-# Regression test for the 3-layer estimator dispatch in src/Optimize.jl.
+# Regression test for the 3-layer estimator dispatch in src/Fitting.jl.
 #
 # Golden (j0, jphi) values were recaptured on 2026-05-14 after
 # `assemble_weighted_problem` switched to per-sample MSE normalization
@@ -12,7 +12,7 @@ using Magesty
 #
 # See: docs/specs/260513-estimator-dispatch/
 
-@testset "Optimize estimator dispatch" begin
+@testset "Fitting estimator dispatch" begin
     Random.seed!(20260513)
 
     n_config = 4
@@ -26,7 +26,7 @@ using Magesty
     weight = 0.3
 
     @testset "assemble_weighted_problem" begin
-        X, y, bias_col = Magesty.Optimize.assemble_weighted_problem(
+        X, y, bias_col = Magesty.Fitting.assemble_weighted_problem(
             design_matrix_energy,
             design_matrix_torque,
             observed_energy_list,
@@ -55,14 +55,14 @@ using Magesty
     end
 
     @testset "solve_coefficients(::OLS) matches X \\ y" begin
-        X, y, bias_col = Magesty.Optimize.assemble_weighted_problem(
+        X, y, bias_col = Magesty.Fitting.assemble_weighted_problem(
             design_matrix_energy,
             design_matrix_torque,
             observed_energy_list,
             observed_torque_list,
             weight,
         )
-        j_ols = Magesty.Optimize.solve_coefficients(
+        j_ols = Magesty.Fitting.solve_coefficients(
             Magesty.OLS(), X, y; bias_col = bias_col,
         )
         @test j_ols ≈ X \ y
@@ -72,17 +72,17 @@ using Magesty
     # extract) end-to-end and return (j0, jphi). Mirrors the kernel that
     # `fit(SCEFit, dataset, est; torque_weight)` runs under the hood.
     function _fit_kernel(estimator)
-        X, y, bias_col = Magesty.Optimize.assemble_weighted_problem(
+        X, y, bias_col = Magesty.Fitting.assemble_weighted_problem(
             design_matrix_energy,
             design_matrix_torque,
             observed_energy_list,
             observed_torque_list,
             weight,
         )
-        j_values = Magesty.Optimize.solve_coefficients(
+        j_values = Magesty.Fitting.solve_coefficients(
             estimator, X, y; bias_col = bias_col,
         )
-        return Magesty.Optimize.extract_j0_jphi(
+        return Magesty.Fitting.extract_j0_jphi(
             j_values, design_matrix_energy, observed_energy_list,
         )
     end
@@ -106,17 +106,17 @@ using Magesty
     end
 
     @testset "extract_j0_jphi splits augmented coefficients" begin
-        X, y, bias_col = Magesty.Optimize.assemble_weighted_problem(
+        X, y, bias_col = Magesty.Fitting.assemble_weighted_problem(
             design_matrix_energy,
             design_matrix_torque,
             observed_energy_list,
             observed_torque_list,
             weight,
         )
-        j_values = Magesty.Optimize.solve_coefficients(
+        j_values = Magesty.Fitting.solve_coefficients(
             Magesty.OLS(), X, y; bias_col = bias_col,
         )
-        j0, jphi = Magesty.Optimize.extract_j0_jphi(
+        j0, jphi = Magesty.Fitting.extract_j0_jphi(
             j_values, design_matrix_energy, observed_energy_list,
         )
         @test length(jphi) == n_basis

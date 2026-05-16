@@ -40,9 +40,9 @@ input = TOML.parse(open(joinpath(@__DIR__, "input.toml"), "r"))
 	model = SCEModel(fitted)
 	save(model, joinpath(@__DIR__, "dimer.xml"))
 
-	@test Magesty.MySphericalHarmonics.Zₗₘ(1, -1, [0.0, 0.0, 1.0]) ≈ 0.0 atol = 1e-6
-	@test Magesty.MySphericalHarmonics.Zₗₘ(1, 0, [0.0, 0.0, 1.0]) ≈ √(3 / 4π) atol = 1e-6
-	@test Magesty.MySphericalHarmonics.Zₗₘ(1, 1, [0.0, 0.0, 1.0]) ≈ 0.0 atol = 1e-6
+	@test Magesty.TesseralHarmonics.Zₗₘ(1, -1, [0.0, 0.0, 1.0]) ≈ 0.0 atol = 1e-6
+	@test Magesty.TesseralHarmonics.Zₗₘ(1, 0, [0.0, 0.0, 1.0]) ≈ √(3 / 4π) atol = 1e-6
+	@test Magesty.TesseralHarmonics.Zₗₘ(1, 1, [0.0, 0.0, 1.0]) ≈ 0.0 atol = 1e-6
 
 	@test intercept(fitted) ≈ 0.0 atol = 1e-6
 	@test length(coef(fitted)) == 1
@@ -83,7 +83,7 @@ input = TOML.parse(open(joinpath(@__DIR__, "input.toml"), "r"))
 		# l=1 × l=1 coupling — i.e. D = (0, -1, 0) in our convention.
 		original_salcbasis = dmi_basis.salcbasis
 		coeff_tensor = original_salcbasis.angular_momentum_couplings[2].coeff_tensor
-		cbc = Magesty.Basis.CoupledBasis_with_coefficient(
+		cbc = Magesty.CoupledBases.CoupledBasis_with_coefficient(
 			[1, 1],
 			1,
 			Int[],
