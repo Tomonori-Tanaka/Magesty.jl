@@ -4,7 +4,7 @@ using Magesty
 
 # Guard against the version constants drifting away from Project.toml
 # (the historical reason for adding this module to the refactor sweep:
-# `src/common/version.jl` used to hard-code MAJOR/MINOR/PATCH/PRERELEASE
+# `src/Version.jl` used to hard-code MAJOR/MINOR/PATCH/PRERELEASE
 # next to Project.toml's own `version` field, and the two could fall out
 # of sync silently).
 

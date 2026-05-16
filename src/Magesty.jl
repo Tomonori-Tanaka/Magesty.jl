@@ -34,24 +34,24 @@ import AtomsBase
 import StatsAPI                          # for the StatsAPI.RegressionModel supertype
 import StatsAPI: fit, coef, nobs, dof    # extended with SCEFit / SCEModel methods
 
-include("common/version.jl")
+include("Version.jl")
 using .Version
 
-include("common/SortedCounter.jl")
-include("types/AtomCells.jl")
+include("SortedCounters.jl")
+include("AtomCells.jl")
 include("SpinConfigs.jl")
 using .SpinConfigs: SpinConfig, read_embset
 
-include("utils/SphericalHarmonicsTransforms.jl")
-include("utils/AngularMomentumCoupling.jl")
-include("types/Basis.jl")
+include("SphericalHarmonicsTransforms.jl")
+include("AngularMomentumCoupling.jl")
+include("Basis.jl")
 using .AngularMomentumCoupling
 using .Basis
 
-include("utils/ConfigParser.jl")
-include("utils/atomsbase_adapter.jl")
-include("utils/RotationMatrix.jl")
-include("utils/MySphericalHarmonics.jl")
+include("ConfigParser.jl")
+include("AtomsBaseAdapter.jl")
+include("RotationMatrix.jl")
+include("MySphericalHarmonics.jl")
 using .ConfigParser
 using .AtomsBaseAdapter
 
@@ -67,7 +67,7 @@ using .Clusters
 using .SALCBases
 using .Optimize
 
-include("utils/xml_io.jl")
+include("XMLIO.jl")
 using .XMLIO
 
 export SCEBasis, SCEDataset, SCEFit, SCEModel
