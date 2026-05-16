@@ -125,7 +125,7 @@ Before:
 1. On `main` (cd72f68 or the commit just before the refactor),
    `make test-integration` once to populate the test cache.
 2. Use a small script (or extend
-   `test/benchmark_salcbasis_hotspots.jl`) to time
+   `bench/benchmark_salcbasis_hotspots.jl`) to time
    `build_design_matrix_energy` on the fept example with `@time` (5
    trials each, report min and median).
 

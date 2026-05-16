@@ -59,8 +59,9 @@ ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
 Rotations = "6038ab10-8711-5258-84ad-4b1120ba62dc"
+Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 SpheriCart = "5caf2b29-02d9-47a3-9434-5931c85ba645"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "BenchmarkTools", "JET", "Aqua", "SpheriCart", "Rotations", "ArgParse"]
+test = ["Test", "BenchmarkTools", "JET", "Aqua", "SpheriCart", "Rotations", "ArgParse", "Serialization"]

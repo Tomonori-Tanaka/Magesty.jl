@@ -4,7 +4,7 @@
 # TesseralHarmonics computes one (l,m) at a time.
 # SpheriCart computes all harmonics up to lmax in a single batched call.
 #
-# Run via Makefile (uses the test environment where SpheriCart is available):
+# Run via Makefile:
 #   make bench-sphericart
 #
 # ENV overrides:
