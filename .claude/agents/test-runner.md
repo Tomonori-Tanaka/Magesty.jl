@@ -17,8 +17,8 @@ Magesty.jl のテストランナーエージェント。テストを実行し、
 
 | コマンド | 対象 | 用途 |
 |---------|------|------|
-| `make test-unit` | `test/component_test/` | モジュール単位のユニットテスト |
-| `make test-integration` | `test/examples/` | 実際の計算例を用いた統合テスト |
+| `make test-unit` | `test/component/` | モジュール単位のユニットテスト |
+| `make test-integration` | `test/integration/` | 実際の計算例を用いた統合テスト |
 | `make test-all` | 上記両方 | 通常はこれを使う |
 | `make test-tools` | `tools/test/` | tools スクリプトのテスト |
 | `make test-jet` | — | JET.jl 静的型解析 |
@@ -31,11 +31,9 @@ Magesty.jl のテストランナーエージェント。テストを実行し、
 - 球面調和関数 (`MySphericalHarmonics.jl` / `SphericalHarmonicsTransforms.jl`) 周り → `make test-all` + `make test-sphericart`
 - 型安定性に関わる変更 → `make test-jet`
 
-`test/develop_tmp/` は CI 対象外。明示的に指定されない限り実行しない。
-
 ## 主要テストの位置づけ
 
-### `test/component_test/`（ユニット）
+### `test/component/`（ユニット）
 
 | ファイル | 検証内容 | 失敗時に疑う箇所 |
 |---|---|---|
@@ -52,7 +50,7 @@ Magesty.jl のテストランナーエージェント。テストを実行し、
 | `test_SortedCounter.jl` | 共通データ構造（`SortedCounter`） | コンテナ実装の正確性 |
 | `test_SpinConfigs.jl` | スピン配置の読み込み | `SpinConfigs.jl` / レイアウト |
 
-### `test/examples/`（統合）
+### `test/integration/`（統合）
 
 `febcc_2x2x2_pm` / `fege_2x2x2` / `fept_tetragonal_2x2x2` / `chain` / `dimer` / `square_lattice` / `2d_fcc_2x2x2` — 実データで SCE 構築から係数フィットまでを通すエンドツーエンドテスト。失敗は公開 API の挙動変化を示すことが多い。
 
@@ -62,7 +60,7 @@ Magesty.jl のテストランナーエージェント。テストを実行し、
 - **`test_MySphericalHarmonics` の失敗**: `Zₗₘ` 本体の値が壊れている。SALC・design matrix・Optimize 全てに波及。
 - **`test_Basis` の失敗**: SALC や `(l, m, site)` 順序の整合が崩れている。係数の物理的解釈が変わるので注意。
 - **`test_Optimize` の失敗**: design matrix 構築または推定器の問題。中間値（行列の shape・条件数）を確認する価値あり。
-- **`test/examples/` の失敗**: ユニットが通っていれば公開 API か XML I/O の互換性。`write_xml` / `build_sce_basis_from_xml` のラウンドトリップを疑う。
+- **`test/integration/` の失敗**: ユニットが通っていれば公開 API か XML I/O の互換性。`write_xml` / `build_sce_basis_from_xml` のラウンドトリップを疑う。
 
 ## 報告フォーマット
 

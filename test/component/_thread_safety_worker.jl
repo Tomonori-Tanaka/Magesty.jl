@@ -10,7 +10,7 @@ using Magesty
 using Serialization
 using TOML
 
-const EXAMPLE_DIR = joinpath(@__DIR__, "..", "examples", "fept_tetragonal_2x2x2")
+const EXAMPLE_DIR = joinpath(@__DIR__, "..", "integration", "fept_tetragonal_2x2x2")
 
 function compute_payload()
     input = TOML.parsefile(joinpath(EXAMPLE_DIR, "input.toml"))

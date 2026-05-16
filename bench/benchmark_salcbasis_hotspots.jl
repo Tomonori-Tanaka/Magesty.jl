@@ -10,12 +10,12 @@ Micro-benchmark and line-profile for SALCBases.jl hotspots.
 
 Usage:
   julia bench/benchmark_salcbasis_hotspots.jl
-  julia bench/benchmark_salcbasis_hotspots.jl --input test/examples/fege_2x2x2/input.toml
+  julia bench/benchmark_salcbasis_hotspots.jl --input test/integration/fege_2x2x2/input.toml
   julia bench/benchmark_salcbasis_hotspots.jl --samples 10 --evals 1 --profile-iters-basisset 2
 """
 function parse_args(args::Vector{String})
     cfg = Dict{Symbol, Any}(
-        :input => joinpath(@__DIR__, "examples", "fege_2x2x2", "input.toml"),
+        :input => joinpath(@__DIR__, "..", "test", "integration", "fege_2x2x2", "input.toml"),
         :samples => 10,
         :evals => 1,
         :profile_iters_listup => 100,

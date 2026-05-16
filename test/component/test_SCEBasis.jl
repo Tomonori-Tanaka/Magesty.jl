@@ -6,7 +6,7 @@ import TOML
 
 # Fixtures -------------------------------------------------------------
 
-const DIMER_TOML = joinpath(@__DIR__, "..", "examples", "dimer", "input.toml")
+const DIMER_TOML = joinpath(@__DIR__, "..", "integration", "dimer", "input.toml")
 
 # A minimal periodic 2-atom system, used for the AtomsBase / sublabel /
 # fan-out / odd-warning tests.

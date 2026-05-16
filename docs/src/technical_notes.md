@@ -49,7 +49,7 @@ The five components are
 | $+1$ | $\dfrac{3}{\sqrt{2}}(e_{ix}\,e_{jz}+e_{iz}\,e_{jx})$ |
 | $+2$ | $\dfrac{3}{\sqrt{2}}(e_{ix}\,e_{jx}-e_{iy}\,e_{jy})$ |
 
-> **Verification** (from `test/examples/dimer/test.jl`):
+> **Verification** (from `test/integration/dimer/test.jl`):
 > - $L_f=0$: `coef(model)[1]`$\times\sqrt{3} = -1$ for FM/AFM energies $\mp 1$ ✓  
 > - $L_f=1$: `coef(model)[1]`$\times 3/\sqrt{2} = -1$ for planar DMI with $D_z=-1$ ✓
 

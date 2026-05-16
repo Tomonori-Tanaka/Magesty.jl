@@ -7,7 +7,7 @@
 - マシン: Darwin 24.6.0 (arm64)
 - Julia: 1.12.6
 - スレッド数: 4 (`--threads=auto`)
-- ターゲット: `test/examples/fege_2x2x2/input.toml`
+- ターゲット: `test/integration/fege_2x2x2/input.toml`
 - スクリプト: `test/benchmark_basisset_hotspots.jl --samples 20 --evals 1 --profile-iters-* 0`
 
 ## ベースライン (commit `0acafc9` 直後 / perf branch HEAD)

@@ -22,7 +22,7 @@ using Printf
 using TOML
 
 const DEFAULT_INPUT = joinpath(
-    @__DIR__, "..", "test", "examples", "fept_tetragonal_2x2x2", "input.toml",
+    @__DIR__, "..", "test", "integration", "fept_tetragonal_2x2x2", "input.toml",
 )
 const INPUT_TOML = get(ENV, "BENCH_INPUT", DEFAULT_INPUT)
 const SAMPLES = parse(Int, get(ENV, "BENCH_SAMPLES", "5"))
