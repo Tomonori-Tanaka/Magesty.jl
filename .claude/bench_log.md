@@ -489,3 +489,33 @@ switching `Zₗₘ_unsafe(l, m, uvec)` to `Zₗₘ_unsafe(l, m, uvec, buf)`
 that the workspace alone had not addressed. The buffered overload was
 already in `MySphericalHarmonics.jl` (commit `8a4a17d`); only the
 caller side had to wire up the workspace-owned `legendre_buf`.
+
+## B2 — `sh_values` flatten (workspace `Vector{Vector{Float64}}` → `Vector{Float64}`)
+
+Replaces the per-site nested layout with a single contiguous
+`Vector{Float64}` plus a cumulative-offset `Vector{Int}` in
+`EnergyWorkspace` / `GradWorkspace`. The kernel reads/writes
+`sh_values[sh_offsets[i] + m_idx]` instead of `sh_values[i][m_idx]`.
+Motivation: the original `Vector{Vector{Float64}}` had outer pointer
+indirection (outer length is `R - 1`, statically known), heap-individual
+inner vectors with no cache locality, and an N-iteration resize check
+on every element call.
+
+Results on fept_tetragonal_2x2x2 (30 spinconfigs × 31 salcs, 5 trials each):
+
+| function                      | before (med allocs / time min) | after            |
+|-------------------------------|--------------------------------|------------------|
+| `build_design_matrix_energy`  | 9,769 / 2.3 ms                 | 9,711 / 2.3 ms   |
+| `build_design_matrix_torque`  | 112,812 / 11.2 ms              | 112,782 / 11.0 ms|
+
+Time delta sits inside BenchmarkTools noise (~±5%); allocations drop
+slightly (-58 energy, -30 torque) reflecting the removed inner-vector
+`push!` / `resize!` cycle in `_ensure_sh_buffer!`. The substantive
+change is structural (one heap object instead of `R - 1 + 1`,
+contiguous memory for the cache hierarchy) — the runtime is already
+dominated by the contraction loop and SH evaluation.
+
+Note: the comparison is against the post-workspace-pooling baseline
+(`260516-optimize-workspace`), which had already removed the
+per-translation allocation pattern that B2 was originally framed
+around. This commit handles the residual structural concern.
