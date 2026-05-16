@@ -173,6 +173,8 @@ python3 tools/FitCheck_energy.py energy_list.txt -o energy.png -l 0.2
 - `--marker-size`, `-m`: Marker size (default: 5)
 - `--marker-alpha`, `-A`: Marker transparency 0–1 (default: 0.8)
 - `--no-legend`, `-L`: Disable legend
+- `--tick-interval`, `-T`: Major tick interval in meV (same for X and Y; default: auto)
+- `--per`: Divide all energies by this integer (e.g. atoms per formula unit) and report per-unit energies
 
 **Features:**
 - eV → meV conversion for display
@@ -193,7 +195,7 @@ python3 tools/FitCheck_torque.py torque_list.txt -t dir -a 1,2,3 -l 50
 
 **Arguments:**
 - `files` (positional): Input torque files (format: `index element DFTx DFTy DFTz SCEx SCEy SCEz`)
-- `--type`, `-t`: Plot type: `all` (x/y/z components), `norm` (magnitude), `dir` (direction unit vector) (required)
+- `--type`, `-t`: Plot type: `all` (x/y/z components), `norm` (magnitude), `dir` (direction unit vector) (default: `all`)
 - `--atom-indices`, `-a`: Atom indices to include (e.g. `'1,3,5-10'`; mutually exclusive with `--elements`)
 - `--elements`, `-e`: Element symbols to include (e.g. `'Fe,Co'`; mutually exclusive with `--atom-indices`)
 - `--output`, `-o`: Output filename (format inferred from extension)
@@ -281,7 +283,7 @@ julia tools/plot_jij.jl jphi.xml --element1 Fe --element2 Co
 
 ### tools/plot_jphi_cluster_distance.jl
 
-Plot each SALC coefficient `jφ` (from `write_xml` / `save(model, ...)`) against the maximum over cluster atom pairs of the minimum-image (MIC) distance. Different N-body terms are drawn as separate series. Requires Plots.jl.
+Plot each SALC coefficient `jφ` (from `save(model, ...)`) against the maximum over cluster atom pairs of the minimum-image (MIC) distance. Different N-body terms are drawn as separate series. Requires Plots.jl.
 
 **Usage:**
 ```bash

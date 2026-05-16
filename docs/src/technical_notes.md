@@ -8,7 +8,7 @@ The SCE model energy per supercell is
 
 $$E = J_0 + \sum_\nu J_\nu \,\Phi_\nu\!\left(\{\hat{e}_i\}\right),$$
 
-where $J_0$ = `optimizer.reference_energy` and $J_\nu$ = `optimizer.SCE[ν]`.
+where $J_0$ = `intercept(model)` (`model.j0`) and $J_\nu$ = `coef(model)[ν]` (`model.jphi[ν]`) for a fitted `SCEModel` (or, equivalently, an `SCEFit`).
 
 The design feature $\Phi_\nu$ for a 2-body SALC is computed as
 
@@ -50,8 +50,8 @@ The five components are
 | $+2$ | $\dfrac{3}{\sqrt{2}}(e_{ix}\,e_{jx}-e_{iy}\,e_{jy})$ |
 
 > **Verification** (from `test/examples/dimer/test.jl`):
-> - $L_f=0$: `SCE[1]`$\times\sqrt{3} = -1$ for FM/AFM energies $\mp 1$ ✓  
-> - $L_f=1$: `SCE[1]`$\times 3/\sqrt{2} = -1$ for planar DMI with $D_z=-1$ ✓
+> - $L_f=0$: `coef(model)[1]`$\times\sqrt{3} = -1$ for FM/AFM energies $\mp 1$ ✓  
+> - $L_f=1$: `coef(model)[1]`$\times 3/\sqrt{2} = -1$ for planar DMI with $D_z=-1$ ✓
 
 ### Conversion to conventional spin model parameters
 
