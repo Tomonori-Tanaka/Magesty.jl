@@ -109,9 +109,12 @@ SphericalHarmonicsTransforms.r2c_sph_harm_matrix
 AtomCells.AtomCell
 ```
 
-### Configuration parsers
+### Input specs
 ```@docs
-ConfigParser.Config4System
+InputSpecs.SystemSpec
+InputSpecs.InteractionSpec
+InputSpecs.SymmetryOptions
+InputSpecs.parse_toml_inputs
 ```
 
 ## Utility functions

@@ -77,9 +77,69 @@ position = [            # fractional coordinates
 | Key | Type | Required | Description |
 |-----|------|----------|-------------|
 | `nbody` | Int | yes | Maximum interaction order |
-| `body1.lmax.<elem>` | Int | no | On-site max angular momentum per element |
+| `body1.lmax.<elem>` | Int | no | On-site max angular momentum per element (wildcard `*` accepted, see below) |
 | `body<n>.lsum` | Int | yes (n≥2) | Max L sum for n-body basis |
-| `body<n>.cutoff."<e1>-<e2>"` | Float64 | yes (n≥2) | Pairwise cutoff radius in Å (`-1` = include all pairs) |
+| `body<n>.cutoff."<e1>-<e2>"` | Float64 | yes (n≥2) | Pairwise cutoff radius in Å (`-1` = include all pairs; wildcards accepted, see below) |
+
+#### Wildcard species notation
+
+For `body1.lmax.<species>` and `body<n>.cutoff."<e1>-<e2>"` the species
+name may be replaced with `*`, matching every species. When several keys
+cover the same species or pair, the **most specific** key wins (it is
+not the textual order of the keys). For pair keys the specificity order
+is:
+
+| Tier | Pattern | Example |
+|------|---------|---------|
+| 0 (most specific) | both concrete | `"Co-Ni"` |
+| 1 | one wildcard | `"Fe-*"`, `"*-Fe"` |
+| 2 (least specific) | both wildcards | `"*-*"` |
+
+Pair keys are **unordered**: `"Co-Ni"` and `"Ni-Co"` are equivalent (the
+parser rejects them as duplicates if both are supplied). The species
+notation for `body1.lmax` has only two tiers: concrete species
+(`"Fe"`) wins over the wildcard (`"*"`).
+
+If two keys at the same tier cover the same pair with different values
+(for instance `"Fe-*"` and `"*-Ni"` both covering `Fe-Ni`), the parser
+reports an ambiguity and requires the user to add a tier-0 entry for
+that pair. Unknown species names in a non-wildcard key are an error.
+
+```toml
+[interaction]
+nbody = 2
+
+[interaction.body1.lmax]
+"*"  = 2          # default for every species
+"Fe" = 4          # Fe overrides the default
+
+[interaction.body2]
+lsum = 4
+
+[interaction.body2.cutoff]
+"*-*"  = 8.0      # default for every pair
+"Fe-*" = 10.0     # every pair involving Fe (incl. Fe-Fe)
+"Co-Ni" = 12.0    # tier-0 entry — wins over any wildcard match
+```
+
+### Interaction cluster definition
+
+Given the cutoff table for body `n`, an `n`-body atom set is accepted
+as an interaction cluster if **every one of its `C(n, 2)` pairwise
+cartesian distances** is less than or equal to the corresponding
+pair-specific cutoff `body<n>.cutoff."<kᵢ>-<kⱼ>"`. The same rule applies
+uniformly to every `n ≥ 2`: pair, triplet, quartet, and so on. No body
+order treats the criterion differently.
+
+Concretely, for body `n` and an `n`-body candidate `(a₁, …, aₙ)` of
+species `(k₁, …, kₙ)`:
+
+> the candidate is accepted iff `‖xᵢ − xⱼ‖ ≤ body<n>.cutoff."<kᵢ>-<kⱼ>"` for every pair `(i, j)` with `1 ≤ i < j ≤ n`.
+
+If even one pair distance exceeds its cutoff the candidate is rejected
+in full, regardless of how many other pairs fit. Setting a pair cutoff
+to `-1` disables the constraint for that pair only — the rule is still
+evaluated for every other pair in the cluster.
 
 ### `[structure]`
 
