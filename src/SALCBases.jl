@@ -14,6 +14,7 @@ using Printf
 
 using ..SortedCounters: SortedCounter
 using ..ConfigParser
+using ..InputSpecs: InteractionSpec, SymmetryOptions
 using ..Structures
 using ..Symmetries
 using ..Clusters
@@ -330,7 +331,8 @@ function SALCBasis(
 	structure::Structure,
 	symmetry::Symmetry,
 	cluster::Cluster,
-	config::Config4System,
+	interaction::InteractionSpec,
+	options::SymmetryOptions,
 	;
 	verbosity::Bool = true,
 )
@@ -338,10 +340,10 @@ function SALCBasis(
 		structure,
 		symmetry,
 		cluster,
-		config.body1_lmax,
-		config.bodyn_lsum,
-		config.nbody,
-		config.isotropy,
+		interaction.body1_lmax,
+		interaction.bodyn_lsum,
+		interaction.nbody,
+		options.isotropy,
 		verbosity = verbosity,
 	)
 end

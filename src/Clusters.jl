@@ -28,6 +28,7 @@ using Printf
 using ..SortedCounters: SortedCounter
 using ..AtomCells
 using ..ConfigParser
+using ..InputSpecs: InteractionSpec
 using ..Structures
 using ..Symmetries
 
@@ -170,10 +171,16 @@ end
 function Cluster(
 	structure::Structure,
 	symmetry::Symmetry,
-	config::Config4System;
+	interaction::InteractionSpec;
 	verbosity::Bool = true,
 )
-	return Cluster(structure, symmetry, config.nbody, config.bodyn_cutoff; verbosity = verbosity)
+	return Cluster(
+		structure,
+		symmetry,
+		interaction.nbody,
+		interaction.bodyn_cutoff;
+		verbosity = verbosity,
+	)
 end
 
 """
