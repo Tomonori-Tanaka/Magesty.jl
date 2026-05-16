@@ -8,7 +8,6 @@ using LinearAlgebra
 using Printf
 using StaticArrays
 using EzXML
-using ..ConfigParser
 using ..InputSpecs: SystemSpec
 
 import Base: show

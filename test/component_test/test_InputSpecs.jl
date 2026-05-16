@@ -1,5 +1,4 @@
 using .InputSpecs
-using .ConfigParser
 using OffsetArrays
 using Test
 
@@ -308,10 +307,9 @@ using Test
         )
     end
 
-    @testset "parse_toml_inputs equivalence with Config4System" begin
-        # Identical input dict to test_ConfigParser fixture. parse_toml_inputs
-        # must produce numerical values identical to those Config4System
-        # computes — same kd_int_list, same lattice, same cutoff matrix, etc.
+    @testset "parse_toml_inputs schema mapping" begin
+        # The legacy TOML schema must produce specific values. Tests pin the
+        # mapping from each TOML key to the corresponding typed-value field.
         input_dict = Dict{String, Any}(
             "general" => Dict{String, Any}(
                 "name" => "test_system",
@@ -344,23 +342,54 @@ using Test
         )
 
         sys, inter, opts = parse_toml_inputs(input_dict)
-        legacy = Config4System(input_dict)
 
-        @test sys.name == legacy.name
-        @test sys.num_atoms == legacy.num_atoms
-        @test sys.kd_name == legacy.kd_name
-        @test sys.kd_int_list == legacy.kd_int_list
-        @test sys.lattice_vectors == legacy.lattice_vectors
-        @test sys.x_fractional == legacy.x_fractional
-        @test sys.is_periodic == legacy.is_periodic
+        @test sys.name == "test_system"
+        @test sys.num_atoms == 2
+        @test sys.kd_name == ["H", "O"]
+        @test sys.kd_int_list == [1, 2]
+        @test sys.lattice_vectors == [1.0 0.0 0.0; 0.0 1.0 0.0; 0.0 0.0 1.0]
+        @test sys.x_fractional[:, 1] ≈ [0.0, 0.0, 0.0]
+        @test sys.x_fractional[:, 2] ≈ [0.5, 0.5, 0.5]
+        @test sys.is_periodic == [true, true, true]
 
-        @test inter.nbody == legacy.nbody
-        @test inter.body1_lmax == legacy.body1_lmax
-        @test inter.bodyn_lsum == legacy.bodyn_lsum
-        @test inter.bodyn_cutoff == legacy.bodyn_cutoff
+        @test inter.nbody == 2
+        @test inter.body1_lmax == [1, 3]
+        @test inter.bodyn_lsum[2] == 4
+        @test inter.bodyn_cutoff[2, 1, 1] ≈ 2.0
+        @test inter.bodyn_cutoff[2, 1, 2] ≈ 3.0
+        @test inter.bodyn_cutoff[2, 2, 1] ≈ 3.0
+        @test inter.bodyn_cutoff[2, 2, 2] ≈ 4.0
 
-        @test opts.tolerance_sym == legacy.tolerance_sym
-        @test opts.isotropy == legacy.isotropy
+        @test opts.tolerance_sym ≈ 1e-3
+        @test opts.isotropy == false
+    end
+
+    @testset "parse_toml_inputs nbody=1 edge case" begin
+        input_dict = Dict{String, Any}(
+            "general" => Dict{String, Any}(
+                "name" => "nbody1",
+                "nat" => 1,
+                "kd" => ["Fe"],
+            ),
+            "symmetry" => Dict{String, Any}(),
+            "interaction" => Dict{String, Any}(
+                "nbody" => 1,
+                "body1" => Dict{String, Any}(
+                    "lmax" => Dict{String, Any}("Fe" => 2),
+                ),
+            ),
+            "structure" => Dict{String, Any}(
+                "lattice" => [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+                "kd_list" => [1],
+                "position" => [[0.0, 0.0, 0.0]],
+            ),
+        )
+        sys, inter, opts = parse_toml_inputs(input_dict)
+        @test inter.nbody == 1
+        @test inter.body1_lmax == [2]
+        @test length(inter.bodyn_lsum) == 0
+        @test size(parent(inter.bodyn_cutoff)) == (0, 1, 1)
+        @test opts.tolerance_sym ≈ 1e-3   # default
     end
 
     @testset "parse_toml_inputs wildcards equivalent to explicit form" begin

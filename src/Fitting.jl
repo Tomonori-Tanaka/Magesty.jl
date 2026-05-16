@@ -12,7 +12,6 @@ using MultivariateStats
 using Statistics
 using StaticArrays
 using ..TesseralHarmonics
-using ..ConfigParser
 using ..Structures
 using ..Symmetries
 using ..Clusters
