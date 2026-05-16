@@ -4,7 +4,7 @@ import TOML
 
 # Fixtures -------------------------------------------------------------
 
-const DIMER_TOML_FIT = joinpath(@__DIR__, "..", "examples", "dimer", "input.toml")
+const DIMER_TOML_FIT = joinpath(@__DIR__, "..", "integration", "dimer", "input.toml")
 
 # FM / AFM spin configurations for the 2-atom dimer.
 function _dimer_configs_fit()

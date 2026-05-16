@@ -47,8 +47,8 @@
 
 | コマンド | 対象 | 用途 |
 |---------|------|------|
-| `make test-unit` | `test/component_test/` | モジュール単位のユニットテスト |
-| `make test-integration` | `test/examples/` | 実際の計算例を用いた統合テスト |
+| `make test-unit` | `test/component/` | モジュール単位のユニットテスト |
+| `make test-integration` | `test/integration/` | 実際の計算例を用いた統合テスト |
 | `make test-all` | 上記両方 | 通常はこれを使う |
 | `make test-tools` | `tools/test/` | tools スクリプトのテスト |
 | `make test-jet` | — | JET.jl 静的型解析 |
@@ -100,7 +100,7 @@ buf = zeros(3)
 ## 連動箇所（一方を変えたら全箇所を確認）
 
 ### 球面調和関数の規約
-`TesseralHarmonics.jl` の `Zₗₘ` / `Zₗₘ_unsafe` / `∂ᵢZlm_unsafe` の規格化と符号は `SphericalHarmonicsTransforms.jl` / SALC 構築（`SALCBases.jl`） / SpheriCart 比較テスト（`test/component_test/test_sphericart_agreement.jl`）と整合している必要がある。片方だけ変えると design matrix が静かに壊れる。
+`TesseralHarmonics.jl` の `Zₗₘ` / `Zₗₘ_unsafe` / `∂ᵢZlm_unsafe` の規格化と符号は `SphericalHarmonicsTransforms.jl` / SALC 構築（`SALCBases.jl`） / SpheriCart 比較テスト（`test/component/test_sphericart_agreement.jl`）と整合している必要がある。片方だけ変えると design matrix が静かに壊れる。
 
 ### SCE 係数の入出力
 `write_xml` / `build_sce_basis_from_xml` のラウンドトリップは整数桁まで一致しなければならない。係数や基底順序のフォーマットを変える場合は両方を同期する。

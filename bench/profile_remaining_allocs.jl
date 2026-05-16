@@ -11,7 +11,7 @@ using Magesty.Optimize: design_matrix_energy_element, calc_∇ₑu!,
 using Magesty.SpinConfigs: read_embset
 using StaticArrays
 
-const EXAMPLE_DIR = joinpath(@__DIR__, "..", "test", "examples", "fept_tetragonal_2x2x2")
+const EXAMPLE_DIR = joinpath(@__DIR__, "..", "test", "integration", "fept_tetragonal_2x2x2")
 
 basis = load(SCEBasis, joinpath(EXAMPLE_DIR, "system.xml"))
 spinconfigs = read_embset(joinpath(EXAMPLE_DIR, "EMBSET.dat"))

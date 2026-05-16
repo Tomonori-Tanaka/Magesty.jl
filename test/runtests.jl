@@ -14,36 +14,36 @@ using Test
 const TEST_MODE = get(ENV, "TEST_MODE", "all")
 
 if TEST_MODE in ("unit", "all")
-	@testset verbose = true "component tests" begin
-		include("./component_test/test_TesseralHarmonics.jl")
-		include("./component_test/test_AngularMomentumCoupling.jl")
-		include("./component_test/test_SortedCounter.jl")
-		include("./component_test/test_SphericalHarmonicsTransforms.jl")
-		include("./component_test/test_RotationMatrix.jl")
-		include("./component_test/test_SpinConfigs.jl")
-		include("./component_test/test_InputSpecs.jl")
-		include("./component_test/test_cluster_cutoff_criterion.jl")
-		include("./component_test/test_Structures.jl")
-		include("./component_test/test_Symmetries.jl")
-		include("./component_test/test_CoupledBases.jl")
-		include("./component_test/test_Fitting_dispatch.jl")
-		include("./component_test/test_salc_canonical_gauge.jl")
-		include("./component_test/test_SCEBasis.jl")
-		include("./component_test/test_SCEDataset.jl")
-		include("./component_test/test_SCEFit.jl")
-		include("./component_test/test_save_load.jl")
-		include("./component_test/test_Version.jl")
-		include("./component_test/test_thread_safety.jl")
+	@testset verbose = true "component" begin
+		include("./component/test_TesseralHarmonics.jl")
+		include("./component/test_AngularMomentumCoupling.jl")
+		include("./component/test_SortedCounter.jl")
+		include("./component/test_SphericalHarmonicsTransforms.jl")
+		include("./component/test_RotationMatrix.jl")
+		include("./component/test_SpinConfigs.jl")
+		include("./component/test_InputSpecs.jl")
+		include("./component/test_cluster_cutoff_criterion.jl")
+		include("./component/test_Structures.jl")
+		include("./component/test_Symmetries.jl")
+		include("./component/test_CoupledBases.jl")
+		include("./component/test_Fitting_dispatch.jl")
+		include("./component/test_salc_canonical_gauge.jl")
+		include("./component/test_SCEBasis.jl")
+		include("./component/test_SCEDataset.jl")
+		include("./component/test_SCEFit.jl")
+		include("./component/test_save_load.jl")
+		include("./component/test_Version.jl")
+		include("./component/test_thread_safety.jl")
 	end
 end
 if TEST_MODE in ("integration", "all")
-	@testset verbose = true "examples" begin
-		include("./examples/square_lattice/test.jl")
-		include("./examples/dimer/test.jl")
-		include("./examples/chain/test.jl")
-		include("./examples/febcc_2x2x2_pm/test.jl")
-		include("./examples/fept_tetragonal_2x2x2/test.jl")
-		include("./examples/fege_2x2x2/test.jl")
+	@testset verbose = true "integration" begin
+		include("./integration/square_lattice/test.jl")
+		include("./integration/dimer/test.jl")
+		include("./integration/chain/test.jl")
+		include("./integration/febcc_2x2x2_pm/test.jl")
+		include("./integration/fept_tetragonal_2x2x2/test.jl")
+		include("./integration/fege_2x2x2/test.jl")
 	end
 end
 if TEST_MODE in ("jet",)
@@ -54,6 +54,6 @@ if TEST_MODE in ("aqua",)
 end
 if TEST_MODE in ("sphericart",)
 	@testset verbose = true "SpheriCart agreement" begin
-		include("./component_test/test_sphericart_agreement.jl")
+		include("./component/test_sphericart_agreement.jl")
 	end
 end

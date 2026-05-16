@@ -99,8 +99,8 @@ SCEModel
 ```
 src/               パッケージ本体
 test/
-  component_test/  ユニットテスト（モジュール単位）
-  examples/        統合テスト（実際の計算例）
+  component/       ユニットテスト（モジュール単位）
+  integration/     統合テスト（実際の計算例）
 tools/             パッケージ本体とは独立したスクリプト群
   vasp/            VASP 入出力変換ツール
   test/            tools のテスト（make test-tools で実行）

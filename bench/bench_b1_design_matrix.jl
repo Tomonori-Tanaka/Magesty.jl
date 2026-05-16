@@ -12,7 +12,7 @@ using Magesty.SpinConfigs: read_embset
 using Statistics
 using Printf
 
-const EXAMPLE_DIR = joinpath(@__DIR__, "..", "test", "examples", "fept_tetragonal_2x2x2")
+const EXAMPLE_DIR = joinpath(@__DIR__, "..", "test", "integration", "fept_tetragonal_2x2x2")
 const SYSTEM_XML  = joinpath(EXAMPLE_DIR, "system.xml")
 const EMBSET_PATH = joinpath(EXAMPLE_DIR, "EMBSET.dat")
 const NTRIALS     = 5

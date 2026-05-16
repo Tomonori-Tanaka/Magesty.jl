@@ -37,7 +37,7 @@ Optimize ホットパス（`design_matrix_energy_element` / `calc_∇ₑu!` /
 
 実行例:
 ```bash
-julia --project=bench bench/benchmark_salcbasis_hotspots.jl --input test/examples/fege_2x2x2/input.toml --samples 10
+julia --project=bench bench/benchmark_salcbasis_hotspots.jl --input test/integration/fege_2x2x2/input.toml --samples 10
 julia --project=bench bench/benchmark_spherical_harmonics.jl --lmax 4 --samples 15
 THREAD_COUNTS="1 2 4 8" bash bench/run_threads_scaling.sh
 ```
@@ -46,9 +46,9 @@ THREAD_COUNTS="1 2 4 8" bash bench/run_threads_scaling.sh
 
 ## デフォルトのテスト対象
 
-特に指定がなければ `test/examples/fege_2x2x2/input.toml`（64 atoms, lmax = 1, 146 SALCs）を使う。
-小規模で素早く確認したいときは `test/examples/dimer/` か `chain/`。
-高 `l` で見たいときは `test/examples/fept_tetragonal_2x2x2/`（16 atoms, lmax = 2）。
+特に指定がなければ `test/integration/fege_2x2x2/input.toml`（64 atoms, lmax = 1, 146 SALCs）を使う。
+小規模で素早く確認したいときは `test/integration/dimer/` か `chain/`。
+高 `l` で見たいときは `test/integration/fept_tetragonal_2x2x2/`（16 atoms, lmax = 2）。
 
 ## 実行手順
 
