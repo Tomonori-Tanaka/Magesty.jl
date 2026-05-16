@@ -89,10 +89,14 @@ f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
 ```julia
 model = SCEModel(f)
 
-# Single configuration (3 × num_atoms matrix of unit spin directions).
-spin_directions = ones(3, basis.structure.supercell.num_atoms)  # all spins along +x
+# Single configuration: a 3 × num_atoms matrix of unit spin directions
+# (column = atom; rows are x, y, z).
+num_atoms = basis.structure.supercell.num_atoms
+spin_directions = zeros(3, num_atoms)
+spin_directions[3, :] .= 1.0   # all spins along +z (ferromagnetic)
+
 E = predict_energy(model, spin_directions)
-T = predict_torque(model, spin_directions)  # 3 × num_atoms matrix
+T = predict_torque(model, spin_directions)   # 3 × num_atoms matrix
 ```
 
 ## Evaluation on held-out data

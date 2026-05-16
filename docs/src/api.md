@@ -94,7 +94,6 @@ SALCBases.SALCBasis
 ### Spin configurations
 ```@docs
 SpinConfigs.SpinConfig
-SpinConfigs.read_embset
 ```
 
 ## Utility types
@@ -113,7 +112,6 @@ AtomCells.AtomCell
 ### Configuration parsers
 ```@docs
 ConfigParser.Config4System
-ConfigParser.Config4Optimize
 ```
 
 ## Utility functions
