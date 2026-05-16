@@ -1,9 +1,9 @@
 """
-	Optimize.jl
+	Fitting.jl
 
 This module contains functions for optimizing the SCE coefficients.
 """
-module Optimize
+module Fitting
 
 using Base.Threads
 using LinearAlgebra
@@ -11,12 +11,12 @@ using Printf
 using MultivariateStats
 using Statistics
 using StaticArrays
-using ..MySphericalHarmonics
+using ..TesseralHarmonics
 using ..ConfigParser
 using ..Structures
 using ..Symmetries
 using ..Clusters
-using ..Basis
+using ..CoupledBases
 using ..SALCBases
 using ..SpinConfigs
 
@@ -227,7 +227,7 @@ end
 end
 
 function build_design_matrix_energy(
-	salc_list::AbstractVector{Vector{Basis.CoupledBasis_with_coefficient}},
+	salc_list::AbstractVector{Vector{CoupledBases.CoupledBasis_with_coefficient}},
 	spinconfig_list::AbstractVector{SpinConfig},
 	symmetry::Symmetry,
 )::Matrix{Float64}
@@ -280,7 +280,7 @@ Compute one energy-design feature for a given CoupledBasis_with_coefficient and 
 - Equivalent to one column entry (excluding bias) in the energy design matrix.
 
 # Arguments
-- `cbc::Basis.CoupledBasis_with_coefficient`: CoupledBasis_with_coefficient object
+- `cbc::CoupledBases.CoupledBasis_with_coefficient`: CoupledBasis_with_coefficient object
 - `spin_directions::AbstractMatrix{<:Real}`: Matrix of spin directions (3×N)
 - `symmetry::Symmetry`: Symmetry information of the structure
 - `ws::EnergyWorkspace`: Reusable scratch state (cleared on entry). Each
@@ -291,7 +291,7 @@ Compute one energy-design feature for a given CoupledBasis_with_coefficient and 
 - `Float64`: Feature value for the CoupledBasis_with_coefficient
 """
 function design_matrix_energy_element(
-	cbc::Basis.CoupledBasis_with_coefficient{R},
+	cbc::CoupledBases.CoupledBasis_with_coefficient{R},
 	spin_directions::AbstractMatrix{<:Real},
 	symmetry::Symmetry,
 	ws::EnergyWorkspace,
@@ -404,7 +404,7 @@ Build the torque design matrix used for regression.
 - `Matrix{Float64}`: Torque design matrix
 """
 function build_design_matrix_torque(
-	salc_list::AbstractVector{Vector{Basis.CoupledBasis_with_coefficient}},
+	salc_list::AbstractVector{Vector{CoupledBases.CoupledBasis_with_coefficient}},
 	spinconfig_list::AbstractVector{SpinConfig},
 	num_atoms::Integer,
 	symmetry::Symmetry,
@@ -472,7 +472,7 @@ with respect to the spin direction of a specific atom.
 - Applies symmetry translations before accumulation.
 
 # Arguments
-- `cbc::Basis.CoupledBasis_with_coefficient`: CoupledBasis_with_coefficient object
+- `cbc::CoupledBases.CoupledBasis_with_coefficient`: CoupledBasis_with_coefficient object
 - `atom::Integer`: Target atom index (1-based)
 - `spin_directions::AbstractMatrix{<:Real}`: 3×N spin directions
 - `symmetry::Symmetry`: Symmetry information
@@ -482,7 +482,7 @@ with respect to the spin direction of a specific atom.
 """
 function calc_∇ₑu!(
 	result::MVector{3, Float64},
-	cbc::Basis.CoupledBasis_with_coefficient{R},
+	cbc::CoupledBases.CoupledBasis_with_coefficient{R},
 	atom::Integer,
 	spin_directions::AbstractMatrix{<:Real},
 	symmetry::Symmetry,
@@ -615,7 +615,7 @@ function calc_∇ₑu!(
 end
 
 function calc_∇ₑu(
-	cbc::Basis.CoupledBasis_with_coefficient,
+	cbc::CoupledBases.CoupledBasis_with_coefficient,
 	atom::Integer,
 	spin_directions::AbstractMatrix{<:Real},
 	symmetry::Symmetry,
@@ -637,7 +637,7 @@ here. Returns `j0 + Σ jphi · ϕ(spin)` in eV.
 function _predict_energy(
 	j0::Float64,
 	jphi::AbstractVector{<:Real},
-	salc_list::AbstractVector{Vector{Basis.CoupledBasis_with_coefficient}},
+	salc_list::AbstractVector{Vector{CoupledBases.CoupledBasis_with_coefficient}},
 	symmetry::Symmetry,
 	spin_directions::AbstractMatrix{<:Real},
 )::Float64
@@ -673,7 +673,7 @@ Throws `ArgumentError` if `spin_directions` is not a `3×N` matrix.
 """
 function _predict_torque(
 	jphi::AbstractVector{<:Real},
-	salc_list::AbstractVector{Vector{Basis.CoupledBasis_with_coefficient}},
+	salc_list::AbstractVector{Vector{CoupledBases.CoupledBasis_with_coefficient}},
 	symmetry::Symmetry,
 	spin_directions::AbstractMatrix{<:Real},
 )::Matrix{Float64}

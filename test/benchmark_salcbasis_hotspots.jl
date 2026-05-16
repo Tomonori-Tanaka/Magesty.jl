@@ -73,11 +73,11 @@ end
 # Groups basis functions by `(nbody, Lf, sum(ls), Tuple(sort(ls)))`, ignoring
 # spatial symmetry — this gives a deterministic, fixture-independent grouping.
 function _classify_coupled_basislist(coupled_basislist)
-    Basis = Magesty.Basis
+    CoupledBases = Magesty.Basis
     SortedCounter = Magesty.SortedCounters.SortedCounter
 
     if isempty(coupled_basislist)
-        return Dict{Int, SortedCounter{Basis.CoupledBasis}}()
+        return Dict{Int, SortedCounter{CoupledBases.CoupledBasis}}()
     end
 
     label_map = Dict{Any, Int}()
@@ -94,9 +94,9 @@ function _classify_coupled_basislist(coupled_basislist)
         label_list[idx] = label
     end
 
-    dict = Dict{Int, SortedCounter{Basis.CoupledBasis}}()
+    dict = Dict{Int, SortedCounter{CoupledBases.CoupledBasis}}()
     for label in 1:next_label
-        dict[label] = SortedCounter{Basis.CoupledBasis}()
+        dict[label] = SortedCounter{CoupledBases.CoupledBasis}()
     end
     for (cb, label) in zip(coupled_basislist, label_list)
         count_val =

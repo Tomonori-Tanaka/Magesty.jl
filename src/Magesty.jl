@@ -24,7 +24,7 @@ save(SCEModel(f), "model.xml")
 - `Structures`: crystal structure processing
 - `Symmetries`: symmetry operations processing
 - `SALCBases`: SALC basis generation
-- `Optimize`: design-matrix construction and regression internals
+- `Fitting`: design-matrix construction and regression internals
 """
 module Magesty
 
@@ -44,14 +44,14 @@ using .SpinConfigs: SpinConfig, read_embset
 
 include("SphericalHarmonicsTransforms.jl")
 include("AngularMomentumCoupling.jl")
-include("Basis.jl")
+include("CoupledBases.jl")
 using .AngularMomentumCoupling
-using .Basis
+using .CoupledBases
 
 include("ConfigParser.jl")
 include("AtomsBaseAdapter.jl")
 include("RotationMatrix.jl")
-include("MySphericalHarmonics.jl")
+include("TesseralHarmonics.jl")
 using .ConfigParser
 using .AtomsBaseAdapter
 
@@ -59,13 +59,13 @@ include("Structures.jl")
 include("Symmetries.jl")
 include("Clusters.jl")
 include("SALCBases.jl")
-include("Optimize.jl")
+include("Fitting.jl")
 
 using .Structures
 using .Symmetries
 using .Clusters
 using .SALCBases
-using .Optimize
+using .Fitting
 
 include("XMLIO.jl")
 using .XMLIO
@@ -282,12 +282,12 @@ for workflows that share one basis across several datasets, construct the
 `SCEBasis` explicitly and pass it to the base method.
 """
 function SCEDataset(basis::SCEBasis, spinconfigs::AbstractVector{SpinConfig})
-	X_E = Optimize.build_design_matrix_energy(
+	X_E = Fitting.build_design_matrix_energy(
 		basis.salcbasis.salc_list,
 		spinconfigs,
 		basis.symmetry,
 	)
-	X_T = Optimize.build_design_matrix_torque(
+	X_T = Fitting.build_design_matrix_torque(
 		basis.salcbasis.salc_list,
 		spinconfigs,
 		basis.structure.supercell.num_atoms,
@@ -436,15 +436,15 @@ function fit(
 	estimator::AbstractEstimator;
 	torque_weight::Real = 0.5,
 )::SCEFit
-	X, y, bias_col = Optimize.assemble_weighted_problem(
+	X, y, bias_col = Fitting.assemble_weighted_problem(
 		dataset.X_E,
 		dataset.X_T,
 		dataset.y_E,
 		dataset.y_T,
 		torque_weight,
 	)
-	j_values = Optimize.solve_coefficients(estimator, X, y; bias_col = bias_col)
-	j0, jphi = Optimize.extract_j0_jphi(j_values, dataset.X_E, dataset.y_E)
+	j_values = Fitting.solve_coefficients(estimator, X, y; bias_col = bias_col)
+	j0, jphi = Fitting.extract_j0_jphi(j_values, dataset.X_E, dataset.y_E)
 	residuals::Vector{Float64} = y .- X * j_values
 	return SCEFit(
 		dataset,
@@ -524,7 +524,7 @@ Predict SCE energies. The single-configuration forms return one
 requires the dataset to share the predictor's SALC basis.
 """
 predict_energy(model::SCEModel, spin_directions::AbstractMatrix{<:Real})::Float64 =
-	Optimize._predict_energy(
+	Fitting._predict_energy(
 		model.j0, model.jphi,
 		model.basis.salcbasis.salc_list, model.basis.symmetry, spin_directions)
 predict_energy(model::SCEModel, sc::SpinConfig)::Float64 =
@@ -555,7 +555,7 @@ configuration. `SCEFit` predictors delegate through `SCEModel(f)`. The
 basis.
 """
 predict_torque(model::SCEModel, spin_directions::AbstractMatrix{<:Real})::Matrix{Float64} =
-	Optimize._predict_torque(
+	Fitting._predict_torque(
 		model.jphi, model.basis.salcbasis.salc_list, model.basis.symmetry, spin_directions)
 predict_torque(model::SCEModel, sc::SpinConfig)::Matrix{Float64} =
 	predict_torque(model, sc.spin_directions)
@@ -631,7 +631,7 @@ evaluates `f` in-sample on its own training dataset.
 """
 function r2_energy(predictor::Union{SCEModel, SCEFit}, data::SCEEvalData)::Float64
 	observed, predicted = _eval_energy(predictor, data)
-	return Optimize.calc_r2score(observed, predicted)
+	return Fitting.calc_r2score(observed, predicted)
 end
 r2_energy(f::SCEFit)::Float64 = r2_energy(f, f.dataset)
 
@@ -645,7 +645,7 @@ for the argument forms.
 """
 function r2_torque(predictor::Union{SCEModel, SCEFit}, data::SCEEvalData)::Float64
 	observed, predicted = _eval_torque(predictor, data)
-	return Optimize.calc_r2score(observed, predicted)
+	return Fitting.calc_r2score(observed, predicted)
 end
 r2_torque(f::SCEFit)::Float64 = r2_torque(f, f.dataset)
 
@@ -718,7 +718,7 @@ Root mean squared error of the SCE energy predictions (eV). See
 """
 function rmse_energy(predictor::Union{SCEModel, SCEFit}, data::SCEEvalData)::Float64
 	observed, predicted = _eval_energy(predictor, data)
-	return Optimize.calc_rmse(observed, predicted)
+	return Fitting.calc_rmse(observed, predicted)
 end
 rmse_energy(f::SCEFit)::Float64 = rmse_energy(f, f.dataset)
 
@@ -732,7 +732,7 @@ forms.
 """
 function rmse_torque(predictor::Union{SCEModel, SCEFit}, data::SCEEvalData)::Float64
 	observed, predicted = _eval_torque(predictor, data)
-	return Optimize.calc_rmse(observed, predicted)
+	return Fitting.calc_rmse(observed, predicted)
 end
 rmse_torque(f::SCEFit)::Float64 = rmse_torque(f, f.dataset)
 

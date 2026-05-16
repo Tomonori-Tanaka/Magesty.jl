@@ -1,7 +1,7 @@
 #!/usr/bin/env julia
-# Benchmark: MySphericalHarmonics (Zₗₘ / ∂ᵢZlm) vs SpheriCart
+# Benchmark: TesseralHarmonics (Zₗₘ / ∂ᵢZlm) vs SpheriCart
 #
-# MySphericalHarmonics computes one (l,m) at a time.
+# TesseralHarmonics computes one (l,m) at a time.
 # SpheriCart computes all harmonics up to lmax in a single batched call.
 #
 # Run via Makefile (uses the test environment where SpheriCart is available):
@@ -15,7 +15,7 @@ using LinearAlgebra
 using Printf
 using StaticArrays
 using Magesty
-using Magesty.MySphericalHarmonics: Zₗₘ_unsafe, ∂ᵢZlm_unsafe
+using Magesty.TesseralHarmonics: Zₗₘ_unsafe, ∂ᵢZlm_unsafe
 using SpheriCart
 
 # ── config from ENV ───────────────────────────────────────────────────────────
@@ -25,7 +25,7 @@ const NPOINTS = parse(Int, get(ENV, "BENCH_NPOINTS", "100"))
 const SAMPLES = parse(Int, get(ENV, "BENCH_SAMPLES", "10"))
 const EVALS   = parse(Int, get(ENV, "BENCH_EVALS",   "3"))
 
-# ── sweep functions (MySphericalHarmonics) ────────────────────────────────────
+# ── sweep functions (TesseralHarmonics) ────────────────────────────────────
 
 function my_sweep_zlm(lmax::Int, uvec::Vector{Float64})
     s = 0.0
@@ -69,9 +69,9 @@ function print_comparison(label::String, bench_mine, bench_sph)
     t_mine = median(bench_mine).time
     t_sph  = median(bench_sph).time
     ratio  = t_mine / t_sph
-    faster = ratio >= 1 ? "SpheriCart          " : "MySphericalHarmonics"
+    faster = ratio >= 1 ? "SpheriCart          " : "TesseralHarmonics"
     println("  [$label]")
-    @printf "    MySphericalHarmonics : %8.2f μs\n" t_mine / 1e3
+    @printf "    TesseralHarmonics : %8.2f μs\n" t_mine / 1e3
     @printf "    SpheriCart           : %8.2f μs\n" t_sph  / 1e3
     @printf "    → %s is ~%.2f× faster\n\n" faster max(ratio, 1 / ratio)
 end
@@ -86,7 +86,7 @@ function run_bench()
     nharm = (lmax + 1)^2
 
     println("=" ^ 64)
-    println("  MySphericalHarmonics vs SpheriCart")
+    println("  TesseralHarmonics vs SpheriCart")
     println("  lmax = $lmax  →  $nharm harmonics per point")
     println("  N = $npts points,  samples = $ns,  evals = $ne")
     println("=" ^ 64)
@@ -117,7 +117,7 @@ function run_bench()
     b_my_1   = @benchmark my_sweep_zlm($lmax, $uvec_vec) samples=ns evals=ne
     b_sph_1  = @benchmark SpheriCart.compute($sph, $uvec_sv) samples=ns evals=ne
 
-    println("MySphericalHarmonics:")
+    println("TesseralHarmonics:")
     show(stdout, MIME"text/plain"(), b_my_1);  println()
     println("SpheriCart:")
     show(stdout, MIME"text/plain"(), b_sph_1); println()
@@ -129,7 +129,7 @@ function run_bench()
     b_my_n   = @benchmark my_sweep_zlm_npoints($lmax, $pts_vec) samples=ns evals=ne
     b_sph_n  = @benchmark SpheriCart.compute($sph, $pts_sv)     samples=ns evals=ne
 
-    println("MySphericalHarmonics:")
+    println("TesseralHarmonics:")
     show(stdout, MIME"text/plain"(), b_my_n);  println()
     println("SpheriCart:")
     show(stdout, MIME"text/plain"(), b_sph_n); println()
@@ -141,7 +141,7 @@ function run_bench()
     b_my_g1  = @benchmark my_sweep_grad($lmax, $uvec_vec) samples=ns evals=ne
     b_sph_g1 = @benchmark SpheriCart.compute_with_gradients($sph, $uvec_sv) samples=ns evals=ne
 
-    println("MySphericalHarmonics:")
+    println("TesseralHarmonics:")
     show(stdout, MIME"text/plain"(), b_my_g1);  println()
     println("SpheriCart:")
     show(stdout, MIME"text/plain"(), b_sph_g1); println()
@@ -153,7 +153,7 @@ function run_bench()
     b_my_gn  = @benchmark my_sweep_grad_npoints($lmax, $pts_vec) samples=ns evals=ne
     b_sph_gn = @benchmark SpheriCart.compute_with_gradients($sph, $pts_sv) samples=ns evals=ne
 
-    println("MySphericalHarmonics:")
+    println("TesseralHarmonics:")
     show(stdout, MIME"text/plain"(), b_my_gn);  println()
     println("SpheriCart:")
     show(stdout, MIME"text/plain"(), b_sph_gn); println()

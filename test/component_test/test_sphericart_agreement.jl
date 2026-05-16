@@ -2,13 +2,13 @@ using Test
 using LinearAlgebra
 using StaticArrays
 using SpheriCart
-using ..MySphericalHarmonics
-using ..MySphericalHarmonics: Zₗₘ_unsafe, ∂ᵢZlm_unsafe
+using ..TesseralHarmonics
+using ..TesseralHarmonics: Zₗₘ_unsafe, ∂ᵢZlm_unsafe
 
 # SpheriCart index: lm2idx(l,m) = m + l + l^2 + 1  (1-based)
 _lm2idx(l, m) = m + l + l * l + 1
 
-@testset "SpheriCart vs MySphericalHarmonics agreement" begin
+@testset "SpheriCart vs TesseralHarmonics agreement" begin
     lmax = 4
     sph  = SphericalHarmonics(lmax)
 

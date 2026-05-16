@@ -1,5 +1,5 @@
 """
-	module MySphericalHarmonics
+	module TesseralHarmonics
 
 This module provides functions to compute spherical harmonics ( Y_{l,m} ) and related derivatives, following the formalism described in Drautz (Phys. Rev. B 102, 024104, 2020). It includes:
 
@@ -37,7 +37,7 @@ The buffered methods verify the requirement via `@boundscheck
 checkbounds(buf, _required_buf_size(l, m))`; under `@inbounds` callers
 the check is elided.
 """
-module MySphericalHarmonics
+module TesseralHarmonics
 
 using LegendrePolynomials
 using LinearAlgebra

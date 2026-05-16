@@ -2,8 +2,8 @@ using Test
 using LinearAlgebra
 using LegendrePolynomials
 
-using ..MySphericalHarmonics
-using ..MySphericalHarmonics: P̄ₗₘ, dP̄ₗₘ, dP̄ₗₘ_unsafe, Yₗₘ, ∂Yₗₘ_∂r̂x, ∂Yₗₘ_∂r̂y, ∂Yₗₘ_∂r̂z, yₗₘ,
+using ..TesseralHarmonics
+using ..TesseralHarmonics: P̄ₗₘ, dP̄ₗₘ, dP̄ₗₘ_unsafe, Yₗₘ, ∂Yₗₘ_∂r̂x, ∂Yₗₘ_∂r̂y, ∂Yₗₘ_∂r̂z, yₗₘ,
 	∂Zₗₘ_∂r̂x, ∂Zₗₘ_∂r̂y, ∂Zₗₘ_∂r̂z, zzₗₘ, ∂Zₗₘ_∂x, ∂Zₗₘ_∂y, ∂Zₗₘ_∂z,
 	Zₗₘ_unsafe, ∂ᵢZlm_unsafe
 
