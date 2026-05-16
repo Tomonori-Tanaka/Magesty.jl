@@ -6,7 +6,7 @@ GLMNet.jl を採用し、`Optimize.jl` の estimator dispatch ファミリに L1
 
 ## 背景
 
-現状 `src/Optimize.jl` の SCE 係数推定は `OLS`（`X \ y`）と `Ridge`（`MultivariateStats.ridge` + per-column penalty で bias 列を非ペナルティ化）の 2 つのみ。スパースな有効スピンモデルを得るために L1 正則化系（LASSO, Adaptive LASSO）が欲しく、また L0 近似として Adaptive Ridge（Frommlet–Nuel 2016 の反復重み付け方式）も導入したい。
+現状 `src/Fitting.jl` の SCE 係数推定は `OLS`（`X \ y`）と `Ridge`（`MultivariateStats.ridge` + per-column penalty で bias 列を非ペナルティ化）の 2 つのみ。スパースな有効スピンモデルを得るために L1 正則化系（LASSO, Adaptive LASSO）が欲しく、また L0 近似として Adaptive Ridge（Frommlet–Nuel 2016 の反復重み付け方式）も導入したい。
 
 ## ライブラリ選定
 
@@ -91,7 +91,7 @@ end
 ## 修正対象
 
 - `Project.toml` — `[deps]` `[compat]` に `GLMNet`
-- `src/Optimize.jl` — `using GLMNet`、3 つの型・メソッド・ヘルパー・export
+- `src/Fitting.jl` — `using GLMNet`、3 つの型・メソッド・ヘルパー・export
 - `src/Magesty.jl` — re-export
 - `test/component_test/test_optimize_estimators.jl`（新規 or 既存に追記）
 

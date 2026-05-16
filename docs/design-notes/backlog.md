@@ -5,7 +5,7 @@
 ## ✅ 候補F: `∂ᵢZlm_unsafe` での `P̄ₗₘ`/`dP̄ₗₘ` 統合計算（完了）
 
 **Status**: **完了** (commits `153e354` / `131d9a4`, 2026-05 頃)。
-`src/utils/MySphericalHarmonics.jl` に private helper
+`src/TesseralHarmonics.jl` に private helper
 `_legendre_pair_unsafe!(buf, x, l, am) -> (P_am_l, P_am1_l)` を導入し、
 `_unsafednPl!` を 1 回だけ呼んで `am` 階のキャッシュを構築、続けて
 `dPl_recursion` で 1 ステップだけ in-place に進めて `(am+1)` 階を取り出す形に。
@@ -39,7 +39,7 @@ buffer サイズ要件は `length(buf) >= l - |m| + 1`（モジュール docstri
 
 ## 🟡 SH バッファの cache 引数化（旧 #1/#2）
 
-**対象**: `src/Optimize.jl` `design_matrix_energy_element`, `calc_∇ₑu!`
+**対象**: `src/Fitting.jl` `design_matrix_energy_element`, `calc_∇ₑu!`
 
 `mutable struct SHCache` で `sh_values` / `atom_grad_values` をキャッシュ化し、`build_design_matrix_*` で per-thread に確保して引数で渡す案。一度試行したが:
 

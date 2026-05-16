@@ -11,7 +11,7 @@ SpinClusterMC 側調査（同日付）で Magesty `Zₗₘ_unsafe` ≡ SpheriCar
 
 ## 動作確認
 
-- `make test-sphericart` → `SpheriCart vs MySphericalHarmonics agreement` で
+- `make test-sphericart` → `SpheriCart vs TesseralHarmonics agreement` で
   700 / 700 PASS（`test/component_test/test_sphericart_agreement.jl`、lmax=4 全 (l,m)、7 単位ベクトル）
 - 数値同一性は完全（SpinClusterMC 側調査と同じ）
 
@@ -75,7 +75,7 @@ v2（事前計算キャッシュ）でも勝てない理由:
   「atom 単位で全 (l, m) を引く」アクセスパターンに変わる
 - inner `sh_values` 確保の構造的撤廃（`MMatrix{N, 2L+1}` 化など）が許容される
 
-それまでは Magesty 単独で **`MySphericalHarmonics` を維持**。SpheriCart は
+それまでは Magesty 単独で **`TesseralHarmonics` を維持**。SpheriCart は
 SpinClusterMC 側でのみ採用、Magesty には依存追加不要。
 
 ## 残置物
