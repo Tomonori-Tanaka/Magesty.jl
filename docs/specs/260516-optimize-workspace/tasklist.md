@@ -60,8 +60,10 @@
 
 ## Step 7 — close out
 
-- [ ] `code-reviewer` agent pass.
-- [ ] Single commit via `git-helper`. Conventional Commits
-      `perf(optimize):` (not breaking — internal-only). `Refs:` to
-      this spec folder.
-- [ ] Open PR; review; merge.
+- [x] `code-reviewer` agent pass: 1 Critical (sequential
+      `legendre_buf` safety) addressed via clarifying comment; 1
+      Minor (`@inbounds` scope) tightened.
+- [x] Single commit via `git-helper`: `aca0c9a perf(optimize): pool
+      hot-path scratch in workspace structs`.
+- [x] PR #8 squash-merged to `main` as `e1a4326` on 2026-05-16.
+      Topic branch deleted.
