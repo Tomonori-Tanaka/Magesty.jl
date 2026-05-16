@@ -31,5 +31,8 @@ bench-salcbasis:
 bench-spherical-harmonics:
 	julia --project=bench bench/benchmark_spherical_harmonics.jl
 
+bench-threads:
+	bash bench/run_threads_scaling.sh
+
 test-sphericart:
 	TEST_MODE=sphericart julia --project -e 'using Pkg; Pkg.test()'

@@ -35,6 +35,7 @@ if TEST_MODE in ("unit", "all")
 		include("./component_test/test_SCEFit.jl")
 		include("./component_test/test_save_load.jl")
 		include("./component_test/test_Version.jl")
+		include("./component_test/test_thread_safety.jl")
 	end
 end
 if TEST_MODE in ("integration", "all")
