@@ -1,7 +1,7 @@
 name = "Magesty"
 uuid = "329bda51-4b33-4ad1-95c9-f0535f133d43"
 version = "0.1.0-DEV"
-authors = ["TomonoriTanaka <tomonori.tanaka.academic@gmail.com>"]
+authors = ["T.Tanaka <tomonori.tanaka.academic@gmail.com>"]
 
 [deps]
 AtomsBase = "a963bdd2-2df7-4f54-a1ee-49d51e6be12a"

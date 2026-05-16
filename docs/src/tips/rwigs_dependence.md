@@ -11,7 +11,7 @@ The system was initialized in a nearly ferromagnetic state: one atom (atom $i_0$
 Only the orientations of the magnetic moments are constrained; their magnitudes are allowed to relax freely.
 The magnetic configuration is illustrated in Fig. 1.
 
-![Fig. 1](../assets/rwigs_dependence/bccFe_1atom_tilt.png)
+![Fig. 1](../assets/rwigs_dependence/bccFe_1atom_tilt.jpg)
 
 *Fig. 1: Magnetic configuration of the bcc Fe supercell. One atom is tilted toward the $x$-axis; all others remain along the $z$-axis.*
 
