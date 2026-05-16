@@ -54,11 +54,21 @@ buffer サイズ要件は `length(buf) >= l - |m| + 1`（モジュール docstri
 
 詳細経緯: `.claude/bench_log.md` の "#1/#2" セクション。
 
-## 🟢 `cb1.atoms` の SVector 化（旧 #10 の本筋）
+## 🔴 `cb1.atoms` の SVector 化（旧 #10 の本筋）— ruled out
 
-**対象**: `src/types/Basis.jl` `CoupledBasis`, `CoupledBasis_with_coefficient`
+**Status**: 2026-05-16 に試行し abandon。spec: `docs/specs/260516-coupled-basis-atoms-svector/`。
 
-現在 `atoms::Vector{Int}`。`SVector{N,Int}` 化すれば `projection_matrix_coupled_basis` の `map(atom -> symmetry.map_sym[atom, n], cb1.atoms)` がゼロアロケーションになる。ただし `N` を型パラメータにする必要があり、Basis 構築側の API 変更も伴う。`#10` で簡易対応（ループバッファ hoist）したのでアロケーション影響は限定的だが、SVector 化すれば `find_translation_atoms` 等の引数型も整い、関連箇所の最適化余地が広がる。
+`CoupledBasis{R, N}.atoms` を `SVector{N, Int}` 化して再ベンチ。
+`projection_matrix_coupled_basis` を含む SALC build が **+12% time / +6 MB / +140K allocs** 悪化、design-matrix 経路は変化なし。
+
+**原因**: `CoupledBasis` は `SortedCounter{CoupledBasis}` / `Vector{CoupledBasis}` という UnionAll コンテナで保持される。イテレーション時に `cb.atoms` の型パラメータ `N` が型消去されるため、`SVector{N, Int}` のインデクシングが specialize されず、`Vector{Int}` (element 型固定・長さ動的) より遅くなる。design-matrix 側はホットパスが `where {R, N}` の function barrier で specialize されるので影響を受けない。
+
+**再着手の前提条件**:
+
+- コンテナの concrete 化（(R, N) ごとに分離した `Vector{CoupledBasis{R, N}}`、または function barrier による grouped iteration）
+- `map(closure, atoms)` の closure capture を `let` 束縛で回避
+
+これらが揃わない限り net negative。spec の "Outcome" セクション参照。
 
 ## 🟢 候補（要検証、メモリ/allocs 主目的）
 
