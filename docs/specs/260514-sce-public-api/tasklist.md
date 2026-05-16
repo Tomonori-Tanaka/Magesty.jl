@@ -262,9 +262,10 @@ persistence is left to the user (`jldsave` on a plain struct).
 - [x] `docs/design-notes/sce-public-api.md` and `DESIGN_NOTES.md`
       updated. Post-Step-7 follow-up note:
       `docs/design-notes/post-step7-cleanup.md`.
-- [ ] `code-reviewer` agent pass on the cumulative diff.
-- [ ] Single breaking commit via `git-helper`. Merge to `main` pending
-      explicit user confirmation.
+- [x] `code-reviewer` agent pass on the cumulative diff.
+- [x] Single breaking commit via `git-helper` (`091e9f8
+      refactor(sce-api)!: remove legacy API, finalize four-type public
+      surface`); merged to `main` via PR #4 (`f4ae8cf`).
 
 ## After merge
 

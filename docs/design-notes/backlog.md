@@ -2,64 +2,40 @@
 
 軽量な思いつきメモ・第二弾調査の保留候補。実装に着手する場合は本ファイルから抽出して別 design-note または spec に昇格させる。
 
-## 🔴 候補F: `∂ᵢZlm_unsafe` での `P̄ₗₘ`/`dP̄ₗₘ` 統合計算（着手中）
+## ✅ 候補F: `∂ᵢZlm_unsafe` での `P̄ₗₘ`/`dP̄ₗₘ` 統合計算（完了）
 
-**対象**: `src/utils/MySphericalHarmonics.jl` `∂ᵢZlm_unsafe(l, m, uvec, buf)`
+**Status**: **完了** (commits `153e354` / `131d9a4`, 2026-05 頃)。
+`src/utils/MySphericalHarmonics.jl` に private helper
+`_legendre_pair_unsafe!(buf, x, l, am) -> (P_am_l, P_am1_l)` を導入し、
+`_unsafednPl!` を 1 回だけ呼んで `am` 階のキャッシュを構築、続けて
+`dPl_recursion` で 1 ステップだけ in-place に進めて `(am+1)` 階を取り出す形に。
+buffered `∂ᵢZlm_unsafe(l, m, uvec, buf)` がこの helper を経由するようになり、
+Legendre キャッシュ構築が 2 回 → 1 回に統合された。
 
-**現状**: 候補E で alloc は解消したが、`∂ᵢZlm_unsafe` は `P̄ₗₘ(l, n, z, buf)` と
-`dP̄ₗₘ_unsafe(l, n, z, buf)` を続けて呼ぶため、内部の `dnPl(x, l, n)` と
-`dnPl(x, l, n+1)` がほぼ同じ Legendre キャッシュを 2 回構築している
-（`_unsafednPl!` は毎回 `collectPl!` + `n` 段の漸化式を実行）。
+**実装上の注意点（残し）**:
+- `LegendrePolynomials._unsafednPl!` と `dPl_recursion` はいずれも非エクスポート
+  内部関数のため、上流の API 変更に対する追従が必要。
+- buffer サイズ要件はモジュール docstring の "Buffer requirements" に集約済み
+  (`length(buf) >= l - |m| + 1`)。`@boundscheck checkbounds(buf, _required_buf_size(l, m))`
+  で守られる。
+- 数値結果は不変（等価性テストで担保）。
 
-**提案**: `LegendrePolynomials._unsafednPl!` を 1 回だけ呼んで am 階導関数の
-キャッシュを作り、続けて漸化式を 1 ステップだけ手動で進めて (am+1) 階導関数も
-取り出す内部ヘルパ `_legendre_pair_unsafe!(buf, x, l, am) -> (P_am_l, P_am1_l)` を追加。
-`∂ᵢZlm_unsafe(l, m, uvec, buf)` 内でこれを呼び、`plm` と `dplm` を 1 回の
-キャッシュ構築で得る。
+## ✅ 候補E: `Zₗₘ_unsafe` のバッファ事前確保（Magesty.jl 側完了）
 
-**期待効果**:
-- Legendre 部分が約 1.7〜2×
-- `∂ᵢZlm_unsafe` 全体で **1.3〜1.5×**
+**Status**: **Magesty.jl 側完了** (commit `8a4a17d`, 2026-05-11)。
+`P̄ₗₘ` / `dP̄ₗₘ_unsafe` / `Zₗₘ_unsafe` / `∂ᵢZlm_unsafe` に 4 引数の buffered
+オーバーロードを追加し、`LegendrePolynomials.dnPl(x, l, n, A)` を経由して
+per-call `zeros(l-|m|+1)` の heap 確保を解消。既存 3 引数 API は据え置き。
+buffer サイズ要件は `length(buf) >= l - |m| + 1`（モジュール docstring に集約、
+候補F 完了時の `131d9a4` で `@boundscheck checkbounds(buf, _required_buf_size(l, m))`
+にて担保）。
 
-**実装規模**: 中。`LegendrePolynomials` の内部関数 `_unsafednPl!` と `dPl_recursion`
-（いずれも非エクスポート）を直接呼ぶため、上流の API 変更に対する追従が必要。
-等価性テストで担保する。数値結果は不変。
+**ベンチ**: `Zₗₘ_unsafe` (l=4, m=2) 単体で 35.2 ns → 20.8 ns (1.70×, 80 B → 0)。
+数値結果は等価（l=0..8 × 全 m × 9 方向の等価性テスト + `@allocated == 0`）。
 
-**注意**:
-- `_unsafednPl!` は cache を破壊的に書き換える。漸化式の 1 ステップ追加分は
-  既存 `_unsafednPl!` の内部実装と整合させる
-- buffer サイズ要件は変わらず `length(buf) >= l - |m| + 1`
-
-## 🔴 候補E: `Zₗₘ_unsafe` のバッファ事前確保（Magesty.jl 側、最大の改善余地）
-
-**対象**: `src/utils/MySphericalHarmonics.jl` `P̄ₗₘ`, `dP̄ₗₘ_unsafe`, `Zₗₘ_unsafe`, `∂ᵢZlm_unsafe`
-
-**現状**: `_update_atom_zlm_cache!`（SpinClusterMC 側 sweep の 43%）の主要コストは
-`LegendrePolynomials.dnPl(x, l, n)` が毎回 `zeros(Float64, l-n+1)` をヒープに確保していること。
-1 sweep あたり 1024 回・29.7 KB のアロケーションが発生し、GC 圧の主因にもなっている。
-
-**提案**: `LegendrePolynomials.dnPl` には事前確保バッファを受け取る `dnPl(x, l, n, A)` 版がある。
-これを利用して以下の buffered API を追加する（既存 API は据え置き）:
-
-- `P̄ₗₘ(l, m, r̂z, buf)` — `dnPl(x, l, |m|, buf)` を経由
-- `dP̄ₗₘ_unsafe(l, m, r̂z, buf)` — `dnPl(x, l, |m|+1, buf)` を経由
-- `Zₗₘ_unsafe(l, m, uvec, buf)` — 上記を経由
-- `∂ᵢZlm_unsafe(l, m, uvec, buf)` — 上記を経由
-
-呼び出し側（SpinClusterMC）は per-thread `Vector{Float64}(undef, max_l + 2)` を確保して渡す。
-
-**期待効果**:
-- `dnPl` 単体で 5.3×（16 ns → 3 ns）
-- `_update_atom_zlm_cache!` で 2〜3× 高速化
-- sweep 全体で **1.3〜1.5×**（57.9 μs → 約 40 μs）
-- GC オーバーヘッド（5.1%）も同時に解消
-
-**実装規模**: 中。数値結果は不変であるべき（等価性テストで担保）。
-
-**注意**:
-- buffer サイズ不足は `BoundsError`／無音破壊の原因になりうる。サイズ要件は `length(buf) >= l - |m| + 1`（dP̄ 側は `l - |m|`）。`max_l + 2` を確保し、`@boundscheck` で守るか先頭で 1 度 `@assert` する
-- 並列化された呼び出し箇所では必ず per-thread buffer（共有すると race）
-- 呼び出し側（SpinClusterMC）の修正は本リポジトリ側で別途実施
+**残作業（本リポジトリ外）**: caller 側 (`SpinClusterMC` / `JPhiMagestyCarlo.jl`)
+で per-thread `Vector{Float64}(undef, max_l + 1)` を確保して buffered overload
+を呼ぶ修正は別 repo で実施する（並列化箇所では per-thread buffer 必須）。
 
 ## 🟡 SH バッファの cache 引数化（旧 #1/#2）
 
