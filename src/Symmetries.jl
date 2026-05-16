@@ -20,6 +20,7 @@ using Printf
 
 using ..AtomCells
 using ..ConfigParser
+using ..InputSpecs: SymmetryOptions
 using ..Structures
 import Base: isless, show
 
@@ -205,8 +206,8 @@ struct Symmetry
 	end
 end
 
-function Symmetry(structure::Structure, config::Config4System; verbosity::Bool = true)
-	return Symmetry(structure, config.tolerance_sym, verbosity = verbosity)
+function Symmetry(structure::Structure, options::SymmetryOptions; verbosity::Bool = true)
+	return Symmetry(structure, options.tolerance_sym, verbosity = verbosity)
 end
 
 function construct_symnum_translation(spglib_data::Spglib.Dataset, tol::Real)::Vector{Int}

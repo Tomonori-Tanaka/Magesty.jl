@@ -86,12 +86,14 @@ export VERSION, install_tools
 # Returns the (structure, symmetry, cluster) triplet; callers append the
 # SALCBasis — either computed via `SALCBasis(...)` or loaded from XML.
 function _build_structure_skeleton(
-	config::Config4System;
+	system::SystemSpec,
+	options::SymmetryOptions,
+	interaction::InteractionSpec;
 	verbosity::Bool = true,
 )
-	structure::Structure = Structure(config, verbosity = verbosity)
-	symmetry::Symmetry = Symmetry(structure, config, verbosity = verbosity)
-	cluster::Cluster = Cluster(structure, symmetry, config, verbosity = verbosity)
+	structure::Structure = Structure(system, verbosity = verbosity)
+	symmetry::Symmetry = Symmetry(structure, options, verbosity = verbosity)
+	cluster::Cluster = Cluster(structure, symmetry, interaction, verbosity = verbosity)
 	return structure, symmetry, cluster
 end
 
@@ -127,23 +129,36 @@ end
 
 Construct an `SCEBasis` from one of four input paths: a parsed TOML
 dictionary, a TOML file, an `AtomsBase.AbstractSystem`, or raw Julia
-keyword arguments. All paths build a `Config4System` internally and run
-the same structure / symmetry / cluster / SALC construction.
+keyword arguments. All paths funnel into the three typed value objects
+(`SystemSpec`, `InteractionSpec`, `SymmetryOptions`) and then run the
+same structure / symmetry / cluster / SALC construction.
 
 The `interaction` argument is a nested `NamedTuple` keyed `body1`,
 `body2`, ...; see the API documentation for the accepted format and
 the per-path Unitful requirements.
 """
 function SCEBasis(
+	system_spec::SystemSpec,
+	interaction::InteractionSpec,
+	options::SymmetryOptions;
+	verbosity::Bool = true,
+)
+	structure, symmetry, cluster =
+		_build_structure_skeleton(system_spec, options, interaction;
+		                          verbosity = verbosity)
+	salcbasis::SALCBasis =
+		SALCBasis(structure, symmetry, cluster, interaction, options;
+		          verbosity = verbosity)
+	# `cluster` is a construction step only; it is not stored in SCEBasis.
+	return SCEBasis(structure, symmetry, salcbasis, options.isotropy)
+end
+
+function SCEBasis(
 	input_dict::AbstractDict{<:AbstractString, <:Any};
 	verbosity::Bool = true,
 )
-	config::Config4System = Config4System(input_dict)
-	structure, symmetry, cluster = _build_structure_skeleton(config; verbosity = verbosity)
-	salcbasis::SALCBasis =
-		SALCBasis(structure, symmetry, cluster, config, verbosity = verbosity)
-	# `cluster` is a construction step only; it is not stored in SCEBasis.
-	return SCEBasis(structure, symmetry, salcbasis, config.isotropy)
+	specs = parse_toml_inputs(input_dict)
+	return SCEBasis(specs...; verbosity = verbosity)
 end
 
 function SCEBasis(toml_path::AbstractString; verbosity::Bool = true)
@@ -169,14 +184,14 @@ function SCEBasis(
 	isotropy::Bool = false,
 	verbosity::Bool = true,
 )
-	input_dict = AtomsBaseAdapter.system_to_input_dict(
+	specs = AtomsBaseAdapter.system_to_specs(
 		system,
 		interaction;
 		name = name,
 		tolerance_sym = tolerance_sym,
 		isotropy = isotropy,
 	)
-	return SCEBasis(input_dict; verbosity = verbosity)
+	return SCEBasis(specs...; verbosity = verbosity)
 end
 
 function SCEBasis(;
@@ -191,7 +206,7 @@ function SCEBasis(;
 	isotropy::Bool = false,
 	verbosity::Bool = true,
 )
-	input_dict = AtomsBaseAdapter.kwargs_to_input_dict(
+	specs = AtomsBaseAdapter.kwargs_to_specs(
 		lattice = lattice,
 		kd = kd,
 		kd_list = kd_list,
@@ -202,7 +217,7 @@ function SCEBasis(;
 		tolerance_sym = tolerance_sym,
 		isotropy = isotropy,
 	)
-	return SCEBasis(input_dict; verbosity = verbosity)
+	return SCEBasis(specs...; verbosity = verbosity)
 end
 
 
