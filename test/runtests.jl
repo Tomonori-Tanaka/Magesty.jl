@@ -46,11 +46,6 @@ if TEST_MODE in ("integration", "all")
 		include("./examples/fege_2x2x2/test.jl")
 	end
 end
-if TEST_MODE in ("develop",)
-	@testset verbose = true "develop" begin
-		include("./develop_tmp/test_develop.jl")
-	end
-end
 if TEST_MODE in ("jet",)
 	include("./jet.jl")
 end
