@@ -90,14 +90,20 @@ workspace itself never leaves the threaded loop.
   element call but keeps its hash-table capacity, so the second-and-later
   calls in the same workspace incur no rehashing.
 
-- `sh_values::Vector{Vector{Float64}}` — per-translation tesseral
-  spherical-harmonic values. Outer length equals the cluster site count
-  `N = R - 1`; inner length `i` equals `2*ls[i] + 1` (the number of `m`
-  components for site `i`'s angular momentum `ls[i]`). Entry
-  `sh_values[i][m_idx]` holds `Zₗₘ_unsafe(ls[i], m, spin_direction)` for
-  `m = m_idx - ls[i] - 1`. Sized via `_ensure_sh_buffer!`; the outer
-  vector only grows, and each inner is `resize!`d in place across calls
-  so capacity is preserved.
+- `sh_values::Vector{Float64}` — flattened tesseral spherical-harmonic
+  values for all sites in a cluster. The slice for site `i` is
+  `sh_values[sh_offsets[i] + 1 : sh_offsets[i + 1]]` and has length
+  `2 * ls[i] + 1`; entry `sh_values[sh_offsets[i] + m_idx]` holds
+  `Zₗₘ_unsafe(ls[i], m, spin_direction)` for `m = m_idx - ls[i] - 1`.
+  A single contiguous `Vector{Float64}` removes the outer-vector pointer
+  indirection and keeps all sites' values cache-adjacent. Sized via
+  `_ensure_sh_buffer!`; the buffer only grows so capacity is preserved
+  across calls.
+
+- `sh_offsets::Vector{Int}` — cumulative offsets for `sh_values`. Length
+  `N + 1` after `_ensure_sh_buffer!`, with `sh_offsets[1] = 0` and
+  `sh_offsets[i + 1] = sh_offsets[i] + 2 * ls[i] + 1`. Built once per
+  element call from `cbc.ls`.
 
 - `legendre_buf::Vector{Float64}` — Legendre-polynomial cache passed to
   the buffered overload `Zₗₘ_unsafe(l, m, uvec, buf)`. Sized to
@@ -109,12 +115,14 @@ Not exported. Construct with `EnergyWorkspace()`.
 """
 mutable struct EnergyWorkspace
 	searched_pairs::Set{UInt}
-	sh_values::Vector{Vector{Float64}}
+	sh_values::Vector{Float64}
+	sh_offsets::Vector{Int}
 	legendre_buf::Vector{Float64}
 
 	EnergyWorkspace() = new(
 		Set{UInt}(),
-		Vector{Vector{Float64}}(),
+		Vector{Float64}(),
+		Vector{Int}(),
 		Vector{Float64}(),
 	)
 end
@@ -131,11 +139,15 @@ Internal scratch state reused across calls to `calc_∇ₑu!`. Each thread in
   [`EnergyWorkspace`](@ref): de-duplicates symmetry translations that
   yield identical sorted-atom configurations.
 
-- `sh_values::Vector{Vector{Float64}}` — same layout as in
-  [`EnergyWorkspace`](@ref): outer length `N = R - 1`, inner length
-  `2*ls[i] + 1`. Holds tesseral spherical-harmonic values for every
+- `sh_values::Vector{Float64}` — same flattened layout as in
+  [`EnergyWorkspace`](@ref): the slice for site `i` is
+  `sh_values[sh_offsets[i] + 1 : sh_offsets[i + 1]]` with length
+  `2 * ls[i] + 1`. Holds tesseral spherical-harmonic values for every
   site (including the differentiated one — the gradient site uses
   these for the product over non-differentiated sites).
+
+- `sh_offsets::Vector{Int}` — cumulative offsets for `sh_values`. See
+  [`EnergyWorkspace`](@ref) for the construction rule.
 
 - `atom_grad_values::Vector{SVector{3, Float64}}` — gradient values for
   the differentiated site only. Length equals `2*l_atom + 1` where
@@ -155,13 +167,15 @@ Not exported. Construct with `GradWorkspace()`.
 """
 mutable struct GradWorkspace
 	searched_pairs::Set{UInt}
-	sh_values::Vector{Vector{Float64}}
+	sh_values::Vector{Float64}
+	sh_offsets::Vector{Int}
 	atom_grad_values::Vector{SVector{3, Float64}}
 	legendre_buf::Vector{Float64}
 
 	GradWorkspace() = new(
 		Set{UInt}(),
-		Vector{Vector{Float64}}(),
+		Vector{Float64}(),
+		Vector{Int}(),
 		Vector{SVector{3, Float64}}(),
 		Vector{Float64}(),
 	)
@@ -178,28 +192,26 @@ end
 	return buf
 end
 
-# Resize an SH-value buffer to match a coupled-basis `ls` vector.
-# After the call, `length(buf) >= length(ls)` and each `buf[i]` has
-# length `2*ls[i]+1` (the tesseral `m`-index count for site `i`).
-# - Outer is grown via `push!` but never shrunk: once a workspace has
-#   handled an N-site cluster it keeps that capacity for subsequent
-#   smaller clusters, and the unused tail is harmless because the kernel
-#   only iterates `1:length(ls)`.
-# - Each inner `Vector{Float64}` is `resize!`d in place so its backing
-#   buffer is reused across calls within the same workspace.
-function _ensure_sh_buffer!(buf::Vector{Vector{Float64}}, ls::Vector{Int})
+# Size a flattened SH-value buffer to match a coupled-basis `ls` vector.
+# After the call, `offsets` has length `N + 1` with `offsets[1] = 0` and
+# `offsets[i + 1] = offsets[i] + 2*ls[i] + 1`, so site `i`'s slice is
+# `buf[offsets[i] + 1 : offsets[i + 1]]`. `buf` is grown to at least the
+# total size `offsets[N + 1]` and never shrunk, so capacity is reused
+# across calls within the same workspace.
+function _ensure_sh_buffer!(
+	buf::Vector{Float64},
+	offsets::Vector{Int},
+	ls::Vector{Int},
+)
 	N = length(ls)
-	while length(buf) < N
-		push!(buf, Vector{Float64}())
+	resize!(offsets, N + 1)
+	@inbounds offsets[1] = 0
+	@inbounds for i in 1:N
+		offsets[i + 1] = offsets[i] + 2 * ls[i] + 1
 	end
-	# `ls[i]` is in bounds for `i in 1:N` by construction; the `@inbounds`
-	# annotation is scoped to the `buf[i]` accesses, which were just made
-	# safe by the `while` loop above.
-	for i in 1:N
-		needed = 2 * ls[i] + 1
-		@inbounds if length(buf[i]) != needed
-			resize!(buf[i], needed)
-		end
+	total = @inbounds offsets[N + 1]
+	if length(buf) < total
+		resize!(buf, total)
 	end
 	return buf
 end
@@ -292,8 +304,9 @@ function design_matrix_energy_element(
 	# cbc.ls is fixed in this function, so de-dup by sorted translated atoms only.
 	empty!(ws.searched_pairs)
 	searched_pairs = ws.searched_pairs
-	_ensure_sh_buffer!(ws.sh_values, cbc.ls)
+	_ensure_sh_buffer!(ws.sh_values, ws.sh_offsets, cbc.ls)
 	sh_values = ws.sh_values
+	sh_offsets = ws.sh_offsets
 	_ensure_legendre_buf!(ws.legendre_buf, cbc.ls)
 	legendre_buf = ws.legendre_buf
 	translated_atoms = MVector{R - 1, Int}(undef)
@@ -304,6 +317,7 @@ function design_matrix_energy_element(
 	other_dims_t = ntuple(i -> dims_t[i], Val(R - 2))
 	other_site_indices = CartesianIndices(other_dims_t)
 	idx_buf = MVector{R - 1, Int}(undef)
+	base_last = @inbounds sh_offsets[R - 1]
 
 	@inbounds for itrans in symmetry.symnum_translation
 		# Translate atoms
@@ -326,10 +340,11 @@ function design_matrix_energy_element(
 		for site_idx in 1:(R - 1)
 			atom = translated_atoms[site_idx]
 			l = cbc.ls[site_idx]
+			base = sh_offsets[site_idx]
 			for m_idx in 1:(2*l+1)
 				# Convert tesseral index to m value: m = m_idx - l - 1
 				m = m_idx - l - 1
-				sh_values[site_idx][m_idx] =
+				sh_values[base + m_idx] =
 					@views Zₗₘ_unsafe(l, m, spin_directions[:, atom], legendre_buf)
 			end
 		end
@@ -350,13 +365,13 @@ function design_matrix_energy_element(
 				for site_idx in 1:(R - 2)
 					m_idx_other = other_tuple.I[site_idx]
 					idx_buf[site_idx] = m_idx_other
-					product_other *= sh_values[site_idx][m_idx_other]
+					product_other *= sh_values[sh_offsets[site_idx] + m_idx_other]
 				end
 				for m_idx_last in 1:dims_t[R - 1]
 					idx_buf[R - 1] = m_idx_last
 					mf_contribution +=
 						cbc.coeff_tensor[idx_buf..., mf_idx] *
-						(product_other * sh_values[R - 1][m_idx_last])
+						(product_other * sh_values[base_last + m_idx_last])
 				end
 			end
 
@@ -492,8 +507,9 @@ function calc_∇ₑu!(
 	# cbc.ls is fixed in this function, so de-dup by sorted translated atoms only.
 	empty!(ws.searched_pairs)
 	searched_pairs = ws.searched_pairs
-	_ensure_sh_buffer!(ws.sh_values, cbc.ls)
+	_ensure_sh_buffer!(ws.sh_values, ws.sh_offsets, cbc.ls)
 	sh_values = ws.sh_values
+	sh_offsets = ws.sh_offsets
 	_ensure_legendre_buf!(ws.legendre_buf, cbc.ls)
 	legendre_buf = ws.legendre_buf
 
@@ -536,11 +552,12 @@ function calc_∇ₑu!(
 		for site_idx in 1:(R - 1)
 			translated_atom = translated_atoms[site_idx]
 			l = cbc.ls[site_idx]
+			base = sh_offsets[site_idx]
 			for m_idx in 1:(2*l+1)
 				# Convert tesseral index to m value: m = m_idx - l - 1
 				m = m_idx - l - 1
 
-				sh_values[site_idx][m_idx] =
+				sh_values[base + m_idx] =
 					@views Zₗₘ_unsafe(l, m, spin_directions[:, translated_atom], legendre_buf)
 				if site_idx == atom_site_idx
 					# Keep gradients only for the differentiated site.
@@ -577,7 +594,7 @@ function calc_∇ₑu!(
 					site_idx = other_sites_buf[k]
 					m_idx_other = other_tuple.I[k]
 					idx_buf[site_idx] = m_idx_other
-					product_other *= sh_values[site_idx][m_idx_other]
+					product_other *= sh_values[sh_offsets[site_idx] + m_idx_other]
 				end
 
 				for m_idx_atom in 1:(2*l_atom+1)

@@ -21,11 +21,20 @@ in `.claude/bench_log.md`.
   `CoupledBasis{R}`, `CoupledBasis_with_coefficient{R}`,
   `AngularMomentumCouplingResult{R}` with `coeff_tensor::Array{Float64,
   R}`. See `docs/specs/260516-coupled-basis-typeparam/`.)*
-- **B2**: `src/Optimize.jl:design_matrix_energy_element` and `calc_∇ₑu!`
+- ~~**B2**: `src/Optimize.jl:design_matrix_energy_element` and `calc_∇ₑu!`
   — per-translation allocation of `Vector{Vector{Float64}}` for
-  spherical-harmonic values. The inner vector lengths differ per site
-  (`2lᵢ+1`), so this needs a flattened storage layout or
-  `NTuple{N,Vector{Float64}}` — distinct from B1/B3. Still open.
+  spherical-harmonic values.~~ *(per-translation aspect resolved
+  earlier by `260516-optimize-workspace`'s workspace pooling; the
+  residual `Vector{Vector{Float64}}` layout was flattened on
+  2026-05-16. `EnergyWorkspace` / `GradWorkspace` now hold a single
+  contiguous `sh_values::Vector{Float64}` plus
+  `sh_offsets::Vector{Int}`, where site `i`'s slice is
+  `sh_values[sh_offsets[i] + 1 : sh_offsets[i + 1]]`. Removes outer
+  pointer indirection, makes site values cache-adjacent, and replaces
+  the per-site `resize!` loop in `_ensure_sh_buffer!` with one
+  cumulative-offset pass + at most one `Vector{Float64}` resize.
+  Numerics unchanged (full unit + integration suite passes); time
+  noise-level, allocs ~-60 per call. See `.claude/bench_log.md` "B2".)*
 - ~~**B3**: same files — `cbc.coeff_tensor[idx_buf..., mf_idx]` splat
   indexing is not statically resolvable.~~ *(resolved 2026-05-16
   together with B1: `idx_buf::MVector{R-1,Int}`,
