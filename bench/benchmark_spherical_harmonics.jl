@@ -1,8 +1,5 @@
 #!/usr/bin/env julia
 
-import Pkg
-Pkg.activate(joinpath(@__DIR__, ".."))
-
 using BenchmarkTools
 using Profile
 using LinearAlgebra
@@ -15,9 +12,9 @@ Compares safe APIs (with `validate_lm` / `validate_uvec`) vs `*_unsafe` where ap
 Note: `P̄ₗₘ` has no validation in the library, so only `dP̄ₗₘ` is shown for Legendre-derivative safe/unsafe.
 
 Usage:
-  julia test/benchmark_spherical_harmonics.jl
-  julia test/benchmark_spherical_harmonics.jl --lmax 4
-  julia test/benchmark_spherical_harmonics.jl --samples 20 --evals 3 --profile-iters 500
+  julia bench/benchmark_spherical_harmonics.jl
+  julia bench/benchmark_spherical_harmonics.jl --lmax 4
+  julia bench/benchmark_spherical_harmonics.jl --samples 20 --evals 3 --profile-iters 500
 """
 function parse_args(args::Vector{String})
     cfg = Dict{Symbol, Any}(

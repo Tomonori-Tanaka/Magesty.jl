@@ -364,7 +364,7 @@ cost on the integration-style fit workload.
 
 Spec: `docs/specs/260516-coupled-basis-typeparam/`.
 Branch: `refactor/coupled-basis-typeparam`.
-Script: `test/develop_tmp/bench_b1_design_matrix.jl`.
+Script: `bench/bench_b1_design_matrix.jl`.
 Example: `test/examples/fept_tetragonal_2x2x2/` (num_spinconfigs=30,
 num_salcs=31, num_atoms=16). 5 trials each, `@timed` + `@allocations`.
 

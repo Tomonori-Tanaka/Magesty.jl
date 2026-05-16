@@ -157,10 +157,10 @@ type definitions all unchanged.
 Pre/post on the same fept fixture:
 
 - Per-call allocs for `design_matrix_energy_element` and `calc_∇ₑu!`
-  (using the script in `test/develop_tmp/profile_remaining_allocs.jl`).
+  (using the script in `bench/profile_remaining_allocs.jl`).
 - Wall time for `build_design_matrix_energy` and
   `build_design_matrix_torque` (extend
-  `test/develop_tmp/bench_b1_design_matrix.jl` or reuse).
+  `bench/bench_b1_design_matrix.jl` or reuse).
 
 Target: 50×+ alloc reduction per element call; wall-time speedup
 modest (likely 1.2-2× on energy since contraction loop dominates
