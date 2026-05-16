@@ -1,4 +1,4 @@
-module Basis
+module CoupledBases
 
 using ..AngularMomentumCoupling
 using LinearAlgebra
@@ -492,4 +492,4 @@ function convert_to_coupled_basis(cbc::CoupledBasis_with_coefficient)::CoupledBa
 	)
 end
 
-end # module Basis
+end # module CoupledBases

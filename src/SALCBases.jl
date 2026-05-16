@@ -18,7 +18,7 @@ using ..Structures
 using ..Symmetries
 using ..Clusters
 using ..RotationMatrix
-using ..Basis
+using ..CoupledBases
 
 export SALCBasis
 
@@ -30,8 +30,8 @@ Represents a set of basis functions for atomic interactions in a crystal structu
 This structure is used to store and manage basis functions that are adapted to the symmetry of the crystal.
 
 # Fields
-- `coupled_basislist::SortedCounter{Basis.CoupledBasis}`: List of coupled angular momentum basis functions with their multiplicities
-- `salc_list::Vector{Vector{Basis.CoupledBasis_with_coefficient}}`: List of symmetry-adapted linear combinations (SALCs), where each element is a vector of coupled basis functions belonging to the same key group
+- `coupled_basislist::SortedCounter{CoupledBases.CoupledBasis}`: List of coupled angular momentum basis functions with their multiplicities
+- `salc_list::Vector{Vector{CoupledBases.CoupledBasis_with_coefficient}}`: List of symmetry-adapted linear combinations (SALCs), where each element is a vector of coupled basis functions belonging to the same key group
 
 # Constructors
 	SALCBasis(structure, symmetry, cluster, body1_lmax, bodyn_lsum, nbody; isotropy=false, verbosity=true)
@@ -70,9 +70,9 @@ The constructor performs the following steps:
 3. Generates symmetry-adapted linear combinations (SALCs) of `CoupledBasis_with_coefficient` objects
 """
 struct SALCBasis
-	coupled_basislist::SortedCounter{Basis.CoupledBasis}
-	salc_list::Vector{Vector{Basis.CoupledBasis_with_coefficient}}
-	angular_momentum_couplings::Vector{Basis.AngularMomentumCouplingResult}
+	coupled_basislist::SortedCounter{CoupledBases.CoupledBasis}
+	salc_list::Vector{Vector{CoupledBases.CoupledBasis_with_coefficient}}
+	angular_momentum_couplings::Vector{CoupledBases.AngularMomentumCouplingResult}
 end
 
 """
@@ -146,9 +146,9 @@ function _canonicalize_eigenspace(
 end
 
 function _compute_salc_groups(
-	coupled_basislist::SortedCounter{Basis.CoupledBasis},
+	coupled_basislist::SortedCounter{CoupledBases.CoupledBasis},
 	symmetry::Symmetry,
-)::Vector{Vector{Basis.CoupledBasis_with_coefficient}}
+)::Vector{Vector{CoupledBases.CoupledBasis_with_coefficient}}
 	projection_mat = projection_matrix_coupled_basis(coupled_basislist, symmetry)
 	h_projection = Hermitian(projection_mat)
 	eigenvals, eigenvecs = eigen!(h_projection)
@@ -171,10 +171,10 @@ function _compute_salc_groups(
 	# implementations.
 	eigval1_indices = findall(x -> isapprox(x, 1.0, atol = 1e-8), eigenvals)
 	isempty(eigval1_indices) &&
-		return Vector{Vector{Basis.CoupledBasis_with_coefficient}}()
+		return Vector{Vector{CoupledBases.CoupledBasis_with_coefficient}}()
 	canonical_basis = _canonicalize_eigenspace(eigenvecs[:, eigval1_indices])
 
-	key_salc_groups = Vector{Vector{Basis.CoupledBasis_with_coefficient}}()
+	key_salc_groups = Vector{Vector{CoupledBases.CoupledBasis_with_coefficient}}()
 	for col in axes(canonical_basis, 2)
 		eigenvec = canonical_basis[:, col]
 		eigenvec = round.(eigenvec .* (abs.(eigenvec) .≥ 1e-8), digits = 10)
@@ -183,7 +183,7 @@ function _compute_salc_groups(
 		eigenvec .+= 0.0
 		eigenvec = eigenvec / norm(eigenvec)
 		_canonicalize_sign!(eigenvec)
-		salc_group = Vector{Basis.CoupledBasis_with_coefficient}()
+		salc_group = Vector{CoupledBases.CoupledBasis_with_coefficient}()
 		for (idx_basis, cb) in enumerate(coupled_basislist)
 			coeff_start = (idx_basis - 1) * submatrix_dim + 1
 			coeff_end = idx_basis * submatrix_dim
@@ -192,7 +192,7 @@ function _compute_salc_groups(
 				continue
 			end
 			multiplicity = coupled_basislist.counts[cb]
-			cbc = Basis.CoupledBasis_with_coefficient(cb, coefficient, multiplicity)
+			cbc = CoupledBases.CoupledBasis_with_coefficient(cb, coefficient, multiplicity)
 			push!(salc_group, cbc)
 		end
 		if !isempty(salc_group)
@@ -228,7 +228,7 @@ function SALCBasis(
 	if verbosity
 		print("Constructing and classifying coupled basis list...")
 	end
-	classified_coupled_basisdict::Dict{Int, SortedCounter{Basis.CoupledBasis}} =
+	classified_coupled_basisdict::Dict{Int, SortedCounter{CoupledBases.CoupledBasis}} =
 		construct_and_classify_coupled_basislist(
 			structure,
 			symmetry,
@@ -250,18 +250,18 @@ function SALCBasis(
 	end
 	keys_list = sort(collect(keys(classified_coupled_basisdict)))
 	num_keys = length(keys_list)
-	coupled_basislists::Vector{SortedCounter{Basis.CoupledBasis}} =
+	coupled_basislists::Vector{SortedCounter{CoupledBases.CoupledBasis}} =
 		[classified_coupled_basisdict[k] for k in keys_list]
 	# Pre-allocate array to store results for each key (preserving order)
 	# Each key can have multiple SALC groups (one per eigenvector)
-	salc_list_per_key = Vector{Vector{Vector{Basis.CoupledBasis_with_coefficient}}}(undef, num_keys)
+	salc_list_per_key = Vector{Vector{Vector{CoupledBases.CoupledBasis_with_coefficient}}}(undef, num_keys)
 
 	@threads for idx in 1:num_keys
 		salc_list_per_key[idx] = _compute_salc_groups(coupled_basislists[idx], symmetry)
 	end
 
 	# Collect all SALC groups in order
-	salc_list = Vector{Vector{Basis.CoupledBasis_with_coefficient}}()
+	salc_list = Vector{Vector{CoupledBases.CoupledBasis_with_coefficient}}()
 	for key_salc_groups in salc_list_per_key
 		for salc_group in key_salc_groups
 			push!(salc_list, salc_group)
@@ -280,7 +280,7 @@ function SALCBasis(
 
 
 	# Reconstruct basislist from classified dictionary for SALCBasis storage
-	result_basislist = SortedCounter{Basis.CoupledBasis}()
+	result_basislist = SortedCounter{CoupledBases.CoupledBasis}()
 	for (key, classified_basislist) in classified_coupled_basisdict
 		for cb in classified_basislist
 			count = classified_basislist.counts[cb]
@@ -289,7 +289,7 @@ function SALCBasis(
 	end
 
 	# Collect angular momentum coupling results from cache
-	angular_momentum_couplings = Vector{Basis.AngularMomentumCouplingResult}()
+	angular_momentum_couplings = Vector{CoupledBases.AngularMomentumCouplingResult}()
 	# Collect unique ls combinations from coupled_basislist (preserve original order)
 	ls_combinations_set = Set{Vector{Int}}()
 	for cb in result_basislist
@@ -304,15 +304,15 @@ function SALCBasis(
 	# the isotropic (scalar) sector.
 	for ls_vec in ls_combinations_set
 		cache_key = (ls_vec, :none, isotropy)
-		haskey(Basis._angular_momentum_cache, cache_key) || continue
-		bases_by_L, paths_by_L = Basis._angular_momentum_cache[cache_key]
+		haskey(CoupledBases._angular_momentum_cache, cache_key) || continue
+		bases_by_L, paths_by_L = CoupledBases._angular_momentum_cache[cache_key]
 		for Lf in sort(collect(keys(bases_by_L)))
 			tensors = bases_by_L[Lf]
 			Lseqs = paths_by_L[Lf]
 			for (tensor, Lseq) in zip(tensors, Lseqs)
 				push!(
 					angular_momentum_couplings,
-					Basis.AngularMomentumCouplingResult(
+					CoupledBases.AngularMomentumCouplingResult(
 						ls_vec,
 						Lseq,
 						Lf,
@@ -355,7 +355,7 @@ end
 		bodyn_lsum::OffsetArray{Int, 1},
 		nbody::Integer;
 		isotropy::Bool = false,
-	) -> Dict{Int, SortedCounter{Basis.CoupledBasis}}
+	) -> Dict{Int, SortedCounter{CoupledBases.CoupledBasis}}
 
 Construct coupled basis functions and classify them simultaneously using orbit information.
 
@@ -372,7 +372,7 @@ memory-efficient and keeps the resulting basis organized by symmetry label.
 - `isotropy::Bool`: If `true`, only include isotropic terms (Lf=0), default: `false`
 
 # Returns
-- `Dict{Int, SortedCounter{Basis.CoupledBasis}}`: Dictionary keyed by classification labels
+- `Dict{Int, SortedCounter{CoupledBases.CoupledBasis}}`: Dictionary keyed by classification labels
   (based on `(nbody, Lf, sum(ls), Tuple(sort(ls)...))`), containing classified basis functions
 """
 function construct_and_classify_coupled_basislist(
@@ -383,9 +383,9 @@ function construct_and_classify_coupled_basislist(
 	bodyn_lsum::OffsetArray{Int, 1},
 	nbody::Integer;
 	isotropy::Bool = false,
-)::Dict{Int, SortedCounter{Basis.CoupledBasis}}
+)::Dict{Int, SortedCounter{CoupledBases.CoupledBasis}}
 	# Result dictionary for classified basis functions
-	classified_dict = OrderedDict{Int, SortedCounter{Basis.CoupledBasis}}()
+	classified_dict = OrderedDict{Int, SortedCounter{CoupledBases.CoupledBasis}}()
 	label_map = Dict{Any, Int}()
 	next_label = 0
 
@@ -407,7 +407,7 @@ function construct_and_classify_coupled_basislist(
 				[iat];
 				isotropy = isotropy,
 			)
-			for cb::Basis.CoupledBasis in cb_list
+			for cb::CoupledBases.CoupledBasis in cb_list
 				# Classify on-the-fly: key is (nbody, Lf, sum(ls), Tuple(sort(ls)...))
 				nbody_val = length(cb.ls)
 				ls_sorted = Tuple(sort(cb.ls))
@@ -418,7 +418,7 @@ function construct_and_classify_coupled_basislist(
 					next_label += 1
 					label = next_label
 					label_map[key] = label
-					classified_dict[label] = SortedCounter{Basis.CoupledBasis}()
+					classified_dict[label] = SortedCounter{CoupledBases.CoupledBasis}()
 				end
 				push!(classified_dict[label], cb, 1)
 			end
@@ -434,22 +434,22 @@ function construct_and_classify_coupled_basislist(
 				# Process all clusters in this orbit
 				# Clusters in the same orbit have the same projection matrix structure
 				# Collect all basis functions from this orbit first
-				orbit_basis_list = Vector{Basis.CoupledBasis}()
+				orbit_basis_list = Vector{CoupledBases.CoupledBasis}()
 				# Use IdDict instead of Dict since CoupledBasis doesn't implement hash
-				orbit_basis_counts = IdDict{Basis.CoupledBasis, Int}()
+				orbit_basis_counts = IdDict{CoupledBases.CoupledBasis, Int}()
 
 				for atom_list::Vector{Int} in orbit_clusters
 					# Get multiplicity from irreducible_cluster_dict
 					count = irreducible_cluster_dict[body].counts[atom_list]
 					sorted_atom_list = sort(atom_list)
-					cb_list::Vector{Basis.CoupledBasis} = listup_coupled_basislist(
+					cb_list::Vector{CoupledBases.CoupledBasis} = listup_coupled_basislist(
 						sorted_atom_list,
 						bodyn_lsum[body];
 						isotropy = isotropy,
 					)
 
 					# Collect basis functions from this cluster
-					for cb::Basis.CoupledBasis in cb_list
+					for cb::CoupledBases.CoupledBasis in cb_list
 						# Check for translationally equivalent within orbit
 						found_equivalent = false
 						for existing_cb in orbit_basis_list
@@ -474,7 +474,7 @@ function construct_and_classify_coupled_basislist(
 
 				# Classify basis functions from this orbit
 				# Use orbit index in classification key to group by orbit
-				for cb::Basis.CoupledBasis in orbit_basis_list
+				for cb::CoupledBases.CoupledBasis in orbit_basis_list
 					ls_sorted = Tuple(sort(cb.ls))
 					# Include orbit_index in classification key to utilize orbit information
 					key = (body, orbit_index, cb.Lf, sum(cb.ls), ls_sorted)
@@ -484,7 +484,7 @@ function construct_and_classify_coupled_basislist(
 						next_label += 1
 						label = next_label
 						label_map[key] = label
-						classified_dict[label] = SortedCounter{Basis.CoupledBasis}()
+						classified_dict[label] = SortedCounter{CoupledBases.CoupledBasis}()
 					end
 
 					count = orbit_basis_counts[cb]
@@ -498,7 +498,7 @@ function construct_and_classify_coupled_basislist(
 end
 
 """
-	listup_coupled_basislist(atom_list, lsum; isotropy=false) -> Vector{Basis.CoupledBasis}
+	listup_coupled_basislist(atom_list, lsum; isotropy=false) -> Vector{CoupledBases.CoupledBasis}
 
 List up all coupled angular momentum basis functions for a given atom list and maximum angular momentum sum.
 
@@ -508,7 +508,7 @@ List up all coupled angular momentum basis functions for a given atom list and m
 - `isotropy::Bool`: If `true`, only include isotropic terms (Lf=0), default: `false`
 
 # Returns
-- `Vector{Basis.CoupledBasis}`: List of coupled basis functions
+- `Vector{CoupledBases.CoupledBasis}`: List of coupled basis functions
 
 # Note
 - Skips l values less than the number of atoms or odd l values
@@ -518,8 +518,8 @@ function listup_coupled_basislist(
 	atom_list::Vector{<:Integer},
 	lsum::Integer;
 	isotropy::Bool = false,
-)::Vector{Basis.CoupledBasis}
-	result_basislist = Vector{Basis.CoupledBasis}()
+)::Vector{CoupledBases.CoupledBasis}
+	result_basislist = Vector{CoupledBases.CoupledBasis}()
 	for l in 2:lsum
 		# Skip if l is less than number of atoms (each atom needs at least l=1)
 		# or if l is odd (prohibited by time-reversal symmetry)
@@ -541,8 +541,8 @@ Check if the product of two `CoupledBasis` objects is obviously zero.
 This is a quick check for the step constructing projection matrix.
 """
 function is_obviously_zero_coupled_basis_product(
-	cb1::Basis.CoupledBasis,
-	cb2::Basis.CoupledBasis,
+	cb1::CoupledBases.CoupledBasis,
+	cb2::CoupledBases.CoupledBasis,
 )::Bool
 	if cb1.Lf != cb2.Lf
 		return true
@@ -601,13 +601,13 @@ end
 Collect all unique atom lists from a list of coupled basis functions.
 
 # Arguments
-- `coupled_basislist::SortedCounter{Basis.CoupledBasis}`: List of coupled basis functions
+- `coupled_basislist::SortedCounter{CoupledBases.CoupledBasis}`: List of coupled basis functions
 
 # Returns
 - `Set{Vector{Int}}`: Set of unique atom lists (as vectors)
 """
 function collect_cluster_atoms(
-	coupled_basislist::SortedCounter{Basis.CoupledBasis},
+	coupled_basislist::SortedCounter{CoupledBases.CoupledBasis},
 )::Set{Vector{Int}}
 	result_set = Set{Vector{Int}}()
 	for cb in coupled_basislist
@@ -699,7 +699,7 @@ The projection matrix is computed by averaging over all symmetry operations (inc
 and projects onto the subspace of basis functions that are invariant under the symmetry group.
 
 # Arguments
-- `coupled_basislist::SortedCounter{Basis.CoupledBasis}`: List of coupled basis functions
+- `coupled_basislist::SortedCounter{CoupledBases.CoupledBasis}`: List of coupled basis functions
 - `symmetry::Symmetry`: Symmetry information containing all symmetry operations
 
 # Keywords
@@ -717,7 +717,7 @@ and projects onto the subspace of basis functions that are invariant under the s
 - Each basis function contributes a submatrix of size (2*Lf + 1) × (2*Lf + 1)
 """
 function projection_matrix_coupled_basis(
-	coupled_basislist::SortedCounter{Basis.CoupledBasis},
+	coupled_basislist::SortedCounter{CoupledBases.CoupledBasis},
 	symmetry::Symmetry,
 	;
 	check_irrep_unitary::Bool = get(ENV, "MAGESTY_CHECK_IRREP_UNITARY", "0") == "1",
@@ -791,8 +791,8 @@ end
 
 """
 	is_translationally_equivalent_coupled_basis(
-		cb1::Basis.CoupledBasis,
-		cb2::Basis.CoupledBasis,
+		cb1::CoupledBases.CoupledBasis,
+		cb2::CoupledBases.CoupledBasis,
 		symmetry::Symmetry,
 	) -> Bool
 
@@ -806,16 +806,16 @@ This function checks if the atom lists can be mapped to each other via translati
 defined in `symmetry.symnum_translation`.
 
 # Arguments
-- `cb1::Basis.CoupledBasis`: First `CoupledBasis` to compare
-- `cb2::Basis.CoupledBasis`: Second `CoupledBasis` to compare
+- `cb1::CoupledBases.CoupledBasis`: First `CoupledBasis` to compare
+- `cb2::CoupledBases.CoupledBasis`: Second `CoupledBasis` to compare
 - `symmetry::Symmetry`: Symmetry information containing translation mappings
 
 # Returns
 - `Bool`: `true` if the `CoupledBasis` objects are translationally equivalent, `false` otherwise
 """
 function is_translationally_equivalent_coupled_basis(
-	cb1::Basis.CoupledBasis,
-	cb2::Basis.CoupledBasis,
+	cb1::CoupledBases.CoupledBasis,
+	cb2::CoupledBases.CoupledBasis,
 	symmetry::Symmetry,
 )::Bool
 	# Different number of sites
@@ -961,9 +961,9 @@ end
 
 """
 	filter_basisdict(
-		basisdict::Dict{Int, SortedCounter{Basis.CoupledBasis}},
+		basisdict::Dict{Int, SortedCounter{CoupledBases.CoupledBasis}},
 		symmetry::Symmetry,
-	) -> Dict{Int, SortedCounter{Basis.CoupledBasis}}
+	) -> Dict{Int, SortedCounter{CoupledBases.CoupledBasis}}
 
 Filter out basis entries that correspond to clusters where all atoms map to the same
 primitive atom, have odd total angular momentum Lf, and have multiplicity greater than 1.
@@ -985,7 +985,7 @@ translationally equivalent sites at cell boundaries always have multiplicity > 1
 periodic boundary conditions.
 
 # Arguments
-- `basisdict::Dict{Int, SortedCounter{Basis.CoupledBasis}}`: Dictionary of
+- `basisdict::Dict{Int, SortedCounter{CoupledBases.CoupledBasis}}`: Dictionary of
   classified coupled basis sets, where keys are labels and values are lists of basis
   functions belonging to the same symmetry class. The `counts` field of each
   `SortedCounter` stores the multiplicity of each basis.
@@ -993,7 +993,7 @@ periodic boundary conditions.
   to primitive cell atoms (`symmetry.map_s2p`)
 
 # Returns
-- `Dict{Int, SortedCounter{Basis.CoupledBasis}}`: Filtered dictionary with
+- `Dict{Int, SortedCounter{CoupledBases.CoupledBasis}}`: Filtered dictionary with
   renumbered labels. Entries that satisfy all filtering conditions are removed, and
   remaining entries are assigned new consecutive labels starting from 1.
 
@@ -1005,13 +1005,13 @@ periodic boundary conditions.
 - The input dictionary keys are sorted before processing to ensure deterministic output.
 """
 function filter_basisdict(
-	basisdict::Dict{Int, SortedCounter{Basis.CoupledBasis}},
+	basisdict::Dict{Int, SortedCounter{CoupledBases.CoupledBasis}},
 	symmetry::Symmetry,
-)::Dict{Int, SortedCounter{Basis.CoupledBasis}}
-	result_basisdict = Dict{Int, SortedCounter{Basis.CoupledBasis}}()
+)::Dict{Int, SortedCounter{CoupledBases.CoupledBasis}}
+	result_basisdict = Dict{Int, SortedCounter{CoupledBases.CoupledBasis}}()
 	new_label = 1
 	for label in sort!(collect(keys(basisdict)))
-		basislist::SortedCounter{Basis.CoupledBasis} = basisdict[label]
+		basislist::SortedCounter{CoupledBases.CoupledBasis} = basisdict[label]
 		first_basis = basislist[begin]
 		atom_list = first_basis.atoms
 		atom_list_in_prim = [symmetry.map_s2p[atom].atom for atom in atom_list]
@@ -1033,10 +1033,10 @@ end
 Print symmetry-adapted basis functions to stdout.
 
 # Arguments
-- `salc_list::AbstractVector{Vector{Basis.CoupledBasis_with_coefficient}}`: List of SALC groups, where each group is a vector of `CoupledBasis_with_coefficient` objects
+- `salc_list::AbstractVector{Vector{CoupledBases.CoupledBasis_with_coefficient}}`: List of SALC groups, where each group is a vector of `CoupledBasis_with_coefficient` objects
 """
 function print_salcbasis_stdout(
-	salc_list::AbstractVector{Vector{Basis.CoupledBasis_with_coefficient}},
+	salc_list::AbstractVector{Vector{CoupledBases.CoupledBasis_with_coefficient}},
 )
 	println(" Number of symmetry-adapted basis functions: $(length(salc_list))\n")
 	println(" List of symmetry-adapted basis functions:")

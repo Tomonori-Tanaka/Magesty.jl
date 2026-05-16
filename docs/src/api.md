@@ -118,10 +118,10 @@ ConfigParser.Config4System
 
 ### Spherical harmonics
 ```@docs
-MySphericalHarmonics.Zₗₘ
-MySphericalHarmonics.Zₗₘ_unsafe
-MySphericalHarmonics.∂ᵢZlm
-MySphericalHarmonics.∂ᵢZlm_unsafe
+TesseralHarmonics.Zₗₘ
+TesseralHarmonics.Zₗₘ_unsafe
+TesseralHarmonics.∂ᵢZlm
+TesseralHarmonics.∂ᵢZlm_unsafe
 ```
 
 ### Rotation matrices

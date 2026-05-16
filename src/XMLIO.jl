@@ -7,7 +7,7 @@ using ..SALCBases
 using EzXML
 using Printf
 using LinearAlgebra
-using ..Basis
+using ..CoupledBases
 using ..SortedCounters: SortedCounter
 
 # XML schema constants. Shared between the write_* and read_* paths so
@@ -298,8 +298,8 @@ function read_salcbasis_from_xml(
 	# `amc_dict` is the keyed lookup used during SALC reconstruction;
 	# `amc_ordered` preserves the file order so a write -> read -> write
 	# cycle reproduces the `<AngularMomentumCouplings>` block byte-for-byte.
-	amc_dict = Dict{Tuple{Vector{Int}, Vector{Int}, Int}, Basis.AngularMomentumCouplingResult}()
-	amc_ordered = Vector{Basis.AngularMomentumCouplingResult}()
+	amc_dict = Dict{Tuple{Vector{Int}, Vector{Int}, Int}, CoupledBases.AngularMomentumCouplingResult}()
+	amc_ordered = Vector{CoupledBases.AngularMomentumCouplingResult}()
 	amc_node = findfirst(TAG_AMC, system_node)
 	if !isnothing(amc_node)
 		for coupling_node in findall(TAG_COUPLING, amc_node)
@@ -332,7 +332,7 @@ function read_salcbasis_from_xml(
 				selectdim(coeff_tensor, ndims(coeff_tensor), mf_idx) .= tensor_slice
 			end
 
-			amc = Basis.AngularMomentumCouplingResult(ls, Lseq, Lf, coeff_tensor)
+			amc = CoupledBases.AngularMomentumCouplingResult(ls, Lseq, Lf, coeff_tensor)
 			amc_dict[(ls, Lseq, Lf)] = amc
 			push!(amc_ordered, amc)
 		end
@@ -344,10 +344,10 @@ function read_salcbasis_from_xml(
 		throw(ArgumentError("<$(TAG_SCE_BASIS)> node not found in XML file: $xml_file"))
 	end
 
-	salc_list = Vector{Vector{Basis.CoupledBasis_with_coefficient}}()
+	salc_list = Vector{Vector{CoupledBases.CoupledBasis_with_coefficient}}()
 
 	for salc_node in findall(TAG_SALC, salc_basis_node)
-		key_group = Vector{Basis.CoupledBasis_with_coefficient}()
+		key_group = Vector{CoupledBases.CoupledBasis_with_coefficient}()
 
 		for basis_node in findall(TAG_BASIS, salc_node)
 			# Parse attributes
@@ -372,7 +372,7 @@ function read_salcbasis_from_xml(
 			else
 				# If coeff_tensor not found, try to reconstruct from tesseral_coupled_bases_from_tesseral_bases
 				# This is a fallback - ideally all coeff_tensors should be in XML
-				coupled_basis_list = Basis.tesseral_coupled_bases_from_tesseral_bases(ls, atoms)
+				coupled_basis_list = CoupledBases.tesseral_coupled_bases_from_tesseral_bases(ls, atoms)
 				# Find matching CoupledBasis
 				coeff_tensor = nothing
 				for cb in coupled_basis_list
@@ -387,7 +387,7 @@ function read_salcbasis_from_xml(
 			end
 
 			# Create CoupledBasis_with_coefficient
-			cbc = Basis.CoupledBasis_with_coefficient(
+			cbc = CoupledBases.CoupledBasis_with_coefficient(
 				ls,
 				Lf,
 				Lseq,
@@ -405,10 +405,10 @@ function read_salcbasis_from_xml(
 	end
 
 	# Reconstruct coupled_basislist from salc_list
-	coupled_basislist = SortedCounter{Basis.CoupledBasis}()
+	coupled_basislist = SortedCounter{CoupledBases.CoupledBasis}()
 	for key_group in salc_list
 		for cbc in key_group
-			cb = Basis.CoupledBasis(
+			cb = CoupledBases.CoupledBasis(
 				cbc.ls,
 				cbc.Lf,
 				cbc.Lseq,
