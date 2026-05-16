@@ -7,9 +7,6 @@ test-unit:
 test-integration:
 	TEST_MODE=integration julia --project -e 'using Pkg; Pkg.test()'
 
-test-develop:
-	TEST_MODE=develop julia --project -e 'using Pkg; Pkg.test()'
-
 test-tools:
 	julia tools/test/runtests.jl
 

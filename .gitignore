@@ -9,7 +9,6 @@
 .claude/settings.local.json
 
 tools/personal/
-/test/develop_tmp/*
 /bench/results/*
 !/bench/results/.gitkeep
 docs/build/

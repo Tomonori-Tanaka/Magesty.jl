@@ -36,7 +36,7 @@
   - 破壊的変更は body に `BREAKING CHANGE: ...` を付ける。
 - **アメリカ英語**で統一する（`normalize` / `behavior` / `color` / `center` 等）。
 - 例外: **外部 API のリテラルは元の綴りを保つ**（例: SpheriCart の `normalisation=:L2` kwarg）。
-- **`.jl` ソース中の日本語は PostToolUse hook (`.claude/hooks/no-japanese.sh`) で自動ブロック**。対象は `src/` `test/` `tools/` 配下（`test/develop_tmp/` `tools/personal/` は除外）。
+- **`.jl` ソース中の日本語は PostToolUse hook (`.claude/hooks/no-japanese.sh`) で自動ブロック**。対象は `src/` `test/` `tools/` 配下（`tools/personal/` は除外）。
 - **ソースコード中に Claude 内部ドキュメントを参照しない**: `.jl` のコメント・docstring 内で `CLAUDE.md` / `DESIGN_NOTES.md` / `docs/design-notes/` / `.claude/` / `docs/specs/` を**名指しで参照しない**。これらは Claude との協働用 scaffolding であり、公開ソースは独立して読めるべき。歴史的な経緯を残したい場合は内容をインラインに要約する。
   - 参照してよい外部ドキュメント: `docs/src/` (Documenter)、`SPEC.md`、`STYLE_GUIDE.md`、`https://Tomonori-Tanaka.github.io/Magesty.jl/` (technical notes).
   - 例外: コミットメッセージの `Refs:` 行で `docs/design-notes/refactor-sweep.md R7` のように参照するのは可（commit は workflow artifact）。
@@ -53,8 +53,6 @@
 | `make test-tools` | `tools/test/` | tools スクリプトのテスト |
 | `make test-jet` | — | JET.jl 静的型解析 |
 | `make test-aqua` | — | Aqua.jl パッケージ品質チェック |
-
-`test/develop_tmp/` は開発中の実験的テスト（CI 対象外）。
 
 ベンチマーク用のターゲット（`make bench-sphericart` / `make bench-optimize-sphericart` 等）は Makefile を参照。
 
