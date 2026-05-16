@@ -14,22 +14,24 @@ Highest-priority follow-up — these affect every fit and every predict
 call. Land as separate `perf(...)` commits with before/after benchmarks
 in `.claude/bench_log.md`.
 
-- **B1**: `src/types/Basis.jl:32, :310` — `CoupledBasis.coeff_tensor` and
+- ~~**B1**: `src/types/Basis.jl:32, :310` — `CoupledBasis.coeff_tensor` and
   `CoupledBasis_with_coefficient.coeff_tensor` are typed as bare
-  `AbstractArray`. Concretize to at least `AbstractArray{Float64}` (or
-  parameterize the structs by tensor rank so a concrete `Array{Float64,
-  N}` is possible). Pervasive type-stability win across the whole
-  design-matrix path.
-- **B2**: `src/Optimize.jl:design_matrix_energy_element` (around L424) and
-  `calc_∇ₑu!` (around L611) — per-translation allocation of
-  `Vector{Vector{Float64}}` for spherical-harmonic values, and `@views`
-  slices that don't go through `SVector`. Preallocate (`MMatrix` or
-  fixed-size scratch) and lift slices into `SVector{3, Float64}`.
-  Mirrors the pattern already used in `build_design_matrix_torque`
-  (`dir_iatom_svec = SVector{3, Float64}(dir_iatom)`).
-- **B3**: same files — `cbc.coeff_tensor[idx_buf..., mf_idx]` splat
-  indexing is not statically resolvable. Try `CartesianIndex`-based
-  indexing or `@generated` dispatch by rank.
+  `AbstractArray`. Concretize…~~ *(resolved 2026-05-16 on
+  `refactor/coupled-basis-typeparam`. Structs parameterized as
+  `CoupledBasis{R}`, `CoupledBasis_with_coefficient{R}`,
+  `AngularMomentumCouplingResult{R}` with `coeff_tensor::Array{Float64,
+  R}`. See `docs/specs/260516-coupled-basis-typeparam/`.)*
+- **B2**: `src/Optimize.jl:design_matrix_energy_element` and `calc_∇ₑu!`
+  — per-translation allocation of `Vector{Vector{Float64}}` for
+  spherical-harmonic values. The inner vector lengths differ per site
+  (`2lᵢ+1`), so this needs a flattened storage layout or
+  `NTuple{N,Vector{Float64}}` — distinct from B1/B3. Still open.
+- ~~**B3**: same files — `cbc.coeff_tensor[idx_buf..., mf_idx]` splat
+  indexing is not statically resolvable.~~ *(resolved 2026-05-16
+  together with B1: `idx_buf::MVector{R-1,Int}`,
+  `dims_t::NTuple{R-1,Int}`, `CartesianIndices` now have statically
+  known rank. Energy/torque design-matrix builders gained ×24 / ×8.6
+  on the fept fixture.)*
 
 ## Minor follow-ups
 

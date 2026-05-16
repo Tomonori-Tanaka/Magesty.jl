@@ -96,14 +96,17 @@ function build_design_matrix_energy(
 	design_matrix[:, 1] .= 1.0
 
 	# Parallel over key-group columns; each thread writes to a disjoint column.
+	# Rank-erasing annotations on `key_group` / `cbc` are intentionally absent so
+	# that Julia specializes `design_matrix_energy_element` on each element's
+	# concrete `CoupledBasis_with_coefficient{R}` type via call-site dispatch.
 	@threads for i = 1:num_salcs
-		key_group::Vector{Basis.CoupledBasis_with_coefficient} = salc_list[i]
+		key_group = salc_list[i]
 		n_C = length(key_group[1].atoms)  # Number of sites in the cluster
 		scaling_factor = _cluster_scaling(n_C)
 		@inbounds for j in 1:num_spinconfigs
 			# Sum contributions from all CoupledBasis_with_coefficient in this key group
 			group_value = 0.0
-			for cbc::Basis.CoupledBasis_with_coefficient in key_group
+			for cbc in key_group
 				group_value += design_matrix_energy_element(
 					cbc,
 					spinconfig_list[j].spin_directions,
@@ -136,32 +139,29 @@ Compute one energy-design feature for a given CoupledBasis_with_coefficient and 
 - `Float64`: Feature value for the CoupledBasis_with_coefficient
 """
 function design_matrix_energy_element(
-	cbc::Basis.CoupledBasis_with_coefficient,
+	cbc::Basis.CoupledBasis_with_coefficient{R},
 	spin_directions::AbstractMatrix{<:Real},
 	symmetry::Symmetry,
-)::Float64
+)::Float64 where {R}
+	# N = number of sites; R = tensor rank = N + 1 (compile-time constant).
 	result::Float64 = 0.0
-	N = length(cbc.atoms)
-	dims = [2*l + 1 for l in cbc.ls]
-	site_indices = CartesianIndices(Tuple(dims))
-	Mf_size = size(cbc.coeff_tensor, N+1)
+	dims_t = ntuple(i -> 2 * cbc.ls[i] + 1, Val(R - 1))
+	Mf_size = size(cbc.coeff_tensor, R)
 
 	# cbc.ls is fixed in this function, so de-dup by sorted translated atoms only.
 	searched_pairs = Set{UInt}()
-	translated_atoms = Vector{Int}(undef, N)
-	atoms_sorted_buf = Vector{Int}(undef, N)
+	translated_atoms = MVector{R - 1, Int}(undef)
+	atoms_sorted_buf = MVector{R - 1, Int}(undef)
 
 	# These quantities depend only on cbc.ls (constant within the call), so hoist
 	# them out of the translation loop instead of rebuilding per `itrans`.
-	last_site = N
-	other_sites = 1:(N-1)
-	other_dims = dims[other_sites]
-	other_site_indices = CartesianIndices(Tuple(other_dims))
-	idx_buf = Vector{Int}(undef, N)
+	other_dims_t = ntuple(i -> dims_t[i], Val(R - 2))
+	other_site_indices = CartesianIndices(other_dims_t)
+	idx_buf = MVector{R - 1, Int}(undef)
 
 	@inbounds for itrans in symmetry.symnum_translation
 		# Translate atoms
-		for site_idx in 1:N
+		for site_idx in 1:(R - 1)
 			translated_atoms[site_idx] = symmetry.map_sym[cbc.atoms[site_idx], itrans]
 		end
 		# Sort atoms for comparison, but keep ls in original order
@@ -175,8 +175,9 @@ function design_matrix_energy_element(
 
 
 		# Compute spherical harmonics for each site
-		sh_values = Vector{Vector{Float64}}(undef, N)
-		for (site_idx, atom) in enumerate(translated_atoms)
+		sh_values = Vector{Vector{Float64}}(undef, R - 1)
+		for site_idx in 1:(R - 1)
+			atom = translated_atoms[site_idx]
 			l = cbc.ls[site_idx]
 			sh_values[site_idx] = Vector{Float64}(undef, 2*l+1)
 			for m_idx in 1:(2*l+1)
@@ -187,27 +188,28 @@ function design_matrix_energy_element(
 		end
 
 		# Contract coeff_tensor with spherical harmonics
-		# coeff_tensor has shape (d1, d2, ..., dN, Mf_size)
-		# where di = 2*li + 1
+		# coeff_tensor has shape (d1, d2, ..., dN, Mf_size) where di = 2*li + 1.
+		# Reuse product over first N-1 sites and iterate the last-site index
+		# separately; `idx_buf::MVector{R-1, Int}` makes the splat indexing
+		# `coeff_tensor[idx_buf..., mf_idx]` statically resolvable.
 		tensor_result = 0.0
 
 		# Iterate over all Mf values
 		for mf_idx in 1:Mf_size
 			mf_contribution = 0.0
 
-			# Reuse product over first N-1 sites and iterate last-site index separately.
 			for other_tuple in other_site_indices
 				product_other = 1.0
-				for site_idx in other_sites
+				for site_idx in 1:(R - 2)
 					m_idx_other = other_tuple.I[site_idx]
 					idx_buf[site_idx] = m_idx_other
 					product_other *= sh_values[site_idx][m_idx_other]
 				end
-				for m_idx_last in 1:dims[last_site]
-					idx_buf[last_site] = m_idx_last
+				for m_idx_last in 1:dims_t[R - 1]
+					idx_buf[R - 1] = m_idx_last
 					mf_contribution +=
 						cbc.coeff_tensor[idx_buf..., mf_idx] *
-						(product_other * sh_values[last_site][m_idx_last])
+						(product_other * sh_values[R - 1][m_idx_last])
 				end
 			end
 
@@ -314,26 +316,26 @@ with respect to the spin direction of a specific atom.
 """
 function calc_∇ₑu!(
 	result::MVector{3, Float64},
-	cbc::Basis.CoupledBasis_with_coefficient,
+	cbc::Basis.CoupledBasis_with_coefficient{R},
 	atom::Integer,
 	spin_directions::AbstractMatrix{<:Real},
 	symmetry::Symmetry,
-)
+) where {R}
+	# N = number of sites; R = tensor rank = N + 1 (compile-time constant).
 	result[1] = 0.0
 	result[2] = 0.0
 	result[3] = 0.0
-	N = length(cbc.atoms)
-	dims = [2 * l + 1 for l in cbc.ls]
-	Mf_size = size(cbc.coeff_tensor, N + 1)
-	translated_atoms = Vector{Int}(undef, N)
-	atoms_sorted_buf = Vector{Int}(undef, N)
+	dims_t = ntuple(i -> 2 * cbc.ls[i] + 1, Val(R - 1))
+	Mf_size = size(cbc.coeff_tensor, R)
+	translated_atoms = MVector{R - 1, Int}(undef)
+	atoms_sorted_buf = MVector{R - 1, Int}(undef)
 
 	# Hoist scratch buffers out of the translation loop. `other_sites_buf` and
 	# `other_dims_buf` get refilled per iteration based on `atom_site_idx`, but
 	# the storage is allocated once up front.
-	idx_buf = Vector{Int}(undef, N)
-	other_sites_buf = Vector{Int}(undef, N - 1)
-	other_dims_buf = Vector{Int}(undef, N - 1)
+	idx_buf = MVector{R - 1, Int}(undef)
+	other_sites_buf = MVector{R - 2, Int}(undef)
+	other_dims_buf = MVector{R - 2, Int}(undef)
 
 	# cbc.ls is fixed in this function, so de-dup by sorted translated atoms only.
 	searched_pairs = Set{UInt}()
@@ -341,7 +343,7 @@ function calc_∇ₑu!(
 	@inbounds for itrans in symmetry.symnum_translation
 		# Translate atoms and identify the differentiated site index.
 		atom_site_idx = 0
-		for site_idx in 1:N
+		for site_idx in 1:(R - 1)
 			ta = symmetry.map_sym[cbc.atoms[site_idx], itrans]
 			translated_atoms[site_idx] = ta
 			if ta == atom
@@ -362,11 +364,12 @@ function calc_∇ₑu!(
 		end
 
 		# Compute spherical harmonics and derivatives for the target site.
-		sh_values = Vector{Vector{Float64}}(undef, N)
+		sh_values = Vector{Vector{Float64}}(undef, R - 1)
 		l_atom = cbc.ls[atom_site_idx]
 		atom_grad_values = Vector{Vector{Float64}}(undef, 2 * l_atom + 1)
 
-		for (site_idx, translated_atom) in enumerate(translated_atoms)
+		for site_idx in 1:(R - 1)
+			translated_atom = translated_atoms[site_idx]
 			l = cbc.ls[site_idx]
 			sh_values[site_idx] = Vector{Float64}(undef, 2*l+1)
 			for m_idx in 1:(2*l+1)
@@ -384,19 +387,20 @@ function calc_∇ₑu!(
 			end
 		end
 
-		# Contract coeff_tensor with spherical harmonics and gradients
-		# coeff_tensor has shape (d1, d2, ..., dN, Mf_size)
-		# where di = 2*li + 1
+		# Contract coeff_tensor with spherical harmonics and gradients.
+		# coeff_tensor has shape (d1, d2, ..., dN, Mf_size) where di = 2*li + 1.
 		grad_result = MVector{3, Float64}(0.0, 0.0, 0.0)
 		# Refill the other_sites/other_dims buffers for this `atom_site_idx`.
 		ki = 0
-		for s in 1:N
+		for s in 1:(R - 1)
 			if s != atom_site_idx
 				ki += 1
 				other_sites_buf[ki] = s
-				other_dims_buf[ki] = dims[s]
+				other_dims_buf[ki] = dims_t[s]
 			end
 		end
+		# `Tuple(::MVector{R-2,Int})` is `NTuple{R-2,Int}`, so the
+		# resulting CartesianIndices has statically known rank.
 		other_site_indices = CartesianIndices(Tuple(other_dims_buf))
 
 		# Iterate over all Mf values
@@ -406,7 +410,7 @@ function calc_∇ₑu!(
 			# Reuse product over non-differentiated sites for each m on target site.
 			for other_tuple in other_site_indices
 				product_other = 1.0
-				for k in 1:(N-1)
+				for k in 1:(R - 2)
 					site_idx = other_sites_buf[k]
 					m_idx_other = other_tuple.I[k]
 					idx_buf[site_idx] = m_idx_other
