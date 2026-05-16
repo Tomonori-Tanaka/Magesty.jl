@@ -101,8 +101,6 @@ src/               パッケージ本体
 test/
   component_test/  ユニットテスト（モジュール単位）
   examples/        統合テスト（実際の計算例）
-  develop_tmp/     開発中・実験的テスト（CI 対象外）
-  helpers/         テスト補助ユーティリティ
 tools/             パッケージ本体とは独立したスクリプト群
   vasp/            VASP 入出力変換ツール
   test/            tools のテスト（make test-tools で実行）
