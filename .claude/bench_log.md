@@ -441,3 +441,51 @@ Post-refactor `code_warntype` on `design_matrix_energy_element`:
 `other_site_indices::CartesianIndices{R-2, NTuple{R-2,Int64}}`.
 Remaining `Union{Nothing, Tuple{Int64,Int64}}` entries are just
 `iterate(::UnitRange)` return types — normal, type-stable.
+
+---
+
+## C — hot-path scratch workspace (`design_matrix_*_element`)
+
+Spec: `docs/specs/260516-optimize-workspace/`.
+Branch: `refactor/optimize-workspace`.
+
+Goal: eliminate the ~262K (energy) and ~1.17M (torque) per-call heap
+allocations remaining after B1+B3. Per-call profile of
+`design_matrix_energy_element` showed 74-110 allocs/call (depending on
+N) — dominated by per-call `Set{UInt}()` construction, per-call
+`Vector{Vector{Float64}}` for spherical harmonics, and (the surprise
+finding) per-(l, m) Legendre-cache allocations inside the unbuffered
+`Zₗₘ_unsafe` overload.
+
+Added `EnergyWorkspace` and `GradWorkspace` mutable structs that pool
+the `Set`, the SH-value `Vector{Vector{Float64}}`, the
+`atom_grad_values::Vector{SVector{3, Float64}}` (grad only), and a
+`legendre_buf::Vector{Float64}` for the buffered SH overloads. Each
+thread in `build_design_matrix_*` allocates one workspace inside its
+`@threads` iteration.
+
+Results on fept_tetragonal_2x2x2 (30 spinconfigs × 31 salcs):
+
+| function                      | min       | allocs (med) | bytes (med) |
+|-------------------------------|-----------|--------------|-------------|
+| `build_design_matrix_energy`  | **1.5 ms**|  **9,784**   |  478 KB     |
+| `build_design_matrix_torque`  | **4.1 ms**| **112,827**  |  6.95 MB    |
+
+Versus the B1+B3 baseline (energy 2.1 ms / 262K allocs / 10.1 MB;
+torque 6.4 ms / 1.17M / 52.6 MB), this is ×1.4-1.6 wall-time speedup
+and ×10-27 allocation reduction. Per-call allocations dropped from
+74-110 → 2 (energy) and 10-50 → 6 (grad).
+
+Total stack vs. baseline before B1:
+
+| function                      | pre-B1 baseline | after C |
+|-------------------------------|-----------------|---------|
+| `build_design_matrix_energy`  | 51.5 ms / 4.76M | 1.5 ms / 9.8K (×34) |
+| `build_design_matrix_torque`  | 55.2 ms / 9.57M | 4.1 ms / 113K (×13) |
+
+The biggest single contributor to C was the buffered SH switch —
+switching `Zₗₘ_unsafe(l, m, uvec)` to `Zₗₘ_unsafe(l, m, uvec, buf)`
+(same for `∂ᵢZlm_unsafe`) eliminated dozens of per-call allocations
+that the workspace alone had not addressed. The buffered overload was
+already in `MySphericalHarmonics.jl` (commit `8a4a17d`); only the
+caller side had to wire up the workspace-owned `legendre_buf`.
