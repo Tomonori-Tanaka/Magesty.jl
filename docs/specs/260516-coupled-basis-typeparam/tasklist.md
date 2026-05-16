@@ -79,10 +79,11 @@ compile-time-sized buffers, exploiting `R` from the type parameter.
 
 ## Step 6 — close out
 
-- [ ] `code-reviewer` agent on cumulative diff.
-- [ ] Update `docs/design-notes/post-step7-cleanup.md`: mark B1
-      resolved with commit ref.
-- [ ] Single breaking commit via `git-helper`. Conventional Commits
-      `refactor(basis)!:` with `BREAKING CHANGE:` describing the
-      struct-signature change. `Refs:` to this spec folder.
-- [ ] Open PR to `main`, get review, merge.
+- [x] `code-reviewer` agent on cumulative diff (2 minor issues raised
+      and resolved: AMCResult inner constructor parity, rank-erasing
+      annotations in `build_design_matrix_energy` removed).
+- [x] `docs/design-notes/post-step7-cleanup.md` B1/B3 marked resolved.
+- [x] Single breaking commit via `git-helper`: `d3c2e8f
+      refactor(basis)!: parameterize CoupledBasis on tensor rank`.
+- [x] PR #7 opened and squash-merged to `main` as `6a062b5` on
+      2026-05-16. Topic branch deleted.
