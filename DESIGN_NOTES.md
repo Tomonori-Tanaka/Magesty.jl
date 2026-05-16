@@ -9,7 +9,6 @@
 
 | トピック | Status | 最終更新 |
 |---|---|---|
-| [Config4System の役割の見直し](docs/design-notes/config4system-role.md) | spec 化済み ([260516-typed-input-spec](docs/specs/260516-typed-input-spec/)、ワイルドカード species 指定の導入と同時に案 B 移行) | 2026-05-16 |
 | [LASSO / Adaptive LASSO / Adaptive Ridge estimator の導入](docs/design-notes/lasso-adaptive-estimators.md) | 未着手（GLMNet.jl 採用方針で合意、spec 化前ドラフト） | 2026-05-16 |
 
 完了済みの設計提案は対応する spec (`docs/specs/`) に統合されているため本インデックスから外している。spec フォルダ自身が公式の履歴であり、design-note 本体は削除している（commit history で参照可能）。
