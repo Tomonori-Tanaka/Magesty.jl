@@ -357,3 +357,87 @@ cost on the integration-style fit workload.
 > Caveat: an earlier 5-sample post-refactor run on the same machine
 > hit 278 ms median due to background system load. Drawing conclusions
 > from 5-sample trials when σ matters is a trap — keep samples ≥ 20.
+
+---
+
+## B1 — CoupledBasis type parameterization (baseline)
+
+Spec: `docs/specs/260516-coupled-basis-typeparam/`.
+Branch: `refactor/coupled-basis-typeparam`.
+Script: `test/develop_tmp/bench_b1_design_matrix.jl`.
+Example: `test/examples/fept_tetragonal_2x2x2/` (num_spinconfigs=30,
+num_salcs=31, num_atoms=16). 5 trials each, `@timed` + `@allocations`.
+
+### Pre-refactor (commit `cd72f68`, branch baseline)
+
+| function                       | min       | median    | bytes (med) | allocs (med) |
+|--------------------------------|-----------|-----------|-------------|--------------|
+| `build_design_matrix_energy`   | 50.9 ms   | 51.5 ms   | 101 MB      | 4,764,685    |
+| `build_design_matrix_torque`   | 55.0 ms   | 55.2 ms   | 263 MB      | 9,566,937    |
+
+### `@code_warntype` smoking gun
+
+`design_matrix_energy_element(cbc, spin_directions, symmetry)`:
+
+```
+%46 = Base.getproperty(cbc, :coeff_tensor)::ABSTRACTARRAY
+```
+
+Downstream Any-typed locals (excerpt):
+
+```
+  Mf_size::ANY
+  site_indices::ANY
+  tensor_result::ANY
+  mf_idx::ANY
+  mf_contribution::ANY
+  product_other::ANY
+  m_idx_other::ANY
+```
+
+Confirms B1's premise: the bare `AbstractArray` field type forces all
+downstream tensor reads to `Any`, which is responsible for the 5–10 M
+allocations per call. Post-refactor target: drop both wall-time and
+allocations significantly; allocation count is the cleaner signal.
+
+### After B1 alone (Step 2)
+
+`coeff_tensor::Array{Float64, R}` resolved; `Mf_size::Int64`,
+`mf_idx::Int64` recovered. But `coeff_tensor[idx_buf..., mf_idx]` still
+returns `Any` because the splat over `Vector{Int}` is not statically
+resolvable. Net measured impact:
+
+| function                       | min      | allocs (med) |
+|--------------------------------|----------|--------------|
+| `build_design_matrix_energy`   | 53.4 ms  | 4,701,208    |
+| `build_design_matrix_torque`   | 56.1 ms  | 9,127,257    |
+
+Wall time in noise (~+3%), allocs −1.3% / −4.6%. Step 2 was a
+foundation for Step 3, not a standalone win.
+
+### After B1 + B3 (Step 3)
+
+Step 3 made all scratch buffers and dims compile-time-sized:
+
+- `dims_t = ntuple(i -> 2*cbc.ls[i]+1, Val(R-1))::NTuple{R-1,Int}`
+- `idx_buf, translated_atoms, atoms_sorted_buf::MVector{R-1, Int}`
+- `other_dims_buf, other_sites_buf::MVector{R-2, Int}`
+- `CartesianIndices` now have statically known rank
+
+Result on the same fept fixture:
+
+| function                       | min       | allocs (med) | speedup |
+|--------------------------------|-----------|--------------|---------|
+| `build_design_matrix_energy`   |   2.1 ms  |    261,625   |  ×24.2  |
+| `build_design_matrix_torque`   |   6.4 ms  |  1,172,217   |  ×8.6   |
+
+Memory: energy 101 MB → 10.1 MB, torque 263 MB → 52.6 MB. Side
+effect: `make test-integration` for FeGe B20 2x2x2 dropped 26.9s →
+4.2s (~6.4×) end-to-end.
+
+Post-refactor `code_warntype` on `design_matrix_energy_element`:
+`ANY count: 0` in locals; `tensor_result`, `mf_contribution`,
+`product_other` all `Float64`; `idx_buf::MVector{R-1,Int64}`;
+`other_site_indices::CartesianIndices{R-2, NTuple{R-2,Int64}}`.
+Remaining `Union{Nothing, Tuple{Int64,Int64}}` entries are just
+`iterate(::UnitRange)` return types — normal, type-stable.
