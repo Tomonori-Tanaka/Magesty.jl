@@ -13,10 +13,6 @@
 
 完了済みの設計提案は対応する spec (`docs/specs/`) に統合されているため本インデックスから外している。spec フォルダ自身が公式の履歴であり、design-note 本体は削除している（commit history で参照可能）。
 
-## リファクタリング進捗
-
-- [リファクタリング候補スイープ R1-R11](docs/design-notes/refactor-sweep.md) — R1-R7, R9-R11 完了。R8 は Plan B 完了、Plan C はソートコンテナ置換リファクタで吸収済み (2026-05-14)
-
 ## 調査結果
 
 - [SpheriCart.jl 採用の可否](docs/design-notes/investigations/sphericart-adoption.md) — 結論: 不採用（2-3× 遅い）(2026-05-11)
