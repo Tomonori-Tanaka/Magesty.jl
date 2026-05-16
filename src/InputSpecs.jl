@@ -377,8 +377,7 @@ Wildcard species notation (`"*-*"`, `"X-*"`, `"*-Y"` for pair tables and
 resolution; the returned `InteractionSpec` is fully concrete (no
 wildcards survive).
 
-Expected schema (matches the legacy `Config4System` schema; no breaking
-changes):
+Expected schema:
 
 ```toml
 [general]

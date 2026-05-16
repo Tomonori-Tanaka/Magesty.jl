@@ -19,7 +19,6 @@ using Spglib
 using Printf
 
 using ..AtomCells
-using ..ConfigParser
 using ..InputSpecs: SymmetryOptions
 using ..Structures
 import Base: isless, show
