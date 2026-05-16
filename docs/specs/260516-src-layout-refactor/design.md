@@ -100,7 +100,7 @@ StatsAPI / Spglib / MultivariateStats / AtomsBase いずれもフラット～
   `SortedCounters` なので中身次第（要 grep）
 - `test/component_test/test_sphericart_agreement.jl`
 - `test/examples/{chain,dimer}/test.jl`
-- `test/benchmark_sphericart.jl`, `test/benchmark_spherical_harmonics.jl`
+- `bench/benchmark_sphericart.jl`, `bench/benchmark_spherical_harmonics.jl`
 
 ### 3.4 tools/
 

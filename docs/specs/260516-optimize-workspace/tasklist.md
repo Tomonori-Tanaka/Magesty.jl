@@ -3,7 +3,7 @@
 ## Step 1 — baseline (done)
 
 - [x] Per-call alloc profile captured via
-      `test/develop_tmp/profile_remaining_allocs.jl`:
+      `bench/profile_remaining_allocs.jl`:
       `design_matrix_energy_element` ≈ 74-110 allocs/call;
       `calc_∇ₑu!` ≈ 10-50 allocs/call.
 

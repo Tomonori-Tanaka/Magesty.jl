@@ -1,8 +1,5 @@
 #!/usr/bin/env julia
 
-import Pkg
-Pkg.activate(joinpath(@__DIR__, ".."))
-
 using BenchmarkTools
 using Profile
 using TOML
@@ -12,9 +9,9 @@ using Magesty
 Micro-benchmark and line-profile for SALCBases.jl hotspots.
 
 Usage:
-  julia test/benchmark_basisset_hotspots.jl
-  julia test/benchmark_basisset_hotspots.jl --input test/examples/fege_2x2x2/input.toml
-  julia test/benchmark_basisset_hotspots.jl --samples 10 --evals 1 --profile-iters-basisset 2
+  julia bench/benchmark_salcbasis_hotspots.jl
+  julia bench/benchmark_salcbasis_hotspots.jl --input test/examples/fege_2x2x2/input.toml
+  julia bench/benchmark_salcbasis_hotspots.jl --samples 10 --evals 1 --profile-iters-basisset 2
 """
 function parse_args(args::Vector{String})
     cfg = Dict{Symbol, Any}(
@@ -73,7 +70,7 @@ end
 # Groups basis functions by `(nbody, Lf, sum(ls), Tuple(sort(ls)))`, ignoring
 # spatial symmetry — this gives a deterministic, fixture-independent grouping.
 function _classify_coupled_basislist(coupled_basislist)
-    CoupledBases = Magesty.Basis
+    CoupledBases = Magesty.CoupledBases
     SortedCounter = Magesty.SortedCounters.SortedCounter
 
     if isempty(coupled_basislist)

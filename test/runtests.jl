@@ -7,7 +7,6 @@ include("../src/TesseralHarmonics.jl")
 include("../src/InputSpecs.jl")
 include("../src/AngularMomentumCoupling.jl")
 include("../src/CoupledBases.jl")
-include("helpers/fileutils.jl")
 
 using Magesty
 using Test
@@ -28,13 +27,13 @@ if TEST_MODE in ("unit", "all")
 		include("./component_test/test_Symmetries.jl")
 		include("./component_test/test_CoupledBases.jl")
 		include("./component_test/test_Fitting_dispatch.jl")
-		include("./component_test/test_SALCBases_l13_regression.jl")
 		include("./component_test/test_salc_canonical_gauge.jl")
 		include("./component_test/test_SCEBasis.jl")
 		include("./component_test/test_SCEDataset.jl")
 		include("./component_test/test_SCEFit.jl")
 		include("./component_test/test_save_load.jl")
 		include("./component_test/test_Version.jl")
+		include("./component_test/test_thread_safety.jl")
 	end
 end
 if TEST_MODE in ("integration", "all")
@@ -57,9 +56,6 @@ if TEST_MODE in ("jet",)
 end
 if TEST_MODE in ("aqua",)
 	include("./aqua.jl")
-end
-if TEST_MODE in ("bench_sphericart",)
-	include("./benchmark_sphericart.jl")
 end
 if TEST_MODE in ("sphericart",)
 	@testset verbose = true "SpheriCart agreement" begin

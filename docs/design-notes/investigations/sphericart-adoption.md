@@ -82,7 +82,7 @@ SpinClusterMC 側でのみ採用、Magesty には依存追加不要。
 
 - `test/component_test/test_sphericart_agreement.jl` は規約 drift 検出として
   **残存させる**（SpheriCart バージョン上げ時に Magesty 規約と乖離したら即検出）。
-- `test/benchmark_optimize_sphericart.jl` / `test/benchmark_sphericart.jl` も保持。
+- `bench/benchmark_sphericart.jl` も保持。
   将来のアクセスパターン変更時に再評価できるベースラインとして有用。
 - `Project.toml [compat]` の `SpheriCart = "0.2.3"` も `[extras]` 経由でテスト時のみ
   読み込まれる構成なのでそのまま。

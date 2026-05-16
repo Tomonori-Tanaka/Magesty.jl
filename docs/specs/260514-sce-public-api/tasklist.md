@@ -226,7 +226,7 @@ persistence is left to the user (`jldsave` on a plain struct).
       - B10+B11 export trim (`detect_num_atoms`, `cluster_orbits`
         no longer exported).
       - B12 `classify_coupled_basislist_test` moved out of
-        `src/SALCBases.jl` into `test/benchmark_salcbasis_hotspots.jl`
+        `src/SALCBases.jl` into `bench/benchmark_salcbasis_hotspots.jl`
         as a local helper.
       - B13 `read_embset` re-export pattern fixed
         (`const = …; export` → `using .SpinConfigs: read_embset; export
