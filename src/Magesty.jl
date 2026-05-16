@@ -48,10 +48,12 @@ include("CoupledBases.jl")
 using .AngularMomentumCoupling
 using .CoupledBases
 
+include("InputSpecs.jl")
 include("ConfigParser.jl")
 include("AtomsBaseAdapter.jl")
 include("RotationMatrix.jl")
 include("TesseralHarmonics.jl")
+using .InputSpecs
 using .ConfigParser
 using .AtomsBaseAdapter
 

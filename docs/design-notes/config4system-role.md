@@ -1,7 +1,10 @@
 # Config4System の役割の見直し
 
-**Status**: 結論保留（2026-05-14 提案 / 2026-05-16 整理）。
-今は何もしない。入力経路が 5 つ目を必要とするタイミングで再判断する。
+**Status**: spec 化に進む（2026-05-14 提案 / 2026-05-16 案 B 深掘り）。
+spec: [`docs/specs/260516-typed-input-spec/`](../specs/260516-typed-input-spec/)。
+トリガーになったのはワイルドカード species 指定（`*-*`, `Fe-*`, `Fe-Fe`）の
+新規導入。dict パース層に substantive な責務が増えるため、案 A での後付けより
+案 B 移行と一度でやるほうが筋がよい。
 
 **関連**: [`docs/specs/260514-sce-public-api/`](../specs/260514-sce-public-api/)
 （SCE 公開 API リファクタ。merged）
@@ -110,24 +113,143 @@ typed な値オブジェクトを直接組み立てる方向。god config も同
 - 内部型ではあるが API 表面の破壊的変更（`Magesty.Config4System` を
   名前で参照しているコードは要修正）。
 
+## 案 B の深掘り（2026-05-16 追記）
+
+### B-1. typed value の定義案
+
+| 型 | フィールド | validation 責任 |
+|---|---|---|
+| `SystemSpec` | `name::String`, `num_atoms::Int`, `kd_name::Vector{String}`, `kd_int_list::Vector{Int}`, `lattice_vectors::Matrix{Float64}` (3×3), `x_fractional::Matrix{Float64}` (3×N), `is_periodic::Bool` | lattice 行列形状、num_atoms と vector 長一致、kd_int_list の値域 ⊂ 1:length(kd_name)、x_fractional 範囲（periodic なら [0,1)） |
+| `InteractionSpec` | `nbody::Int`, `body1_lmax::OffsetVector{Int}` (species ごと), `bodyn_lsum::OffsetArray{Int,2}` (body × species 等)、`bodyn_cutoff::OffsetArray{Float64,3}` (body × species × species) | nbody ≥ 1、body1_lmax のキーが kd_name と完全一致、bodyn_cutoff のペアが完全・対称、lsum 非負 |
+| `SymmetryOptions` | `tolerance_sym::Float64`, `isotropy::Bool` | tolerance > 0 |
+
+`InteractionSpec` の inner constructor は `kd_name::Vector{String}` を引数で受け取り
+species 整合性検査を行うが、フィールドとしては保持しない（型レベルでは SystemSpec
+に依存しない）。
+
+### B-2. dict パーサの位置づけ
+
+新ファイル `src/InputSpecs.jl`（仮）に 3 つの spec 型を集約。TOML/dict 経路専用の
+
+```julia
+parse_toml_inputs(dict::AbstractDict) -> (SystemSpec, InteractionSpec, SymmetryOptions)
+```
+
+を提供。これが dict を扱う**唯一の場所**で、ワイルドカード展開もここで完結する。
+既存の `parse_interaction_body1` / `parse_interaction_bodyn` / `validate_system_parameters`
+のロジックは各 spec の inner constructor に分散移植する（廃棄ではなく再配置）。
+
+### B-3. 入力経路 4 種の再実装方針
+
+| 経路 | 新実装 | 削減対象 |
+|---|---|---|
+| TOML | `TOML.parsefile → parse_toml_inputs(dict)` | なし（薄いまま） |
+| Dict | `parse_toml_inputs(dict)` 直 | なし |
+| AtomsBase | `SystemSpec(; ...)` + `InteractionSpec(; kd_name, ...)` を直接構築 | `system_to_input_dict` (~30 行) + `_interaction_section` の AtomsBase 分岐 (~20 行) |
+| kwargs | 同様に typed を直接構築 | `kwargs_to_input_dict` (~40 行) + `_interaction_section` の kwargs 分岐 (~20 行) |
+
+合計 ~110 行の dict ビルダー削減 + ~50 行の typed コンストラクタ追加 → 正味 ~60 行減。
+
+AtomsBase / kwargs 経路でワイルドカードを使えるよう、共有 helper
+`expand_wildcards(kd_name, entries) -> Dict` を提供（実体は `parse_toml_inputs` の
+内部関数）。
+
+### B-4. Downstream リファクタの順序
+
+god config 分解は段階的に進められる：
+
+1. `SystemSpec` / `InteractionSpec` / `SymmetryOptions` を追加（`Config4System` と並存させる）。
+2. `parse_toml_inputs` を実装し、`Config4System` の構築経路を typed 経由に切り替え。
+3. AtomsBase / kwargs adapter を typed 直構築に切り替え（dict ビルダー削除）。
+4. Downstream を 1 つずつ移行: `Structure` → `Symmetry` → `Cluster` → `SALCBasis` → `Fitting` / `XMLIO`。
+   各ステップで `Config4System` のフィールド参照を spec 参照に置換。
+5. `Config4System` の参照が消えたら型ごと削除。
+
+各ステップが独立コミットになり得る。
+
+### B-5. テスト・tools 影響
+
+- `test/component_test/test_ConfigParser.jl`: `Config4System` 直接構築の 8 箇所を
+  `parse_toml_inputs(dict)` または各 spec の直接構築に置き換え（または `test_input_specs.jl`
+  に統合）。
+- `test/benchmark_salcbasis_hotspots.jl` / `test/develop_tmp/`: 同様に書き換え（develop_tmp は CI 外）。
+- `tools/personal/*`: 必要に応じて移行。
+
+### B-6. ワイルドカード species 指定（新機能）
+
+ALAMODE `&cutoff` の語法を参考に、`bodyn_cutoff` と `body1_lmax` にワイルドカード
+を導入する。`bodyn_lsum` は対象外。
+
+**構文**:
+- `bodyn_cutoff`: `"Fe-Ni"`, `"Fe-*"`, `"*-Fe"`, `"*-*"` の 4 形態。
+- `body1_lmax`: `"Fe"`, `"*"` の 2 形態。
+
+**Override 規則（specificity 勝ち）**:
+
+| 優先度 | pair 例 | 単一 species 例 |
+|---|---|---|
+| 高 | `Fe-Ni`（完全一致） | `Fe`（完全一致） |
+| 中 | `Fe-*` または `*-Fe`（片側ワイルドカード） | — |
+| 低 | `*-*`（全ワイルドカード） | `*`（全ワイルドカード） |
+
+- 同優先度キーが衝突する場合（例: `Fe-*` と `*-Ni` が両方 `Fe-Ni` をカバーし値が異なる）
+  はエラー。ユーザに明示指定を促す。
+- pair は無順序: `Fe-Ni` と `Ni-Fe` は同義。dict パーサで正規化（species 名の辞書順）
+  してから優先度判定する。同義キーの両指定はエラー。
+- 順序依存（TOML dict の hash 順）を避けるため、ALAMODE のテキスト順ベースではなく
+  specificity-based を採用。記法は ALAMODE 互換だが override 解決は本パッケージ独自。
+
+**展開タイミング**: `parse_toml_inputs(dict)` 内で全 pair / 全 species を具体形に展開
+してから `InteractionSpec` を構築する。`InteractionSpec` の不変条件は従来通り
+「全 species・全ペアが具体的に埋まっている」を保つ。
+
+**TOML スキーマ**: 既存の `cutoff."Fe-Fe" = 5.0` 形式を踏襲し、`"*-*"` 等のキーを
+許容（後方互換）。例:
+
+```toml
+[interaction.body2]
+cutoff."*-*"  = 8.0
+cutoff."Mg-O" = 10.0  # specificity 勝ちで Mg-O のみ 10.0
+
+[interaction.body1]
+lmax."*"  = 2
+lmax."Fe" = 4         # Fe のみ 4、他全 2
+```
+
+**Validation の変更点**:
+- 「全ペア完全性」: 展開後に `(kd[i], kd[j])` for `i ≤ j` の全組み合わせが埋まっている
+  ことを `InteractionSpec` inner constructor で検査（従来通り）。
+- 「specificity 衝突」: 展開時に検出して `parse_toml_inputs` でエラー。
+- 「未定義 species 名」: `Fe-Xx` のような未知 species を含むキーはエラー（`*` のみ例外）。
+
+### B-7. クラスタ定義の明文化
+
+ワイルドカード機能の説明上、`cutoff` の意味を user-facing ドキュメントに明記する
+必要がある。**既存実装** (`src/Clusters.jl` の `is_within_cutoff` および
+`generate_clusters`) は：
+
+> n-body interaction cluster (n ≥ 2) は、構成原子の **全 2-combinations** で各ペアの
+> 距離が当該 body のペア cutoff (`cutoff[body, kd_i, kd_j]`) 以下を満たすときに採用
+> される。
+
+という定義を採っている。これは ALAMODE `&cutoff` の定義（cubic 以上も含めすべて
+「全ペアが各 cutoff 内」で判定）と同じ。コードは変更せず、`docs/src/input_keys.md`
+に明記する。
+
+### B-8. 残された未決事項（spec 化時に詰める）
+
+- `SystemSpec.lattice_vectors` を `SMatrix{3,3,Float64}` にするか `Matrix{Float64}` の
+  ままにするか（StaticArrays 化はホットパスでの効果次第）。
+- `parse_toml_inputs` のエラー集約方法（現状の 1 箇所 throw vs 複数エラー集約）。
+- `body1_lmax` / `bodyn_cutoff` 以外への将来のワイルドカード拡張（`bodyn_lsum` 等）
+  は spec の Future work に記載しておく。
+
 ## 結論（2026-05-16）
 
-**理想は案 B**。現状の dict round-trip は「TOML-first だった頃の
-副産物」であり、典型的な Julia エコシステム慣習からは外れている。
-AtomsBase adapter の ~150 行 dict ビルダーが消え、god config も
-解消される利点は大きい。
+**案 B に進む**。当初は「5 番目の入力経路追加時に再判断」と保留していたが、
+ワイルドカード species 指定の新機能要請により、dict パース層に substantive な責務
+（specificity-based override 解決）が加わることが判明。案 A での後付けは god config の
+弊害を温存したまま dict ビルダーが肥大するため、案 B 移行と一度でやるほうが筋がよい。
 
-ただし **今すぐ着手はしない**：
-
-- 4 入力経路すべて動作・テスト済みで、実利的な不便が出ていない。
-- god config 分解は効果が大きいが波及範囲も大きく、他にも
-  優先すべきタスクがある（performance backlog 等）。
-- 5 番目の入力経路（CIF / JSON / database / ...）を追加する話が
-  出たタイミングで「ついでに案 B に移行」が自然。
-
-着手判断のトリガー：
-- 新しい入力経路を 1 つでも追加する話が出たとき。
-- god config の弊害（`Symmetry` / `Cluster` が無関係なフィールドを
-  保持している点）が他の機能追加の妨げになったとき。
-- AtomsBase adapter に新たな機能（kind サブラベル、Wyckoff 区別 等）
-  を加える必要が出たとき — typed gate に移行した方が実装が楽になる。
+spec フォルダ `docs/specs/260516-typed-input-spec/` で詳細設計を確定させてから
+`refactor/typed-input-spec` ブランチで実装する。
