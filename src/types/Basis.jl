@@ -12,29 +12,34 @@ export CoupledBasis,
 	convert_to_coupled_basis
 
 """
-	CoupledBasis{T,N}
+	CoupledBasis{R}
 
 Container type for coupled angular momentum bases for N-body (site) angular-momentum couplings.
 
-- `ls`          : orbital angular momenta for each site (length N)
+The type parameter `R` is the tensor rank `ndims(coeff_tensor) = length(ls) + 1`
+(N dimensions for sites + 1 dimension for the final Mf).
+
+- `ls`          : orbital angular momenta for each site (length N = R - 1)
 - `Lf`          : total angular momentum of the final multiplet
 - `Lseq`        : intermediate L values along a left-coupling tree
                   (length `max(0, N-2)`: empty for N≤2, N-2 entries for N≥3,
                   since `Lf` is stored separately)
 - `atoms`       : atom indices associated with each site (length N)
-- `coeff_tensor`: N-way tensor over m₁,…,m_N (one tensor per fixed final M_f)
+- `coeff_tensor`: rank-`R` tensor of `Float64` over m₁,…,m_N and final M_f
 """
-struct CoupledBasis
+struct CoupledBasis{R}
 	ls::Vector{Int}
 	Lf::Int
 	Lseq::Vector{Int}
 	atoms::Vector{Int}
-	coeff_tensor::AbstractArray
+	coeff_tensor::Array{Float64, R}
 
 	"""
 			CoupledBasis(ls, Lf, Lseq, atoms, coeff_tensor)
 
-	User-facing constructor.
+	User-facing constructor. The tensor rank `R` is inferred from
+	`ndims(coeff_tensor)` and the input tensor is converted to
+	`Array{Float64, R}` (a no-op when it is already that type).
 
 - `ls`           : `AbstractVector{<:Integer}` (length N)
 - `Lf`           : `Integer`
@@ -63,17 +68,20 @@ struct CoupledBasis
 			"got $(length(atoms)) (N=$N)",
 		))
 
-		ndims(coeff_tensor) == N + 1 || throw(ArgumentError(
+		R = ndims(coeff_tensor)
+		R == N + 1 || throw(ArgumentError(
 			"ndims(coeff_tensor) must be length(ls)+1 = $(N + 1); " *
-			"got $(ndims(coeff_tensor)) (N=$N)",
+			"got $R (N=$N)",
 		))
 
-		return new(
+		tensor_concrete = convert(Array{Float64, R}, coeff_tensor)
+
+		return new{R}(
 			collect(Int.(ls)),
 			Int(Lf),
 			collect(Int.(Lseq)),
 			collect(Int.(atoms)),
-			coeff_tensor,
+			tensor_concrete,
 		)
 	end
 end
@@ -204,21 +212,38 @@ end
 
 
 """
-	AngularMomentumCouplingResult
+	AngularMomentumCouplingResult{R}
 
 Stores angular momentum coupling results without atom index information.
+The type parameter `R` is the tensor rank `ndims(coeff_tensor)`.
 
 # Fields
 - `ls::Vector{Int}`: Angular momenta for each site (e.g., [1, 2])
 - `Lseq::Vector{Int}`: Intermediate L values sequence (e.g., [3])
 - `Lf::Int`: Final total angular momentum
-- `coeff_tensor::Array{Float64}`: Coefficient tensor
+- `coeff_tensor::Array{Float64, R}`: Coefficient tensor
 """
-struct AngularMomentumCouplingResult
+struct AngularMomentumCouplingResult{R}
 	ls::Vector{Int}
 	Lseq::Vector{Int}
 	Lf::Int
-	coeff_tensor::Array{Float64}
+	coeff_tensor::Array{Float64, R}
+
+	function AngularMomentumCouplingResult(
+		ls::AbstractVector{<:Integer},
+		Lseq::AbstractVector{<:Integer},
+		Lf::Integer,
+		coeff_tensor::AbstractArray{<:Number},
+	)
+		R = ndims(coeff_tensor)
+		tensor_concrete = convert(Array{Float64, R}, coeff_tensor)
+		return new{R}(
+			collect(Int.(ls)),
+			collect(Int.(Lseq)),
+			Int(Lf),
+			tensor_concrete,
+		)
+	end
 end
 
 # Cache for angular momentum coupling results
@@ -289,25 +314,27 @@ end
 
 
 """
-	CoupledBasis_with_coefficient
+	CoupledBasis_with_coefficient{R}
 
 Container type for coupled angular momentum bases with Mf-dependent coefficients.
 
-- `ls`          : orbital angular momenta for each site (length N)
+The type parameter `R` is the tensor rank `ndims(coeff_tensor) = length(ls) + 1`.
+
+- `ls`          : orbital angular momenta for each site (length N = R - 1)
 - `Lf`          : total angular momentum of the final multiplet
 - `Lseq`        : intermediate L values along a left-coupling tree
                   (length `max(0, N-2)`: empty for N≤2, N-2 entries for N≥3,
                   since `Lf` is stored separately)
 - `atoms`       : atom indices associated with each site (length N)
-- `coeff_tensor`: N-way tensor over m₁,…,m_N (one tensor per fixed final M_f)
+- `coeff_tensor`: rank-`R` tensor of `Float64` over m₁,…,m_N and final M_f
 - `coefficient` : coefficients for each Mf value (length must match the last dimension of coeff_tensor)
 """
-struct CoupledBasis_with_coefficient
+struct CoupledBasis_with_coefficient{R}
 	ls::Vector{Int}
 	Lf::Int
 	Lseq::Vector{Int}
 	atoms::Vector{Int}
-	coeff_tensor::AbstractArray
+	coeff_tensor::Array{Float64, R}
 	coefficient::Vector{Float64}
 	multiplicity::Int
 
@@ -333,24 +360,26 @@ struct CoupledBasis_with_coefficient
 			"got $(length(atoms)) (N=$N)",
 		))
 
-		nd = ndims(coeff_tensor)
-		nd == N + 1 || throw(ArgumentError(
+		R = ndims(coeff_tensor)
+		R == N + 1 || throw(ArgumentError(
 			"ndims(coeff_tensor) must be length(ls)+1 = $(N + 1); " *
-			"got $nd (N=$N)",
+			"got $R (N=$N)",
 		))
 
-		Mf_size = size(coeff_tensor, nd)
+		Mf_size = size(coeff_tensor, R)
 		length(coefficient) == Mf_size || throw(ArgumentError(
 			"length(coefficient) must match the last dimension of coeff_tensor = $Mf_size; " *
 			"got $(length(coefficient))",
 		))
 
-		return new(
+		tensor_concrete = convert(Array{Float64, R}, coeff_tensor)
+
+		return new{R}(
 			collect(Int.(ls)),
 			Int(Lf),
 			collect(Int.(Lseq)),
 			collect(Int.(atoms)),
-			coeff_tensor,
+			tensor_concrete,
 			collect(Float64.(coefficient)),
 			multiplicity,
 		)
