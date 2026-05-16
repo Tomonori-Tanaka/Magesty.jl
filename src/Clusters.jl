@@ -27,7 +27,6 @@ using Printf
 
 using ..SortedCounters: SortedCounter
 using ..AtomCells
-using ..ConfigParser
 using ..InputSpecs: InteractionSpec
 using ..Structures
 using ..Symmetries

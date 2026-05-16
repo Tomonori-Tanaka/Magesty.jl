@@ -13,7 +13,6 @@ using OffsetArrays
 using Printf
 
 using ..SortedCounters: SortedCounter
-using ..ConfigParser
 using ..InputSpecs: InteractionSpec, SymmetryOptions
 using ..Structures
 using ..Symmetries

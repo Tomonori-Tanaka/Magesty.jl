@@ -57,16 +57,16 @@ function parse_args(args::Vector{String})
     return cfg
 end
 
-function pick_atom_list_and_lsum(cluster, cfgsys)
+function pick_atom_list_and_lsum(cluster, interaction)
     # Prefer a 2-body orbit example for listup benchmark.
     if haskey(cluster.cluster_orbits_dict, 2)
         orbit_map = cluster.cluster_orbits_dict[2]
         first_orbit_clusters = first(values(orbit_map))
         atom_list = sort(first(first_orbit_clusters))
-        return atom_list, cfgsys.bodyn_lsum[2]
+        return atom_list, interaction.bodyn_lsum[2]
     end
     # Fallback to a tiny synthetic 2-site list if no 2-body data exists.
-    return [1, 2], max(2, cfgsys.bodyn_lsum[min(2, cfgsys.nbody)])
+    return [1, 2], max(2, interaction.bodyn_lsum[min(2, interaction.nbody)])
 end
 
 # Simplified classifier for `CoupledBasis` lists used in this benchmark.
@@ -111,12 +111,13 @@ function load_context(cfg::Dict{Symbol, Any})
     input = TOML.parsefile(input_path)
     workdir = dirname(input_path)
 
-    cfgsys = Magesty.ConfigParser.Config4System(input)
+    system_spec, interaction, options = Magesty.parse_toml_inputs(input)
     structure, symmetry, cluster = cd(workdir) do
-        Magesty._build_structure_skeleton(cfgsys; verbosity = cfg[:verbosity])
+        Magesty._build_structure_skeleton(system_spec, options, interaction;
+                                          verbosity = cfg[:verbosity])
     end
     salcbasis = cd(workdir) do
-        Magesty.SALCBases.SALCBasis(structure, symmetry, cluster, cfgsys;
+        Magesty.SALCBases.SALCBasis(structure, symmetry, cluster, interaction, options;
                                     verbosity = cfg[:verbosity])
     end
 
@@ -124,18 +125,19 @@ function load_context(cfg::Dict{Symbol, Any})
     keys_sorted = sort(collect(keys(classified)))
     key = keys_sorted[1]
     representative_group = classified[key]
-    atom_list, lsum = pick_atom_list_and_lsum(cluster, cfgsys)
+    atom_list, lsum = pick_atom_list_and_lsum(cluster, interaction)
 
     return (
         input_path = input_path,
         structure = structure,
         symmetry = symmetry,
         cluster = cluster,
-        config_system = cfgsys,
+        interaction = interaction,
+        options = options,
         atom_list = atom_list,
         lsum = lsum,
         representative_group = representative_group,
-        isotropy = cfgsys.isotropy,
+        isotropy = options.isotropy,
     )
 end
 
@@ -175,7 +177,7 @@ function run_bench(cfg::Dict{Symbol, Any})
         ctx.structure,
         ctx.symmetry,
         ctx.cluster,
-        ctx.config_system;
+        ctx.interaction, ctx.options;
         verbosity = false,
     )
 
@@ -202,7 +204,7 @@ function run_bench(cfg::Dict{Symbol, Any})
         $(ctx.structure),
         $(ctx.symmetry),
         $(ctx.cluster),
-        $(ctx.config_system);
+        $(ctx.interaction), $(ctx.options);
         verbosity = false,
     ) samples=nsamples evals=nevals
     show(stdout, MIME"text/plain"(), bench_basisset)
@@ -233,7 +235,7 @@ function run_bench(cfg::Dict{Symbol, Any})
                 ctx.structure,
                 ctx.symmetry,
                 ctx.cluster,
-                ctx.config_system;
+                ctx.interaction, ctx.options;
                 verbosity = false,
             )
         end
