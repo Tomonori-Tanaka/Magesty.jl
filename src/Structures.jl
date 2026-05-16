@@ -9,6 +9,7 @@ using Printf
 using StaticArrays
 using EzXML
 using ..ConfigParser
+using ..InputSpecs: SystemSpec
 
 import Base: show
 
@@ -182,16 +183,16 @@ struct Structure
 end
 
 """
-	Structure(config::Config4System) -> Structure
+	Structure(system::SystemSpec) -> Structure
 
-Create a Structure from a Config4System object.
+Create a Structure from a SystemSpec.
 """
-function Structure(config::Config4System; verbosity::Bool = true)::Structure
-	lattice_vectors::SMatrix{3, 3, Float64} = config.lattice_vectors
-	is_periodic::SVector{3, Bool} = config.is_periodic
-	kd_name::Vector{String} = config.kd_name
-	kd_int_list::Vector{Int} = config.kd_int_list
-	x_frac::Matrix{Float64} = config.x_fractional
+function Structure(system::SystemSpec; verbosity::Bool = true)::Structure
+	lattice_vectors::SMatrix{3, 3, Float64} = system.lattice_vectors
+	is_periodic::SVector{3, Bool} = system.is_periodic
+	kd_name::Vector{String} = system.kd_name
+	kd_int_list::Vector{Int} = system.kd_int_list
+	x_frac::Matrix{Float64} = system.x_fractional
 
 	return Structure(
 		lattice_vectors,
