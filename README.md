@@ -4,7 +4,7 @@
 [![Coverage](https://codecov.io/gh/Tomonori-Tanaka/Magesty.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/Tomonori-Tanaka/Magesty.jl)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://Tomonori-Tanaka.github.io/Magesty.jl/dev)
 
-Julia package for constructing effective spin models in magnetic materials using Spin-Cluster Expansion (SCE) formalism.
+Julia package for constructing effective spin models in magnetic materials using the spin-cluster expansion (SCE) formalism [1].
 
 ## Installation
 
@@ -29,9 +29,9 @@ Mozilla Public License Version 2.0
 
 ## Citation
 
-If you use this software in your research, please cite:
+If you use this software in your research, please cite [2]:
 
-[Tomonori Tanaka and Yoshihiro Gohda "General spin models from noncollinear spin density functional theory and spin-cluster expansion" https://arxiv.org/abs/2512.04458]
+T. Tanaka and Y. Gohda, "General spin models from noncollinear spin density functional theory and spin-cluster expansion", arXiv:2512.04458 (2025). <https://arxiv.org/abs/2512.04458>
 
 ## Contributing
 
@@ -44,6 +44,7 @@ We welcome contributions! Please feel free to:
 ## References
 
 1. R. Drautz and M. Fähnle, "Spin-cluster expansion: Parametrization of the general adiabatic magnetic energy surface with ab initio accuracy", Phys. Rev. B 69, 104404 (2004). DOI: [10.1103/PhysRevB.69.104404](https://doi.org/10.1103/PhysRevB.69.104404)
+2. T. Tanaka and Y. Gohda, "General spin models from noncollinear spin density functional theory and spin-cluster expansion", arXiv:2512.04458 (2025). <https://arxiv.org/abs/2512.04458>
 
 
 
