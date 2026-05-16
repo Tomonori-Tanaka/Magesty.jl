@@ -14,14 +14,14 @@ Highest-priority follow-up — these affect every fit and every predict
 call. Land as separate `perf(...)` commits with before/after benchmarks
 in `.claude/bench_log.md`.
 
-- ~~**B1**: `src/types/Basis.jl:32, :310` — `CoupledBasis.coeff_tensor` and
+- ~~**B1**: `src/CoupledBases.jl:32, :310` — `CoupledBasis.coeff_tensor` and
   `CoupledBasis_with_coefficient.coeff_tensor` are typed as bare
   `AbstractArray`. Concretize…~~ *(resolved 2026-05-16 on
   `refactor/coupled-basis-typeparam`. Structs parameterized as
   `CoupledBasis{R}`, `CoupledBasis_with_coefficient{R}`,
   `AngularMomentumCouplingResult{R}` with `coeff_tensor::Array{Float64,
   R}`. See `docs/specs/260516-coupled-basis-typeparam/`.)*
-- ~~**B2**: `src/Optimize.jl:design_matrix_energy_element` and `calc_∇ₑu!`
+- ~~**B2**: `src/Fitting.jl:design_matrix_energy_element` and `calc_∇ₑu!`
   — per-translation allocation of `Vector{Vector{Float64}}` for
   spherical-harmonic values.~~ *(per-translation aspect resolved
   earlier by `260516-optimize-workspace`'s workspace pooling; the
@@ -44,7 +44,7 @@ in `.claude/bench_log.md`.
 
 ## Minor follow-ups
 
-- ~~**B5**: `src/utils/xml_io.jl` — `Vector{Any}` of `Colon()` for
+- ~~**B5**: `src/XMLIO.jl` — `Vector{Any}` of `Colon()` for
   tensor slicing~~ *(resolved 2026-05-16: rewritten as
   `selectdim(coeff_tensor, ndims(coeff_tensor), mf_idx) .= tensor_slice`
   — the trailing dimension is the only one indexed by an integer, and
@@ -54,7 +54,7 @@ in `.claude/bench_log.md`.
 
 - **C2** *(interim fix landed 2026-05-15)*: the placeholders
   `Reference: Equation (***) in T. Tanaka and Y. Gohda, ***` in the `Zₗₘ`
-  (`src/utils/MySphericalHarmonics.jl:488`) and `∂Zₗₘ_∂r̂x`
+  (`src/TesseralHarmonics.jl:488`) and `∂Zₗₘ_∂r̂x`
   (`:574`) docstrings now point to the technical notes
   (`https://Tomonori-Tanaka.github.io/Magesty.jl/technical_notes/`). Swap
   in the published paper reference once it is out.

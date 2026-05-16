@@ -57,7 +57,7 @@ L554 に「Remove this exceptional handling when the bug is fixed in the project
 
 **Status**: **完了** (commit `73edde3`, 2026-05-13). branch なし → main に直接 fast-forward。
 
-**対象**: `src/utils/ConfigParser.jl`
+**対象**: `src/ConfigParser.jl`
 
 **実装上の発見**: `VALIDATION_RULES_SYSTEM` は定義されていたが `Config4System` の constructor が validation 関数を一切呼んでおらず、**完全な dead code** だった。重複していたのは「`if nbody < 1; throw(...)` を imperative に書く」のと「`ValidationRule(:nbody, x -> x > 0)`」の 2 表現があった点。
 
@@ -73,7 +73,7 @@ L554 に「Remove this exceptional handling when the bug is fixed in the project
 
 **Status**: **完了** (2026-05-14). branch なし → main に直接 fast-forward 予定。
 
-**対象**: `src/utils/AngularMomentumCoupling.jl`
+**対象**: `src/AngularMomentumCoupling.jl`
 
 **実態確認結果**: 当初の見立て（「`build_all_complex_bases` / `build_all_real_bases` が両方を呼んでいる」）は誤り。実際の callers を grep した結果:
 
@@ -91,11 +91,11 @@ L554 に「Remove this exceptional handling when the bug is fixed in the project
 
 ## 🟡 中優先度（保守性・スケーラビリティ）
 
-### R6. `MySphericalHarmonics.jl` の buffered / non-buffered API の整理
+### R6. `TesseralHarmonics.jl` の buffered / non-buffered API の整理
 
 **Status**: **完了** (Plan B, 2026-05-14). branch なし → main に直接 fast-forward 予定。
 
-**対象**: `src/utils/MySphericalHarmonics.jl`
+**対象**: `src/TesseralHarmonics.jl`
 
 **実態確認結果**: buffered 関数は計 5 つ (`_legendre_pair_unsafe!`, `P̄ₗₘ`, `dP̄ₗₘ_unsafe`, `Zₗₘ_unsafe`, `∂ᵢZlm_unsafe`)。buffer サイズ要件のコメント / docstring が 5 箇所に散在しており、しかも `dP̄ₗₘ_unsafe` だけ要件が異なる (`l - |m|` vs 他 4 つの `l - |m| + 1`)。実態として `∂ᵢZlm_unsafe` が両者を 1 つのバッファで共有するため、caller は `l - |m| + 1` を確保する必要があり、`dP̄ₗₘ_unsafe` 単独要件の `l - |m|` は混乱の元。
 
@@ -111,7 +111,7 @@ L554 に「Remove this exceptional handling when the bug is fixed in the project
 
 **Status**: **完了** (commit `cc53c8c`, 2026-05-13). branch なし → main に直接 fast-forward。
 
-**対象**: `src/utils/xml_io.jl`
+**対象**: `src/XMLIO.jl`
 
 `"Magesty"`, `"System"`, `"SALC"`, `"basis"` などのノード名・属性名、`"%.15e"` のフォーマット文字列が read/write 両側で hardcoded（連動箇所: SCE 係数の入出力で整合性が求められている部分）。
 
@@ -170,7 +170,7 @@ L554 に「Remove this exceptional handling when the bug is fixed in the project
 
 **Status**: **完了** (2026-05-14). branch なし → main に直接 fast-forward 予定。
 
-**対象**: `src/types/Basis.jl`
+**対象**: `src/CoupledBases.jl`
 
 **実態確認結果**:
 - 当初想定の「docstring で atoms が sorted と書かれている」は **事実誤認**。struct docstring に sorted 文言なし、inner constructor (旧 L75) に `# Check if atoms are sorted` という dead comment があるのみ。caller の `tesseral_coupled_bases_from_tesseral_bases` も atoms を sort せずに渡しており、不変条件として強制すると既存挙動が壊れる → atoms sort 検証は **追加しない**。
@@ -191,7 +191,7 @@ L554 に「Remove this exceptional handling when the bug is fixed in the project
 
 **Status**: **完了** (2026-05-14). branch なし → main に直接 fast-forward 予定。
 
-**対象**: `src/utils/EnergyTorque.jl` `calc_energy` / `calc_torque`, `src/Optimize.jl` `build_design_matrix_energy` / `build_design_matrix_torque` / `predict_energy`
+**対象**: `src/utils/EnergyTorque.jl` `calc_energy` / `calc_torque`, `src/Fitting.jl` `build_design_matrix_energy` / `build_design_matrix_torque` / `predict_energy`
 
 **実態確認結果**: `(4π)^(n_C/2)` の式が 5 箇所に散在 (`Optimize.jl` の L363 / L514 / L887、`EnergyTorque.jl` の L59 / L134)。リテラルも `4*pi` と `4π` が混在。物理由来 (技術ノート参照) の docstring はどこにも書かれていない。SCE 基底関数の `1/√(4π)` 正規化を打ち消すための係数であることが caller では一切わからない状態。
 

@@ -10,7 +10,7 @@
 
 SCE 公開 API リファクタ（4 型構成 `SCEBasis` / `SCEDataset` /
 `SCEFit` / `SCEModel`）の AtomsBase 統合を実装した際、adapter
-(`src/utils/atomsbase_adapter.jl`) は
+(`src/AtomsBaseAdapter.jl`) は
 
 ```
 AbstractSystem → TOML 形状の dict → Config4System
