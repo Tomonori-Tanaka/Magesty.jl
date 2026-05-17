@@ -67,6 +67,12 @@ Ridge
 read_embset
 ```
 
+## CLI tools
+
+```@docs
+install_tools
+```
+
 ## Submodules
 
 ### Structures
