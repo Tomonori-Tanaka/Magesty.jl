@@ -36,24 +36,26 @@ basis = SCEBasis(&quot;input.toml&quot;)
 # 2. Pair the basis with training data to form a dataset.
 dataset = SCEDataset(basis, &quot;EMBSET.dat&quot;)
 
-# 3. Fit. `torque_weight` is the convex combination of per-sample
-#    energy MSE and torque MSE that the augmented least-squares problem
-#    minimizes — `0.5` weights both equally.
-f = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
+# 3. Fit. `torque_weight ∈ [0, 1]` is the convex combination of the
+#    per-sample energy MSE and torque MSE the augmented least-squares
+#    problem minimizes; the default `1.0` is a torque-only fit. Set
+#    `torque_weight = 0.5` to weigh both equally, or `0.0` to fit on
+#    energies alone.
+f = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
 
 println(&quot;Reference energy j0: &quot;, intercept(f), &quot; eV&quot;)
 println(&quot;Number of SCE coefficients: &quot;, length(coef(f)))
 println(&quot;RMSE energy: &quot;, rmse_energy(f) * 1000, &quot; meV&quot;)
-println(&quot;R²    energy: &quot;, r2_energy(f))</code></pre><h2 id="Exporting-and-reloading-results"><a class="docs-heading-anchor" href="#Exporting-and-reloading-results">Exporting and reloading results</a><a id="Exporting-and-reloading-results-1"></a><a class="docs-heading-anchor-permalink" href="#Exporting-and-reloading-results" title="Permalink"></a></h2><p><code>save</code> / <code>load</code> round-trip a basis or model via XML. The XML schema is shared with the Monte Carlo package <code>SpinClusterMC.jl</code>.</p><pre><code class="language-julia hljs"># Persist a fitted model.
-save(SCEModel(f), &quot;model.xml&quot;)
+println(&quot;R²    energy: &quot;, r2_energy(f))</code></pre><h2 id="Exporting-and-reloading-results"><a class="docs-heading-anchor" href="#Exporting-and-reloading-results">Exporting and reloading results</a><a id="Exporting-and-reloading-results-1"></a><a class="docs-heading-anchor-permalink" href="#Exporting-and-reloading-results" title="Permalink"></a></h2><p><code>Magesty.save</code> / <code>Magesty.load</code> round-trip a basis or model via XML. They are deliberately <strong>not exported</strong> so that the generic <code>save</code> / <code>load</code> exported by JLD2, FileIO, CSV.jl, etc. can coexist in the same script; call them through the module:</p><pre><code class="language-julia hljs"># Persist a fitted model.
+Magesty.save(SCEModel(f), &quot;model.xml&quot;)
 
 # Persist just the basis (skip the expensive SALC build next time).
-save(basis, &quot;basis.xml&quot;)
+Magesty.save(basis, &quot;basis.xml&quot;)
 
 # Later session: reload and refit without recomputing SALCs.
-basis   = load(SCEBasis, &quot;basis.xml&quot;)
+basis   = Magesty.load(SCEBasis, &quot;basis.xml&quot;)
 dataset = SCEDataset(basis, &quot;EMBSET.dat&quot;)
-f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)</code></pre><h2 id="Predicting-on-new-configurations"><a class="docs-heading-anchor" href="#Predicting-on-new-configurations">Predicting on new configurations</a><a id="Predicting-on-new-configurations-1"></a><a class="docs-heading-anchor-permalink" href="#Predicting-on-new-configurations" title="Permalink"></a></h2><pre><code class="language-julia hljs">model = SCEModel(f)
+f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4))</code></pre><p>The XML schema is shared with the Monte Carlo package <code>SpinClusterMC.jl</code>.</p><h2 id="Predicting-on-new-configurations"><a class="docs-heading-anchor" href="#Predicting-on-new-configurations">Predicting on new configurations</a><a id="Predicting-on-new-configurations-1"></a><a class="docs-heading-anchor-permalink" href="#Predicting-on-new-configurations" title="Permalink"></a></h2><pre><code class="language-julia hljs">model = SCEModel(f)
 
 # Single configuration: a 3 × num_atoms matrix of unit spin directions
 # (column = atom; rows are x, y, z).
@@ -65,7 +67,7 @@ E = predict_energy(model, spin_directions)
 T = predict_torque(model, spin_directions)   # 3 × num_atoms matrix</code></pre><h2 id="Evaluation-on-held-out-data"><a class="docs-heading-anchor" href="#Evaluation-on-held-out-data">Evaluation on held-out data</a><a id="Evaluation-on-held-out-data-1"></a><a class="docs-heading-anchor-permalink" href="#Evaluation-on-held-out-data" title="Permalink"></a></h2><p><code>SCEDataset</code> supports indexing, so a train / test split is one line:</p><pre><code class="language-julia hljs">n_train = round(Int, 0.8 * length(dataset))
 train, test = dataset[1:n_train], dataset[(n_train + 1):end]
 
-f = fit(SCEFit, train, Ridge(lambda = 1e-4); torque_weight = 0.5)
+f = fit(SCEFit, train, Ridge(lambda = 1e-4))
 println(&quot;in-sample  RMSE energy: &quot;, rmse_energy(f))
 println(&quot;out-sample RMSE energy: &quot;, rmse_energy(f, test))</code></pre><h2 id="Inspecting-the-basis"><a class="docs-heading-anchor" href="#Inspecting-the-basis">Inspecting the basis</a><a id="Inspecting-the-basis-1"></a><a class="docs-heading-anchor-permalink" href="#Inspecting-the-basis" title="Permalink"></a></h2><pre><code class="language-julia hljs">sym = basis.symmetry
 println(&quot;Space group: &quot;, sym.international_symbol,
@@ -74,4 +76,4 @@ println(&quot;Number of symmetry operations: &quot;, sym.nsym)
 
 cell = basis.structure.supercell
 println(&quot;Number of atoms: &quot;, cell.num_atoms)
-println(&quot;Number of SALCs: &quot;, length(basis.salcbasis.salc_list))</code></pre><p>For detailed function documentation see the <a href="../api/#API-Reference">API Reference</a>. More complex use cases live in <a href="../examples/">Examples</a>.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../api/">« API Reference</a><a class="docs-footer-nextpage" href="../input_keys/">Input Keys »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Sunday 17 May 2026 05:38">Sunday 17 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+println(&quot;Number of SALCs: &quot;, length(basis.salcbasis.salc_list))</code></pre><p>For detailed function documentation see the <a href="../api/#API-Reference">API Reference</a>. More complex use cases live in <a href="../examples/">Examples</a>.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../api/">« API Reference</a><a class="docs-footer-nextpage" href="../input_keys/">Input Keys »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Sunday 17 May 2026 10:36">Sunday 17 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
