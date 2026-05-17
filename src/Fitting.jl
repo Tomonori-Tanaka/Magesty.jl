@@ -38,30 +38,48 @@ internal; callers in this module invoke it directly as
 """
 	AbstractEstimator
 
-Abstract type for SCE coefficient estimation methods.
+Abstract type for SCE coefficient estimation methods. Concrete subtypes
+are passed to `fit(SCEFit, dataset, estimator; torque_weight)` and carry
+the estimator's hyperparameters in their fields; estimators without
+hyperparameters are zero-field singleton types (`OLS`), and those with
+hyperparameters expose them through keyword constructors (`Ridge`).
 """
 abstract type AbstractEstimator end
 
 """
-	OLS <: AbstractEstimator
+	OLS()
 
-Ordinary Least Squares estimator (no regularization).
+Ordinary least-squares estimator (no regularization). `OLS` is a
+zero-field singleton because the OLS solver has no hyperparameter to
+tune — there is no `lambda`-like knob, by design. Construct as `OLS()`;
+contrast with `Ridge(lambda = ...)`.
 """
 struct OLS <: AbstractEstimator end
 
 """
-	Ridge <: AbstractEstimator
+	Ridge(; lambda::Real = 0.0)
 
 L2-regularized least-squares (ridge) estimator. The bias column is
 excluded from the penalty by the dispatch boundary (see
 `solve_coefficients`).
 
+Unlike `OLS`, `Ridge` carries one hyperparameter, `lambda`, and is
+therefore a regular struct rather than a singleton. Constructing
+`Ridge(lambda = 0.0)` is exactly equivalent to `OLS` numerically — the
+extra type exists so that estimator sweeps can iterate over `OLS()` and
+`Ridge(lambda = λ)` without special-casing.
+
 # Fields
-- `lambda::Float64`: Regularization strength. `λ = 0` reduces to OLS.
+- `lambda::Float64`: Regularization strength `λ ∈ [0, ∞)`. `λ = 0`
+  reduces to OLS; larger values shrink `jphi` toward zero.
 
 # Examples
 ```julia
-estimator = Ridge(lambda = 0.1)
+# Default keyword form (lambda = 0.0 -> equivalent to OLS).
+est = Ridge()
+
+# Typical regularised fit.
+est = Ridge(lambda = 1e-4)
 ```
 """
 struct Ridge <: AbstractEstimator

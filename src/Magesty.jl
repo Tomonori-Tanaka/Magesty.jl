@@ -778,7 +778,13 @@ const SCEEvalData = Union{SCEDataset, AbstractVector{SpinConfig}, AbstractString
 # predictor's own basis, so they are compatible by construction).
 function _check_basis(model::SCEModel, dataset::SCEDataset)
 	model.basis === dataset.basis || throw(ArgumentError(
-		"evaluation SCEDataset was built from a different SCEBasis than the predictor"))
+		"the evaluation SCEDataset was built from a different SCEBasis " *
+		"than the predictor; design-matrix column ordering is set by " *
+		"the SCEBasis, so combining objects from different bases would " *
+		"silently mix incompatible `(l, m, site)` orderings. Build " *
+		"the SCEDataset, SCEFit, and SCEModel from the *same* SCEBasis " *
+		"instance, or, if reloading from disk, reuse a single " *
+		"`Magesty.load(SCEBasis, path)` result everywhere."))
 	return nothing
 end
 _check_basis(f::SCEFit, dataset::SCEDataset) = _check_basis(SCEModel(f), dataset)
