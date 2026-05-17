@@ -1,13 +1,13 @@
 #!/bin/bash
-# PostToolUse hook: block Edit/Write that introduces Japanese characters into
-# .jl files under src/, test/, or tools/.
+# PostToolUse hook: block Edit/Write that introduces Japanese characters
+# into any file committed to the repository.
 #
-# Policy: CLAUDE.md "言語・用語規約" — source, comments, docstrings must be
-# English. Conversation, docs/, and DESIGN_NOTES.md remain Japanese-friendly.
+# Policy: CLAUDE.md "Language and terminology" — everything checked in is
+# English-only. Conversation with the user stays Japanese-capable.
 #
 # Exemptions:
-#   - test/develop_tmp/   (experimental, CI-skipped)
-#   - tools/personal/     (personal scripts, not quality-assured)
+#   - tools/personal/      (personal scripts, not quality-assured)
+#   - .claude/bench_log.md (historical record kept as-is)
 
 set -e
 
@@ -23,31 +23,34 @@ file_path=$(printf '%s' "$input" | python3 -c 'import sys,json; print(json.load(
 [ -z "$file_path" ] && exit 0
 [ -f "$file_path" ] || exit 0
 
-# Only enforce on .jl files
-case "$file_path" in
-  *.jl) ;;
-  *) exit 0 ;;
-esac
-
 cwd=$(pwd)
 rel="${file_path#$cwd/}"
 
-# Only enforce under src/, test/, tools/
+# Only enforce on files inside this repository
 case "$rel" in
-  src/*|test/*|tools/*) ;;
-  *) exit 0 ;;
+  /*) exit 0 ;;  # absolute path outside cwd
 esac
 
-# Skip exempt subtrees
+# Skip gitignored files (Manifest.toml, .claude/settings.local.json, etc.)
+# and untracked artifacts. We rely on `git check-ignore`; if git isn't
+# available we still proceed to the textual check.
+if command -v git >/dev/null 2>&1; then
+  if git check-ignore -q "$rel" 2>/dev/null; then
+    exit 0
+  fi
+fi
+
+# Skip exempt subtrees and historical records
 case "$rel" in
-  test/develop_tmp/*|tools/personal/*) exit 0 ;;
+  tools/personal/*) exit 0 ;;
+  .claude/bench_log.md) exit 0 ;;
 esac
 
 hits=$(perl -CSD -ne 'print "  line $.: $_" if /[\x{3040}-\x{30FF}\x{4E00}-\x{9FFF}]/' "$file_path" || true)
 if [ -n "$hits" ]; then
   {
     echo "BLOCKED: Japanese characters detected in $rel"
-    echo "(policy: CLAUDE.md 言語・用語規約 — .jl source files must be English-only)"
+    echo "(policy: CLAUDE.md Language and terminology — committed files must be English-only)"
     echo "$hits"
     echo "Re-edit the file to replace the Japanese text with English."
   } >&2
