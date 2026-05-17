@@ -63,12 +63,17 @@ verbs (`r2_energy`, `rmse_torque`, …).
   each atom [μ_B]. Length is `num_atoms`.
 - `spin_directions::Matrix{Float64}`: Unit-vector spin directions, laid
   out as `3 × num_atoms` (rows = x, y, z; each column has unit norm).
-- `local_magfield::Matrix{Float64}`: Local magnetic field at each atom
-  [T], same `3 × num_atoms` layout as `spin_directions`.
+- `local_magfield::Matrix{Float64}`: Local constraining magnetic field
+  at each atom [eV / μ_B], same `3 × num_atoms` layout as
+  `spin_directions`. The values come from VASP's
+  `lambda*MW_perp` block, which has dimensions of energy per magnetic
+  moment so that `E = −m · B` is in eV — not the Tesla a conventional
+  magnetic field would carry.
 - `local_magfield_vertical::Matrix{Float64}`: Component of
-  `local_magfield` perpendicular to the spin direction at each atom.
-  Computed at construction; the parallel component is dropped because
-  classical-spin torque depends only on the perpendicular field.
+  `local_magfield` perpendicular to the spin direction at each atom
+  [eV / μ_B]. Computed at construction; the parallel component is
+  dropped because classical-spin torque depends only on the
+  perpendicular field.
 - `torques::Matrix{Float64}`: Per-atom torque vectors
   `τᵢ = −mᵢ (eᵢ × Bᵢ)` (where `mᵢ` is the moment magnitude, `eᵢ` the
   unit-vector spin direction, `Bᵢ` the local field), laid out as

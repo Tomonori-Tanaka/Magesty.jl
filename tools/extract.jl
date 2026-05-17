@@ -101,7 +101,7 @@ function print_embset(
 	file::AbstractString,
 )
 	println(
-		"# $idx, $file, energy unit = eV, magmom unit = Bohr magneton, magnetic field unit = T",
+		"# $idx, $file, energy unit = eV, magmom unit = Bohr magneton, magnetic field unit = eV/Bohr magneton",
 	)
 	@printf("%.5f\n", energy)
 	for (row_idx, row) in enumerate(eachrow(concated_data))
