@@ -85,6 +85,20 @@ struct SpinConfig
 		num_atoms = length(magmom_size)
 
 		# Validate dimensions
+		if size(spin_directions, 1) != 3
+			throw(
+				ArgumentError(
+					"spin_directions must have 3 rows (x, y, z); got $(size(spin_directions, 1))",
+				),
+			)
+		end
+		if size(local_magfield, 1) != 3
+			throw(
+				ArgumentError(
+					"local_magfield must have 3 rows (x, y, z); got $(size(local_magfield, 1))",
+				),
+			)
+		end
 		if num_atoms != size(spin_directions, 2)
 			throw(
 				ArgumentError(

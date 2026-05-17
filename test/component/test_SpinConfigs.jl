@@ -36,7 +36,7 @@ using LinearAlgebra
 		for i in 1:size(config.local_magfield, 2)
 			# Check that local_magfield_vertical is perpendicular to spin_directions
 			@test isapprox(dot(config.local_magfield_vertical[:, i], config.spin_directions[:, i]), 0.0, atol=1e-10)
-			
+
 			# Check that local_magfield_vertical is correctly calculated
 			proj = dot(config.local_magfield[:, i], config.spin_directions[:, i]) * config.spin_directions[:, i]
 			expected_vertical = config.local_magfield[:, i] - proj
@@ -44,5 +44,23 @@ using LinearAlgebra
 		end
 	end
 
+	@testset "constructor input validation" begin
+		good_magmom = [1.0, 1.0]
+		good_field = zeros(3, 2)
+
+		# spin_directions must be 3 x num_atoms (row count == 3).
+		@test_throws ArgumentError SpinConfig(0.0, good_magmom, zeros(2, 2), good_field)
+		@test_throws ArgumentError SpinConfig(0.0, good_magmom, zeros(4, 2), good_field)
+
+		# local_magfield must be 3 x num_atoms.
+		@test_throws ArgumentError SpinConfig(0.0, good_magmom, zeros(3, 2), zeros(2, 2))
+		@test_throws ArgumentError SpinConfig(0.0, good_magmom, zeros(3, 2), zeros(4, 2))
+
+		# Column count must match length(magmom_size).
+		@test_throws ArgumentError SpinConfig(0.0, good_magmom, zeros(3, 3), good_field)
+
+		# Negative magnetic moment sizes are rejected.
+		@test_throws ArgumentError SpinConfig(0.0, [1.0, -0.5], zeros(3, 2), good_field)
+	end
 
 end
