@@ -168,8 +168,11 @@ function SCEBasis(toml_path::AbstractString; verbosity::Bool = true)
 	catch e
 		if isa(e, SystemError)
 			throw(SystemError("Failed to read file: $toml_path"))
+		elseif isa(e, TOML.ParserError)
+			throw(ErrorException("Failed to parse TOML file: $toml_path\n" *
+				sprint(showerror, e)))
 		else
-			throw(ErrorException("Failed to parse TOML file: $toml_path"))
+			rethrow()
 		end
 	end
 end
@@ -998,6 +1001,51 @@ function install_tools(; bindir::AbstractString = joinpath(homedir(), ".julia", 
     println("\nMake sure ~/.julia/bin is in your PATH:")
     println("  export PATH=\"\$HOME/.julia/bin:\$PATH\"")
 end
+
+# --- Compact show methods for the main public types ---------------------
+# Default Julia display unfolds every field; for SCEBasis / SCEDataset /
+# SCEFit / SCEModel that means dumping the SALCBasis (thousands of entries),
+# the design matrices, and the residuals. These compact forms keep REPL
+# output usable.
+
+function _summarize_jphi(io::IO, jphi::AbstractVector{<:Real})
+	n = length(jphi)
+	preview = view(jphi, 1:min(3, n))
+	print(io, "[")
+	for (i, v) in enumerate(preview)
+		i == 1 || print(io, ", ")
+		print(io, v)
+	end
+	n > 3 && print(io, ", ...")
+	print(io, "] (", n, " elements)")
+end
+
+function Base.show(io::IO, basis::SCEBasis)
+	print(io, "SCEBasis(num_atoms=", basis.structure.supercell.num_atoms,
+		", num_salcs=", length(basis.salcbasis.salc_list),
+		", isotropy=", basis.isotropy, ")")
+end
+
+function Base.show(io::IO, dataset::SCEDataset)
+	print(io, "SCEDataset(num_configs=", length(dataset.spinconfigs),
+		", num_atoms=", dataset.basis.structure.supercell.num_atoms, ")")
+end
+
+function Base.show(io::IO, f::SCEFit)
+	print(io, "SCEFit(estimator=", f.estimator,
+		", num_configs=", length(f.dataset.spinconfigs),
+		", jphi=")
+	_summarize_jphi(io, f.jphi)
+	print(io, ", j0=", f.j0, ", torque_weight=", f.torque_weight, ")")
+end
+
+function Base.show(io::IO, m::SCEModel)
+	print(io, "SCEModel(num_atoms=", m.basis.structure.supercell.num_atoms,
+		", jphi=")
+	_summarize_jphi(io, m.jphi)
+	print(io, ", j0=", m.j0, ")")
+end
+
 
 """
 	versioninfo(io::IO = stdout)

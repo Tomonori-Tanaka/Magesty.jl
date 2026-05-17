@@ -6,6 +6,7 @@
 # Uses the FePt L1_0 fixture from the test tree.
 
 using Magesty
+using LinearAlgebra: norm
 
 const FIXTURE = joinpath(@__DIR__, "..", "test", "integration", "fept_tetragonal_2x2x2")
 
@@ -29,6 +30,12 @@ function main()
     sc1 = dataset.spinconfigs[1]
     println("Predicted energy for config 1: ", predict_energy(f, sc1))
     println("Observed  energy for config 1: ", sc1.energy)
+
+    # 5. Predict per-atom torques and report the largest in magnitude.
+    #    T is a 3 x num_atoms matrix; columns are per-atom torque vectors.
+    T = predict_torque(f, sc1)
+    max_atom = argmax(norm.(eachcol(T)))
+    println("Largest predicted |torque| at atom $(max_atom): ", norm(T[:, max_atom]))
 
     return nothing
 end
