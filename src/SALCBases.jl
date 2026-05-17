@@ -1028,31 +1028,5 @@ function filter_basisdict(
 	return result_basisdict
 end
 
-"""
-	print_salcbasis_stdout(salc_list)
-
-Print symmetry-adapted basis functions to stdout.
-
-# Arguments
-- `salc_list::AbstractVector{Vector{CoupledBases.CoupledBasis_with_coefficient}}`: List of SALC groups, where each group is a vector of `CoupledBasis_with_coefficient` objects
-"""
-function print_salcbasis_stdout(
-	salc_list::AbstractVector{Vector{CoupledBases.CoupledBasis_with_coefficient}},
-)
-	println(" Number of symmetry-adapted basis functions: $(length(salc_list))\n")
-	println(" List of symmetry-adapted basis functions:")
-	for (i, key_group) in enumerate(salc_list)
-		println(" $i-th salc")
-		println(" number of terms: $(length(key_group))")
-		for cbc in key_group
-			# Format coefficient vector as space-separated string
-			coeff_str = join([@sprintf("% 15.10f", x) for x in cbc.coefficient], " ")
-			line_str = @sprintf("%2d  [%s]  %s", cbc.multiplicity, coeff_str, cbc)
-			println(line_str)
-		end
-		println("")
-	end
-end
-
 
 end # module SALCBases
