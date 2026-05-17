@@ -73,7 +73,7 @@ export predict_energy, predict_torque
 export fit, coef, intercept, nobs, dof
 export r2_energy, r2_torque, rss_energy, rss_torque
 export residuals_energy, residuals_torque, rmse_energy, rmse_torque
-export read_embset
+export SpinConfig, read_embset
 export install_tools
 
 # Shared skeleton for the SCEBasis input-driven constructors.
@@ -604,9 +604,12 @@ SCEModel(f::SCEFit)::SCEModel = SCEModel(f.dataset.basis, f.j0, f.jphi)
 """
 	predict_energy(model::SCEModel, spin_directions::AbstractMatrix{<:Real}) -> Float64
 	predict_energy(model::SCEModel, sc::SpinConfig) -> Float64
-	predict_energy(f::SCEFit, spin_directions::AbstractMatrix{<:Real}) -> Float64
-	predict_energy(f::SCEFit, sc::SpinConfig) -> Float64
-	predict_energy(predictor, dataset::SCEDataset) -> Vector{Float64}
+	predict_energy(model::SCEModel, sd_list::AbstractVector{<:AbstractMatrix{<:Real}}) -> Vector{Float64}
+	predict_energy(model::SCEModel, configs::AbstractVector{SpinConfig}) -> Vector{Float64}
+	predict_energy(model::SCEModel, dataset::SCEDataset) -> Vector{Float64}
+
+`f::SCEFit` may be passed in place of `model`; the `SCEFit` overloads
+delegate through `SCEModel(f)`.
 
 Predict SCE energies for one or more spin configurations.
 
@@ -617,19 +620,28 @@ Predict SCE energies for one or more spin configurations.
   `3 × num_atoms` (rows = x, y, z; unit-vector columns).
 - `sc::SpinConfig`: Single spin configuration; equivalent to passing
   `sc.spin_directions`.
-- `dataset::SCEDataset`: Batch evaluation. Must share the predictor's
-  `SCEBasis` (same `(l, m, site)` column ordering as the fitted
-  coefficients).
+- `sd_list::AbstractVector{<:AbstractMatrix{<:Real}}`: Sequence of spin
+  direction matrices. The number of atoms must match across entries
+  and the predictor's `SCEBasis`; the matrices themselves can be views
+  or freshly allocated.
+- `configs::AbstractVector{SpinConfig}`: Sequence of spin configurations
+  (e.g. the output of `read_embset`); only `spin_directions` is read,
+  the other fields are ignored.
+- `dataset::SCEDataset`: Batch evaluation reusing the dataset's stored
+  energy design matrix. Must share the predictor's `SCEBasis` (same
+  `(l, m, site)` column ordering as the fitted coefficients).
 
 # Returns
 
 Return type depends on the second positional argument:
 
-| Input form                            | Return                                                                                       |
-|---------------------------------------|----------------------------------------------------------------------------------------------|
-| `spin_directions::AbstractMatrix`     | `Float64` — energy in the unit of the training data (typically eV).                          |
-| `sc::SpinConfig`                      | `Float64` — same as above, evaluated at `sc.spin_directions`.                                |
-| `dataset::SCEDataset`                 | `Vector{Float64}` of length `length(dataset)`, in dataset order.                             |
+| Input form                                                | Return                                                                                       |
+|-----------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| `spin_directions::AbstractMatrix`                         | `Float64` — energy in the unit of the training data (typically eV).                          |
+| `sc::SpinConfig`                                          | `Float64` — same as above, evaluated at `sc.spin_directions`.                                |
+| `sd_list::AbstractVector{<:AbstractMatrix}`               | `Vector{Float64}` of length `length(sd_list)`, in input order.                               |
+| `configs::AbstractVector{SpinConfig}`                     | `Vector{Float64}` of length `length(configs)`, in input order.                               |
+| `dataset::SCEDataset`                                     | `Vector{Float64}` of length `length(dataset)`, in dataset order.                             |
 """
 predict_energy(model::SCEModel, spin_directions::AbstractMatrix{<:Real})::Float64 =
 	Fitting._predict_energy(
@@ -642,6 +654,27 @@ predict_energy(f::SCEFit, spin_directions::AbstractMatrix{<:Real})::Float64 =
 predict_energy(f::SCEFit, sc::SpinConfig)::Float64 =
 	predict_energy(SCEModel(f), sc)
 
+predict_energy(
+	model::SCEModel,
+	sd_list::AbstractVector{<:AbstractMatrix{<:Real}},
+)::Vector{Float64} =
+	Float64[predict_energy(model, sd) for sd in sd_list]
+predict_energy(
+	model::SCEModel,
+	configs::AbstractVector{SpinConfig},
+)::Vector{Float64} =
+	Float64[predict_energy(model, sc) for sc in configs]
+predict_energy(
+	f::SCEFit,
+	sd_list::AbstractVector{<:AbstractMatrix{<:Real}},
+)::Vector{Float64} =
+	predict_energy(SCEModel(f), sd_list)
+predict_energy(
+	f::SCEFit,
+	configs::AbstractVector{SpinConfig},
+)::Vector{Float64} =
+	predict_energy(SCEModel(f), configs)
+
 function predict_energy(model::SCEModel, dataset::SCEDataset)::Vector{Float64}
 	_check_basis(model, dataset)
 	return dataset.X_E[:, 2:end] * model.jphi .+ model.j0
@@ -652,9 +685,12 @@ predict_energy(f::SCEFit, dataset::SCEDataset)::Vector{Float64} =
 """
 	predict_torque(model::SCEModel, spin_directions::AbstractMatrix{<:Real}) -> Matrix{Float64}
 	predict_torque(model::SCEModel, sc::SpinConfig) -> Matrix{Float64}
-	predict_torque(f::SCEFit, spin_directions::AbstractMatrix{<:Real}) -> Matrix{Float64}
-	predict_torque(f::SCEFit, sc::SpinConfig) -> Matrix{Float64}
-	predict_torque(predictor, dataset::SCEDataset) -> Vector{Matrix{Float64}}
+	predict_torque(model::SCEModel, sd_list::AbstractVector{<:AbstractMatrix{<:Real}}) -> Vector{Matrix{Float64}}
+	predict_torque(model::SCEModel, configs::AbstractVector{SpinConfig}) -> Vector{Matrix{Float64}}
+	predict_torque(model::SCEModel, dataset::SCEDataset) -> Vector{Matrix{Float64}}
+
+`f::SCEFit` may be passed in place of `model`; the `SCEFit` overloads
+delegate through `SCEModel(f)`.
 
 Predict per-atom SCE torques for one or more spin configurations.
 
@@ -665,19 +701,26 @@ Predict per-atom SCE torques for one or more spin configurations.
   `3 × num_atoms` (rows = x, y, z; unit-vector columns).
 - `sc::SpinConfig`: Single spin configuration; equivalent to passing
   `sc.spin_directions`.
-- `dataset::SCEDataset`: Batch evaluation. Must share the predictor's
-  `SCEBasis` (same `(l, m, site)` column ordering as the fitted
-  coefficients).
+- `sd_list::AbstractVector{<:AbstractMatrix{<:Real}}`: Sequence of spin
+  direction matrices. The number of atoms must match across entries
+  and the predictor's `SCEBasis`.
+- `configs::AbstractVector{SpinConfig}`: Sequence of spin configurations
+  (e.g. the output of `read_embset`); only `spin_directions` is read.
+- `dataset::SCEDataset`: Batch evaluation reusing the dataset's stored
+  torque design matrix. Must share the predictor's `SCEBasis` (same
+  `(l, m, site)` column ordering as the fitted coefficients).
 
 # Returns
 
 Return type depends on the second positional argument:
 
-| Input form                            | Return                                                                                                          |
-|---------------------------------------|-----------------------------------------------------------------------------------------------------------------|
-| `spin_directions::AbstractMatrix`     | `Matrix{Float64}` of size `3 × num_atoms` (rows = x, y, z).                                                     |
-| `sc::SpinConfig`                      | `Matrix{Float64}` of size `3 × num_atoms`, evaluated at `sc.spin_directions`.                                   |
-| `dataset::SCEDataset`                 | `Vector{Matrix{Float64}}` of length `length(dataset)`, in dataset order; each element is `3 × num_atoms`.        |
+| Input form                                                | Return                                                                                                          |
+|-----------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
+| `spin_directions::AbstractMatrix`                         | `Matrix{Float64}` of size `3 × num_atoms` (rows = x, y, z).                                                     |
+| `sc::SpinConfig`                                          | `Matrix{Float64}` of size `3 × num_atoms`, evaluated at `sc.spin_directions`.                                   |
+| `sd_list::AbstractVector{<:AbstractMatrix}`               | `Vector{Matrix{Float64}}` of length `length(sd_list)`, in input order; each element is `3 × num_atoms`.          |
+| `configs::AbstractVector{SpinConfig}`                     | `Vector{Matrix{Float64}}` of length `length(configs)`, in input order; each element is `3 × num_atoms`.          |
+| `dataset::SCEDataset`                                     | `Vector{Matrix{Float64}}` of length `length(dataset)`, in dataset order; each element is `3 × num_atoms`.        |
 """
 predict_torque(model::SCEModel, spin_directions::AbstractMatrix{<:Real})::Matrix{Float64} =
 	Fitting._predict_torque(
@@ -688,6 +731,27 @@ predict_torque(f::SCEFit, spin_directions::AbstractMatrix{<:Real})::Matrix{Float
 	predict_torque(SCEModel(f), spin_directions)
 predict_torque(f::SCEFit, sc::SpinConfig)::Matrix{Float64} =
 	predict_torque(SCEModel(f), sc)
+
+predict_torque(
+	model::SCEModel,
+	sd_list::AbstractVector{<:AbstractMatrix{<:Real}},
+)::Vector{Matrix{Float64}} =
+	Matrix{Float64}[predict_torque(model, sd) for sd in sd_list]
+predict_torque(
+	model::SCEModel,
+	configs::AbstractVector{SpinConfig},
+)::Vector{Matrix{Float64}} =
+	Matrix{Float64}[predict_torque(model, sc) for sc in configs]
+predict_torque(
+	f::SCEFit,
+	sd_list::AbstractVector{<:AbstractMatrix{<:Real}},
+)::Vector{Matrix{Float64}} =
+	predict_torque(SCEModel(f), sd_list)
+predict_torque(
+	f::SCEFit,
+	configs::AbstractVector{SpinConfig},
+)::Vector{Matrix{Float64}} =
+	predict_torque(SCEModel(f), configs)
 
 function predict_torque(model::SCEModel, dataset::SCEDataset)::Vector{Matrix{Float64}}
 	_check_basis(model, dataset)

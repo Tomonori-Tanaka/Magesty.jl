@@ -52,21 +52,38 @@ end
 """
 	SpinConfig
 
-A configuration of spins in a magnetic structure.
+A single noncollinear spin configuration plus the DFT observables that
+go with it. Typically produced by `read_embset`, then handed to
+`SCEDataset`, `predict_energy`, `predict_torque`, or the evaluation
+verbs (`r2_energy`, `rmse_torque`, …).
 
 # Fields
-- `energy::Float64`: The energy of the spin configuration [eV]
-- `magmom_size::Vector{Float64}`: The magnitude of magnetic moments for each atom [μ_B]
-- `spin_directions::Matrix{Float64}`: The direction cosines (unit vectors) of the spins [3 × num_atoms]
-- `local_magfield::Matrix{Float64}`: The local magnetic field at each atom [T]
-- `local_magfield_vertical::Matrix{Float64}`: The component of the local magnetic field perpendicular to the magnetic moments [T]
+- `energy::Float64`: DFT total energy of the configuration [eV].
+- `magmom_size::Vector{Float64}`: Magnitude of the magnetic moment on
+  each atom [μ_B]. Length is `num_atoms`.
+- `spin_directions::Matrix{Float64}`: Unit-vector spin directions, laid
+  out as `3 × num_atoms` (rows = x, y, z; each column has unit norm).
+- `local_magfield::Matrix{Float64}`: Local magnetic field at each atom
+  [T], same `3 × num_atoms` layout as `spin_directions`.
+- `local_magfield_vertical::Matrix{Float64}`: Component of
+  `local_magfield` perpendicular to the spin direction at each atom.
+  Computed at construction; the parallel component is dropped because
+  classical-spin torque depends only on the perpendicular field.
+- `torques::Matrix{Float64}`: Per-atom torque vectors
+  `τᵢ = −mᵢ (eᵢ × Bᵢ)` (where `mᵢ` is the moment magnitude, `eᵢ` the
+  unit-vector spin direction, `Bᵢ` the local field), laid out as
+  `3 × num_atoms`. These are the observables compared against
+  `predict_torque` during fitting and evaluation.
 
 # Constructors
-- `SpinConfig(energy, magmom_size, spin_directions, local_magfield)`: Create a spin configuration
+- `SpinConfig(energy, magmom_size, spin_directions, local_magfield)` —
+  `local_magfield_vertical` and `torques` are computed from the other
+  four fields.
 
 # Throws
-- `ArgumentError` if dimensions of input arrays do not match
-- `ArgumentError` if any magnetic moment size is negative
+- `ArgumentError` if `spin_directions` and `local_magfield` do not have
+  matching `3 × num_atoms` shapes.
+- `ArgumentError` if any entry of `magmom_size` is negative.
 """
 struct SpinConfig
 	energy::Float64

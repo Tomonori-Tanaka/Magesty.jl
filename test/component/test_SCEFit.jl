@@ -103,6 +103,43 @@ end
         end
     end
 
+    @testset "predict_* vector dispatches (configs / matrices)" begin
+        f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3)
+        m = SCEModel(f)
+        n_atoms = basis.structure.supercell.num_atoms
+
+        sd_list = [sc.spin_directions for sc in configs]
+
+        # AbstractVector{SpinConfig} path: agrees with per-config calls
+        E_cfg = predict_energy(m, configs)
+        @test E_cfg isa Vector{Float64}
+        @test length(E_cfg) == 2
+        @test E_cfg ≈ [predict_energy(m, sc) for sc in configs]
+        @test predict_energy(f, configs) == E_cfg
+
+        T_cfg = predict_torque(m, configs)
+        @test T_cfg isa Vector{Matrix{Float64}}
+        @test length(T_cfg) == 2
+        @test all(size(t) == (3, n_atoms) for t in T_cfg)
+        @test predict_torque(f, configs) == T_cfg
+
+        # AbstractVector{<:AbstractMatrix} path: same numbers as configs path
+        E_sd = predict_energy(m, sd_list)
+        @test E_sd isa Vector{Float64}
+        @test E_sd ≈ E_cfg
+        @test predict_energy(f, sd_list) == E_sd
+
+        T_sd = predict_torque(m, sd_list)
+        @test T_sd isa Vector{Matrix{Float64}}
+        @test all(size(t) == (3, n_atoms) for t in T_sd)
+        @test all(T_sd[i] ≈ T_cfg[i] for i in 1:2)
+        @test predict_torque(f, sd_list) == T_sd
+
+        # vector path agrees with the dataset path numerically
+        @test E_cfg ≈ predict_energy(m, dataset)
+        @test all(T_cfg[i] ≈ predict_torque(m, dataset)[i] for i in 1:2)
+    end
+
     @testset "evaluation verbs are self-consistent" begin
         f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3)
 

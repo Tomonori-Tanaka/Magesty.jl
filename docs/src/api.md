@@ -69,6 +69,7 @@ Ridge
 
 ```@docs
 read_embset
+SpinConfig
 ```
 
 ## CLI tools
@@ -99,11 +100,6 @@ Clusters.Cluster
 ### SALCBases
 ```@docs
 SALCBases.SALCBasis
-```
-
-### Spin configurations
-```@docs
-SpinConfigs.SpinConfig
 ```
 
 ## Utility types

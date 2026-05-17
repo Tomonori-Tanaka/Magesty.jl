@@ -6,6 +6,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `SpinConfig` is now exported from `Magesty` as a public type. The
+  docstring fully describes its fields, including the
+  derived-at-construction `local_magfield_vertical` and `torques`
+  observables. Build one directly with `SpinConfig(energy, magmom_size,
+  spin_directions, local_magfield)` or read a sequence with
+  `read_embset`.
+- `predict_energy` and `predict_torque` now accept
+  `AbstractVector{<:AbstractMatrix{<:Real}}` (list of spin-direction
+  matrices) and `AbstractVector{SpinConfig}` in addition to the
+  existing single-config / `SCEDataset` inputs. Both vector forms
+  return `Vector{Float64}` / `Vector{Matrix{Float64}}` in input order,
+  letting callers skip building an `SCEDataset` for ad-hoc batches.
+
 ### Changed
 
 - **Breaking:** `save` and `load` are no longer exported from `Magesty`.

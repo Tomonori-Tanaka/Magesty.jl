@@ -127,7 +127,12 @@ SCEDataset(toml_path, spinconfigs) # TOML shortcut
 fit(SCEFit, dataset, estimator; torque_weight = 1.0) -> SCEFit
 SCEModel(f::SCEFit) -> SCEModel    # Lightweight prediction-only conversion
 
-# Prediction (accepts model / fit / dataset / SpinConfig / Matrix)
+# Prediction (data may be: AbstractMatrix, SpinConfig,
+#                          AbstractVector{<:AbstractMatrix},
+#                          AbstractVector{SpinConfig}, or SCEDataset.
+#                          Single inputs return a scalar / 3 × num_atoms
+#                          matrix; vector / dataset inputs return a
+#                          Vector{Float64} / Vector{Matrix{Float64}}.)
 predict_energy(model_or_fit, data)
 predict_torque(model_or_fit, data)
 
@@ -149,6 +154,7 @@ AbstractEstimator, OLS, Ridge
 
 # Data reading
 read_embset(path)                  # EMBSET.dat -> Vector{SpinConfig}
+SpinConfig(energy, magmom_size, spin_directions, local_magfield)
 ```
 
 ## Primary external libraries
