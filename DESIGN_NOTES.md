@@ -10,6 +10,7 @@
 | トピック | Status | 最終更新 |
 |---|---|---|
 | [LASSO / Adaptive LASSO / Adaptive Ridge estimator の導入](docs/design-notes/lasso-adaptive-estimators.md) | 未着手（GLMNet.jl 採用方針で合意、spec 化前ドラフト） | 2026-05-16 |
+| [Pre-release cleanup (v0.1.0)](docs/design-notes/pre-release-cleanup.md) | 未着手 | 2026-05-17 |
 
 完了済みの設計提案は対応する spec (`docs/specs/`) に統合されているため本インデックスから外している。spec フォルダ自身が公式の履歴であり、design-note 本体は削除している（commit history で参照可能）。
 

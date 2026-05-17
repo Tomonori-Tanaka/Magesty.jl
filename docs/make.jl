@@ -35,7 +35,7 @@ makedocs(
 		],
 	],
 	warnonly = true,
-	checkdocs = :none,
+	checkdocs = :exports,
 	doctest = true,
 )
 

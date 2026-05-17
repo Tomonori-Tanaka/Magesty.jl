@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+message: "If you use Magesty.jl in your research, please cite the following work."
+title: "Magesty.jl"
+abstract: >-
+  Julia package for constructing effective spin models in magnetic materials
+  using the spin-cluster expansion (SCE) formalism from noncollinear spin
+  density functional theory.
+authors:
+  - family-names: Tanaka
+    given-names: Tomonori
+    orcid: "https://orcid.org/0000-0001-7306-6770"
+version: 0.1.0-DEV
+license: MPL-2.0
+repository-code: "https://github.com/Tomonori-Tanaka/Magesty.jl"
+url: "https://Tomonori-Tanaka.github.io/Magesty.jl/dev"
+keywords:
+  - julia
+  - density-functional-theory
+  - spin-cluster-expansion
+  - magnetism
+  - effective-spin-models
+preferred-citation:
+  type: article
+  authors:
+    - family-names: Tanaka
+      given-names: Tomonori
+      orcid: "https://orcid.org/0000-0001-7306-6770"
+    - family-names: Gohda
+      given-names: Yoshihiro
+  title: "General spin models from noncollinear spin density functional theory and spin-cluster expansion"
+  year: 2025
+  url: "https://arxiv.org/abs/2512.04458"
