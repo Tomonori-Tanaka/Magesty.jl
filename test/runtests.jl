@@ -33,6 +33,7 @@ if TEST_MODE in ("unit", "all")
 		include("./component/test_SCEFit.jl")
 		include("./component/test_save_load.jl")
 		include("./component/test_Version.jl")
+		include("./component/test_install_tools.jl")
 		include("./component/test_thread_safety.jl")
 	end
 end

@@ -18,4 +18,11 @@ using Magesty
         r"^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?(\+[A-Za-z0-9.]+)?$",
         Magesty.Version.version_string(),
     )
+
+    # versioninfo() prints both the package version and the active Julia version.
+    buf = IOBuffer()
+    Magesty.versioninfo(buf)
+    out = String(take!(buf))
+    @test occursin("Magesty Version $(Magesty.Version.version_string())", out)
+    @test occursin("Julia Version $(VERSION)", out)
 end
