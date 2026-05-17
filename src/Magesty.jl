@@ -168,8 +168,11 @@ function SCEBasis(toml_path::AbstractString; verbosity::Bool = true)
 	catch e
 		if isa(e, SystemError)
 			throw(SystemError("Failed to read file: $toml_path"))
+		elseif isa(e, TOML.ParserError)
+			throw(ErrorException("Failed to parse TOML file: $toml_path\n" *
+				sprint(showerror, e)))
 		else
-			throw(ErrorException("Failed to parse TOML file: $toml_path"))
+			rethrow()
 		end
 	end
 end
