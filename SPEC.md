@@ -34,7 +34,6 @@ in `src/Magesty.jl` reflects the dependency order.
 | `AtomsBaseAdapter.jl` | AtomsBase / Unitful boundary adapter (`system_to_specs` / `kwargs_to_specs`) |
 | `AtomCells.jl` | Lightweight type holding atom sites plus unit-cell info |
 | `SortedCounters.jl` | Internal counter that iterates by sorted key |
-| `Version.jl` | Version info kept in sync with `Project.toml` |
 
 ## Main types (current API)
 

@@ -144,6 +144,12 @@ RotationMatrix.Δl
 ```
 
 ### Version information
-```@docs
-Version.version_string
-```
+
+Use the standard Julia idioms:
+
+- `pkgversion(Magesty)` returns the package version as a `VersionNumber`.
+- `Base.versioninfo()` dumps the active Julia / platform / threading
+  context.
+
+Magesty does not provide its own `VERSION` constant or `versioninfo`
+function — the standard library already covers both needs.

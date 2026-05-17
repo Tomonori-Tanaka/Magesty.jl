@@ -1,6 +1,5 @@
 module XMLIO
 
-using ..Version
 using ..Structures
 using ..Symmetries
 using ..SALCBases
@@ -51,6 +50,14 @@ const ATTR_MF_SIZE         = "Mf_size"
 fmt_lattice(x::Real)    = @sprintf("%.8e", x)
 fmt_fractional(x::Real) = @sprintf("%.12f", x)
 fmt_tensor(x::Real)     = @sprintf("%.15e", x)
+
+# Package version recorded in the `<version>` element. Reads from
+# Project.toml via `pkgversion`; returns "unknown" when XMLIO is loaded
+# outside of a package context (e.g., included directly from a script).
+function _package_version_string()::String
+	v = pkgversion(@__MODULE__)
+	return v === nothing ? "unknown" : string(v)
+end
 
 """
 	_write_system_subtree!(root, structure, symmetry, salc_basis, isotropy)
@@ -233,7 +240,7 @@ function write_basis_xml(
 )
 	doc = XMLDocument()
 	root = setroot!(doc, ElementNode(TAG_ROOT))
-	addelement!(root, TAG_VERSION, Version.version_string())
+	addelement!(root, TAG_VERSION, _package_version_string())
 	_write_system_subtree!(root, structure, symmetry, salc_basis, isotropy)
 	open(filename, "w") do f
 		EzXML.prettyprint(f, doc)
@@ -262,7 +269,7 @@ function write_model_xml(
 )
 	doc = XMLDocument()
 	root = setroot!(doc, ElementNode(TAG_ROOT))
-	addelement!(root, TAG_VERSION, Version.version_string())
+	addelement!(root, TAG_VERSION, _package_version_string())
 	_write_system_subtree!(root, structure, symmetry, salc_basis, isotropy)
 	_write_jphi_block!(root, j0, jphi)
 	open(filename, "w") do f

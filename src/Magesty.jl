@@ -34,9 +34,6 @@ import AtomsBase
 import StatsAPI                          # for the StatsAPI.RegressionModel supertype
 import StatsAPI: fit, coef, nobs, dof    # extended with SCEFit / SCEModel methods
 
-include("Version.jl")
-using .Version
-
 include("SortedCounters.jl")
 include("AtomCells.jl")
 include("SpinConfigs.jl")
@@ -77,7 +74,7 @@ export fit, coef, intercept, nobs, dof
 export r2_energy, r2_torque, rss_energy, rss_torque
 export residuals_energy, residuals_torque, rmse_energy, rmse_torque
 export read_embset
-export VERSION, install_tools
+export install_tools
 
 # Shared skeleton for the SCEBasis input-driven constructors.
 # Returns the (structure, symmetry, cluster) triplet; callers append the
@@ -1090,24 +1087,5 @@ function Base.show(io::IO, m::SCEModel)
 	print(io, ", j0=", m.j0, ")")
 end
 
-
-"""
-	versioninfo(io::IO = stdout)
-
-Print the Magesty version and the active Julia version to `io`, following
-the same minimal style as `Base.versioninfo()`. Useful for recording the
-runtime context in scripts and notebooks.
-
-# Examples
-```julia
-julia> Magesty.versioninfo()
-Magesty Version 0.1.0
-Julia Version 1.11.0
-```
-"""
-function versioninfo(io::IO = stdout)
-	println(io, "Magesty Version ", Version.version_string())
-	println(io, "Julia Version ", VERSION)
-end
 
 end # module Magesty

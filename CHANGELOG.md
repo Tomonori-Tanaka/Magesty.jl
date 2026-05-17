@@ -13,6 +13,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   name clash with the generic `save` / `load` exported by JLD2, FileIO,
   CSV.jl, and other packages.
 
+### Removed
+
+- **Breaking:** Removed the exported `VERSION` constant and the
+  `Magesty.versioninfo()` function. They duplicated functionality that
+  Julia already provides — use `pkgversion(Magesty)` for the package
+  version and `Base.versioninfo()` for the runtime environment dump.
+  Internally, the `Version` submodule was folded into a private helper
+  inside `XMLIO.jl` (still records the package version in the XML
+  `<version>` element).
+
 ## [0.1.0] - 2026-05-17
 
 First public release.
