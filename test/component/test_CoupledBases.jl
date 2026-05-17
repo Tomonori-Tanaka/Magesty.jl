@@ -1,6 +1,8 @@
 @testset "CoupledBases" begin
 	using .AngularMomentumCoupling
-	using .CoupledBases: CoupledBasis, tesseral_coupled_bases_from_tesseral_bases, reorder_atoms
+	using .CoupledBases: CoupledBasis, CoupledBasis_with_coefficient,
+		tesseral_coupled_bases_from_tesseral_bases, reorder_atoms,
+		convert_to_coupled_basis
 	using Test
 
 	@testset "CoupledBasis" begin
@@ -205,5 +207,177 @@
 			@test cb_new.Lseq == cb.Lseq
 			@test size(cb_new.coeff_tensor) == size(cb.coeff_tensor)
 		end
+	end
+
+	# ------------------------------------------------------------------
+	# Coverage uplift: surface area below was previously untested.
+	# Tests assert each function's contract (documented show format,
+	# isless total order, constructor error paths, sort-and-permute
+	# invariant, field-equality round trip), not observed values.
+	# ------------------------------------------------------------------
+
+	@testset "Base.show(::CoupledBasis)" begin
+		# Two-body, Lf = 0 — concrete instance via the canonical builder.
+		cb = tesseral_coupled_bases_from_tesseral_bases([1, 1], [10, 20])[1]
+		s = repr(cb)
+
+		@test startswith(s, "CoupledBasis(")
+		@test endswith(s, ")")
+		# Every field documented in the source's show body appears.
+		@test occursin("ls=", s)
+		@test occursin("Lf=0", s)
+		@test occursin("Lseq=", s)
+		@test occursin("atoms=", s)
+		# coeff_tensor is rendered as size(), not the full array.
+		@test occursin("coeff_tensor=", s)
+		@test occursin(string(size(cb.coeff_tensor)), s)
+	end
+
+	@testset "Base.isless: all-fields-equal returns false" begin
+		# Two CoupledBasis values that agree on every field must satisfy
+		# !isless(a, b) && !isless(b, a) (strict / irreflexive contract).
+		# This hits the final `return false` path that is otherwise
+		# unreachable when the values genuinely differ.
+		cb1 = CoupledBasis([1, 1], 0, Int[], [10, 20], zeros(3, 3, 1))
+		cb2 = CoupledBasis([1, 1], 0, Int[], [10, 20], zeros(3, 3, 1))
+		@test !isless(cb1, cb2)
+		@test !isless(cb2, cb1)
+		@test !isless(cb1, cb1)
+	end
+
+	@testset "CoupledBasis_with_coefficient: full constructor" begin
+		# N = 2 → Lseq length 0, tensor rank 3, Mf inferred from tensor's
+		# last dim. Happy path first.
+		ls = [1, 1]
+		Lf = 0
+		Lseq = Int[]
+		atoms = [10, 20]
+		coeff_tensor = zeros(3, 3, 1)
+		coefficient = [0.5]
+		multiplicity = 2
+
+		cbc = CoupledBasis_with_coefficient(
+			ls, Lf, Lseq, atoms, coeff_tensor, coefficient, multiplicity,
+		)
+		@test cbc.ls == ls
+		@test cbc.Lf == Lf
+		@test cbc.Lseq == Lseq
+		@test cbc.atoms == atoms
+		@test cbc.coeff_tensor == coeff_tensor
+		@test cbc.coefficient == coefficient
+		@test cbc.multiplicity == multiplicity
+
+		# Each ArgumentError site in the constructor body.
+		# (1) Lseq length must be max(0, N-2). For N=2 that's 0.
+		@test_throws ArgumentError CoupledBasis_with_coefficient(
+			ls, Lf, [5], atoms, coeff_tensor, coefficient, multiplicity,
+		)
+		# (2) atoms length must equal length(ls).
+		@test_throws ArgumentError CoupledBasis_with_coefficient(
+			ls, Lf, Lseq, [10, 20, 30], coeff_tensor, coefficient, multiplicity,
+		)
+		# (3) ndims(coeff_tensor) must be length(ls) + 1.
+		@test_throws ArgumentError CoupledBasis_with_coefficient(
+			ls, Lf, Lseq, atoms, zeros(3, 3), coefficient, multiplicity,
+		)
+		# (4) length(coefficient) must equal size(coeff_tensor, R).
+		@test_throws ArgumentError CoupledBasis_with_coefficient(
+			ls, Lf, Lseq, atoms, coeff_tensor, [0.5, 0.5], multiplicity,
+		)
+	end
+
+	@testset "CoupledBasis_with_coefficient(cb, ...) convenience constructor" begin
+		cb = tesseral_coupled_bases_from_tesseral_bases([1, 1], [10, 20])[1]
+		Mf = size(cb.coeff_tensor, ndims(cb.coeff_tensor))
+		coefficient = collect(Float64, 1:Mf)
+		multiplicity = 7
+
+		cbc = CoupledBasis_with_coefficient(cb, coefficient, multiplicity)
+
+		# Five fields are forwarded from `cb`; the last two are the
+		# explicit arguments.
+		@test cbc.ls == cb.ls
+		@test cbc.Lf == cb.Lf
+		@test cbc.Lseq == cb.Lseq
+		@test cbc.atoms == cb.atoms
+		@test cbc.coeff_tensor == cb.coeff_tensor
+		@test cbc.coefficient == coefficient
+		@test cbc.multiplicity == multiplicity
+	end
+
+	@testset "Base.show(::CoupledBasis_with_coefficient)" begin
+		cb = tesseral_coupled_bases_from_tesseral_bases([1, 1], [10, 20])[1]
+		Mf = size(cb.coeff_tensor, ndims(cb.coeff_tensor))
+		cbc = CoupledBasis_with_coefficient(cb, fill(0.25, Mf), 3)
+		s = repr(cbc)
+
+		@test startswith(s, "CoupledBasis_with_coefficient(")
+		@test endswith(s, ")")
+		@test occursin("ls=", s)
+		@test occursin("Lf=0", s)
+		@test occursin("Lseq=", s)
+		@test occursin("atoms=", s)
+		@test occursin("coeff_tensor=", s)
+		@test occursin(string(size(cbc.coeff_tensor)), s)
+		@test occursin("coefficient=", s)
+		@test occursin("multiplicity=3", s)
+	end
+
+	@testset "reorder_atoms(::CoupledBasis_with_coefficient, ...)" begin
+		# Mirror the existing two-body reorder_atoms test, additionally
+		# pinning the coefficient-and-multiplicity invariant from the
+		# function's docstring: those two fields ride the Mf dimension
+		# (last axis) which is never permuted, so they pass through
+		# unchanged.
+		cb = tesseral_coupled_bases_from_tesseral_bases([3, 1], [1, 2])[1]
+		Mf = size(cb.coeff_tensor, ndims(cb.coeff_tensor))
+		coefficient = collect(Float64, 1:Mf)
+		multiplicity = 11
+		cbc = CoupledBasis_with_coefficient(cb, coefficient, multiplicity)
+		orig_shape = size(cbc.coeff_tensor)
+
+		cbc_new = reorder_atoms(cbc, [4, 1])
+
+		# Atoms sorted, ls permuted to match.
+		@test cbc_new.atoms == [1, 4]
+		@test cbc_new.ls == [1, 3]
+		@test cbc_new.Lf == cbc.Lf
+		@test cbc_new.Lseq == cbc.Lseq
+		# First N dims of coeff_tensor swap; the trailing Mf dim is fixed.
+		@test size(cbc_new.coeff_tensor) ==
+			(orig_shape[2], orig_shape[1], orig_shape[3])
+		# Mf-dim invariants: coefficient and multiplicity must survive
+		# the reorder unchanged.
+		@test cbc_new.coefficient == coefficient
+		@test cbc_new.multiplicity == multiplicity
+
+		# Error path: length(new_atoms) != length(ls).
+		@test_throws ArgumentError reorder_atoms(cbc, [1, 2, 3])
+		@test_throws ArgumentError reorder_atoms(cbc, [1])
+	end
+
+	@testset "convert_to_coupled_basis" begin
+		cb = tesseral_coupled_bases_from_tesseral_bases([1, 1], [10, 20])[1]
+		Mf = size(cb.coeff_tensor, ndims(cb.coeff_tensor))
+		cbc = CoupledBasis_with_coefficient(cb, fill(0.5, Mf), 4)
+
+		cb_back = convert_to_coupled_basis(cbc)
+
+		# Result is a CoupledBasis and the five shared fields equal the
+		# source.
+		@test cb_back isa CoupledBasis
+		@test cb_back.ls == cbc.ls
+		@test cb_back.Lf == cbc.Lf
+		@test cb_back.Lseq == cbc.Lseq
+		@test cb_back.atoms == cbc.atoms
+		@test cb_back.coeff_tensor == cbc.coeff_tensor
+
+		# cb → cbc → cb_back round trip preserves the original five
+		# fields (the coefficient/multiplicity are simply dropped).
+		@test cb_back.ls == cb.ls
+		@test cb_back.Lf == cb.Lf
+		@test cb_back.Lseq == cb.Lseq
+		@test cb_back.atoms == cb.atoms
+		@test cb_back.coeff_tensor == cb.coeff_tensor
 	end
 end
