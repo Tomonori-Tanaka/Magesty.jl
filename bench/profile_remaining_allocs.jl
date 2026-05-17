@@ -1,13 +1,14 @@
 #!/usr/bin/env julia
-# Identify the remaining allocation sources after B1+B3.
-# Uses Julia's --track-allocation=user infrastructure replacement:
-# wraps `design_matrix_energy_element` and `calc_∇ₑu!` to count allocs
-# in each scratch buffer pattern.
+# Per-call allocation count for the Fitting design-matrix inner loops.
+# Wraps `design_matrix_energy_element` and `calc_∇ₑu!` and counts
+# heap allocations under repeated invocation, separating the per-call
+# overhead from one-time setup. Useful when investigating a regression
+# in scratch-buffer reuse.
 
 using Printf
 using Magesty
-using Magesty.Optimize: design_matrix_energy_element, calc_∇ₑu!,
-                        EnergyWorkspace, GradWorkspace
+using Magesty.Fitting: design_matrix_energy_element, calc_∇ₑu!,
+                       EnergyWorkspace, GradWorkspace
 using Magesty.SpinConfigs: read_embset
 using StaticArrays
 

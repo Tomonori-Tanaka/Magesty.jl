@@ -33,6 +33,15 @@ bench-spherical-harmonics:
 bench-threads:
 	bash bench/run_threads_scaling.sh
 
+bench-fitting:
+	julia --project=bench bench/bench_b1_design_matrix.jl
+
+bench-symmetry:
+	julia --project=bench bench/benchmark_symmetry.jl
+
+bench-profile-allocs:
+	julia --project=bench bench/profile_remaining_allocs.jl
+
 # Run the same checks GitHub Actions runs, locally, before pushing.
 # Uses the juliaup `release` channel (matches CI's `1`, currently 1.12.x).
 # CI also tests against the explicit `1.12` minimum; locally we skip the

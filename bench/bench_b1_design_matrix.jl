@@ -1,5 +1,5 @@
 #!/usr/bin/env julia
-# Baseline / after benchmark for B1 (CoupledBasis type parameterization).
+# Fitting design-matrix benchmark.
 # Times `build_design_matrix_energy` and `build_design_matrix_torque`
 # on the fept_tetragonal_2x2x2 example.
 #
@@ -7,7 +7,7 @@
 #   julia --project=bench bench/bench_b1_design_matrix.jl
 
 using Magesty
-using Magesty.Optimize: build_design_matrix_energy, build_design_matrix_torque
+using Magesty.Fitting: build_design_matrix_energy, build_design_matrix_torque
 using Magesty.SpinConfigs: read_embset
 using Statistics
 using Printf
@@ -52,7 +52,7 @@ function main()
     println("num_atoms       = ", basis.structure.supercell.num_atoms)
     println()
 
-    println("=== B1 benchmark (5 trials each) ===")
+    println("=== Fitting design-matrix benchmark (5 trials each) ===")
     bench_one("build_design_matrix_energy", () ->
         build_design_matrix_energy(
             basis.salcbasis.salc_list,
