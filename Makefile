@@ -16,6 +16,8 @@ test-jet:
 test-aqua:
 	TEST_MODE=aqua julia --project -e 'using Pkg; Pkg.test()'
 
+# Note: SpheriCart agreement tests are part of test-unit (no separate target).
+
 bench-setup:
 	julia --project=bench -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
 
@@ -30,9 +32,6 @@ bench-spherical-harmonics:
 
 bench-threads:
 	bash bench/run_threads_scaling.sh
-
-test-sphericart:
-	TEST_MODE=sphericart julia --project -e 'using Pkg; Pkg.test()'
 
 # Run the same checks GitHub Actions runs, locally, before pushing.
 # Uses the juliaup `release` channel (matches CI's `1`, currently 1.12.x).

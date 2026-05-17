@@ -19,6 +19,7 @@ if TEST_MODE in ("unit", "all")
 		include("./component/test_AngularMomentumCoupling.jl")
 		include("./component/test_SortedCounter.jl")
 		include("./component/test_SphericalHarmonicsTransforms.jl")
+		include("./component/test_sphericart_agreement.jl")
 		include("./component/test_RotationMatrix.jl")
 		include("./component/test_SpinConfigs.jl")
 		include("./component/test_InputSpecs.jl")
@@ -52,9 +53,4 @@ if TEST_MODE in ("jet",)
 end
 if TEST_MODE in ("aqua",)
 	include("./aqua.jl")
-end
-if TEST_MODE in ("sphericart",)
-	@testset verbose = true "SpheriCart agreement" begin
-		include("./component/test_sphericart_agreement.jl")
-	end
 end
