@@ -47,9 +47,13 @@ const ATTR_MF_SIZE         = "Mf_size"
 
 # Format helpers. `@sprintf` requires a literal format string at parse
 # time, so each well-known format gets a one-liner wrapper.
+#
+# `fmt_tensor` uses `%.17e` — 17 significant digits is the minimum that
+# round-trips every Float64 exactly under IEEE 754. The previous
+# `%.15e` lost 1 ulp on adversarial inputs (e.g. `nextfloat(1.0)`).
 fmt_lattice(x::Real)    = @sprintf("%.8e", x)
 fmt_fractional(x::Real) = @sprintf("%.12f", x)
-fmt_tensor(x::Real)     = @sprintf("%.15e", x)
+fmt_tensor(x::Real)     = @sprintf("%.17e", x)
 
 # Package version recorded in the `<version>` element. Reads from
 # Project.toml via `pkgversion`; returns "unknown" when XMLIO is loaded

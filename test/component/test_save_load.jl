@@ -94,6 +94,45 @@ end
 		end
 	end
 
+	@testset "SCEModel j0 / jphi exact round-trip" begin
+		# The XML writer must preserve every Float64 mantissa bit in
+		# `j0` and `jphi`, so that save -> load reproduces the input
+		# values bit-for-bit (Float64 round-trip). The previous
+		# `%.15e` format lost 1 ulp on adversarial inputs (e.g.
+		# `nextfloat(1.0)` formatted as `1.000000000000000e+00`).
+		basis = SCEBasis(SL_DIMER_TOML; verbosity = false)
+		n_salc = length(basis.salcbasis.salc_list)
+		# Pick values that exercise the worst case for fixed-precision
+		# decimal: ulp-adjacent floats and irrationals are the ones
+		# that `%.15e` used to mangle. The vector mixes them across
+		# every SALC index so no single Magesty-side rounding shortcut
+		# can mask a regression.
+		adversarial_floats = Float64[
+			nextfloat(1.0),                  # 1 ulp above 1
+			prevfloat(1.0),                  # 1 ulp below 1
+			nextfloat(0.1),
+			1.2345678901234567e-15,
+			-3.7e-200,
+			1.0 + eps(Float64),
+			Float64(pi),
+			sqrt(2.0),
+		]
+		jphi = Float64[
+			adversarial_floats[mod1(i, length(adversarial_floats))]
+			for i in 1:n_salc
+		]
+		j0 = nextfloat(-3.14159265358979)
+		model = SCEModel(basis, j0, jphi)
+		mktempdir() do dir
+			path = joinpath(dir, "model.xml")
+			Magesty.save(model, path)
+			reloaded = Magesty.load(SCEModel, path)
+
+			@test reloaded.j0 === model.j0       # IEEE-754 bit equality
+			@test reloaded.jphi == model.jphi    # element-wise equality
+		end
+	end
+
 	@testset "load SCEBasis from an SCEModel XML" begin
 		basis = SCEBasis(SL_DIMER_TOML; verbosity = false)
 		n_salc = length(basis.salcbasis.salc_list)
@@ -117,9 +156,10 @@ end
 	@testset "basis identity (design matrices) after reload" begin
 		# The real round-trip guarantee: a dataset built from the reloaded
 		# basis produces the same design matrices as the original, i.e.
-		# the `(l, m, site)` ordering survives serialization. Equality is
-		# `≈`, not exact: SALC coupling tensors are serialized at
-		# `%.15e`, one digit short of full Float64 round-trip.
+		# the `(l, m, site)` ordering survives serialization. Since the
+		# SALC coupling tensors are now serialized at `%.17e` (the
+		# Float64-round-trip-safe precision), equality is bit-exact, not
+		# just `≈`.
 		basis = SCEBasis(SL_FEPT_TOML; verbosity = false)
 		dataset = SCEDataset(basis, SL_FEPT_EMBSET)
 		mktempdir() do dir
@@ -128,8 +168,8 @@ end
 			reloaded = Magesty.load(SCEBasis, path)
 			dataset_reloaded = SCEDataset(reloaded, SL_FEPT_EMBSET)
 
-			@test dataset_reloaded.X_E ≈ dataset.X_E
-			@test dataset_reloaded.X_T ≈ dataset.X_T
+			@test dataset_reloaded.X_E == dataset.X_E
+			@test dataset_reloaded.X_T == dataset.X_T
 			# Observations come straight from the EMBSET file — exact.
 			@test dataset_reloaded.y_E == dataset.y_E
 			@test dataset_reloaded.y_T == dataset.y_T

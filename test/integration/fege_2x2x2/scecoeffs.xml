@@ -2130,186 +2130,186 @@
     <AngularMomentumCouplings num_couplings="3">
       <Coupling index="1" ls="1 1" Lseq="" Lf="0" tensor_shape="3 3" Mf_size="1">
         <Mf value="0" index="1">
-          <coeff_tensor>5.773502691896256e-01 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 5.773502691896257e-01 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 5.773502691896256e-01</coeff_tensor>
+          <coeff_tensor>5.77350269189625620e-01 0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00 5.77350269189625731e-01 0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00 5.77350269189625620e-01</coeff_tensor>
         </Mf>
       </Coupling>
       <Coupling index="2" ls="1 1" Lseq="" Lf="1" tensor_shape="3 3" Mf_size="3">
         <Mf value="-1" index="1">
-          <coeff_tensor>0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 -7.071067811865475e-01 0.000000000000000e+00 7.071067811865475e-01 0.000000000000000e+00</coeff_tensor>
+          <coeff_tensor>0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00 -7.07106781186547462e-01 0.00000000000000000e+00 7.07106781186547462e-01 0.00000000000000000e+00</coeff_tensor>
         </Mf>
         <Mf value="0" index="2">
-          <coeff_tensor>0.000000000000000e+00 0.000000000000000e+00 7.071067811865475e-01 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 -7.071067811865475e-01 0.000000000000000e+00 0.000000000000000e+00</coeff_tensor>
+          <coeff_tensor>0.00000000000000000e+00 0.00000000000000000e+00 7.07106781186547462e-01 0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00 -7.07106781186547462e-01 0.00000000000000000e+00 0.00000000000000000e+00</coeff_tensor>
         </Mf>
         <Mf value="1" index="3">
-          <coeff_tensor>0.000000000000000e+00 -7.071067811865475e-01 0.000000000000000e+00 7.071067811865475e-01 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00</coeff_tensor>
+          <coeff_tensor>0.00000000000000000e+00 -7.07106781186547462e-01 0.00000000000000000e+00 7.07106781186547462e-01 0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00</coeff_tensor>
         </Mf>
       </Coupling>
       <Coupling index="3" ls="1 1" Lseq="" Lf="2" tensor_shape="3 3" Mf_size="5">
         <Mf value="-2" index="1">
-          <coeff_tensor>0.000000000000000e+00 0.000000000000000e+00 7.071067811865474e-01 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 7.071067811865474e-01 0.000000000000000e+00 0.000000000000000e+00</coeff_tensor>
+          <coeff_tensor>0.00000000000000000e+00 0.00000000000000000e+00 7.07106781186547351e-01 0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00 7.07106781186547351e-01 0.00000000000000000e+00 0.00000000000000000e+00</coeff_tensor>
         </Mf>
         <Mf value="-1" index="2">
-          <coeff_tensor>0.000000000000000e+00 7.071067811865475e-01 0.000000000000000e+00 7.071067811865475e-01 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00</coeff_tensor>
+          <coeff_tensor>0.00000000000000000e+00 7.07106781186547462e-01 0.00000000000000000e+00 7.07106781186547462e-01 0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00</coeff_tensor>
         </Mf>
         <Mf value="0" index="3">
-          <coeff_tensor>-4.082482904638630e-01 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 8.164965809277260e-01 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 -4.082482904638630e-01</coeff_tensor>
+          <coeff_tensor>-4.08248290463862962e-01 0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00 8.16496580927726034e-01 0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00 -4.08248290463862962e-01</coeff_tensor>
         </Mf>
         <Mf value="1" index="4">
-          <coeff_tensor>0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 7.071067811865475e-01 0.000000000000000e+00 7.071067811865475e-01 0.000000000000000e+00</coeff_tensor>
+          <coeff_tensor>0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00 7.07106781186547462e-01 0.00000000000000000e+00 7.07106781186547462e-01 0.00000000000000000e+00</coeff_tensor>
         </Mf>
         <Mf value="2" index="5">
-          <coeff_tensor>-7.071067811865474e-01 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 7.071067811865474e-01</coeff_tensor>
+          <coeff_tensor>-7.07106781186547351e-01 0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00 7.07106781186547351e-01</coeff_tensor>
         </Mf>
       </Coupling>
     </AngularMomentumCouplings>
   </System>
   <JPhi unit="eV">
-    <ReferenceEnergy>-4.124276684142744e+02</ReferenceEnergy>
-    <jphi salc_index="1">-2.919602361859172e-04</jphi>
-    <jphi salc_index="2">-1.887321325390358e-05</jphi>
-    <jphi salc_index="3">4.694172114086719e-05</jphi>
-    <jphi salc_index="4">5.661696525280528e-05</jphi>
-    <jphi salc_index="5">-5.941769819151026e-06</jphi>
-    <jphi salc_index="6">-3.287640238111194e-05</jphi>
-    <jphi salc_index="7">1.914295542511932e-05</jphi>
-    <jphi salc_index="8">4.329128800810286e-04</jphi>
-    <jphi salc_index="9">-1.679822836546644e-04</jphi>
-    <jphi salc_index="10">4.291616111031243e-04</jphi>
-    <jphi salc_index="11">9.413320737724090e-05</jphi>
-    <jphi salc_index="12">-3.859491114198942e-04</jphi>
-    <jphi salc_index="13">1.294175482969190e-04</jphi>
-    <jphi salc_index="14">-2.555678326711127e-04</jphi>
-    <jphi salc_index="15">1.440350274670068e-05</jphi>
-    <jphi salc_index="16">-1.974148994024382e-04</jphi>
-    <jphi salc_index="17">2.117629328676287e-04</jphi>
-    <jphi salc_index="18">4.662505575145001e-04</jphi>
-    <jphi salc_index="19">-1.487585486140732e-04</jphi>
-    <jphi salc_index="20">-2.935389704201621e-04</jphi>
-    <jphi salc_index="21">8.546671186296240e-05</jphi>
-    <jphi salc_index="22">5.224242041580281e-05</jphi>
-    <jphi salc_index="23">1.254253617544558e-04</jphi>
-    <jphi salc_index="24">3.961491838236033e-05</jphi>
-    <jphi salc_index="25">2.347121350971977e-03</jphi>
-    <jphi salc_index="26">-2.441759456705970e-04</jphi>
-    <jphi salc_index="27">1.432487284295771e-05</jphi>
-    <jphi salc_index="28">-4.511291889100065e-04</jphi>
-    <jphi salc_index="29">6.486675226291513e-05</jphi>
-    <jphi salc_index="30">2.726356543519504e-04</jphi>
-    <jphi salc_index="31">-2.353966829956779e-04</jphi>
-    <jphi salc_index="32">-1.000561695886831e-04</jphi>
-    <jphi salc_index="33">-1.626609493980491e-04</jphi>
-    <jphi salc_index="34">1.236754624465379e-04</jphi>
-    <jphi salc_index="35">-7.382485118116670e-05</jphi>
-    <jphi salc_index="36">-9.067990076141700e-05</jphi>
-    <jphi salc_index="37">7.022968721337505e-03</jphi>
-    <jphi salc_index="38">-7.582227232819429e-05</jphi>
-    <jphi salc_index="39">1.161829633839473e-03</jphi>
-    <jphi salc_index="40">-8.978980349974243e-05</jphi>
-    <jphi salc_index="41">-9.224133862896864e-05</jphi>
-    <jphi salc_index="42">1.219916774345981e-04</jphi>
-    <jphi salc_index="43">-1.034210709416387e-04</jphi>
-    <jphi salc_index="44">-1.953676235231329e-05</jphi>
-    <jphi salc_index="45">-2.325171016790126e-04</jphi>
-    <jphi salc_index="46">-1.574706446329355e-04</jphi>
-    <jphi salc_index="47">-5.043212247190838e-05</jphi>
-    <jphi salc_index="48">-1.477534492655923e-05</jphi>
-    <jphi salc_index="49">-1.518610340587302e-04</jphi>
-    <jphi salc_index="50">2.248396388775609e-04</jphi>
-    <jphi salc_index="51">3.599199738487903e-04</jphi>
-    <jphi salc_index="52">-1.241682104280059e-04</jphi>
-    <jphi salc_index="53">-2.249842165455377e-04</jphi>
-    <jphi salc_index="54">6.864799961965702e-05</jphi>
-    <jphi salc_index="55">5.124848821932029e-03</jphi>
-    <jphi salc_index="56">-2.270620775131769e-04</jphi>
-    <jphi salc_index="57">8.515104776327399e-06</jphi>
-    <jphi salc_index="58">5.964858774300420e-04</jphi>
-    <jphi salc_index="59">3.701328894144155e-05</jphi>
-    <jphi salc_index="60">1.971194735458476e-04</jphi>
-    <jphi salc_index="61">3.869595952054986e-04</jphi>
-    <jphi salc_index="62">-9.904624624122809e-05</jphi>
-    <jphi salc_index="63">-8.340291687124052e-05</jphi>
-    <jphi salc_index="64">4.077047561577302e-04</jphi>
-    <jphi salc_index="65">1.428533774832835e-04</jphi>
-    <jphi salc_index="66">-4.036217314624562e-05</jphi>
-    <jphi salc_index="67">1.638744371405605e-04</jphi>
-    <jphi salc_index="68">1.298846564102271e-04</jphi>
-    <jphi salc_index="69">3.192813820932172e-04</jphi>
-    <jphi salc_index="70">1.310812419755022e-04</jphi>
-    <jphi salc_index="71">-9.325288973903750e-05</jphi>
-    <jphi salc_index="72">-1.902862833303923e-04</jphi>
-    <jphi salc_index="73">3.880382630546510e-03</jphi>
-    <jphi salc_index="74">-2.482144339425493e-04</jphi>
-    <jphi salc_index="75">-1.282608404978991e-04</jphi>
-    <jphi salc_index="76">-6.834270798378396e-05</jphi>
-    <jphi salc_index="77">6.176541568625006e-05</jphi>
-    <jphi salc_index="78">-1.313411275109280e-04</jphi>
-    <jphi salc_index="79">3.273321389280953e-04</jphi>
-    <jphi salc_index="80">-1.936994903798946e-04</jphi>
-    <jphi salc_index="81">2.011776497641278e-04</jphi>
-    <jphi salc_index="82">-8.265504958857486e-05</jphi>
-    <jphi salc_index="83">-6.360806635456318e-05</jphi>
-    <jphi salc_index="84">-3.074886283639519e-05</jphi>
-    <jphi salc_index="85">-6.796672205496087e-05</jphi>
-    <jphi salc_index="86">-7.346222804860978e-05</jphi>
-    <jphi salc_index="87">-8.784560329500458e-05</jphi>
-    <jphi salc_index="88">-2.605159311380438e-04</jphi>
-    <jphi salc_index="89">-3.498109256163143e-04</jphi>
-    <jphi salc_index="90">5.330982447742300e-05</jphi>
-    <jphi salc_index="91">2.261562730997406e-04</jphi>
-    <jphi salc_index="92">1.136329989924017e-04</jphi>
-    <jphi salc_index="93">-1.394922426442074e-04</jphi>
-    <jphi salc_index="94">-5.443524851288777e-05</jphi>
-    <jphi salc_index="95">1.734626753556280e-04</jphi>
-    <jphi salc_index="96">5.255060585338110e-05</jphi>
-    <jphi salc_index="97">2.090763708549646e-04</jphi>
-    <jphi salc_index="98">-6.975410922909507e-05</jphi>
-    <jphi salc_index="99">2.048686312433368e-04</jphi>
-    <jphi salc_index="100">-3.552807494727891e-04</jphi>
-    <jphi salc_index="101">1.572218418281492e-06</jphi>
-    <jphi salc_index="102">-3.828427975139577e-02</jphi>
-    <jphi salc_index="103">-7.211628556422602e-04</jphi>
-    <jphi salc_index="104">7.091021610707674e-04</jphi>
-    <jphi salc_index="105">-1.422676733464037e-04</jphi>
-    <jphi salc_index="106">-7.104025197430776e-05</jphi>
-    <jphi salc_index="107">-3.091986876241611e-04</jphi>
-    <jphi salc_index="108">-5.614222530520667e-05</jphi>
-    <jphi salc_index="109">-2.444662001004151e-04</jphi>
-    <jphi salc_index="110">-1.959718163649851e-04</jphi>
-    <jphi salc_index="111">2.021319355107629e-03</jphi>
-    <jphi salc_index="112">-1.865813001524860e-04</jphi>
-    <jphi salc_index="113">-1.990569087649787e-04</jphi>
-    <jphi salc_index="114">-1.725076501454451e-05</jphi>
-    <jphi salc_index="115">1.129159887435081e-04</jphi>
-    <jphi salc_index="116">1.922279100994208e-04</jphi>
-    <jphi salc_index="117">3.343330737794736e-05</jphi>
-    <jphi salc_index="118">1.229762341180300e-04</jphi>
-    <jphi salc_index="119">2.026568987071362e-04</jphi>
-    <jphi salc_index="120">-3.971634232013902e-05</jphi>
-    <jphi salc_index="121">-5.980259258355868e-05</jphi>
-    <jphi salc_index="122">-4.762429972045960e-06</jphi>
-    <jphi salc_index="123">-2.424077736808621e-04</jphi>
-    <jphi salc_index="124">-1.236652857410034e-05</jphi>
-    <jphi salc_index="125">1.909328996218893e-04</jphi>
-    <jphi salc_index="126">-2.175474574859761e-04</jphi>
-    <jphi salc_index="127">-1.038374405740039e-05</jphi>
-    <jphi salc_index="128">6.826732382749050e-05</jphi>
-    <jphi salc_index="129">-6.361243630709884e-03</jphi>
-    <jphi salc_index="130">-5.730821697653343e-05</jphi>
-    <jphi salc_index="131">1.182677422226253e-04</jphi>
-    <jphi salc_index="132">-1.953258057194098e-04</jphi>
-    <jphi salc_index="133">-1.234603337728357e-04</jphi>
-    <jphi salc_index="134">-1.668344413163378e-04</jphi>
-    <jphi salc_index="135">3.801309198988381e-05</jphi>
-    <jphi salc_index="136">2.956687987126168e-04</jphi>
-    <jphi salc_index="137">2.357317624191033e-05</jphi>
-    <jphi salc_index="138">-2.472268220623351e-04</jphi>
-    <jphi salc_index="139">3.721064928170928e-05</jphi>
-    <jphi salc_index="140">-1.192645890177915e-04</jphi>
-    <jphi salc_index="141">2.399067741609267e-04</jphi>
-    <jphi salc_index="142">7.668196972077184e-05</jphi>
-    <jphi salc_index="143">7.334734117175541e-07</jphi>
-    <jphi salc_index="144">2.696941644642969e-04</jphi>
-    <jphi salc_index="145">9.067012633954311e-05</jphi>
-    <jphi salc_index="146">-6.210279767493177e-05</jphi>
+    <ReferenceEnergy>-4.12427668414274365e+02</ReferenceEnergy>
+    <jphi salc_index="1">-2.91960236185917249e-04</jphi>
+    <jphi salc_index="2">-1.88732132539035805e-05</jphi>
+    <jphi salc_index="3">4.69417211408671922e-05</jphi>
+    <jphi salc_index="4">5.66169652528052784e-05</jphi>
+    <jphi salc_index="5">-5.94176981915102630e-06</jphi>
+    <jphi salc_index="6">-3.28764023811119389e-05</jphi>
+    <jphi salc_index="7">1.91429554251193206e-05</jphi>
+    <jphi salc_index="8">4.32912880081028593e-04</jphi>
+    <jphi salc_index="9">-1.67982283654664378e-04</jphi>
+    <jphi salc_index="10">4.29161611103124328e-04</jphi>
+    <jphi salc_index="11">9.41332073772408964e-05</jphi>
+    <jphi salc_index="12">-3.85949111419894159e-04</jphi>
+    <jphi salc_index="13">1.29417548296918987e-04</jphi>
+    <jphi salc_index="14">-2.55567832671112726e-04</jphi>
+    <jphi salc_index="15">1.44035027467006790e-05</jphi>
+    <jphi salc_index="16">-1.97414899402438164e-04</jphi>
+    <jphi salc_index="17">2.11762932867628708e-04</jphi>
+    <jphi salc_index="18">4.66250557514500091e-04</jphi>
+    <jphi salc_index="19">-1.48758548614073198e-04</jphi>
+    <jphi salc_index="20">-2.93538970420162068e-04</jphi>
+    <jphi salc_index="21">8.54667118629624009e-05</jphi>
+    <jphi salc_index="22">5.22424204158028100e-05</jphi>
+    <jphi salc_index="23">1.25425361754455790e-04</jphi>
+    <jphi salc_index="24">3.96149183823603303e-05</jphi>
+    <jphi salc_index="25">2.34712135097197737e-03</jphi>
+    <jphi salc_index="26">-2.44175945670596964e-04</jphi>
+    <jphi salc_index="27">1.43248728429577065e-05</jphi>
+    <jphi salc_index="28">-4.51129188910006490e-04</jphi>
+    <jphi salc_index="29">6.48667522629151262e-05</jphi>
+    <jphi salc_index="30">2.72635654351950413e-04</jphi>
+    <jphi salc_index="31">-2.35396682995677885e-04</jphi>
+    <jphi salc_index="32">-1.00056169588683136e-04</jphi>
+    <jphi salc_index="33">-1.62660949398049128e-04</jphi>
+    <jphi salc_index="34">1.23675462446537861e-04</jphi>
+    <jphi salc_index="35">-7.38248511811667046e-05</jphi>
+    <jphi salc_index="36">-9.06799007614169972e-05</jphi>
+    <jphi salc_index="37">7.02296872133750544e-03</jphi>
+    <jphi salc_index="38">-7.58222723281942902e-05</jphi>
+    <jphi salc_index="39">1.16182963383947252e-03</jphi>
+    <jphi salc_index="40">-8.97898034997424258e-05</jphi>
+    <jphi salc_index="41">-9.22413386289686429e-05</jphi>
+    <jphi salc_index="42">1.21991677434598087e-04</jphi>
+    <jphi salc_index="43">-1.03421070941638697e-04</jphi>
+    <jphi salc_index="44">-1.95367623523132934e-05</jphi>
+    <jphi salc_index="45">-2.32517101679012551e-04</jphi>
+    <jphi salc_index="46">-1.57470644632935541e-04</jphi>
+    <jphi salc_index="47">-5.04321224719083821e-05</jphi>
+    <jphi salc_index="48">-1.47753449265592268e-05</jphi>
+    <jphi salc_index="49">-1.51861034058730244e-04</jphi>
+    <jphi salc_index="50">2.24839638877560914e-04</jphi>
+    <jphi salc_index="51">3.59919973848790340e-04</jphi>
+    <jphi salc_index="52">-1.24168210428005852e-04</jphi>
+    <jphi salc_index="53">-2.24984216545537672e-04</jphi>
+    <jphi salc_index="54">6.86479996196570234e-05</jphi>
+    <jphi salc_index="55">5.12484882193202894e-03</jphi>
+    <jphi salc_index="56">-2.27062077513176855e-04</jphi>
+    <jphi salc_index="57">8.51510477632739896e-06</jphi>
+    <jphi salc_index="58">5.96485877430042040e-04</jphi>
+    <jphi salc_index="59">3.70132889414415530e-05</jphi>
+    <jphi salc_index="60">1.97119473545847603e-04</jphi>
+    <jphi salc_index="61">3.86959595205498583e-04</jphi>
+    <jphi salc_index="62">-9.90462462412280915e-05</jphi>
+    <jphi salc_index="63">-8.34029168712405232e-05</jphi>
+    <jphi salc_index="64">4.07704756157730233e-04</jphi>
+    <jphi salc_index="65">1.42853377483283505e-04</jphi>
+    <jphi salc_index="66">-4.03621731462456160e-05</jphi>
+    <jphi salc_index="67">1.63874437140560536e-04</jphi>
+    <jphi salc_index="68">1.29884656410227123e-04</jphi>
+    <jphi salc_index="69">3.19281382093217182e-04</jphi>
+    <jphi salc_index="70">1.31081241975502204e-04</jphi>
+    <jphi salc_index="71">-9.32528897390374995e-05</jphi>
+    <jphi salc_index="72">-1.90286283330392311e-04</jphi>
+    <jphi salc_index="73">3.88038263054650990e-03</jphi>
+    <jphi salc_index="74">-2.48214433942549339e-04</jphi>
+    <jphi salc_index="75">-1.28260840497899058e-04</jphi>
+    <jphi salc_index="76">-6.83427079837839615e-05</jphi>
+    <jphi salc_index="77">6.17654156862500588e-05</jphi>
+    <jphi salc_index="78">-1.31341127510927993e-04</jphi>
+    <jphi salc_index="79">3.27332138928095268e-04</jphi>
+    <jphi salc_index="80">-1.93699490379894626e-04</jphi>
+    <jphi salc_index="81">2.01177649764127840e-04</jphi>
+    <jphi salc_index="82">-8.26550495885748648e-05</jphi>
+    <jphi salc_index="83">-6.36080663545631793e-05</jphi>
+    <jphi salc_index="84">-3.07488628363951916e-05</jphi>
+    <jphi salc_index="85">-6.79667220549608724e-05</jphi>
+    <jphi salc_index="86">-7.34622280486097769e-05</jphi>
+    <jphi salc_index="87">-8.78456032950045802e-05</jphi>
+    <jphi salc_index="88">-2.60515931138043848e-04</jphi>
+    <jphi salc_index="89">-3.49810925616314322e-04</jphi>
+    <jphi salc_index="90">5.33098244774230003e-05</jphi>
+    <jphi salc_index="91">2.26156273099740584e-04</jphi>
+    <jphi salc_index="92">1.13632998992401672e-04</jphi>
+    <jphi salc_index="93">-1.39492242644207419e-04</jphi>
+    <jphi salc_index="94">-5.44352485128877684e-05</jphi>
+    <jphi salc_index="95">1.73462675355628016e-04</jphi>
+    <jphi salc_index="96">5.25506058533810983e-05</jphi>
+    <jphi salc_index="97">2.09076370854964646e-04</jphi>
+    <jphi salc_index="98">-6.97541092290950715e-05</jphi>
+    <jphi salc_index="99">2.04868631243336821e-04</jphi>
+    <jphi salc_index="100">-3.55280749472789141e-04</jphi>
+    <jphi salc_index="101">1.57221841828149241e-06</jphi>
+    <jphi salc_index="102">-3.82842797513957694e-02</jphi>
+    <jphi salc_index="103">-7.21162855642260188e-04</jphi>
+    <jphi salc_index="104">7.09102161070767375e-04</jphi>
+    <jphi salc_index="105">-1.42267673346403712e-04</jphi>
+    <jphi salc_index="106">-7.10402519743077629e-05</jphi>
+    <jphi salc_index="107">-3.09198687624161065e-04</jphi>
+    <jphi salc_index="108">-5.61422253052066666e-05</jphi>
+    <jphi salc_index="109">-2.44466200100415065e-04</jphi>
+    <jphi salc_index="110">-1.95971816364985050e-04</jphi>
+    <jphi salc_index="111">2.02131935510762922e-03</jphi>
+    <jphi salc_index="112">-1.86581300152485963e-04</jphi>
+    <jphi salc_index="113">-1.99056908764978741e-04</jphi>
+    <jphi salc_index="114">-1.72507650145445130e-05</jphi>
+    <jphi salc_index="115">1.12915988743508128e-04</jphi>
+    <jphi salc_index="116">1.92227910099420848e-04</jphi>
+    <jphi salc_index="117">3.34333073779473645e-05</jphi>
+    <jphi salc_index="118">1.22976234118030012e-04</jphi>
+    <jphi salc_index="119">2.02656898707136222e-04</jphi>
+    <jphi salc_index="120">-3.97163423201390156e-05</jphi>
+    <jphi salc_index="121">-5.98025925835586806e-05</jphi>
+    <jphi salc_index="122">-4.76242997204596023e-06</jphi>
+    <jphi salc_index="123">-2.42407773680862091e-04</jphi>
+    <jphi salc_index="124">-1.23665285741003418e-05</jphi>
+    <jphi salc_index="125">1.90932899621889347e-04</jphi>
+    <jphi salc_index="126">-2.17547457485976059e-04</jphi>
+    <jphi salc_index="127">-1.03837440574003876e-05</jphi>
+    <jphi salc_index="128">6.82673238274905003e-05</jphi>
+    <jphi salc_index="129">-6.36124363070988443e-03</jphi>
+    <jphi salc_index="130">-5.73082169765334345e-05</jphi>
+    <jphi salc_index="131">1.18267742222625345e-04</jphi>
+    <jphi salc_index="132">-1.95325805719409802e-04</jphi>
+    <jphi salc_index="133">-1.23460333772835746e-04</jphi>
+    <jphi salc_index="134">-1.66834441316337758e-04</jphi>
+    <jphi salc_index="135">3.80130919898838060e-05</jphi>
+    <jphi salc_index="136">2.95668798712616786e-04</jphi>
+    <jphi salc_index="137">2.35731762419103338e-05</jphi>
+    <jphi salc_index="138">-2.47226822062335109e-04</jphi>
+    <jphi salc_index="139">3.72106492817092803e-05</jphi>
+    <jphi salc_index="140">-1.19264589017791520e-04</jphi>
+    <jphi salc_index="141">2.39906774160926706e-04</jphi>
+    <jphi salc_index="142">7.66819697207718416e-05</jphi>
+    <jphi salc_index="143">7.33473411717554063e-07</jphi>
+    <jphi salc_index="144">2.69694164464296901e-04</jphi>
+    <jphi salc_index="145">9.06701263395431135e-05</jphi>
+    <jphi salc_index="146">-6.21027976749317727e-05</jphi>
   </JPhi>
 </Magesty>

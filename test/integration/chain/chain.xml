@@ -29,13 +29,13 @@
     <AngularMomentumCouplings num_couplings="1">
       <Coupling index="1" ls="1 1" Lseq="" Lf="0" tensor_shape="3 3" Mf_size="1">
         <Mf value="0" index="1">
-          <coeff_tensor>5.773502691896256e-01 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 5.773502691896257e-01 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00 5.773502691896256e-01</coeff_tensor>
+          <coeff_tensor>5.77350269189625620e-01 0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00 5.77350269189625731e-01 0.00000000000000000e+00 0.00000000000000000e+00 0.00000000000000000e+00 5.77350269189625620e-01</coeff_tensor>
         </Mf>
       </Coupling>
     </AngularMomentumCouplings>
   </System>
   <JPhi unit="eV">
-    <ReferenceEnergy>0.000000000000000e+00</ReferenceEnergy>
-    <jphi salc_index="1">-5.773502691896257e-01</jphi>
+    <ReferenceEnergy>0.00000000000000000e+00</ReferenceEnergy>
+    <jphi salc_index="1">-5.77350269189625731e-01</jphi>
   </JPhi>
 </Magesty>
