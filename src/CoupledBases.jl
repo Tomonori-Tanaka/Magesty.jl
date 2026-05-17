@@ -172,44 +172,6 @@ function reorder_atoms(cb::CoupledBasis, new_atoms::AbstractVector{<:Integer})
 	return CoupledBasis(ls_sorted, cb.Lf, cb.Lseq, atoms_sorted, coeff_perm)
 end
 
-# Helper function to find a permutation that matches (atom, l) pairs
-function _find_matching_permutation(
-	pairs1::Vector{Tuple{Int, Int}},
-	pairs2::Vector{Tuple{Int, Int}},
-)::Union{Vector{Int}, Nothing}
-	N = length(pairs1)
-	N != length(pairs2) && return nothing
-
-	# Quick check: count occurrences of each pair
-	count1 = counter(pairs1)
-	count2 = counter(pairs2)
-	count1 != count2 && return nothing
-
-	# Backtracking to find a permutation
-	perm = zeros(Int, N)
-	used = falses(N)
-
-	function backtrack(i::Int)::Bool
-		if i > N
-			return true
-		end
-		target_pair = pairs1[i]
-		for j in 1:N
-			if !used[j] && pairs2[j] == target_pair
-				perm[i] = j
-				used[j] = true
-				if backtrack(i + 1)
-					return true
-				end
-				used[j] = false
-			end
-		end
-		return false
-	end
-
-	return backtrack(1) ? perm : nothing
-end
-
 
 """
 	AngularMomentumCouplingResult{R}
