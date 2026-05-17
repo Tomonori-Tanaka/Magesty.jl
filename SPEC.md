@@ -139,10 +139,11 @@ rmse_energy(f), rmse_torque(f)
 rss_energy(f), rss_torque(f)
 residuals_energy(f), residuals_torque(f)
 
-# Persistence (XML)
-save(basis_or_model, path)         # path is .xml
-load(SCEBasis, path)               # Read SCEBasis (model XML also accepted)
-load(SCEModel, path)               # Read SCEModel
+# Persistence (XML) — not exported; call through the module to avoid
+# clashing with `save` / `load` from JLD2, FileIO, CSV.jl, etc.
+Magesty.save(basis_or_model, path) # path is .xml
+Magesty.load(SCEBasis, path)       # Read SCEBasis (model XML also accepted)
+Magesty.load(SCEModel, path)       # Read SCEModel
 
 # Estimators
 AbstractEstimator, OLS, Ridge

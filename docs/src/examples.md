@@ -2,8 +2,12 @@
 
 This page demonstrates the new SCE public API:
 `SCEBasis` → `SCEDataset` → `fit(SCEFit, ...)` → `SCEModel` →
-`save` / `load`. Runnable versions of these examples live in the
-`examples/` directory of the repository.
+`Magesty.save` / `Magesty.load`. Runnable versions of these examples
+live in the `examples/` directory of the repository.
+
+`save` and `load` are intentionally **not exported** to avoid clashing
+with the generic names from JLD2, FileIO, CSV.jl, etc.; call them as
+`Magesty.save(...)` / `Magesty.load(...)`.
 
 ## Example 1: Basic flow
 
@@ -22,7 +26,7 @@ println("R^2  energy: ", r2_energy(f))
 println("RMSE torque: ", rmse_torque(f) * 1000, " meV")
 println("j0: ", intercept(f), "  number of SCE coefficients: ", length(coef(f)))
 
-save(SCEModel(f), "model.xml")
+Magesty.save(SCEModel(f), "model.xml")
 ```
 
 ## Example 2: Building from a CIF file (AtomsIO)
@@ -94,13 +98,13 @@ XML and reload it later to skip that step.
 using Magesty
 
 # Session 1: cache the basis.
-save(SCEBasis("input.toml"), "basis.xml")
+Magesty.save(SCEBasis("input.toml"), "basis.xml")
 
 # Session 2: reload, fit, save the model.
-basis   = load(SCEBasis, "basis.xml")
+basis   = Magesty.load(SCEBasis, "basis.xml")
 dataset = SCEDataset(basis, "EMBSET.dat")
 f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
-save(SCEModel(f), "model.xml")
+Magesty.save(SCEModel(f), "model.xml")
 ```
 
 ## Example 6: Predict and evaluate on custom configurations

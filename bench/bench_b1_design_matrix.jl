@@ -44,7 +44,7 @@ end
 
 function main()
     println("Loading SCEBasis from ", SYSTEM_XML)
-    basis = load(SCEBasis, SYSTEM_XML)
+    basis = Magesty.load(SCEBasis, SYSTEM_XML)
     println("Loading EMBSET from ", EMBSET_PATH)
     spinconfigs = read_embset(EMBSET_PATH)
     println("num_spinconfigs = ", length(spinconfigs))

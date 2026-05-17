@@ -48,9 +48,13 @@ residuals_torque
 
 ## Persistence
 
+`save` and `load` are not exported — call them as `Magesty.save` /
+`Magesty.load` to avoid clashing with the generic `save` / `load` exported
+by JLD2, FileIO, CSV.jl, and others.
+
 ```@docs
-save
-load
+Magesty.save
+Magesty.load
 ```
 
 ## Estimators

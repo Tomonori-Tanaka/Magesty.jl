@@ -96,7 +96,7 @@ const A_FEGE = 9.378              # Cubic lattice constant from input.toml
 	spinconfigs = spinconfigs_all[1:num_cfg]
 	dataset = SCEDataset(basis, spinconfigs)
 	fitted = fit(SCEFit, dataset, OLS(); torque_weight = 1.0)
-	save(SCEModel(fitted), joinpath(@__DIR__, "scecoeffs.xml"))
+	Magesty.save(SCEModel(fitted), joinpath(@__DIR__, "scecoeffs.xml"))
 
 	@testset "SCE Regression Roundtrip (energy + torque)" begin
 		num_atoms = basis.structure.supercell.num_atoms

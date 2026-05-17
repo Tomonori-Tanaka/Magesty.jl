@@ -13,7 +13,7 @@ using StaticArrays
 
 const EXAMPLE_DIR = joinpath(@__DIR__, "..", "test", "integration", "fept_tetragonal_2x2x2")
 
-basis = load(SCEBasis, joinpath(EXAMPLE_DIR, "system.xml"))
+basis = Magesty.load(SCEBasis, joinpath(EXAMPLE_DIR, "system.xml"))
 spinconfigs = read_embset(joinpath(EXAMPLE_DIR, "EMBSET.dat"))
 
 ws_e = EnergyWorkspace()

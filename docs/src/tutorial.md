@@ -68,21 +68,25 @@ println("R²    energy: ", r2_energy(f))
 
 ## Exporting and reloading results
 
-`save` / `load` round-trip a basis or model via XML. The XML schema is
-shared with the Monte Carlo package `SpinClusterMC.jl`.
+`Magesty.save` / `Magesty.load` round-trip a basis or model via XML. They
+are deliberately **not exported** so that the generic `save` / `load`
+exported by JLD2, FileIO, CSV.jl, etc. can coexist in the same script;
+call them through the module:
 
 ```julia
 # Persist a fitted model.
-save(SCEModel(f), "model.xml")
+Magesty.save(SCEModel(f), "model.xml")
 
 # Persist just the basis (skip the expensive SALC build next time).
-save(basis, "basis.xml")
+Magesty.save(basis, "basis.xml")
 
 # Later session: reload and refit without recomputing SALCs.
-basis   = load(SCEBasis, "basis.xml")
+basis   = Magesty.load(SCEBasis, "basis.xml")
 dataset = SCEDataset(basis, "EMBSET.dat")
 f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
 ```
+
+The XML schema is shared with the Monte Carlo package `SpinClusterMC.jl`.
 
 ## Predicting on new configurations
 

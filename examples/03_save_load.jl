@@ -18,19 +18,19 @@ function main()
 
         # --- Session 1: build and cache the basis, fit and save a model.
         basis = SCEBasis(joinpath(FIXTURE, "input.toml"); verbosity = false)
-        save(basis, basis_path)
+        Magesty.save(basis, basis_path)
 
         dataset = SCEDataset(basis, joinpath(FIXTURE, "EMBSET.dat"))
         f = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
-        save(SCEModel(f), model_path)
+        Magesty.save(SCEModel(f), model_path)
 
         println("Saved basis to ", basis_path)
         println("Saved model to ", model_path)
         println("In-sample RMSE energy: ", rmse_energy(f))
 
         # --- Session 2: reload basis and model without rebuilding SALCs.
-        reloaded_basis = load(SCEBasis, basis_path)
-        reloaded_model = load(SCEModel, model_path)
+        reloaded_basis = Magesty.load(SCEBasis, basis_path)
+        reloaded_model = Magesty.load(SCEModel, model_path)
         println("Reloaded basis: ",
                 length(reloaded_basis.salcbasis.salc_list), " SALCs")
         println("Reloaded model j0: ", reloaded_model.j0)

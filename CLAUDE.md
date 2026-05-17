@@ -140,7 +140,10 @@ buf = zeros(3)
 
 **Expensive operations**:
 - SALC construction in `SALCBasis` is heavy. To reuse, persist with
-  `save(basis, path)` and reload with `load(SCEBasis, path)`.
+  `Magesty.save(basis, path)` and reload with
+  `Magesty.load(SCEBasis, path)` (`save` / `load` are intentionally not
+  exported, to avoid clashing with the generic names from JLD2, FileIO,
+  CSV.jl, etc.).
 
 **Bench bookkeeping**:
 - When touching a hot path (`Fitting` / `SALCBases` / `TesseralHarmonics` /
@@ -160,12 +163,14 @@ and the SpheriCart agreement test
 others silently breaks the design matrix.
 
 ### SCE coefficient I/O
-The round trip of `save(basis_or_model, path)` /
-`load(SCEBasis, path)` / `load(SCEModel, path)` (`src/XMLIO.jl`) must agree
-to the last digit. When changing the on-disk format, basis ordering, or the
-field layout of `SCEBasis` / `SCEModel`, update both sides together. Do not
-reintroduce the old `write_xml` / `build_sce_basis_from_xml` names — the new
-`save` / `load` API is canonical.
+The round trip of `Magesty.save(basis_or_model, path)` /
+`Magesty.load(SCEBasis, path)` / `Magesty.load(SCEModel, path)`
+(`src/XMLIO.jl`) must agree to the last digit. When changing the on-disk
+format, basis ordering, or the field layout of `SCEBasis` / `SCEModel`,
+update both sides together. Do not reintroduce the old `write_xml` /
+`build_sce_basis_from_xml` names — the new `save` / `load` API is
+canonical, and is intentionally non-exported (call via `Magesty.save` /
+`Magesty.load`).
 
 ### Fitting and SALCBasis
 The design-matrix construction in `Fitting.jl` depends on the key-group

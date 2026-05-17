@@ -11,7 +11,7 @@ using Magesty
 basis   = SCEBasis("input.toml")
 dataset = SCEDataset(basis, "EMBSET.dat")
 f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
-save(SCEModel(f), "model.xml")
+Magesty.save(SCEModel(f), "model.xml")  # save / load are not exported; call via the module
 ```
 
 # Main types
@@ -76,7 +76,6 @@ export predict_energy, predict_torque
 export fit, coef, intercept, nobs, dof
 export r2_energy, r2_torque, rss_energy, rss_torque
 export residuals_energy, residuals_torque, rmse_energy, rmse_torque
-export save, load
 export read_embset
 export VERSION, install_tools
 

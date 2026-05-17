@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** `save` and `load` are no longer exported from `Magesty`.
+  Call them as `Magesty.save(...)` / `Magesty.load(...)`. This avoids the
+  name clash with the generic `save` / `load` exported by JLD2, FileIO,
+  CSV.jl, and other packages.
+
 ## [0.1.0] - 2026-05-17
 
 First public release.

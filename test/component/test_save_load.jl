@@ -42,15 +42,15 @@ end
 @testset "save / load" begin
 	@testset "extension dispatch" begin
 		basis = SCEBasis(SL_DIMER_TOML; verbosity = false)
-		@test_throws ArgumentError save(basis, "model.txt")
-		@test_throws ArgumentError save(basis, "model")
-		@test_throws ArgumentError load(SCEBasis, "basis.json")
-		@test_throws ArgumentError load(SCEModel, "model.yaml")
+		@test_throws ArgumentError Magesty.save(basis, "model.txt")
+		@test_throws ArgumentError Magesty.save(basis, "model")
+		@test_throws ArgumentError Magesty.load(SCEBasis, "basis.json")
+		@test_throws ArgumentError Magesty.load(SCEModel, "model.yaml")
 
 		# An uppercase `.XML` extension is accepted.
 		mktempdir() do dir
 			path = joinpath(dir, "BASIS.XML")
-			save(basis, path)
+			Magesty.save(basis, path)
 			@test isfile(path)
 		end
 	end
@@ -59,8 +59,8 @@ end
 		basis = SCEBasis(SL_DIMER_TOML; verbosity = false)
 		mktempdir() do dir
 			path = joinpath(dir, "basis.xml")
-			save(basis, path)
-			reloaded = load(SCEBasis, path)
+			Magesty.save(basis, path)
+			reloaded = Magesty.load(SCEBasis, path)
 
 			@test reloaded isa SCEBasis
 			@test reloaded.isotropy == basis.isotropy
@@ -82,8 +82,8 @@ end
 		model = SCEModel(basis, -3.141592653589793, collect(1:n_salc) ./ 7)
 		mktempdir() do dir
 			path = joinpath(dir, "model.xml")
-			save(model, path)
-			reloaded = load(SCEModel, path)
+			Magesty.save(model, path)
+			reloaded = Magesty.load(SCEModel, path)
 
 			@test reloaded isa SCEModel
 			@test reloaded.j0 ≈ model.j0
@@ -100,17 +100,17 @@ end
 		model = SCEModel(basis, 1.5, collect(1.0:n_salc))
 		mktempdir() do dir
 			model_path = joinpath(dir, "model.xml")
-			save(model, model_path)
+			Magesty.save(model, model_path)
 
-			# load(SCEBasis, ...) accepts an SCEModel XML, dropping <JPhi>.
-			from_model = load(SCEBasis, model_path)
+			# Magesty.load(SCEBasis, ...) accepts an SCEModel XML, dropping <JPhi>.
+			from_model = Magesty.load(SCEBasis, model_path)
 			@test from_model isa SCEBasis
 			_assert_salcbasis_equal(basis.salcbasis, from_model.salcbasis)
 
-			# load(SCEModel, ...) on a basis-only XML is a clear error.
+			# Magesty.load(SCEModel, ...) on a basis-only XML is a clear error.
 			basis_path = joinpath(dir, "basis.xml")
-			save(basis, basis_path)
-			@test_throws ArgumentError load(SCEModel, basis_path)
+			Magesty.save(basis, basis_path)
+			@test_throws ArgumentError Magesty.load(SCEModel, basis_path)
 		end
 	end
 
@@ -124,8 +124,8 @@ end
 		dataset = SCEDataset(basis, SL_FEPT_EMBSET)
 		mktempdir() do dir
 			path = joinpath(dir, "fept_basis.xml")
-			save(basis, path)
-			reloaded = load(SCEBasis, path)
+			Magesty.save(basis, path)
+			reloaded = Magesty.load(SCEBasis, path)
 			dataset_reloaded = SCEDataset(reloaded, SL_FEPT_EMBSET)
 
 			@test dataset_reloaded.X_E ≈ dataset.X_E
@@ -154,10 +154,10 @@ end
 				("fege_basis", SCEBasis),
 			)
 				baseline = joinpath(SL_BASELINE_DIR, "$name.xml")
-				obj = load(T, baseline)
+				obj = Magesty.load(T, baseline)
 				mktempdir() do dir
 					path = joinpath(dir, "$name.xml")
-					save(obj, path)
+					Magesty.save(obj, path)
 					@test read(path, String) == read(baseline, String)
 				end
 			end
@@ -168,7 +168,7 @@ end
 				("fept_basis", SL_FEPT_TOML),
 				("fege_basis", SL_FEGE_TOML),
 			)
-				baseline = load(SCEBasis, joinpath(SL_BASELINE_DIR, "$name.xml"))
+				baseline = Magesty.load(SCEBasis, joinpath(SL_BASELINE_DIR, "$name.xml"))
 				fresh = SCEBasis(toml; verbosity = false)
 				_assert_salcbasis_equal(baseline.salcbasis, fresh.salcbasis; atol = 1e-8)
 			end

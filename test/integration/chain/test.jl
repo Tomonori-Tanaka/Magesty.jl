@@ -38,7 +38,7 @@ input = TOML.parse(open(joinpath(@__DIR__, "input.toml"), "r"))
 	# Energy-only fit (torque is the dummy zero field above; weight=0 reproduces the legacy w=0 path).
 	fitted = fit(SCEFit, dataset, OLS(); torque_weight = 0.0)
 	model = SCEModel(fitted)
-	save(model, joinpath(@__DIR__, "chain.xml"))
+	Magesty.save(model, joinpath(@__DIR__, "chain.xml"))
 
 	@test Magesty.TesseralHarmonics.Zₗₘ(1, 0, [0.0, 0.0, 1.0]) ≈ √(3 / 4π) atol = 1e-6
 
