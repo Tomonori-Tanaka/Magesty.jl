@@ -51,41 +51,4 @@ using Magesty
 		@test predict_energy(model, spin_directions_afm) ≈ energy_analytic_afm atol = 1e-6
 	end
 
-	@testset "Hypothetical SCE model (anisotropic)" begin
-
-		# Assuing the exchange tensor considering all pairs:
-		exchange_tensor_expected = [
-			-1/3 0.0 0.0;
-			0.0 -1/3 0.0;
-			0.0 0.0 2/3]
-		isotropic_jij_expected = 0 # tr(exchange_tensor_expected) / 3
-		dm_vector_expected = [0.0, 0.0, 0.0]
-		gamma_matrix_expected = [
-			-1/3 0.0 0.0;
-			0.0 -1/3 0.0;
-			0.0 0.0 2/3]
-
-		fm_z_aligned = [
-			0.0 0.0 0.0 0.0;
-			0.0 0.0 0.0 0.0;
-			1.0 1.0 1.0 1.0]
-		fm_x_aligned = [
-			1.0 1.0 1.0 1.0;
-			0.0 0.0 0.0 0.0;
-			0.0 0.0 0.0 0.0]
-
-		input = TOML.parse(open(joinpath(@__DIR__, "input_anisotropic.toml"), "r"))
-		basis = SCEBasis(input; verbosity = false)
-		save(basis, joinpath(@__DIR__, "system_anisotropic.xml"))
-
-		# Only Lf=2 SALCs contribute to the symmetric anisotropic exchange; set others to zero.
-		# Use norm of the coefficient vector (length = 2*Lf+1) to get the scalar SALC weight.
-		salc_coeffs = [salc[1].Lf == 2 ? norm(salc[1].coefficient) : 0.0 for salc in basis.salcbasis.salc_list]
-
-		# TODO: Add test for SCEModel
-		# model = SCEModel(basis, 0.0, jphi_list)
-
-
-	end
-
 end
