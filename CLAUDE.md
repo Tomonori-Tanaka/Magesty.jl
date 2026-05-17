@@ -79,6 +79,7 @@ Always run tests via the Makefile after edits.
 | `make test-tools` | `tools/test/` | Tests for `tools/` scripts |
 | `make test-jet` | — | JET.jl static type analysis |
 | `make test-aqua` | — | Aqua.jl package-quality checks |
+| `make test-coverage` | `src/` | Per-file coverage report (ascending). One-time `make coverage-setup` first |
 
 See the Makefile for benchmark targets (`make bench-sphericart`,
 `make bench-salcbasis`, etc.).
