@@ -1,5 +1,8 @@
 /Manifest.toml
 /bench/Manifest.toml
+/coverage/Manifest.toml
+**/*.cov
+/coverage.lcov
 .cursor/
 **/.DS_Store
 .DS_Store

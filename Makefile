@@ -18,6 +18,17 @@ test-aqua:
 
 # Note: SpheriCart agreement tests are part of test-unit (no separate target).
 
+coverage-setup:
+	julia --project=coverage -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
+
+test-coverage:
+	julia --project --code-coverage=user -e 'using Pkg; Pkg.test(coverage=true)'
+	julia --project=coverage tools/coverage_report.jl
+
+clean-coverage:
+	find src -name '*.cov' -delete
+	rm -f coverage.lcov
+
 bench-setup:
 	julia --project=bench -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
 

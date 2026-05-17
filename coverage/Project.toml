@@ -1,0 +1,7 @@
+[deps]
+Coverage = "a2441757-f6aa-5fb2-8edb-039e3f45d037"
+Magesty = "329bda51-4b33-4ad1-95c9-f0535f133d43"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+
+[compat]
+Coverage = "1"
