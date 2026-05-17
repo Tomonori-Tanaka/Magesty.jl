@@ -10,8 +10,8 @@ using Magesty
 
 basis   = SCEBasis("input.toml")
 dataset = SCEDataset(basis, "EMBSET.dat")
-f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
-Magesty.save(SCEModel(f), "model.xml")  # save / load are not exported; call via the module
+f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4))   # torque_weight = 1.0 by default
+Magesty.save(SCEModel(f), "model.xml")                 # save / load are not exported; call via the module
 ```
 
 # Main types
@@ -432,23 +432,95 @@ end
 
 """
 	fit(::Type{SCEFit}, dataset::SCEDataset, estimator::AbstractEstimator;
-	    torque_weight::Real = 0.5) -> SCEFit
+	    torque_weight::Real = 1.0) -> SCEFit
 
 Fit SCE coefficients on `dataset` with `estimator`, returning a `SCEFit`.
 
 `torque_weight` in `[0, 1]` sets the convex combination of the per-sample
 energy and torque mean squared errors that the augmented least-squares
-problem minimizes: `(1 - torque_weight) * MSE_energy + torque_weight *
-MSE_torque`. The design matrices stored in `dataset` are unweighted, so a
+problem minimizes:
+
+```
+loss(jphi, j0) = (1 - torque_weight) * MSE_energy + torque_weight * MSE_torque
+```
+
+with
+
+```
+MSE_energy = (1 / n_E) * Σ_{i=1..n_E}            (y_E[i] - ŷ_E[i])^2
+MSE_torque = (1 / n_T) * Σ_{k=1..n_T}            (y_T[k] - ŷ_T[k])^2
+```
+
+where `n_E` is the number of configurations,
+`n_T = 3 * num_atoms * n_E` is the total number of torque components,
+`y_E` / `y_T` are the observed energies and flattened torques, and
+`ŷ_E` / `ŷ_T` are the predictions of the model parameterised by
+`(j0, jphi)`. Dividing each block by its sample count makes the two
+terms commensurate, so the convex combination is meaningful regardless
+of how many torque components a system has.
+
+Limiting cases:
+
+| `torque_weight` | Behavior                                                       |
+|-----------------|----------------------------------------------------------------|
+| `0`             | Energy-only fit; torques are ignored.                          |
+| `1`             | Torque-only fit (default); energies enter through `j0` only.   |
+| `0 < w < 1`     | Joint fit. `0.5` weighs both per-sample MSEs equally.          |
+
+The default `1.0` is chosen on physical grounds: the SCE coefficients
+`jphi` are best determined by torque residuals, which carry the per-atom
+directional information that drives the response of the spin model.
+Energies enter the fit through the closed-form reference-energy
+recovery `j0 = mean(y_E - X_E[:, 2:end] * jphi)`, so a torque-only fit
+still yields a usable `j0`. Set `torque_weight < 1` only when the
+energies carry information that the torques do not — typically because
+the dataset is energy-rich and torque-poor.
+
+Both MSEs are computed on the raw (unscaled) energy and torque
+residuals — the energy unit of the DFT input (typically eV) for the
+energy term, and eV per unit spin direction for the torque term. The
+two terms therefore live on the *same* physical scale (energy squared),
+so the default and the limiting cases are meaningful out of the box.
+
+The design matrices stored in `dataset` are unweighted, so a
 `torque_weight` sweep reuses one `SCEDataset` without rebuilding them.
 
 This is the StatsAPI `fit` verb; `using Magesty` re-exports it.
+
+# Arguments
+- `::Type{SCEFit}`: Target type — dispatch tag, written literally.
+- `dataset::SCEDataset`: Training dataset (basis + design matrices +
+  observations).
+- `estimator::AbstractEstimator`: Regression estimator (`OLS()` or
+  `Ridge(lambda=...)`).
+- `torque_weight::Real = 1.0`: Convex weight described above.
+
+# Returns
+- `SCEFit`: The fitted model. Inspect with `coef`, `intercept`,
+  `r2_energy`, `rmse_torque`, …; persist with
+  `Magesty.save(SCEModel(f), path)`.
+
+# Examples
+```julia
+# Default: torque-only fit with Ridge regularization.
+f = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
+
+# Energy-only fit, ignoring torques entirely.
+f0 = fit(SCEFit, dataset, OLS(); torque_weight = 0.0)
+
+# Reuse one dataset across a `torque_weight` sweep without rebuilding
+# the design matrices.
+for w in (0.0, 0.25, 0.5, 0.75, 1.0)
+    println(w, "  ", rmse_torque(fit(SCEFit, dataset, OLS();
+                                     torque_weight = w)))
+end
+```
 """
 function fit(
 	::Type{SCEFit},
 	dataset::SCEDataset,
 	estimator::AbstractEstimator;
-	torque_weight::Real = 0.5,
+	torque_weight::Real = 1.0,
 )::SCEFit
 	X, y, bias_col = Fitting.assemble_weighted_problem(
 		dataset.X_E,

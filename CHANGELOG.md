@@ -12,6 +12,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Call them as `Magesty.save(...)` / `Magesty.load(...)`. This avoids the
   name clash with the generic `save` / `load` exported by JLD2, FileIO,
   CSV.jl, and other packages.
+- **Breaking:** The default `torque_weight` of
+  `fit(SCEFit, dataset, estimator)` changed from `0.5` to `1.0`
+  (torque-only fit). The SCE coefficients `jphi` are best determined by
+  torque residuals, and `j0` is recovered in closed form from the
+  energy block, so a torque-only default produces better-conditioned
+  fits on typical DFT datasets. Set `torque_weight = 0.5` explicitly to
+  recover the previous behavior.
 
 ### Removed
 

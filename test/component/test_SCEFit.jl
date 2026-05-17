@@ -52,7 +52,7 @@ end
 
     @testset "default torque_weight" begin
         f = fit(SCEFit, dataset, OLS())
-        @test f.torque_weight == 0.5
+        @test f.torque_weight == 1.0
     end
 
     @testset "Ridge estimator" begin

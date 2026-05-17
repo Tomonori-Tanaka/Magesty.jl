@@ -20,7 +20,9 @@ function main()
     println("Number of training configurations: ", length(dataset))
 
     # 3. Fit with Ridge regression and inspect in-sample metrics.
-    f = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
+    #    `torque_weight` defaults to 1.0 (torque-only fit); pass
+    #    `torque_weight = 0.5` for a balanced joint fit.
+    f = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
     println("Reference energy j0:  ", intercept(f))
     println("RMSE energy (in-sample): ", rmse_energy(f))
     println("R^2  energy (in-sample): ", r2_energy(f))

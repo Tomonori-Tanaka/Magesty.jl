@@ -55,10 +55,12 @@ basis = SCEBasis("input.toml")
 # 2. Pair the basis with training data to form a dataset.
 dataset = SCEDataset(basis, "EMBSET.dat")
 
-# 3. Fit. `torque_weight` is the convex combination of per-sample
-#    energy MSE and torque MSE that the augmented least-squares problem
-#    minimizes — `0.5` weights both equally.
-f = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
+# 3. Fit. `torque_weight ∈ [0, 1]` is the convex combination of the
+#    per-sample energy MSE and torque MSE the augmented least-squares
+#    problem minimizes; the default `1.0` is a torque-only fit. Set
+#    `torque_weight = 0.5` to weigh both equally, or `0.0` to fit on
+#    energies alone.
+f = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
 
 println("Reference energy j0: ", intercept(f), " eV")
 println("Number of SCE coefficients: ", length(coef(f)))
@@ -83,7 +85,7 @@ Magesty.save(basis, "basis.xml")
 # Later session: reload and refit without recomputing SALCs.
 basis   = Magesty.load(SCEBasis, "basis.xml")
 dataset = SCEDataset(basis, "EMBSET.dat")
-f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
+f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
 ```
 
 The XML schema is shared with the Monte Carlo package `SpinClusterMC.jl`.
@@ -111,7 +113,7 @@ T = predict_torque(model, spin_directions)   # 3 × num_atoms matrix
 n_train = round(Int, 0.8 * length(dataset))
 train, test = dataset[1:n_train], dataset[(n_train + 1):end]
 
-f = fit(SCEFit, train, Ridge(lambda = 1e-4); torque_weight = 0.5)
+f = fit(SCEFit, train, Ridge(lambda = 1e-4))
 println("in-sample  RMSE energy: ", rmse_energy(f))
 println("out-sample RMSE energy: ", rmse_energy(f, test))
 ```

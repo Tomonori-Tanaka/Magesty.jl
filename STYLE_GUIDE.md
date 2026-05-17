@@ -39,6 +39,44 @@ Follow the Julia-official ordering:
 function -> IO -> mutated args -> types -> non-mutated args -> keyword args
 ```
 
+### Public-API constructors and verbs
+
+On top of the language-level ordering above, Magesty's public
+constructors and verbs follow a consistent shape. Read it as "what the
+result is built from" first, "how it should be built" next, and
+"behavior knobs" last:
+
+```
+(data inputs) -> interaction spec -> symmetry / tolerance options
+              -> cosmetic options -> verbosity
+```
+
+Examples (`SCEBasis` has four input paths; all four keep this order):
+
+- `SCEBasis(system_spec, interaction, options; verbosity=true)`
+- `SCEBasis(system; interaction, name="system", tolerance_sym=1e-5,
+  isotropy=false, verbosity=true)` (AtomsBase path)
+- `SCEBasis(; lattice, kd, kd_list, positions, periodicity, interaction,
+  name="system", tolerance_sym=1e-5, isotropy=false, verbosity=true)`
+  (kwargs path)
+- `SCEDataset(basis, spinconfigs)` — basis already carries the
+  symmetry / interaction settings.
+- `SCEDataset(system, spinconfigs; interaction, name, tolerance_sym,
+  isotropy, verbosity)` — same trailing kwargs as `SCEBasis`.
+- `SCEModel(basis, j0, jphi)` — basis first, then intercept, then
+  coefficients (scalar before vector).
+
+Verbs follow the StatsBase / StatsAPI shape:
+
+- `fit(SCEFit, dataset, estimator; torque_weight=1.0)` — the only
+  tunable lives in kwargs.
+- `predict_energy(predictor, data)`, `r2_energy(predictor, data)`, …
+  always take the predictor first and the evaluation data second.
+
+When adding a new input path or overload, keep this order. Behavior
+flags (booleans, `verbosity`) belong at the end as keyword arguments
+with sensible defaults so that the happy path stays positional.
+
 ## Type annotations
 
 - Annotate arguments of public APIs.

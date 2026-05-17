@@ -4,7 +4,7 @@ Magesty.jl reads structure and interaction settings from a TOML file
 (consumed by `SCEBasis(toml_path)` / `SCEBasis(input_dict)`). Fit
 parameters (estimator, regularization, torque weight) are **not** part
 of the TOML — they are passed in Julia at `fit` time, e.g.
-`fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)`.
+`fit(SCEFit, dataset, Ridge(lambda = 1e-4))`.
 
 ## Annotated Example
 
@@ -162,14 +162,17 @@ dataset = SCEDataset(basis, "EMBSET.dat")
 f = fit(
     SCEFit, dataset,
     Ridge(lambda = 1e-4);   # estimator: OLS() or Ridge(; lambda)
-    torque_weight = 0.5,    # ∈ [0, 1]: 0 = energy only, 1 = torque only,
+    torque_weight = 1.0,    # ∈ [0, 1]: 0 = energy only, 1 = torque only,
                             # 0.5 = balanced (per-sample MSE convex combination)
 )
 ```
 
 - **`torque_weight`** ∈ `[0, 1]` — the convex weight applied to the
   per-sample torque MSE; the energy MSE gets `1 - torque_weight`.
-  `0` = fit energies only; `1` = fit torques only. Default: `0.5`.
+  `0` = fit energies only; `1` = fit torques only. Default: `1.0`
+  (torque-only fit; the SCE coefficients are best determined by torque
+  residuals, and `j0` is recovered in closed form from the energy
+  block).
 - **Estimator** — `OLS()` for no regularization, or `Ridge(lambda = λ)`
   for L2 with strength `λ ≥ 0`. The bias column (`j0`) is excluded
   from the penalty.

@@ -19,7 +19,7 @@ using Magesty
 
 basis   = SCEBasis("input.toml")
 dataset = SCEDataset(basis, "EMBSET.dat")
-f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
+f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
 
 println("RMSE energy: ", rmse_energy(f) * 1000, " meV")
 println("R^2  energy: ", r2_energy(f))
@@ -53,7 +53,7 @@ basis   = SCEBasis(
     isotropy = false,
 )
 dataset = SCEDataset(basis, "EMBSET.dat")
-f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
+f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
 ```
 
 ## Example 3: Estimator comparison (reuse one dataset)
@@ -66,7 +66,7 @@ using Magesty
 
 dataset = SCEDataset(SCEBasis("input.toml"), "EMBSET.dat")
 for est in (OLS(), Ridge(lambda = 1e-4), Ridge(lambda = 1e-2))
-    f = fit(SCEFit, dataset, est; torque_weight = 0.5)
+    f = fit(SCEFit, dataset, est)
     println(est, ": RMSE energy = ", rmse_energy(f))
 end
 ```
@@ -84,7 +84,7 @@ n_train = round(Int, 0.8 * length(dataset))
 train   = dataset[1:n_train]
 test    = dataset[(n_train + 1):end]
 
-f = fit(SCEFit, train, Ridge(lambda = 1e-4); torque_weight = 0.5)
+f = fit(SCEFit, train, Ridge(lambda = 1e-4))
 println("in-sample  RMSE energy: ", rmse_energy(f))
 println("out-sample RMSE energy: ", rmse_energy(f, test))
 ```
@@ -103,7 +103,7 @@ Magesty.save(SCEBasis("input.toml"), "basis.xml")
 # Session 2: reload, fit, save the model.
 basis   = Magesty.load(SCEBasis, "basis.xml")
 dataset = SCEDataset(basis, "EMBSET.dat")
-f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
+f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
 Magesty.save(SCEModel(f), "model.xml")
 ```
 
@@ -115,7 +115,7 @@ using LinearAlgebra
 
 basis   = SCEBasis("input.toml")
 dataset = SCEDataset(basis, "EMBSET.dat")
-f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
+f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
 model   = SCEModel(f)
 
 num_atoms = basis.structure.supercell.num_atoms

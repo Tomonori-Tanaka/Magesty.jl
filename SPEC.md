@@ -124,7 +124,7 @@ SCEDataset(system, spinconfigs; interaction, ...)  # AtomsBase shortcut
 SCEDataset(toml_path, spinconfigs) # TOML shortcut
 
 # Fitting
-fit(SCEFit, dataset, estimator; torque_weight = 0.5) -> SCEFit
+fit(SCEFit, dataset, estimator; torque_weight = 1.0) -> SCEFit
 SCEModel(f::SCEFit) -> SCEModel    # Lightweight prediction-only conversion
 
 # Prediction (accepts model / fit / dataset / SpinConfig / Matrix)

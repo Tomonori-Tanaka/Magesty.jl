@@ -21,7 +21,7 @@ function main()
         Magesty.save(basis, basis_path)
 
         dataset = SCEDataset(basis, joinpath(FIXTURE, "EMBSET.dat"))
-        f = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
+        f = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
         Magesty.save(SCEModel(f), model_path)
 
         println("Saved basis to ", basis_path)

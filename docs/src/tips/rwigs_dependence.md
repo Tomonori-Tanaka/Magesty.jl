@@ -214,6 +214,6 @@ using TOML
 input   = TOML.parsefile("input.toml")
 basis   = SCEBasis(input; verbosity = true)
 dataset = SCEDataset(basis, "EMBSET.dat")
-fitted  = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
-save(SCEModel(fitted), "jphi.xml")
+fitted  = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
+Magesty.save(SCEModel(fitted), "jphi.xml")
 ```
