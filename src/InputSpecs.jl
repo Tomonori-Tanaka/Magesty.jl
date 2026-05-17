@@ -138,8 +138,8 @@ struct InteractionSpec
                     "bodyn_cutoff axes must be (2:$nbody, 1:$nkd, 1:$nkd), got $(axes(bodyn_cutoff))",
                 ),
             )
-            for n in 2:nbody
-                for i in 1:nkd, j in 1:nkd
+            for n = 2:nbody
+                for i = 1:nkd, j = 1:nkd
                     bodyn_cutoff[n, i, j] == bodyn_cutoff[n, j, i] || throw(
                         ArgumentError(
                             "bodyn_cutoff[$n, $i, $j] = $(bodyn_cutoff[n, i, j]) not symmetric with [$n, $j, $i] = $(bodyn_cutoff[n, j, i])",
@@ -284,7 +284,7 @@ function expand_pair_table(
     end
 
     out = zeros(Float64, nkd, nkd)
-    for i in 1:nkd, j in i:nkd
+    for i = 1:nkd, j = i:nkd
         matches = [p for p in parsed if _matches_pair(p, i, j)]
         if isempty(matches)
             throw(ArgumentError(
@@ -345,7 +345,7 @@ function expand_species_table(
     out = fill(typemin(Int), nkd)
     has_wildcard = any(e -> e.tier == 1, parsed)
     wildcard_val = has_wildcard ? first(e for e in parsed if e.tier == 1).value : 0
-    for i in 1:nkd
+    for i = 1:nkd
         concrete_hit = filter(e -> e.tier == 0 && e.idx == i, parsed)
         if !isempty(concrete_hit)
             out[i] = concrete_hit[1].value
@@ -454,7 +454,7 @@ function parse_toml_inputs(dict::AbstractDict)
     else
         bodyn_lsum = OffsetArray(fill(typemin(Int), nbody - 1), 2:nbody)
         bodyn_cutoff = OffsetArray(zeros(Float64, nbody - 1, nkd, nkd), 2:nbody, 1:nkd, 1:nkd)
-        for n in 2:nbody
+        for n = 2:nbody
             bodyn_key = "body$n"
             haskey(inter, bodyn_key) || throw(
                 ArgumentError("interaction.$bodyn_key section is missing for nbody = $nbody"),
@@ -471,7 +471,7 @@ function parse_toml_inputs(dict::AbstractDict)
                 kd_name, bodyn["cutoff"];
                 context = "interaction.$bodyn_key.cutoff",
             )
-            for i in 1:nkd, j in 1:nkd
+            for i = 1:nkd, j = 1:nkd
                 bodyn_cutoff[n, i, j] = cutoff_mat[i, j]
             end
         end

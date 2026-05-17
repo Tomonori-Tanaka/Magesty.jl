@@ -330,9 +330,9 @@ function calc_x_images(
 	
 	# Calculate virtual cells
 	cell::Int = 1
-	for k in -1:1
-		for j in -1:1
-			for i in -1:1
+	for k = -1:1
+		for j = -1:1
+			for i = -1:1
 				if i == 0 && j == 0 && k == 0
 					continue  # Skip the center cell
 				end
@@ -393,11 +393,11 @@ function calc_exist_image(is_periodic::SVector{3, Bool})::Vector{Bool}
 	# Use static vector for offset calculations
 	offset = MVector{3, Int}(undef)
 	
-	for z in -1:1
+	for z = -1:1
 		offset[3] = z
-		for y in -1:1
+		for y = -1:1
 			offset[2] = y
-			for x in -1:1
+			for x = -1:1
 				offset[1] = x
 				if x == 0 && y == 0 && z == 0
 					continue  # Skip the center cell

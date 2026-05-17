@@ -126,9 +126,9 @@ function _canonicalize_eigenspace(
 	P = V * V'                                # projector onto span(V); basis-invariant
 	W = Matrix{Float64}(undef, n, d)
 	k = 0
-	for j in 1:n
+	for j = 1:n
 		u = P[:, j]
-		for i in 1:k
+		for i = 1:k
 			u .-= dot(view(W, :, i), u) .* view(W, :, i)
 		end
 		nu = norm(u)
@@ -256,7 +256,7 @@ function SALCBasis(
 	# Each key can have multiple SALC groups (one per eigenvector)
 	salc_list_per_key = Vector{Vector{Vector{CoupledBases.CoupledBasis_with_coefficient}}}(undef, num_keys)
 
-	@threads for idx in 1:num_keys
+	@threads for idx = 1:num_keys
 		salc_list_per_key[idx] = _compute_salc_groups(coupled_basislists[idx], symmetry)
 	end
 
@@ -398,7 +398,7 @@ function construct_and_classify_coupled_basislist(
 	# Handle 1-body case
 	for iat in symmetry.atoms_in_prim
 		lmax = body1_lmax[structure.supercell.kd_int_list[iat]]
-		for l in 2:lmax # skip l = 1 because it is prohibited by the time-reversal symmetry
+		for l = 2:lmax # skip l = 1 because it is prohibited by the time-reversal symmetry
 			if l % 2 == 1 # skip odd l cases due to the time-reversal symmetry
 				continue
 			end
@@ -428,7 +428,7 @@ function construct_and_classify_coupled_basislist(
 
 	# Process multi-body cases using cluster_orbits_dict for efficient processing
 	# Group by orbit first, then classify within each orbit
-	for body in 2:nbody
+	for body = 2:nbody
 		# Use cluster_orbits_dict to process clusters grouped by symmetry orbits
 		if haskey(cluster_orbits_dict, body)
 			for (orbit_index, orbit_clusters) in cluster_orbits_dict[body]
@@ -521,7 +521,7 @@ function listup_coupled_basislist(
 	isotropy::Bool = false,
 )::Vector{CoupledBases.CoupledBasis}
 	result_basislist = Vector{CoupledBases.CoupledBasis}()
-	for l in 2:lsum
+	for l = 2:lsum
 		# Skip if l is less than number of atoms (each atom needs at least l=1)
 		# or if l is odd (prohibited by time-reversal symmetry)
 		if l < length(atom_list) || isodd(l)
@@ -753,7 +753,7 @@ function projection_matrix_coupled_basis(
 		base_rot_mat = base_rot_mats[n]
 
 		for (i, cb1) in enumerate(coupled_basislist)
-			@inbounds for k in 1:N_atoms
+			@inbounds for k = 1:N_atoms
 				atoms_shifted_list[k] = symmetry.map_sym[cb1.atoms[k], n]
 			end
 			primitive_atoms = find_translation_atoms(atoms_shifted_list, cluster_atoms, symmetry)

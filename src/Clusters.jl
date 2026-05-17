@@ -342,15 +342,14 @@ function generate_clusters(
 		tol = symmetry.tol,
 	)
 	interaction_cutoff_dict = Dict{Int, Dict{Int, Vector{AtomCell}}}()
-	for body in 2:nbody
+	for body = 2:nbody
 		interaction_cutoff_dict[body] = Dict{Int, Vector{AtomCell}}()
 		for prim_atom_sc in symmetry.atoms_in_prim
 			prim_atom_type = structure.supercell.kd_int_list[prim_atom_sc]
 			interaction_cutoff_dict[body][prim_atom_sc] = AtomCell[]
 			for other_atom_sc = 1:structure.supercell.num_atoms
 				if prim_atom_sc == other_atom_sc
-					;
-					continue;
+					continue
 				end
 				other_atom_type = structure.supercell.kd_int_list[other_atom_sc]
 				rc = cutoff_radii[body, prim_atom_type, other_atom_type]
@@ -371,7 +370,7 @@ function generate_clusters(
 	# Finalize each cutoff bucket in sorted AtomCell order; downstream uses
 	# combinations() and translationally-equivalent cluster matching, both of
 	# which assume sorted input.
-	for body in 2:nbody, prim_atom_sc in symmetry.atoms_in_prim
+	for body = 2:nbody, prim_atom_sc in symmetry.atoms_in_prim
 		sort!(interaction_cutoff_dict[body][prim_atom_sc])
 	end
 
@@ -379,7 +378,7 @@ function generate_clusters(
 	# in irreducible_clusters expects sorted atom lists); the outer vector
 	# preserves insertion order.
 	interaction_clusters = Dict{Int, Dict{Int, Vector{Vector{AtomCell}}}}()
-	for body in 2:nbody
+	for body = 2:nbody
 		interaction_clusters[body] = Dict{Int, Vector{Vector{AtomCell}}}()
 		for prim_atom_sc in symmetry.atoms_in_prim
 			interaction_clusters[body][prim_atom_sc] = Vector{AtomCell}[]
@@ -387,7 +386,7 @@ function generate_clusters(
 	end
 
 
-	for body in 2:nbody, prim_atom_sc in symmetry.atoms_in_prim
+	for body = 2:nbody, prim_atom_sc in symmetry.atoms_in_prim
 		prim_atom_ac::AtomCell = AtomCell(prim_atom_sc, 1)
 		interaction_atoms::Vector{AtomCell} = interaction_cutoff_dict[body][prim_atom_sc]
 		if body == 2
@@ -422,14 +421,14 @@ function generate_clusters(
 	end
 
 	result = Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}()
-	for body in 2:nbody
+	for body = 2:nbody
 		result[body] = Dict{Int, OrderedDict{Vector{Int}, Int}}()
 		for prim_atom_sc in symmetry.atoms_in_prim
 			result[body][prim_atom_sc] = OrderedDict{Vector{Int}, Int}()
 		end
 	end
 
-	for body in 2:nbody
+	for body = 2:nbody
 		for prim_atom_sc in symmetry.atoms_in_prim
 			cluster_counts = OrderedDict{Vector{Int}, Int}()
 			for cluster::Vector{AtomCell} in interaction_clusters[body][prim_atom_sc]
@@ -503,7 +502,7 @@ function print_cluster_stdout(
 	# Create neighbor list for each primitive atom
 	for (i_prim, i_prim_atom) in enumerate(atoms_in_prim)
 		neighbor_list[i_prim] = DistList[]
-		for j in 1:num_atoms
+		for j = 1:num_atoms
 			push!(
 				neighbor_list[i_prim],
 				DistList(j, min_distance_pairs[i_prim_atom, j][1].distance),
@@ -525,7 +524,7 @@ function print_cluster_stdout(
 
 		dist_tmp = 0.0
 
-		for j in 1:num_atoms
+		for j = 1:num_atoms
 			# Skip if distance is zero (same atom)
 			if neighbor_list[i_prim][j].dist < 1e-8
 				continue

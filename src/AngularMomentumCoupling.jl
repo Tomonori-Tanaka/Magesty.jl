@@ -91,7 +91,7 @@ function enumerate_paths_left_all(ls::Vector{Int})::Vector{Tuple{Vector{Int}, In
 
 	# N = 2: Lseq is empty, list all Lf allowed by triangle rule
 	if N == 2
-		for Lf in abs(ls[1]-ls[2]):(ls[1]+ls[2])
+		for Lf = abs(ls[1]-ls[2]):(ls[1]+ls[2])
 			push!(paths, (Int[], Lf))
 		end
 		return paths
@@ -101,19 +101,19 @@ function enumerate_paths_left_all(ls::Vector{Int})::Vector{Tuple{Vector{Int}, In
 	function recbuild(k::Int, Lprev::Int, seq::Vector{Int})
 		if k == N-1
 			# Final stage: (Lprev, lN) -> Lf for all triangle-allowed Lf
-			for Lf in abs(Lprev-ls[end]):(Lprev+ls[end])
+			for Lf = abs(Lprev-ls[end]):(Lprev+ls[end])
 				push!(paths, (copy(seq), Lf))
 			end
 			return
 		end
 		lk1 = ls[k+1]
-		for L in abs(Lprev-lk1):(Lprev+lk1)  # triangle rule
+		for L = abs(Lprev-lk1):(Lprev+lk1)  # triangle rule
 			recbuild(k+1, L, vcat(seq, L))
 		end
 	end
 
 	# First stage: (l1, l2) -> L12
-	for L12 in abs(ls[1]-ls[2]):(ls[1]+ls[2])
+	for L12 = abs(ls[1]-ls[2]):(ls[1]+ls[2])
 		recbuild(2, L12, [L12])
 	end
 	return paths
@@ -174,7 +174,7 @@ function coeff_tensor_complex(
 		# Stage 1: (l1,l2) -> L12 (sum over M12)
 		L12 = Lseq[1]
 		acc_prev = Dict{Int, T}()    # map: M12 -> amplitude
-		for M12 in (-L12):L12
+		for M12 = (-L12):L12
 			v = float(clebschgordan(ls[1], ms[1], ls[2], ms[2], L12, M12))
 			if v != 0
 				acc_prev[M12] = v
@@ -182,12 +182,12 @@ function coeff_tensor_complex(
 		end
 
 		# Intermediate stages: (L_{...}, l_{t+1}) -> L_t
-		for t in 2:(N-2)
+		for t = 2:(N-2)
 			Lt_1, Lt = Lseq[t-1], Lseq[t]
 			mt1 = ms[t+1]
 			acc = Dict{Int, T}()
 			for (Mprev, aval) in acc_prev
-				for Mt in (-Lt):Lt
+				for Mt = (-Lt):Lt
 					v = aval * float(clebschgordan(Lt_1, Mprev, ls[t+1], mt1, Lt, Mt))
 					if v != 0
 						acc[Mt] = get(acc, Mt, zero(T)) + v
@@ -224,7 +224,7 @@ function complex_to_real_tensor(Ccx::AbstractArray{<:Number}, ls::Vector{Int}, L
 	C = Ccx
 
 	# 1) Site-side (bra): apply transformation from complex to real
-	for i in 1:N
+	for i = 1:N
 		S = c2r_sph_harm_matrix(ls[i])  # real = C * complex
 		C = nmode_mul(C, conj.(S), i)   # For coefficient tensors, apply C* transformation
 	end
