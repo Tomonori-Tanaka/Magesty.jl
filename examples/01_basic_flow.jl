@@ -7,7 +7,7 @@
 
 using Magesty
 
-const FIXTURE = joinpath(@__DIR__, "..", "test", "examples", "fept_tetragonal_2x2x2")
+const FIXTURE = joinpath(@__DIR__, "..", "test", "integration", "fept_tetragonal_2x2x2")
 
 function main()
     # 1. Build the SCE basis from a TOML template.
