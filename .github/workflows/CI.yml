@@ -64,6 +64,18 @@ jobs:
       - name: Run JET
         run: make test-jet
 
+  tools:
+    name: Tools
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1'
+      - uses: julia-actions/cache@v2
+      - name: Run tools tests
+        run: make test-tools
+
   docs:
     name: Documentation
     runs-on: ubuntu-latest
