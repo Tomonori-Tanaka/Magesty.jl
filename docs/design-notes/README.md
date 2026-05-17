@@ -1,48 +1,54 @@
-# Design Notes
+# Design notes
 
-設計検討・調査結果・パフォーマンスバックログを置く場所。リポジトリルートの
-`DESIGN_NOTES.md` がインデックスで、各トピックの本体は本ディレクトリ配下に
-1 ファイルずつ置く。
+Home for design discussions, investigations, and the performance
+backlog. `DESIGN_NOTES.md` at the repository root is the index; each
+topic body lives here as one file.
 
-## ディレクトリの使い分け
+## When to use which directory
 
-| 場所 | 内容 | 例 |
+| Location | Contents | Example |
 |---|---|---|
-| `docs/specs/` | 合意済み・着手中・完了の開発単位（requirements/design/tasklist の 3 ファイル構成） | `docs/specs/260513-write-xml-api/` |
-| `docs/design-notes/` | まだ spec 化していない設計検討・調査結果・バックログ | このディレクトリ |
-| `docs/src/` | Documenter で生成するユーザー向けドキュメント | `docs/src/api.md` |
+| `docs/specs/` | Agreed-on, in-progress, or completed development units (`requirements.md` / `design.md` / `tasklist.md`) | `docs/specs/260513-write-xml-api/` |
+| `docs/design-notes/` | Pre-spec design discussions, investigations, backlog | this directory |
+| `docs/src/` | User-facing docs built by Documenter | `docs/src/api.md` |
 
-## ファイル命名規約
+## File naming
 
-- 英語の kebab-case（`<topic>.md` または `<topic>-<aspect>.md`）。
-- 日付プレフィックスは付けない（トピックで引きやすくするため）。タイムスタンプはファイル内の Status 行で管理。
-- 1 ファイル = 1 トピック（設計案 1 つ、または関連する調査群）。
-- 「調査・ベンチマーク・採用判断」のような事後参照系は `investigations/` サブディレクトリへ。
+- English kebab-case (`<topic>.md` or `<topic>-<aspect>.md`).
+- No date prefix (topic-first; the timestamp lives in the in-file
+  `Status:` line).
+- One topic per file (a single proposal, or a tight group of
+  investigations).
+- Post-mortem materials (investigations, benchmarks, adoption
+  assessments) go under `investigations/`.
 
-## 運用ルール
+## Operating rules
 
-1. **新規トピック**: `docs/design-notes/<topic>.md` を作り、リポジトリルートの `DESIGN_NOTES.md` にエントリを追加。
-2. **spec 化されたら**: `DESIGN_NOTES.md` のリンクを `docs/specs/...` に切り替える。design-note のファイル本体は履歴として残す（削除しない）。
-3. **完了状態**: ファイルは残す。ステータスは見出し直下の `**Status**:` 行と `DESIGN_NOTES.md` のインデックスで管理。
-4. **長さ**: 1 ファイルが 500 行を超えるようなら、サブ分割を検討。
+1. **New topic**: create `docs/design-notes/<topic>.md` and add a row
+   to `DESIGN_NOTES.md`.
+2. **When the topic becomes a spec**: replace the link in
+   `DESIGN_NOTES.md` with the new `docs/specs/...` path. Keep the
+   design-note body as a historical record (do not delete it).
+3. **Completed state**: leave the file in place. Track status via the
+   `**Status**:` line under the title and the `DESIGN_NOTES.md` index.
+4. **Length**: if a single file exceeds ~500 lines, consider splitting.
 
-## ファイル先頭の構造
-
-各ファイルは以下のフォーマットで始める:
+## File header template
 
 ```markdown
-# <タイトル>
+# <Title>
 
-**Status**: 未着手 / 進行中 / 完了 (YYYY-MM-DD)
+**Status**: not started / in progress / complete (YYYY-MM-DD)
 
-[必要なら 1〜2 行の結論サマリ]
+[1-2 line conclusion summary, if useful]
 
-## 背景
+## Background
 
 ...
 ```
 
-## 内部参照
+## Internal references
 
-`.jl` ソースから本ディレクトリのファイルを参照しないこと（CLAUDE.md 規約）。
-本ディレクトリは Claude との協働用 scaffolding で、ソースから独立して読めるべき。
+Do not reference files in this directory from `.jl` source (CLAUDE.md
+rule). This directory is Claude-collaboration scaffolding; source code
+must read independently.

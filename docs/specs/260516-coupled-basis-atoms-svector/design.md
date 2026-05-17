@@ -62,7 +62,7 @@ just forwards `new_atoms` as a vector.
 
 ## Hot-path rewrite (`SALCBases.jl:756`)
 
-Before (current, post-旧 #10 簡易対応):
+Before (current, post former #10 quick fix):
 
 ```julia
 atoms_shifted_list = Vector{Int}(undef, length(cb1.atoms))  # hoisted outside loop
@@ -119,6 +119,6 @@ Same fixture / scripts as B1+B3 and the workspace refactor:
   `design_matrix_energy_element` and `calc_∇ₑu!` (may already be at
   floor; recheck).
 
-Expectation: modest. The hoisted-buffer (旧 #10 簡易対応) already
+Expectation: modest. The hoisted-buffer (former #10 quick fix) already
 absorbed most of the per-call alloc. Main win is in
 `projection_matrix_coupled_basis` build phase and code clarity.

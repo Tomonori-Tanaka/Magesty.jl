@@ -1,24 +1,30 @@
-# Design Notes Index
+# Design notes index
 
-設計検討・調査結果・バックログのインデックス。詳細は各リンク先を参照。
-着手済みの開発単位は `docs/specs/` を参照。実装済みの履歴は `.claude/bench_log.md` と `git log`。
+Index of design discussions, investigations, and on-hold ideas. Follow the
+links for detail. Active development units live under `docs/specs/`;
+historical benchmarks live in `.claude/bench_log.md` and `git log`.
 
-ディレクトリ運用ルールは [`docs/design-notes/README.md`](docs/design-notes/README.md)。
+Operating rules: [`docs/design-notes/README.md`](docs/design-notes/README.md).
 
-## 設計提案
+## Design proposals
 
-| トピック | Status | 最終更新 |
+| Topic | Status | Last update |
 |---|---|---|
-| [LASSO / Adaptive LASSO / Adaptive Ridge estimator の導入](docs/design-notes/lasso-adaptive-estimators.md) | 未着手（GLMNet.jl 採用方針で合意、spec 化前ドラフト） | 2026-05-16 |
-| [Pre-release cleanup (v0.1.0)](docs/design-notes/pre-release-cleanup.md) | 未着手 | 2026-05-17 |
+| [LASSO / Adaptive LASSO / Adaptive Ridge estimators](docs/design-notes/lasso-adaptive-estimators.md) | not started (GLMNet.jl chosen; pre-spec draft) | 2026-05-16 |
+| [Pre-release cleanup (v0.1.0)](docs/design-notes/pre-release-cleanup.md) | not started | 2026-05-17 |
+| [Julia compat policy](docs/design-notes/julia-compat-policy.md) | operating rule | 2026-05-17 |
 
-完了済みの設計提案は対応する spec (`docs/specs/`) に統合されているため本インデックスから外している。spec フォルダ自身が公式の履歴であり、design-note 本体は削除している（commit history で参照可能）。
+Completed proposals are folded into their corresponding spec under
+`docs/specs/` and removed from this index. The spec folder is the
+canonical history; the original design-note body is dropped (git history
+preserves it).
 
-## 調査結果
+## Investigations
 
-- [SpheriCart.jl 採用の可否](docs/design-notes/investigations/sphericart-adoption.md) — 結論: 不採用（2-3× 遅い）(2026-05-11)
+- [SpheriCart.jl adoption assessment](docs/design-notes/investigations/sphericart-adoption.md)
+  — conclusion: not adopted (2–3x slower) (2026-05-11)
 
-## パフォーマンスバックログ
+## Performance backlog
 
-- [Zₗₘ / Legendre / SH バッファ系の改善案](docs/design-notes/backlog.md) — 軽量な思いつきメモ、保留候補
-
+- [`Zₗₘ` / Legendre / SH buffer improvement ideas](docs/design-notes/backlog.md)
+  — lightweight notes and on-hold candidates

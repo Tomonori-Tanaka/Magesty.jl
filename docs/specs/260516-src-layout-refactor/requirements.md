@@ -2,80 +2,88 @@
 
 ## Background
 
-`v0.1.0-DEV` の公開（GitHub / General registry 登録を想定）に向けて、
-`src/` 配下のファイル名・モジュール名・ディレクトリ構成を「初見の読み手」
-にとって違和感なく追えるように整える。実装挙動は変えない — 名前と配置のみ。
+Ahead of publishing `v0.1.0-DEV` (intended for GitHub release and the
+General registry), tidy up `src/` file names, module names, and
+directory layout so a first-time reader can follow them without
+friction. Implementation behavior is unchanged — names and placement
+only.
 
 ## Goals
 
-1. ファイル名とその中で `module X` 宣言する `X` を一致させる
-   （Julia の標準的な慣習）。
-2. `My` プレフィックスのように公開パッケージとして気が引ける名前を改める。
-3. `common/` `types/` `utils/` の境界が曖昧でファイル数も偏っている
-   現状を解消する。
-4. `src/Magesty.jl` の `include` ブロックを上から読んだときに依存順序が
-   理解しやすくなっていること。
+1. Make file names match the `module X` declared inside them (the
+   standard Julia convention).
+2. Rename names that feel awkward for a public package, such as the
+   `My` prefix family.
+3. Resolve the current `common/` / `types/` / `utils/` split: the
+   boundaries are vague and file counts are skewed.
+4. Make the `include` block at the top of `src/Magesty.jl` readable as
+   a dependency-ordered sequence.
 
 ## Non-goals
 
-- 公開 API（`export` されているシンボル）のシグネチャ変更。
-  改称対象は **内部モジュール名のみ**。
-- 物理規約（符号・単位・規格化）の変更。
-- パフォーマンス変更。
-- テストの追加・修正以外でのテスト構造変更。
-- `tools/` の構造変更（中身のリファクタは別件）。
+- Signature changes to the public API (`export`-ed symbols). Renames
+  affect **internal module names only**.
+- Physics-convention changes (signs, units, normalization).
+- Performance changes.
+- Test-structure changes other than adding / fixing tests.
+- Restructuring `tools/` (its internal refactor is a separate effort).
 
 ## Invariants
 
-R1. **公開 API は完全に不変**:
-    `SCEBasis`, `SCEDataset`, `SCEFit`, `SCEModel`, `OLS`, `Ridge`,
-    `AbstractEstimator`, `fit`, `coef`, `intercept`, `nobs`, `dof`,
-    `predict_energy`, `predict_torque`, `r2_*`, `rmse_*`, `rss_*`,
-    `residuals_*`, `save`, `load`, `read_embset`, `VERSION`,
-    `install_tools` — すべて同じ呼び出しで動く。
+R1. **Public API stays identical**: `SCEBasis`, `SCEDataset`,
+    `SCEFit`, `SCEModel`, `OLS`, `Ridge`, `AbstractEstimator`, `fit`,
+    `coef`, `intercept`, `nobs`, `dof`, `predict_energy`,
+    `predict_torque`, `r2_*`, `rmse_*`, `rss_*`, `residuals_*`,
+    `save`, `load`, `read_embset`, `VERSION`, `install_tools` — all
+    callable with the same signatures.
 
-R2. **テストは現状通り全て緑**:
-    `make test-unit` / `make test-integration` / `make test-aqua` /
-    `make test-jet` / `make test-tools` がリファクタ前と同じ結果。
+R2. **Tests stay green as before**: `make test-unit` /
+    `make test-integration` / `make test-aqua` / `make test-jet` /
+    `make test-tools` produce the same outcomes as pre-refactor.
 
-R3. **XML スキーマと EMBSET フォーマットは無変更**:
-    既存の `.xml` / `EMBSET.dat` がそのまま読み込める。
+R3. **XML schema and EMBSET format unchanged**: existing `.xml` /
+    `EMBSET.dat` files continue to load.
 
-R4. **docs ビルドが通る**: `make build` がエラーなし。
-    `@docs` ブロックで参照しているモジュール／関数のパスが追従する
-    （e.g. `MySphericalHarmonics.Zₗₘ` → 改称後の名前）。
+R4. **Docs build passes**: `make build` runs cleanly. `@docs` blocks
+    follow the renamed modules / functions
+    (e.g., `MySphericalHarmonics.Zₗₘ` -> the new name).
 
-R5. **`SPEC.md` がリファクタ後のレイアウトを正しく反映**。
+R5. **`SPEC.md` reflects the post-refactor layout.**
 
 ## Scope
 
 ### In-scope
 
-- `src/` 配下のファイル名・ディレクトリ構成・内部モジュール名の変更
-- `src/Magesty.jl` 内の `include` パスと `using .X` の調整
-- `SPEC.md` のディレクトリ図と表の同期
-- `docs/src/api.md` の `@docs` ブロック内モジュール名の同期
-- `CLAUDE.md` 内で `MySphericalHarmonics` 等を名指ししている箇所の同期
-- `test/` の `using` 文の更新（モジュール名が変わった場合）
-- **`tools/` 配下の追随修正のみ**: `src/` の改名・移動に伴う
-  `include`／`using`／パス参照の最小限の同期（構造の変更や中身の
-  リファクタは含めない）
+- Renames and directory restructure under `src/` (file names,
+  directory layout, internal module names).
+- Adjust `include` paths and `using .X` in `src/Magesty.jl`.
+- Sync the directory diagram and table in `SPEC.md`.
+- Sync `@docs` module names in `docs/src/api.md`.
+- Sync references to names like `MySphericalHarmonics` inside
+  `CLAUDE.md`.
+- Update `using` statements in `test/` when a module name changes.
+- **`tools/` follow-on edits only**: minimal `include` / `using` /
+  path-reference sync forced by the rename or move; no structural
+  change.
 
 ### Out-of-scope
 
-- `tools/` の構造変更・スクリプトのリファクタ（別件）
-- `docs/specs/`（過去 spec の本文は履歴として保持）
-- `examples/`（公開 API のみ使うので無変更）
+- Restructuring or rewriting `tools/` scripts (separate effort).
+- `docs/specs/` (past spec bodies are kept as history).
+- `examples/` (uses only the public API, so unaffected).
 
 ## Completion criteria
 
-C1. `src/` 配下の `.jl` ファイル名と `module` 宣言が一致している。
-C2. `My` プレフィックス等、再考対象として挙がった名前が全て解消されている。
+C1. Every `.jl` file under `src/` agrees with its `module`
+    declaration.
+C2. Every name flagged for reconsideration (e.g., the `My` prefix) is
+    resolved.
 C3. `make test-all` / `make test-aqua` / `make test-jet` /
-    `make test-tools` / `make build` すべて緑。
-C4. 公開 API テスト（`test/component_test/`）の `using Magesty` 起点の
-    呼び出しはコード変更なしで動く。
-C5. `SPEC.md` と `docs/src/api.md` がリファクタ後の構成を反映している。
-C6. `tools/` 配下に `src/` の旧パス／旧モジュール名を指す参照が残って
-    いない（`grep` 確認）。
-C7. PR description に「公開 API 不変」と「改称マッピング表」が含まれる。
+    `make test-tools` / `make build` all green.
+C4. Public-API tests under `test/component/` keep working without any
+    edits to call sites that start from `using Magesty`.
+C5. `SPEC.md` and `docs/src/api.md` reflect the post-refactor layout.
+C6. No references to old paths or old module names remain under
+    `tools/` (confirm via `grep`).
+C7. The PR description includes both "public API unchanged" and the
+    rename-mapping table.

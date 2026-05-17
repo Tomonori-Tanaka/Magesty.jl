@@ -109,7 +109,7 @@ No XML schema changes.
 
 ## Linked sites that must stay in sync
 
-Per `CLAUDE.md`'s "連動箇所" section, the SCE coefficient I/O loop
+Per `CLAUDE.md`'s "Linked sites" section, the SCE coefficient I/O loop
 (write_xml / build_sce_basis_from_xml round-trip) must continue to
 match integer-precision. Verified by
 `test/component_test/test_save_load.jl` and

@@ -1,7 +1,7 @@
 """
     plot_jphi_cluster_distance.jl
 
-Read `jphi.xml` (Magesty `write_xml` output) and plot each SALC coefficient `jphi`
+Read `jphi.xml` (Magesty `save` output) and plot each SALC coefficient `jphi`
 against the maximum over cluster atom pairs of minimum-image (MIC) distance.
 
 - By default, all SALCs (all N-body terms) are shown.
@@ -182,7 +182,7 @@ function main()
 	s = ArgParseSettings(; description = "Plot jphi vs max intracluster MIC distance from Magesty XML.")
 	@add_arg_table s begin
 		"input"
-		help = "Path to jphi.xml (or other Magesty write_xml output)"
+		help = "Path to jphi.xml (or other Magesty save output)"
 		required = true
 		arg_type = String
 		"--bodies", "-b"

@@ -2,8 +2,8 @@
 
 Status: draft (2026-05-13)
 Spec: [`requirements.md`](requirements.md)
-Source design memo: `DESIGN_NOTES.md` §"設計案: Optimize.jl の estimator
-dispatch リファクタリング（2026-05-13、未着手）"
+Source design memo: `DESIGN_NOTES.md` "Estimator dispatch refactor for
+Optimize.jl" proposal (2026-05-13, not started at the time)
 
 ## Module layout
 
@@ -303,7 +303,7 @@ removal is a follow-up after a deprecation window.
 ## Linked sections (must update when this lands)
 
 - `src/Magesty.jl`: re-export `Ridge` instead of `ElasticNet`.
-- `DESIGN_NOTES.md`: append a "完了 → PR #XXX" line to the
+- `DESIGN_NOTES.md`: append a "complete -> PR #XXX" line to the
   estimator-dispatch section after merge; note the `ElasticNet → Ridge`
   rename in the same line.
 - The user-facing API design memo references this refactor as a

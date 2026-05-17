@@ -81,7 +81,7 @@ keep tests green.
 - [ ] `SPEC.md`: replace `Config4System` references with the three
       typed values; cross-reference the cluster definition section.
 - [ ] `DESIGN_NOTES.md` index: update
-      `config4system-role.md` Status to "spec 化済み (260516-typed-input-spec)".
+      `config4system-role.md` Status to "promoted to spec (260516-typed-input-spec)".
 - [ ] `docs/design-notes/config4system-role.md`: add a note pointing to
       this spec as the realization (already done in Step 0 of the plan
       — re-verify).
