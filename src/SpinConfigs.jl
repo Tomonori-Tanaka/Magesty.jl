@@ -366,4 +366,11 @@ function separate_embset(
 
 	return SpinConfig(energy, magmom_size, spin_directions, local_magfield)
 end
+
+# Compact REPL display. Default Julia output dumps every per-atom matrix.
+function Base.show(io::IO, sc::SpinConfig)
+	print(io, "SpinConfig(num_atoms=", length(sc.magmom_size),
+		", energy=", sc.energy, ")")
+end
+
 end
