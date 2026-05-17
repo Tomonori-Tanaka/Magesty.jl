@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: https://github.com/Tomonori-Tanaka/Magesty.jl/security/advisories/new
+    about: Please report security issues privately, not as public issues.
+  - name: Questions and discussion
+    url: https://github.com/Tomonori-Tanaka/Magesty.jl/discussions
+    about: Use Discussions for usage questions and open-ended topics.

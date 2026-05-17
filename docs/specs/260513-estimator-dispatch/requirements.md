@@ -119,9 +119,8 @@ Out of scope (deferred to follow-up specs):
       golden value captured from `main` at the start of this branch.
 - [ ] `julia --project test/benchmark_optimize.jl --with-fit --samples 20` shows no statistically significant
       regression (record before/after in `.claude/bench_log.md`).
-- [ ] `DESIGN_NOTES.md` "設計案: estimator dispatch リファクタリング"
-      section gets a one-line pointer to the implementing PR /
-      "完了" marker.
+- [ ] `DESIGN_NOTES.md` "Estimator dispatch refactor" proposal gets a
+      one-line pointer to the implementing PR / "complete" marker.
 
 ## Linked sections (must update or check if touched)
 
@@ -140,9 +139,8 @@ Out of scope (deferred to follow-up specs):
 - `SPEC.md` / `docs/src/api.md` / `docs/src/tutorial.md` /
   `docs/src/examples.md` — replace `ElasticNet` with `Ridge` in
   prose and code samples.
-- `DESIGN_NOTES.md` §"設計案: Optimize.jl の estimator dispatch
-  リファクタリング" — keep as-is until merged; then mark "完了"
-  with PR link.
+- `DESIGN_NOTES.md` "Estimator dispatch refactor for Optimize.jl"
+  proposal — keep as-is until merged; then mark "complete" with PR link.
 
 ## Risk register
 

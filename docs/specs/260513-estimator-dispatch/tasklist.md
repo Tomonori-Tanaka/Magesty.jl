@@ -128,10 +128,10 @@ was tracked in the session-scoped task list.
 ## M7 — Wrap-up  ✅
 
 - [x] Update `DESIGN_NOTES.md` estimator-dispatch section: added a
-      "完了" status header noting the rename and bench result.
+      "complete" status header noting the rename and bench result.
 - [x] Update the user-facing API design memo in `DESIGN_NOTES.md`
       to swap `ElasticNet(lambda=...)` for `Ridge(lambda=...)` in the
-      code samples. The "他の estimator" placeholder list still
+      code samples. The "other estimators" placeholder list still
       mentions `ElasticNet(alpha=0.5, lambda=0.1)` deliberately as
       a reference to the *future* genuine mixed-norm estimator the
       name is now reserved for.

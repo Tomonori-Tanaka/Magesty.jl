@@ -1,0 +1,31 @@
+# `docs/specs/` index
+
+Folders for mid-sized or larger development units. Operating rules live
+in the "Managing development units" section of
+[CLAUDE.md](../../CLAUDE.md). When starting a new spec, copy from
+[`_template/`](_template/).
+
+## Status table
+
+| Spec | Status | One-line summary |
+|---|---|---|
+| [260513-estimator-dispatch](260513-estimator-dispatch/) | complete (2026-05-13) | Estimator-dispatch refactor for `fit(SCEFit, ...)` |
+| [260513-write-xml-api](260513-write-xml-api/) | complete (2026-05-13) | Cleanup of `save` / `load` XML API |
+| [260514-replace-sorted-container](260514-replace-sorted-container/) | complete (2026-05-14) | Introduce `SortedCounters` to drop a heavy dependency |
+| [260514-sce-public-api](260514-sce-public-api/) | merged (2026-05-14, tasklist still says draft) | Public-API design: `SCEBasis` / `SCEDataset` / `SCEFit` / `SCEModel` |
+| [260516-coupled-basis-atoms-svector](260516-coupled-basis-atoms-svector/) | abandoned (2026-05-16) | `SVector` for the atoms field; no performance win |
+| [260516-coupled-basis-typeparam](260516-coupled-basis-typeparam/) | complete (2026-05-16) | Type parameterization `CoupledBasis{R}` for type stability |
+| [260516-optimize-workspace](260516-optimize-workspace/) | complete (2026-05-16) | Scratch workspace for the Optimize hot path |
+| [260516-src-layout-refactor](260516-src-layout-refactor/) | complete (2026-05-16) | Flatten `src/`, drop `common/` / `types/` / `utils/` |
+| [260516-typed-input-spec](260516-typed-input-spec/) | merged (2026-05-16, tasklist still says draft) | Typed-value gate: `SystemSpec` / `InteractionSpec` / `SymmetryOptions` |
+
+This table and the `Status:` line in each `tasklist.md` are duplicated
+intentionally; update both when a spec lands. Reconcile in bulk when
+drift is found.
+
+## Completion criteria
+
+Each `tasklist.md` ends with a shared exit checklist (see
+[`_template/tasklist.md`](_template/tasklist.md)). In particular,
+**`.claude/agents/` is easy to forget** — whenever module names or
+Makefile targets change, sweep the agent files as well.

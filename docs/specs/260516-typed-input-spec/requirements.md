@@ -79,7 +79,7 @@ Out of scope:
   the same rule for every n ≥ 2) is unchanged. Only documented, not
   modified.
 - **SALCBasis (l, m, site) ordering**: untouched. Fitting / XML I/O rely
-  on it (see CLAUDE.md "連動箇所").
+  on it (see CLAUDE.md "Linked sites").
 
 ## Out-of-scope invariants (explicitly may change)
 

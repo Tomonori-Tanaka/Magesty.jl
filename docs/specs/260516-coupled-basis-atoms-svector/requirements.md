@@ -39,7 +39,7 @@ Hot spot the change targets:
 
 - `projection_matrix_coupled_basis` (`SALCBases.jl:756`):
   `atoms_shifted_list[k] = symmetry.map_sym[cb1.atoms[k], n]` — the
-  buffer `atoms_shifted_list` was hoisted earlier (旧 #10 簡易対応).
+  buffer `atoms_shifted_list` was hoisted earlier (former #10 quick fix).
   With `SVector` atoms, the natural rewrite is
   `atoms_shifted = SVector{R-1,Int}(symmetry.map_sym[a, n] for a in cb1.atoms)`,
   fully stack-allocated.

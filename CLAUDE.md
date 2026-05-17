@@ -1,184 +1,280 @@
 # CLAUDE.md
 
-## プロジェクトの目的
+## Project goal
 
-ノンコリニアなスピン DFT 計算からスピンクラスター展開 (SCE) を用いて、一般的な有効スピンモデルを構築する Julia パッケージ。
-スタイルのリファクタリングよりも、**数値的な正確さ・再現性・物理的な整合性**を優先する。
+Julia package that builds general effective spin models from noncollinear
+spin DFT calculations using the spin-cluster expansion (SCE). We prioritize
+**numerical correctness, reproducibility, and physical consistency** over
+stylistic refactoring.
 
-## 基本ルール
+## Core rules
 
-- 数値規約（符号・単位・規格化）を黙って変更しない。
-- アルゴリズムを編集する前に、関連する方程式と現在の符号・単位規約を確認すること。
-- 数値結果を変える可能性のある変更には、必ず以下を伴うこと：
-  1. 結果が変わる理由の簡潔な説明
-  2. リグレッションまたは検証テスト
-  3. ユーザー向けの場合は `docs/` / `examples/` の更新
-- `git commit` および `git push` は必ず事前に確認をとる（ローカルコミットも勝手に行わない）。
+- Never silently change numerical conventions (signs, units, normalization).
+- Before editing an algorithm, confirm the relevant equations and the
+  current sign / unit conventions.
+- Any change that may alter numerical results must come with:
+  1. A short explanation of why the result changes.
+  2. A regression or validation test.
+  3. Updates to `docs/` / `examples/` if user-facing.
+- Always confirm with the user before `git commit` or `git push`. Do not
+  create local commits without an explicit instruction.
 
-## 実装規約
+## Implementation rules
 
-- 隠れたグローバル状態を避ける。
-- エクスポートされる API には明示的な型アノテーションと docstring を付ける。
-- 型アノテーションを積極的に付ける（`::Float64`, `::Vector{Float64}`, `::SVector{3, Float64}` 等）。
-- 公開 API の docstring は Julia 標準形式（`# Arguments` / `# Returns` / `# Examples`）で記述する。
-- パフォーマンス改善は、変更前後でベンチマークを取り `DESIGN_NOTES.md` または `.claude/bench_log.md` に記録する。
+- Avoid hidden global state.
+- Exported APIs must have explicit type annotations and docstrings.
+- Use type annotations liberally (`::Float64`, `::Vector{Float64}`,
+  `::SVector{3, Float64}`, etc.).
+- Public-API docstrings follow the standard Julia format
+  (`# Arguments` / `# Returns` / `# Examples`).
+- Record performance changes (before / after) in `.claude/bench_log.md`
+  (or `DESIGN_NOTES.md` for higher-level summaries).
 
-詳細なコーディングスタイル（命名規則・ループ規約・引数順序など）は `STYLE_GUIDE.md` を参照。**コード編集時は必ず確認する**。
+For detailed coding style (naming, loop conventions, argument order, etc.),
+see `STYLE_GUIDE.md`. **Always consult it when editing code.**
 
-## 言語・用語規約
+## Language and terminology
 
-- **会話・説明文**: 日本語可。
-- **ソース・コメント・docstring・コミットメッセージ・PR**: 英語。
-- **コミットメッセージは [Conventional Commits](https://www.conventionalcommits.org/) に準拠する**。
-  形式: `<type>(<scope>): <subject>`（scope は省略可）。
-  - 使用する type: `feat` / `fix` / `docs` / `test` / `refactor` / `perf` / `chore` / `style`。
-  - subject は命令形・小文字始まり・末尾ピリオドなし（例: `add SCE basis loader`）。
-  - 破壊的変更は body に `BREAKING CHANGE: ...` を付ける。
-- **アメリカ英語**で統一する（`normalize` / `behavior` / `color` / `center` 等）。
-- 例外: **外部 API のリテラルは元の綴りを保つ**（例: SpheriCart の `normalisation=:L2` kwarg）。
-- **`.jl` ソース中の日本語は PostToolUse hook (`.claude/hooks/no-japanese.sh`) で自動ブロック**。対象は `src/` `test/` `tools/` 配下（`tools/personal/` は除外）。
-- **ソースコード中に Claude 内部ドキュメントを参照しない**: `.jl` のコメント・docstring 内で `CLAUDE.md` / `DESIGN_NOTES.md` / `docs/design-notes/` / `.claude/` / `docs/specs/` を**名指しで参照しない**。これらは Claude との協働用 scaffolding であり、公開ソースは独立して読めるべき。歴史的な経緯を残したい場合は内容をインラインに要約する。
-  - 参照してよい外部ドキュメント: `docs/src/` (Documenter)、`SPEC.md`、`STYLE_GUIDE.md`、`https://Tomonori-Tanaka.github.io/Magesty.jl/` (technical notes).
-  - 例外: コミットメッセージの `Refs:` 行で `docs/design-notes/refactor-sweep.md R7` のように参照するのは可（commit は workflow artifact）。
+- **Conversation with the user**: Japanese is fine.
+- **Everything committed to the repository**: English only. This covers
+  `.jl` source, comments, docstrings, all Markdown (CLAUDE.md, SPEC.md,
+  STYLE_GUIDE.md, README, `docs/**`, `.claude/agents/*.md`, etc.), shell
+  scripts, TOML, commit messages, PR titles and descriptions, and issue
+  templates.
+- **Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).**
+  Format: `<type>(<scope>): <subject>` (scope optional).
+  - Types in use: `feat` / `fix` / `docs` / `test` / `refactor` / `perf` /
+    `chore` / `style`.
+  - Subject is imperative, lowercase, no trailing period
+    (e.g., `add SCE basis loader`).
+  - Breaking changes: include `BREAKING CHANGE: ...` in the body.
+- **US English** throughout (`normalize` / `behavior` / `color` / `center`).
+- Exception: **preserve external API spellings literally**
+  (e.g., SpheriCart's `normalisation=:L2` keyword argument).
+- **Japanese in any committed file is auto-blocked by the PostToolUse hook
+  (`.claude/hooks/no-japanese.sh`).** The hook covers the entire repository,
+  with two exemptions: `tools/personal/` (personal scripts) and
+  `.claude/bench_log.md` (historical record).
+- **Do not reference Claude-internal scaffolding from source code.** In `.jl`
+  comments and docstrings, never name `CLAUDE.md` / `DESIGN_NOTES.md` /
+  `docs/design-notes/` / `.claude/` / `docs/specs/`. These are
+  Claude-collaboration scaffolding; published source must read independently.
+  Summarize the relevant context inline when needed.
+  - References allowed in source: `docs/src/` (Documenter), `SPEC.md`,
+    `STYLE_GUIDE.md`, and
+    `https://Tomonori-Tanaka.github.io/Magesty.jl/` (technical notes).
+  - Exception: commit-message `Refs:` lines may cite
+    `docs/design-notes/<slug>.md` style paths (commits are workflow
+    artifacts).
 
-## テスト
+## Tests
 
-修正後は必ず Makefile 経由でテストを実行する。
+Always run tests via the Makefile after edits.
 
-| コマンド | 対象 | 用途 |
-|---------|------|------|
-| `make test-unit` | `test/component/` | モジュール単位のユニットテスト |
-| `make test-integration` | `test/integration/` | 実際の計算例を用いた統合テスト |
-| `make test-all` | 上記両方 | 通常はこれを使う |
-| `make test-tools` | `tools/test/` | tools スクリプトのテスト |
-| `make test-jet` | — | JET.jl 静的型解析 |
-| `make test-aqua` | — | Aqua.jl パッケージ品質チェック |
+| Command | Target | Purpose |
+|---|---|---|
+| `make test-unit` | `test/component/` | Module-level unit tests |
+| `make test-integration` | `test/integration/` | End-to-end integration tests |
+| `make test-all` | both of the above | Default for routine checks |
+| `make test-tools` | `tools/test/` | Tests for `tools/` scripts |
+| `make test-jet` | — | JET.jl static type analysis |
+| `make test-aqua` | — | Aqua.jl package-quality checks |
 
-ベンチマーク用のターゲット（`make bench-sphericart` / `make bench-optimize-sphericart` 等）は Makefile を参照。
+See the Makefile for benchmark targets (`make bench-sphericart`,
+`make bench-salcbasis`, etc.).
 
-## 物理規約
+## Physics conventions
 
-これらを誤解すると無言でバグが埋まるので、アルゴリズムを触る前に確認すること。
+Easy to break silently. Confirm before touching the algorithm.
 
-- **スピン方向は単位ベクトル**: `spin_directions[:, atom]` は古典スピンの**方向**（`‖·‖ = 1`）。磁気モーメントの大きさは別概念。
-- **スピン行列のレイアウト**: `3 × n_atoms`（行 = x,y,z、列 = 原子）。転置すると全計算が壊れる。
-- **球面調和関数は実数（テッサー型）**: 内部表現は実 `Zₗₘ`（複素 `Yₗₘ` ではない）。`(l, m)` ペア数は `(l_max+1)²`。
-  - ホットパスは `Zₗₘ_unsafe`（境界チェックなしの buffered 版）。意味は同じだが速い。
-- **SALC・CG 係数の規約は本リポジトリで定義**: 変更前は必ず [Magesty.jl technical notes](https://Tomonori-Tanaka.github.io/Magesty.jl/technical_notes/) を参照すること。
-- **エネルギー単位**: SCE 係数 `Jφ` の単位は DFT 入力のエネルギー単位に従う（通常 eV）。`j0`（基準エネルギー）は SCE 係数とは別に保持される。
+- **Spin directions are unit vectors.** `spin_directions[:, atom]` is the
+  *direction* of the classical spin (`‖·‖ = 1`); the magnetic-moment
+  magnitude is a separate concept.
+- **Spin-matrix layout**: `3 × n_atoms` (rows = x, y, z; columns = atoms).
+  Transposing breaks the entire pipeline.
+- **Real (tesseral) spherical harmonics**. Internal representation is real
+  `Zₗₘ`, not complex `Yₗₘ`. The number of `(l, m)` pairs is `(l_max+1)²`.
+  - Hot paths use `Zₗₘ_unsafe` (buffered, no bounds check). Semantically
+    identical, but faster.
+- **SALC and Clebsch-Gordan conventions are defined in this repository.**
+  Consult the
+  [Magesty.jl technical notes](https://Tomonori-Tanaka.github.io/Magesty.jl/technical_notes/)
+  before changing anything.
+- **Energy units**: SCE coefficients `Jφ` carry the energy unit of the DFT
+  input (typically eV). `j0` (reference energy) is stored separately from
+  the SCE coefficients.
 
-## パフォーマンス最適化方針
+## Performance guidelines
 
-ホットパスは `Fitting.jl` の基底関数評価ループと `SALCBases.jl` の SALC 計算。
+Hot paths are the basis-evaluation loop in `Fitting.jl` and the SALC
+construction in `SALCBases.jl`.
 
-**StaticArrays の活用**:
-- 3 次元ベクトルは `SVector{3, Float64}`（不変）または `MVector{3, Float64}`（スクラッチバッファ）を使う。
-- ループ内で新しい `Vector` を生成しない。`MVector` を事前確保して再利用する。
-- `spin_directions[:, atom]` の列スライスは `@views` でコピーを避け、`SVector` に変換してスタック上で処理する。
+**StaticArrays usage**:
+- Use `SVector{3, Float64}` (immutable) or `MVector{3, Float64}` (scratch
+  buffer) for 3-component vectors.
+- Do not allocate new `Vector`s inside loops. Pre-allocate `MVector`s and
+  reuse.
+- For column slices like `spin_directions[:, atom]`, use `@views` to avoid
+  copies and convert to `SVector` for stack-resident processing.
 
 ```julia
 # Good
 dir_svec = SVector{3, Float64}(spin_directions[:, atom])
 buf = MVector{3, Float64}(0.0, 0.0, 0.0)
 
-# Bad（ヒープ割り当てが発生）
+# Bad (heap allocation)
 dir_vec = spin_directions[:, atom]
 buf = zeros(3)
 ```
 
-**スレッド並列化**:
-- スピン配置単位のループ（`num_spinconfigs`）が主要な `@threads` 対象。
-- 対称操作ループ（`isym in 1:n_operations`）も `@threads` で並列化可能。
+**Threading**:
+- The spin-configuration loop (`num_spinconfigs`) is the primary `@threads`
+  target.
+- The symmetry-operation loop (`isym in 1:n_operations`) is also a
+  candidate for `@threads`.
 
-**境界チェック抑制**:
-- インデックスの正しさが保証できる内側ループには `@inbounds` を付ける。
-- 球面調和関数のホットパスには `Zₗₘ_unsafe`（境界チェックなし版）を使う。
+**Bounds-check suppression**:
+- Use `@inbounds` on inner loops whose indices are provably correct.
+- For spherical harmonics in the hot path, prefer the unsafe variant
+  (`Zₗₘ_unsafe`).
 
-**計算コストの大きい処理**:
-- `SALCBasis` の SALC 計算は重い。再利用する場合は `write_xml` で保存し `build_sce_basis_from_xml` でロードする。
+**Expensive operations**:
+- SALC construction in `SALCBasis` is heavy. To reuse, persist with
+  `save(basis, path)` and reload with `load(SCEBasis, path)`.
 
-## 連動箇所（一方を変えたら全箇所を確認）
+**Bench bookkeeping**:
+- When touching a hot path (`Fitting` / `SALCBases` / `TesseralHarmonics` /
+  `Optimize` workspaces), append a before/after entry to
+  `.claude/bench_log.md`, even if the change does not affect numerical
+  results. The point is systematic regression detection. A short `@btime`
+  median is enough. Keep this practice after the release.
 
-### 球面調和関数の規約
-`TesseralHarmonics.jl` の `Zₗₘ` / `Zₗₘ_unsafe` / `∂ᵢZlm_unsafe` の規格化と符号は `SphericalHarmonicsTransforms.jl` / SALC 構築（`SALCBases.jl`） / SpheriCart 比較テスト（`test/component/test_sphericart_agreement.jl`）と整合している必要がある。片方だけ変えると design matrix が静かに壊れる。
+## Linked sites (change one, check all)
 
-### SCE 係数の入出力
-`write_xml` / `build_sce_basis_from_xml` のラウンドトリップは整数桁まで一致しなければならない。係数や基底順序のフォーマットを変える場合は両方を同期する。
+### Spherical-harmonics convention
+The normalization and signs of `Zₗₘ` / `Zₗₘ_unsafe` / `∂ᵢZlm_unsafe` in
+`TesseralHarmonics.jl` must stay consistent with
+`SphericalHarmonicsTransforms.jl`, the SALC construction in `SALCBases.jl`,
+and the SpheriCart agreement test
+(`test/component/test_sphericart_agreement.jl`). Changing one without the
+others silently breaks the design matrix.
 
-### Fitting と SALCBasis の対応
-`Fitting.jl` の design matrix 構築は `SALCBasis` 内の `(l, m, site)` 順序に依存している。基底の並び順を変えると係数の物理的解釈が変わる。
+### SCE coefficient I/O
+The round trip of `save(basis_or_model, path)` /
+`load(SCEBasis, path)` / `load(SCEModel, path)` (`src/XMLIO.jl`) must agree
+to the last digit. When changing the on-disk format, basis ordering, or the
+field layout of `SCEBasis` / `SCEModel`, update both sides together. Do not
+reintroduce the old `write_xml` / `build_sce_basis_from_xml` names — the new
+`save` / `load` API is canonical.
 
-## 開発単位の管理
+### Fitting and SALCBasis
+The design-matrix construction in `Fitting.jl` depends on the key-group
+order inside `SALCBasis` (the outer index of
+`Vector{Vector{CoupledBasis_with_coefficient}}`). Reordering SALCs changes
+the physical meaning of `Jφ`. The XML I/O serializes coefficients in the
+same order, so all three must stay synchronized.
 
-中規模以上の開発は **spec フォルダ** に集約する。スプリント横断の進捗トラッキングは作らない。
+## Managing development units
 
-- **進行中の開発単位**: [`docs/specs/[YYMMDD]-[slug]/`](docs/specs/)（requirements.md / design.md / tasklist.md の 3 ファイル構成）。
-- **横断的な設計メモ・調査結果・保留アイデア**: [`DESIGN_NOTES.md`](DESIGN_NOTES.md)（インデックス）+ [`docs/design-notes/`](docs/design-notes/)（トピック別本体）。運用ルールは `docs/design-notes/README.md`。
-- **日々の細かい作業**: `TaskCreate`（in-session のみ。永続化したい軽い TODO は `docs/design-notes/` か spec へ）。
-- 実装済みのベンチマーク履歴: `.claude/bench_log.md` と `git log`。
+Mid-sized or larger work goes into **spec folders**. No cross-sprint
+progress trackers.
 
-### spec フォルダの運用ルール
+- **Active development units**:
+  [`docs/specs/[YYMMDD]-[slug]/`](docs/specs/), each with
+  `requirements.md` / `design.md` / `tasklist.md`. Index at
+  [`docs/specs/README.md`](docs/specs/README.md); template at
+  [`docs/specs/_template/`](docs/specs/_template/).
+- **Cross-cutting design notes, investigations, on-hold ideas**:
+  [`DESIGN_NOTES.md`](DESIGN_NOTES.md) (index) with full content under
+  [`docs/design-notes/`](docs/design-notes/). Operating rules at
+  `docs/design-notes/README.md`.
+- **Day-to-day TODOs**: `TaskCreate` (in-session only). Lightweight TODOs
+  that should persist belong in `docs/design-notes/` or a spec.
+- **Historical benchmark records**: `.claude/bench_log.md` and `git log`.
 
-**中規模以上の開発を始める前に、必ず先に spec フォルダを作って合意を取る。**
+### Spec-folder workflow
 
-判定基準（どれかに当てはまったら spec を作る）:
-- 数日以上かかる。
-- 設計判断が複数ある（API・型・規約に影響する選択）。
-- 既存挙動が変わる中規模以上の変更（新機能追加 / 中規模リファクタリング）。
-- 後から「なぜこう作った？」と訊かれそう。
+**Always create a spec folder and agree on it before starting mid-sized or
+larger work.**
 
-spec を作らなくてよいもの:
-- バグ修正（テスト追加で完結）。
-- ドキュメント・コメント修正。
-- 1 ファイル内の小規模 refactor。
-- 既存テストで担保される動作の小修正。
+Entry criteria (any of these triggers a spec):
+- Multi-day effort.
+- Multiple design choices (affecting API, types, or conventions).
+- Mid-sized or larger change to existing behavior (new feature,
+  medium-scale refactor).
+- Future readers will ask "why was this done this way?".
 
-手順（Claude 側で実施）:
-1. `docs/specs/[YYMMDD]-[slug]/` を作る（`YYMMDD` = `date +%y%m%d`、`slug` は英語の kebab-case）。
-2. 同フォルダに以下 3 ファイルを置き、user と相談しながら埋める:
-   - `requirements.md` — 目的・不変条件・スコープ・完了基準。
-   - `design.md` — モジュール構成・API・型・規約・連動箇所への影響。
-   - `tasklist.md` — マイルストーン（粗い粒度。日々の細かい作業は TaskCreate）。
-3. spec の合意ができてから実装に着手する。
-4. 完了後もフォルダは残す（削除しない、履歴として参照）。
+Skip the spec for:
+- Bug fixes (covered by a regression test).
+- Documentation or comment fixes.
+- Small refactor within a single file.
+- Minor behavior tweaks already covered by existing tests.
 
-## Claude の作業方針
+Procedure (Claude executes):
+1. Create `docs/specs/[YYMMDD]-[slug]/` (`YYMMDD` = `date +%y%m%d`; `slug`
+   is English kebab-case).
+2. Copy the three files from
+   [`docs/specs/_template/`](docs/specs/_template/) and fill them out with
+   the user:
+   - `requirements.md` — goal, invariants, scope, completion criteria.
+   - `design.md` — modules, API, types, conventions, impact on linked
+     sites.
+   - `tasklist.md` — milestones (coarse). Day-to-day tasks use
+     `TaskCreate`. Includes an exit checklist.
+3. Reach agreement on the spec before starting implementation.
+4. Keep the folder after completion (do not delete it; it is the historical
+   record). Update the `Status:` line in `tasklist.md` and the table in
+   [`docs/specs/README.md`](docs/specs/README.md) together.
 
-### 確認不要（自由にやってよい）
+## Working principles for Claude
 
-- バグ修正（最小限の変更 + テスト追加）。
-- テストの追加・修正。
-- ドキュメントの誤記修正。
-- `DESIGN_NOTES.md` インデックス / `docs/design-notes/` 配下への気付きの追記。
+### Free to proceed without asking
 
-### サブエージェントの活用
+- Bug fixes (minimal change plus test).
+- Adding / fixing tests.
+- Documentation typos.
+- Adding notes to the `DESIGN_NOTES.md` index or `docs/design-notes/`.
 
-- 実装後は `test-runner` エージェントでテストを実行・診断する（`.claude/agents/test-runner.md`）。
-- コミット前は `code-reviewer` エージェントで変更差分をレビューする（`.claude/agents/code-reviewer.md`）。
-- 性能調査時は `profiler` エージェントを使う（`.claude/agents/profiler.md`）。
-- user から commit / push の明示指示を受けた後は `git-helper` エージェントを呼ぶ（`.claude/agents/git-helper.md`）。Conventional Commits 起草・ASCII 検査・`Write` + `git commit -F file` 経由のコミット適用・BREAKING CHANGE 自動検出までを一括で行う。heredoc 事故を避けるため、メインエージェントが直接 `git commit -m` を実行しない方針。
+### Sub-agent usage
 
-### 提案してから実装する
+- After implementing, use the `test-runner` agent to run and diagnose tests
+  (`.claude/agents/test-runner.md`).
+- Before committing, use the `code-reviewer` agent on the diff
+  (`.claude/agents/code-reviewer.md`).
+- For performance investigation, use the `profiler` agent
+  (`.claude/agents/profiler.md`).
+- Once the user gives an explicit commit / push instruction, hand off to
+  the `git-helper` agent (`.claude/agents/git-helper.md`). It drafts the
+  Conventional Commit message, runs an ASCII-only check, applies the
+  commit via `Write` + `git commit -F file` (to avoid heredoc accidents),
+  detects `BREAKING CHANGE`s, and adds `Refs:` lines. The main agent must
+  not run `git commit -m` directly.
 
-- アルゴリズムの変更（数値結果が変わる可能性があるとき）。
-- リファクタリング（モジュール境界をまたぐもの）。
-- パフォーマンス改善（先にベンチマーク結果を示す）。
+### Propose before implementing
 
-### 実装せず、必ず確認する
+- Algorithm changes (when numerical results may change).
+- Refactors that cross module boundaries.
+- Performance improvements (present benchmark numbers first).
 
-- 物理規約の変更（符号・単位・規格化・SALC や CG 係数の規約）。
-- 新しい外部依存の追加。
-- 公開 API（`export` されているもの）のシグネチャ変更。
-- 球面調和関数の規格化変更（`Zₗₘ` 系列）。
-- XML 入出力フォーマットの変更。
-- `git commit` / `git push` 全般（ローカルコミットを含めて、明示的な指示なしに実行しない）。
+### Always confirm — do not implement first
 
-## 参照
+- Physics-convention changes (signs, units, normalization, SALC, CG).
+- New external dependencies.
+- Public-API signature changes (anything in `export`).
+- Changes to spherical-harmonics normalization (`Zₗₘ` family).
+- Changes to the XML I/O format.
+- `git commit` / `git push` of any kind (including local commits) without
+  explicit instruction.
 
-作業前に、必要に応じて以下を参照する。
+## References
 
-- `STYLE_GUIDE.md` — コーディングスタイルの詳細ルール（**コード編集時は必ず確認する**）。
-- `SPEC.md` — アーキテクチャ・ディレクトリ構成・主要型・公開 API。
-- `docs/specs/` — 進行中・完了済みの spec（中規模以上の開発単位）。
-- `DESIGN_NOTES.md` — 設計メモ・調査結果・保留アイデアのインデックス。本体は `docs/design-notes/` 配下。
-- [Magesty.jl technical notes](https://Tomonori-Tanaka.github.io/Magesty.jl/technical_notes/) — SALC・CG 係数等の数学的規約。
+Consult as needed before working.
+
+- `STYLE_GUIDE.md` — detailed coding-style rules.
+  **Always consult when editing code.**
+- `SPEC.md` — architecture, directory layout, primary types, public API.
+- `docs/specs/` — active and completed specs (mid-sized or larger units).
+- `DESIGN_NOTES.md` — index of design notes, investigations, and on-hold
+  ideas. Bodies under `docs/design-notes/`.
+- [Magesty.jl technical notes](https://Tomonori-Tanaka.github.io/Magesty.jl/technical_notes/)
+  — mathematical conventions for SALC, CG coefficients, etc.

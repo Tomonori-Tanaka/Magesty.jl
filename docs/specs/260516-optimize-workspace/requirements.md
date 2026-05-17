@@ -35,7 +35,7 @@ In scope:
 
 Out of scope:
 
-- 旧 #10 (`atoms::SVector`).
+- Former #10 (`atoms::SVector`).
 - B2 architectural rewrite of `sh_values` to a flat storage layout.
   The current `Vector{Vector{Float64}}` is kept but **reused**.
 - API surface change to public `SCEDataset` / `SCEFit` constructors.

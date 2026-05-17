@@ -1,90 +1,91 @@
-# Magesty.jl — 仕様・アーキテクチャ
+# Magesty.jl — specification and architecture
 
-Julia で磁性材料の有効スピンモデルを構築するパッケージ。
-ノンコリニアなスピン DFT 計算からスピンクラスター展開 (SCE) を用いて一般的なスピンモデルを構築する。
+Julia package for building effective spin models of magnetic materials.
+Constructs general spin models from noncollinear spin DFT calculations
+using the spin-cluster expansion (SCE).
 
-## 主要モジュール（`src/`）
+## Main modules (`src/`)
 
-すべてのモジュールは `src/` 直下にフラットに配置している。`include`
-順序は `src/Magesty.jl` を参照（依存関係の順）。
+All modules live directly under `src/` (flat layout). The `include` order
+in `src/Magesty.jl` reflects the dependency order.
 
-### SCE パイプライン
+### SCE pipeline
 
-| モジュール | ファイル | 役割 |
-|-----------|---------|------|
-| `Structures` | `src/Structures.jl` | 結晶構造の読み込み・スーパーセル生成 |
-| `Symmetries` | `src/Symmetries.jl` | 空間群対称性操作（Spglib ラッパー） |
-| `Clusters` | `src/Clusters.jl` | クラスター展開・距離行列計算 |
-| `SALCBases` | `src/SALCBases.jl` | SALC 基底関数の生成（計算コスト大） |
-| `Fitting` | `src/Fitting.jl` | デザイン行列構築・回帰（OLS / Ridge） |
-| `SpinConfigs` | `src/SpinConfigs.jl` | スピン配置の読み込み・管理 |
+| Module | File | Role |
+|---|---|---|
+| `Structures` | `src/Structures.jl` | Crystal-structure loading and supercell generation |
+| `Symmetries` | `src/Symmetries.jl` | Space-group symmetry operations (Spglib wrapper) |
+| `Clusters` | `src/Clusters.jl` | Cluster expansion and distance-matrix computation |
+| `SALCBases` | `src/SALCBases.jl` | SALC basis construction (computationally expensive) |
+| `Fitting` | `src/Fitting.jl` | Design-matrix construction and regression (OLS / Ridge) |
+| `SpinConfigs` | `src/SpinConfigs.jl` | Spin-configuration loading and management |
 
-### ユーティリティ・データ型
+### Utilities and data types
 
-| モジュール / ファイル | 役割 |
-|---------|------|
-| `SphericalHarmonicsTransforms.jl` | 実数球面調和関数の変換 |
-| `TesseralHarmonics.jl` | テッセラル球面調和関数 `Zₗₘ` の評価（unsafe 版含む） |
-| `AngularMomentumCoupling.jl` | Wigner 係数・角運動量結合 |
-| `CoupledBases.jl` | 角運動量結合で組んだ coupled basis の中間表現 |
-| `InputSpecs.jl` | 入力 typed value (`SystemSpec` / `InteractionSpec` / `SymmetryOptions`) と TOML / Dict パーサ (`parse_toml_inputs`、ワイルドカード species 展開を含む) |
-| `RotationMatrix.jl` | 回転行列 |
-| `XMLIO.jl` | XML 形式での基底関数・モデルの入出力 |
-| `AtomsBaseAdapter.jl` | AtomsBase / Unitful の境界アダプタ (`system_to_specs` / `kwargs_to_specs`) |
-| `AtomCells.jl` | 原子サイト + ユニットセル情報の軽量データ型 |
-| `SortedCounters.jl` | ソート済みキー反復をサポートする内部カウンタ |
-| `Version.jl` | Project.toml と整合するバージョン情報 |
+| Module / file | Role |
+|---|---|
+| `SphericalHarmonicsTransforms.jl` | Real spherical-harmonics transforms |
+| `TesseralHarmonics.jl` | Tesseral spherical harmonics `Zₗₘ` (with unsafe variants) |
+| `AngularMomentumCoupling.jl` | Wigner coefficients and angular-momentum coupling |
+| `CoupledBases.jl` | Intermediate representation for angular-momentum-coupled bases |
+| `InputSpecs.jl` | Typed values (`SystemSpec` / `InteractionSpec` / `SymmetryOptions`) and TOML / Dict parser (`parse_toml_inputs`, including wildcard species expansion) |
+| `RotationMatrix.jl` | Rotation matrices |
+| `XMLIO.jl` | XML I/O for bases and models |
+| `AtomsBaseAdapter.jl` | AtomsBase / Unitful boundary adapter (`system_to_specs` / `kwargs_to_specs`) |
+| `AtomCells.jl` | Lightweight type holding atom sites plus unit-cell info |
+| `SortedCounters.jl` | Internal counter that iterates by sorted key |
+| `Version.jl` | Version info kept in sync with `Project.toml` |
 
-## 主要型（新 API）
+## Main types (current API)
 
 ```
-# 入力の typed value gate（src/InputSpecs.jl）。4 つの入力経路
-# (TOML file / Dict / AtomsBase / kwargs) はすべてこの 3-tuple を組み立て、
-# それを SCEBasis 内部コンストラクタに渡す。
+# Input typed-value gate (src/InputSpecs.jl). All four input paths
+# (TOML file / Dict / AtomsBase / kwargs) assemble this 3-tuple and
+# pass it to the SCEBasis inner constructor.
 
 SystemSpec
 ├── name::String
 ├── num_atoms::Int
-├── kd_name::Vector{String}           # 種類名（順序が kd_int_list の番号付け）
-├── kd_int_list::Vector{Int}          # 原子ごとの種類インデックス
-├── lattice_vectors::Matrix{Float64}  # 3×3 (Å)
-├── x_fractional::Matrix{Float64}     # 3×num_atoms
-└── is_periodic::Vector{Bool}         # 長さ 3
+├── kd_name::Vector{String}           # Species names (order indexes kd_int_list)
+├── kd_int_list::Vector{Int}          # Per-atom species index
+├── lattice_vectors::Matrix{Float64}  # 3x3 (Å)
+├── x_fractional::Matrix{Float64}     # 3 x num_atoms
+└── is_periodic::Vector{Bool}         # length 3
 
 InteractionSpec
 ├── nbody::Int
-├── body1_lmax::Vector{Int}                  # 種類数の長さ
-├── bodyn_lsum::OffsetArray{Int, 1}          # axis 2:nbody
-└── bodyn_cutoff::OffsetArray{Float64, 3}    # (2:nbody, 1:nkd, 1:nkd), 対称
+├── body1_lmax::Vector{Int}                  # Length = number of species
+├── bodyn_lsum::OffsetArray{Int, 1}          # Axis 2:nbody
+└── bodyn_cutoff::OffsetArray{Float64, 3}    # (2:nbody, 1:nkd, 1:nkd), symmetric
 
 SymmetryOptions
 ├── tolerance_sym::Float64
 └── isotropy::Bool
 
-# 下流の SCE パイプライン
+# Downstream SCE pipeline
 
 SCEBasis
-├── structure::Structure    # 結晶構造（ユニットセル・スーパーセル）
-├── symmetry::Symmetry      # 対称操作・並進対称性
-├── salcbasis::SALCBasis    # SALC 基底関数リスト
-└── isotropy::Bool          # 等方性制限の構築フラグ
+├── structure::Structure    # Crystal structure (unit cell + supercell)
+├── symmetry::Symmetry      # Symmetry operations and translational symmetry
+├── salcbasis::SALCBasis    # SALC basis list
+└── isotropy::Bool          # Whether the basis was built with the isotropy restriction
 
 SCEDataset
 ├── basis::SCEBasis
 ├── spinconfigs::Vector{SpinConfig}
-├── X_E::Matrix{Float64}    # エネルギーのデザイン行列（unweighted、列 1 はバイアス）
-├── X_T::Matrix{Float64}    # トルクのデザイン行列（unweighted、バイアス列なし）
-├── y_E::Vector{Float64}    # 観測エネルギー
-└── y_T::Vector{Float64}    # 観測トルク（flatten）
+├── X_E::Matrix{Float64}    # Energy design matrix (unweighted; column 1 is the bias)
+├── X_T::Matrix{Float64}    # Torque design matrix (unweighted; no bias column)
+├── y_E::Vector{Float64}    # Observed energies
+└── y_T::Vector{Float64}    # Observed torques (flattened)
 
 SCEFit <: StatsAPI.RegressionModel
 ├── dataset::SCEDataset
-├── j0::Float64             # 推定された基準エネルギー
-├── jphi::Vector{Float64}   # 推定された SCE 係数
+├── j0::Float64             # Estimated reference energy
+├── jphi::Vector{Float64}   # Estimated SCE coefficients
 ├── estimator::AbstractEstimator
 ├── torque_weight::Float64
 ├── residuals::Vector{Float64}
-└── metrics::Dict{Symbol, Any}  # in-sample RMSE / R²
+└── metrics::Dict{Symbol, Any}  # In-sample RMSE / R²
 
 SCEModel
 ├── basis::SCEBasis
@@ -92,75 +93,73 @@ SCEModel
 └── jphi::Vector{Float64}
 ```
 
-`SCEModel(f::SCEFit)` で `SCEFit` から軽量な予測子に変換できる。
+`SCEModel(f::SCEFit)` produces a lightweight predictor from an `SCEFit`.
 
-## ディレクトリ構成
+## Directory layout
 
 ```
-src/               パッケージ本体
+src/               Package source
 test/
-  component/       ユニットテスト（モジュール単位）
-  integration/     統合テスト（実際の計算例）
-tools/             パッケージ本体とは独立したスクリプト群
-  vasp/            VASP 入出力変換ツール
-  test/            tools のテスト（make test-tools で実行）
-  personal/        個人用スクリプト（品質保証対象外）
-docs/              Documenter.jl ドキュメント
-examples/          利用例（basic_flow / CIF input / save-load）
+  component/       Unit tests (per module)
+  integration/     Integration tests (real computational examples)
+tools/             Scripts independent of the package source
+  vasp/            VASP I/O conversion utilities
+  test/            Tests for tools (run via `make test-tools`)
+  personal/        Personal scripts (not quality-assured)
+docs/              Documenter.jl documentation
+examples/          Usage examples (basic_flow / CIF input / save-load)
 ```
 
-## 公開 API（`export` されているもの）
-
-### 新 API
+## Public API (exported)
 
 ```julia
-# 構築
-SCEBasis(toml_path)                # TOML から SCE 基底を構築（SALC 含む）
-SCEBasis(input_dict)               # parsed TOML dict から
-SCEBasis(system; interaction, ...) # AtomsBase.AbstractSystem から
+# Construction
+SCEBasis(toml_path)                # Build SCE basis from TOML (includes SALC)
+SCEBasis(input_dict)               # From a parsed TOML dict
+SCEBasis(system; interaction, ...) # From an AtomsBase.AbstractSystem
 SCEBasis(; lattice, kd, kd_list, positions, periodicity, interaction, ...)
 
-SCEDataset(basis, spinconfigs)     # SpinConfig ベクトルから
-SCEDataset(basis, embset_path)     # EMBSET ファイルから
+SCEDataset(basis, spinconfigs)     # From a SpinConfig vector
+SCEDataset(basis, embset_path)     # From an EMBSET file
 SCEDataset(system, spinconfigs; interaction, ...)  # AtomsBase shortcut
 SCEDataset(toml_path, spinconfigs) # TOML shortcut
 
-# フィッティング
+# Fitting
 fit(SCEFit, dataset, estimator; torque_weight = 0.5) -> SCEFit
-SCEModel(f::SCEFit) -> SCEModel    # 予測専用の軽量変換
+SCEModel(f::SCEFit) -> SCEModel    # Lightweight prediction-only conversion
 
-# 予測（model / fit / dataset / SpinConfig / Matrix を受け付ける）
+# Prediction (accepts model / fit / dataset / SpinConfig / Matrix)
 predict_energy(model_or_fit, data)
 predict_torque(model_or_fit, data)
 
-# 評価（StatsAPI 規約 + Magesty ネイティブ）
+# Evaluation (StatsAPI conventions + Magesty natives)
 coef(f), intercept(f), nobs(f), dof(f)
 r2_energy(f), r2_torque(f)
 rmse_energy(f), rmse_torque(f)
 rss_energy(f), rss_torque(f)
 residuals_energy(f), residuals_torque(f)
 
-# 永続化（XML）
-save(basis_or_model, path)         # path は .xml
-load(SCEBasis, path)               # SCEBasis を読み出し（model XML でも可）
-load(SCEModel, path)               # SCEModel を読み出し
+# Persistence (XML)
+save(basis_or_model, path)         # path is .xml
+load(SCEBasis, path)               # Read SCEBasis (model XML also accepted)
+load(SCEModel, path)               # Read SCEModel
 
-# 推定器
+# Estimators
 AbstractEstimator, OLS, Ridge
 
-# データ読み込み
+# Data reading
 read_embset(path)                  # EMBSET.dat -> Vector{SpinConfig}
 ```
 
-## 主要な外部ライブラリ
+## Primary external libraries
 
-| ライブラリ | 用途 |
-|-----------|------|
-| `AtomsBase` / `Unitful` | AtomsBase 入力経路 |
-| `StatsAPI` | `fit` / `coef` / `nobs` / `dof` の規約 |
-| `Spglib` | 空間群解析 |
-| `StaticArrays` | スタック割り当て配列（高速化） |
-| `EzXML` | XML 入出力 |
-| `WignerD`, `WignerSymbols`, `LegendrePolynomials` | 角運動量結合 |
-| `LinearAlgebra`, `Statistics` | 線形代数・統計 |
-| `MultivariateStats` | Ridge 回帰（`ridge`） |
+| Library | Purpose |
+|---|---|
+| `AtomsBase` / `Unitful` | AtomsBase input path |
+| `StatsAPI` | `fit` / `coef` / `nobs` / `dof` conventions |
+| `Spglib` | Space-group analysis |
+| `StaticArrays` | Stack-allocated arrays (performance) |
+| `EzXML` | XML I/O |
+| `WignerD`, `WignerSymbols`, `LegendrePolynomials` | Angular-momentum coupling |
+| `LinearAlgebra`, `Statistics` | Linear algebra and statistics |
+| `MultivariateStats` | Ridge regression (`ridge`) |

@@ -51,7 +51,7 @@ Out of scope (separate follow-ups):
 - B2: `sh_values::Vector{Vector{Float64}}` consolidation. The inner
   vector lengths vary per site (`2lᵢ+1`), so this needs a different
   layout (flattened storage + offsets, or `NTuple{N,Vector{Float64}}`).
-- `atoms::Vector{Int}` → `SVector{N,Int}` (旧 #10).
+- `atoms::Vector{Int}` -> `SVector{N,Int}` (former #10).
 - XML on-disk format changes (the format is rank-agnostic already).
 
 ## Invariants (must hold)

@@ -1,52 +1,65 @@
-# LASSO / Adaptive LASSO / Adaptive Ridge estimator の導入
+# LASSO / Adaptive LASSO / Adaptive Ridge estimators
 
-**Status**: 未着手 (2026-05-16)
+**Status**: not started (2026-05-16)
 
-GLMNet.jl を採用し、`Optimize.jl` の estimator dispatch ファミリに L1 系・Adaptive 系を追加する設計メモ。spec 化前の合意ドラフト。
+Design note for adopting GLMNet.jl and adding the L1 / Adaptive families
+to the estimator-dispatch hierarchy in `Fitting.jl`. Pre-spec draft.
 
-## 背景
+## Background
 
-現状 `src/Fitting.jl` の SCE 係数推定は `OLS`（`X \ y`）と `Ridge`（`MultivariateStats.ridge` + per-column penalty で bias 列を非ペナルティ化）の 2 つのみ。スパースな有効スピンモデルを得るために L1 正則化系（LASSO, Adaptive LASSO）が欲しく、また L0 近似として Adaptive Ridge（Frommlet–Nuel 2016 の反復重み付け方式）も導入したい。
+The SCE coefficient estimator in `src/Fitting.jl` currently supports
+only `OLS` (`X \ y`) and `Ridge` (`MultivariateStats.ridge` with a
+per-column penalty that excludes the bias column). To obtain sparse
+effective spin models we want L1-style regularization (LASSO, Adaptive
+LASSO), and as an L0 approximation, Adaptive Ridge (the iterative
+reweighting scheme of Frommlet & Nuel 2016).
 
-## ライブラリ選定
+## Library selection
 
-`MultivariateStats.jl` には LASSO は無い。Julia エコシステムの候補比較:
+`MultivariateStats.jl` does not provide LASSO. Comparison of candidates:
 
-| 観点 | Lasso.jl | GLMNet.jl |
+| Aspect | Lasso.jl | GLMNet.jl |
 |---|---|---|
-| 実装 | 純 Julia (coordinate descent) | Friedman/Hastie/Tibshirani の Fortran `glmnet` ラッパ（reference 実装） |
-| 信頼性 | JuliaStats 公式・活発にメンテ | R glmnet・scikit-learn とビット同等。30 年の実績 |
-| Julia 依存 | GLM, StatsModels, StatsBase, Distributions 等やや多い | Distributions, SparseArrays + GLMNet_jll のみ |
-| JLL 依存 | 無し | あり（本 project は Spglib_jll 等で既存パターン、追加負担なし） |
-| `penalty_factor`（bias 除外・Adaptive 重み） | 対応 | 対応 |
-| `alpha` で LASSO / Ridge / Elastic Net 統一 | 一部 | 完全対応 |
+| Implementation | Pure Julia (coordinate descent) | Wrapper around the Friedman/Hastie/Tibshirani Fortran `glmnet` (reference implementation) |
+| Reliability | JuliaStats-official, actively maintained | Bit-identical to R `glmnet` and scikit-learn; 30-year track record |
+| Julia dependencies | Pulls GLM, StatsModels, StatsBase, Distributions, etc. | Distributions, SparseArrays, plus `GLMNet_jll` |
+| JLL dependency | None | Yes (we already use Spglib_jll, so this is no new burden) |
+| `penalty_factor` (bias exclusion / Adaptive weights) | Supported | Supported |
+| Unified `alpha` for LASSO / Ridge / Elastic Net | Partial | Complete |
 
-**採用: GLMNet.jl**。理由は (a) reference 実装としての数値再現性（CLAUDE.md の「数値的な正確さ・再現性を優先」と合致）、(b) Julia 依存が最小、(c) `alpha` と `penalty_factor` だけで LASSO / Adaptive LASSO / Adaptive Ridge / Elastic Net を一つの実装で網羅できる構造的単純さ。
+**Choice: GLMNet.jl.** Reasons: (a) numerical reproducibility as the
+reference implementation (aligns with CLAUDE.md "Numerical correctness
+and reproducibility first"), (b) minimal Julia dependencies,
+(c) structurally simple: `alpha` plus `penalty_factor` covers LASSO,
+Adaptive LASSO, Adaptive Ridge, and Elastic Net with one implementation.
 
-既存 `Ridge` は MultivariateStats のまま変更しない（リグレッションリスク回避）。新規 estimator のみ GLMNet 経由。
+The existing `Ridge` keeps using MultivariateStats (regression-risk
+avoidance). Only new estimators go through GLMNet.
 
-## 規約（既存 Ridge と揃える）
+## Conventions (match the existing Ridge)
 
-| 項目 | 方針 |
+| Item | Policy |
 |---|---|
-| bias 列 | `penalty_factor[bias_col] = 0` で非ペナルティ化 |
-| `j0` 抽出 | 既存の `extract_j0_jphi` をそのまま再利用 |
-| standardize | デフォルト OFF（SCE スケール因子で列が既に物理的に意味づけられている）。`standardize::Bool` kwarg で ON 可 |
-| λ 選択 | 単一 λ をユーザ指定（Ridge と一貫）。CV 自動選択は別 spec で扱う |
-| augmented system | `assemble_weighted_problem` の出力 `(X, y, bias_col)` をそのまま渡す |
+| Bias column | `penalty_factor[bias_col] = 0` (excluded from penalty) |
+| `j0` extraction | Reuse the existing `extract_j0_jphi` |
+| Standardize | OFF by default (SCE scale factors give columns physically meaningful units already); enable via `standardize::Bool` kwarg |
+| `λ` selection | User-specified single `λ` (matches Ridge). Automatic CV is a separate spec |
+| Augmented system | Use the existing `assemble_weighted_problem` output `(X, y, bias_col)` as-is |
 
-## estimator マッピング
+## Estimator mapping
 
-| Estimator | `alpha` | `penalty_factor[j ≠ bias]` | 補足 |
+| Estimator | `alpha` | `penalty_factor[j != bias]` | Note |
 |---|---|---|---|
 | Lasso | 1.0 | 1 | — |
-| AdaptiveLasso | 1.0 | `1/|β̂_init,j|^γ` | β̂_init は OLS or Ridge（Zou 2006） |
-| AdaptiveRidge (`mode = :oneshot`) | 0.0 | `1/|β̂_init,j|^γ` | 一段階重み付け |
-| AdaptiveRidge (`mode = :iterative`) | 0.0 | `1/(β_j² + ε)` を反復更新 | Frommlet–Nuel 2016。各反復で GLMNet を再 fit して L0 近似稀疏化 |
+| AdaptiveLasso | 1.0 | `1/|β̂_init,j|^γ` | `β̂_init` from OLS or Ridge (Zou 2006) |
+| AdaptiveRidge (`mode = :oneshot`) | 0.0 | `1/|β̂_init,j|^γ` | Single-stage reweighting |
+| AdaptiveRidge (`mode = :iterative`) | 0.0 | `1/(β_j² + ε)` updated iteratively | Frommlet & Nuel 2016. Refits GLMNet each iteration as an L0 approximation |
 
-`:oneshot` / `:iterative` は動作記述命名（人名 symbol は読み手が論文を知る前提になるため避けた）。
+We use behavior-descriptive symbols `:oneshot` / `:iterative` rather
+than author-name symbols, since the latter assume the reader knows the
+paper.
 
-## API 草案
+## Draft API
 
 ```julia
 struct Lasso <: AbstractEstimator
@@ -56,52 +69,76 @@ end
 
 struct AdaptiveLasso <: AbstractEstimator
     lambda::Float64
-    gamma::Float64           # 典型 1.0
+    gamma::Float64           # typically 1.0
     init::Symbol             # :ols | :ridge
-    init_lambda::Float64     # init = :ridge のみ使用
+    init_lambda::Float64     # only used when init = :ridge
     standardize::Bool
 end
 
 struct AdaptiveRidge <: AbstractEstimator
     lambda::Float64
     mode::Symbol             # :oneshot | :iterative
-    gamma::Float64           # :oneshot のみ
-    init::Symbol             # :oneshot のみ (:ols | :ridge)
+    gamma::Float64           # :oneshot only
+    init::Symbol             # :oneshot only (:ols | :ridge)
     init_lambda::Float64
-    epsilon::Float64         # :iterative のみ（β_j² への加算）
-    max_iter::Int            # :iterative のみ
-    tol::Float64             # :iterative のみ（係数 L∞ 変化）
+    epsilon::Float64         # :iterative only (added to β_j²)
+    max_iter::Int            # :iterative only
+    tol::Float64             # :iterative only (L-infinity change in coefficients)
     standardize::Bool
 end
 ```
 
-`solve_coefficients` 各メソッドは共通ヘルパー `_glmnet_solve(X, y, alpha, penalty_factor; ...)` を呼ぶ。`_initial_estimate` / `_adaptive_penalty_factor` / `_iterative_penalty_factor` を内部ヘルパーとして用意。
+Each `solve_coefficients` method calls a shared helper
+`_glmnet_solve(X, y, alpha, penalty_factor; ...)`. Internal helpers
+`_initial_estimate` / `_adaptive_penalty_factor` /
+`_iterative_penalty_factor`.
 
-`Lasso` / `AdaptiveLasso` / `AdaptiveRidge` を export し `Magesty.jl` で re-export。
+Export `Lasso` / `AdaptiveLasso` / `AdaptiveRidge`; re-export from
+`Magesty.jl`.
 
-## テスト計画
+## Test plan
 
-1. **λ → 0 で OLS と一致**（要件）: 小規模 well-conditioned `X, y` で `Lasso(λ=1e-10)` / `AdaptiveLasso(λ=1e-10)` / `AdaptiveRidge(λ=1e-10, mode=:oneshot)` / `AdaptiveRidge(λ=1e-10, mode=:iterative)` の係数が `OLS()` と `atol` 内で一致。bias 係数（j0）も含めて比較。
-2. **bias 列が penalty から除外される**: penalty を極端に大きくしても bias_col 係数は `mean(y)` 相当（他がゼロに落ちる極限）。
-3. **Adaptive LASSO の oracle 性**: スパース真解の合成データでゼロ係数が実際にゼロに落ちる。
-4. **AdaptiveRidge `:iterative` の収束**: `max_iter` 未満で `tol` を満たす。
-5. **GLMNet と MultivariateStats.ridge の整合**: `alpha=0, penalty_factor=unit` の GLMNet 解が既存 Ridge 解と一致（数値再現性）。
-6. `make test-all` `make test-jet` `make test-aqua` を通す。
+1. **Agrees with OLS as `λ -> 0` (requirement)**: on small,
+   well-conditioned `X, y`, `Lasso(λ=1e-10)` / `AdaptiveLasso(λ=1e-10)` /
+   `AdaptiveRidge(λ=1e-10, mode=:oneshot)` /
+   `AdaptiveRidge(λ=1e-10, mode=:iterative)` match `OLS()` within
+   `atol`. Includes the bias coefficient (`j0`).
+2. **Bias column excluded from penalty**: even with an extreme penalty,
+   the bias_col coefficient equals `mean(y)` (in the limit where the
+   others collapse to zero).
+3. **Adaptive LASSO oracle property**: on synthetic sparse-truth data,
+   zero-coefficients actually go to zero.
+4. **AdaptiveRidge `:iterative` convergence**: meets `tol` within
+   `max_iter`.
+5. **GLMNet vs MultivariateStats.ridge agreement**: with `alpha=0,
+   penalty_factor=unit`, the GLMNet solution agrees with the existing
+   Ridge (numerical reproducibility).
+6. `make test-all`, `make test-jet`, `make test-aqua` all pass.
 
-## 修正対象
+## Files to change
 
-- `Project.toml` — `[deps]` `[compat]` に `GLMNet`
-- `src/Fitting.jl` — `using GLMNet`、3 つの型・メソッド・ヘルパー・export
-- `src/Magesty.jl` — re-export
-- `test/component_test/test_optimize_estimators.jl`（新規 or 既存に追記）
+- `Project.toml` — add `GLMNet` to `[deps]` and `[compat]`.
+- `src/Fitting.jl` — `using GLMNet`; three types, methods, helpers,
+  exports.
+- `src/Magesty.jl` — re-exports.
+- `test/component/test_fitting_estimators.jl` (new file or appended to
+  an existing one).
 
-## 進め方
+## Workflow
 
-中規模機能追加 + 設計判断複数 + 新外部依存 → spec 化が妥当。合意後に `docs/specs/260516-lasso-adaptive-estimators/`（requirements / design / tasklist の 3 ファイル）を切り、ブランチ `refactor/lasso-adaptive-estimators` で実装する（[[feedback_branch_for_medium_refactor]]）。
+Mid-sized feature + multiple design decisions + new external dependency
+= spec needed. Once agreed, create
+`docs/specs/260516-lasso-adaptive-estimators/`
+(requirements / design / tasklist) and implement on a
+`refactor/lasso-adaptive-estimators` branch
+([[feedback_branch_for_medium_refactor]]).
 
-## オープン項目
+## Open items
 
-- `standardize` デフォルト OFF でよいか（Ridge と一貫させる方針）。
-- `AdaptiveLasso` / `AdaptiveRidge(:oneshot)` の `init` デフォルト `:ols`、`γ` デフォルト `1.0`。
-- `AdaptiveRidge(:iterative)` のデフォルト `epsilon=1e-8`, `max_iter=50`, `tol=1e-6`。
-- 既存 `Ridge` を将来 GLMNet に寄せて API を一本化するかは別 spec で判断。
+- `standardize` defaults to OFF (consistent with Ridge); confirm.
+- `AdaptiveLasso` / `AdaptiveRidge(:oneshot)` defaults: `init = :ols`,
+  `γ = 1.0`.
+- `AdaptiveRidge(:iterative)` defaults: `epsilon=1e-8`, `max_iter=50`,
+  `tol=1e-6`.
+- Whether to fold the existing `Ridge` into GLMNet later (separate
+  spec).

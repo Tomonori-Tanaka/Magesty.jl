@@ -1,57 +1,65 @@
-# Pre-release Cleanup (v0.1.0)
+# Pre-release cleanup (v0.1.0)
 
-**Status**: 未着手 (2026-05-17)
+**Status**: not started (2026-05-17)
 
-最初の正式リリース v0.1.0 に向けたパッケージ全体の点検結果と修正項目。examples パスが
-壊れている (P0)、`Project.toml` の version/authors/compat 整理、`CITATION.cff` 追加、
-Documenter 検査の強化、`predict_*` docstring 形式統一、`square_lattice` 未実装テストの
-解消を一括で実施する。
+Repository-wide audit results and fixes for the first official release
+v0.1.0. The plan was to land in one PR: broken examples paths (P0),
+`Project.toml` version / authors / compat tidy-up, add `CITATION.cff`,
+tighten Documenter checks, normalize `predict_*` docstrings, and remove
+the unimplemented `square_lattice` test.
 
-## 背景
+## Background
 
-- 現在の `Project.toml` は `version = "0.1.0-DEV"` で、最新タグ `v0.0.2` から 60+ commits 経過。
-- パッケージ全体の API・ドキュメント・テスト・CI を 3 エージェントで網羅調査し、リリースを
-  阻む不具合と衛生問題を洗い出した。
-- ユーザー回答: 「P0 修正 + メタデータ整理 + Doc/test 衛生 + version bump (0.1.0) + compat
-  を minor まで緩める」をまとめて 1 PR 範囲に含める方針で合意。
+- `Project.toml` was at `version = "0.1.0-DEV"` and 60+ commits past
+  the most recent tag `v0.0.2`.
+- A three-agent sweep audited the package's API, documentation, tests,
+  and CI for release-blocking defects and hygiene issues.
+- User decision: bundle P0 fixes, metadata cleanup, doc / test
+  hygiene, version bump (0.1.0), and minor-level compat relaxation in
+  one PR.
 
-## 検出された問題と修正方針
+## Issues found and fixes
 
-### P0. 壊れた examples のパス（即修正対象）
+### P0. Broken examples paths (must fix)
 
-`FIXTURE` が `test/examples/` を指しているが実在するのは `test/integration/`。
+`FIXTURE` pointed at `test/examples/`, but the actual location is
+`test/integration/`.
 
-- `examples/01_basic_flow.jl:10` — `"..", "test", "examples", "fept_tetragonal_2x2x2"` →
-  `"..", "test", "integration", "fept_tetragonal_2x2x2"`
-- `examples/03_save_load.jl:12` — 同上
+- `examples/01_basic_flow.jl:10` —
+  `"..", "test", "examples", "fept_tetragonal_2x2x2"` ->
+  `"..", "test", "integration", "fept_tetragonal_2x2x2"`.
+- `examples/03_save_load.jl:12` — same fix.
 
-`test/integration/fept_tetragonal_2x2x2/{input.toml,EMBSET.dat}` の存在は確認済み。
-`examples/02_cif_input.jl` は問題なし。
+`test/integration/fept_tetragonal_2x2x2/{input.toml,EMBSET.dat}` are
+present. `examples/02_cif_input.jl` has no issue.
 
-### P1. Project.toml の整理
+### P1. `Project.toml` cleanup
 
-- **version** (行 3): `"0.1.0-DEV"` → `"0.1.0"`
-- **authors** (行 4): `"T.Tanaka <tomonori.tanaka.academic@gmail.com>"` のまま据え置き
-- **LICENSE 行 375**: `Copyright (c) 2024 TomonoriTanaka` を `T.Tanaka` に統一
-- **compat の minor 化** (patch ピンを minor に緩和):
-  - `AtomsBase = "0.5.2"` → `"0.5"`
-  - `Combinat = "0.1.4"` → `"0.1"`
-  - `EzXML = "1.2.1"` → `"1.2"`
-  - `LegendrePolynomials = "0.4.5"` → `"0.4"`
-  - `MultivariateStats = "0.10.3"` → `"0.10"`
-  - `OffsetArrays = "1.17.0"` → `"1"`
-  - `StaticArrays = "1.9.10"` → `"1.9"`
-  - `Unitful = "1.28.0"` → `"1"`
-  - `WignerD = "0.1.4"` → `"0.1"`
-  - `JET = "0.11"` はテスト用 CI ピン目的で据え置き
+- **version** (line 3): `"0.1.0-DEV"` -> `"0.1.0"`.
+- **authors** (line 4): keep
+  `"T.Tanaka <tomonori.tanaka.academic@gmail.com>"`.
+- **LICENSE line 375**: `Copyright (c) 2024 TomonoriTanaka` -> normalize
+  to `T.Tanaka`.
+- **Relax compat patch pins to minor**:
+  - `AtomsBase = "0.5.2"` -> `"0.5"`
+  - `Combinat = "0.1.4"` -> `"0.1"`
+  - `EzXML = "1.2.1"` -> `"1.2"`
+  - `LegendrePolynomials = "0.4.5"` -> `"0.4"`
+  - `MultivariateStats = "0.10.3"` -> `"0.10"`
+  - `OffsetArrays = "1.17.0"` -> `"1"`
+  - `StaticArrays = "1.9.10"` -> `"1.9"`
+  - `Unitful = "1.28.0"` -> `"1"`
+  - `WignerD = "0.1.4"` -> `"0.1"`
+  - Keep `JET = "0.11"` (CI test pin).
 
-`test/component/test_Version.jl` は `Project.toml` の version と `Magesty.VERSION` の文字列
-一致を見るだけなので、bump で他テストへの波及はない。
+`test/component/test_Version.jl` only checks the string match between
+`Project.toml`'s version and `Magesty.VERSION`, so the bump does not
+ripple into other tests.
 
-### P2. CITATION.cff の追加（新規）
+### P2. Add `CITATION.cff` (new)
 
-GitHub の "Cite this repository" が機能するように CFF 1.2.0 形式で。論文情報は README の
-arXiv:2512.04458 / ORCID から取得。詳細フォーマット例:
+Make GitHub's "Cite this repository" work. CFF 1.2.0. Source the paper
+info from the README (arXiv:2512.04458, ORCID).
 
 ```yaml
 cff-version: 1.2.0
@@ -75,61 +83,76 @@ preferred-citation:
   url: "https://arxiv.org/abs/2512.04458"
 ```
 
-論文タイトル・著者リスト・arXiv ID は実装時に最終確認する。
+Confirm paper title / authors / arXiv ID at implementation time.
 
-### P3. Documenter 検査の強化
+### P3. Tighten Documenter checks
 
-- `docs/make.jl:38` — `checkdocs = :none` → `checkdocs = :exports`
-- 強化後、`export` シンボルすべてが `docs/src/api.md` 等で `@docs` ブロックを持つことを
-  CI で検証できる。事前調査では網羅されていそうだが、ビルドが pass するかを実機で再確認。
+- `docs/make.jl:38` — `checkdocs = :none` -> `checkdocs = :exports`.
+- After the tighten, CI verifies that every exported symbol has an
+  `@docs` block in `docs/src/api.md` etc. The prior survey suggests
+  full coverage, but re-confirm the build passes.
 
-### P4. predict_energy / predict_torque docstring の形式統一
+### P4. Normalize `predict_energy` / `predict_torque` docstrings
 
 - `src/Magesty.jl:529–540` (predict_energy)
 - `src/Magesty.jl:559–571` (predict_torque)
-- 現状は説明文のみ。CLAUDE.md の規約に従い `# Arguments` / `# Returns` を追加。同ファイル内の
-  `r2_energy` / `rmse_torque` 等のスタイルに揃える。
+- Currently description-only. Add `# Arguments` / `# Returns` per the
+  CLAUDE.md rule, matching the style of `r2_energy` / `rmse_torque` in
+  the same file.
 
-### P5. 未実装テストの解消
+### P5. Remove unimplemented test
 
-- `test/integration/square_lattice/test.jl:85` — `# TODO: Add test for SCEModel` を解消。
-- dimer / chain / febcc_2x2x2_pm 既存パターンを参考に、`SCEModel(fit)` 構築 +
-  `predict_energy(model, dataset)` の往復チェックを追加する。`@test_skip` 化はしない。
+- `test/integration/square_lattice/test.jl:85` — drop the
+  `# TODO: Add test for SCEModel` placeholder. Following the dimer /
+  chain / febcc_2x2x2_pm pattern, add an `SCEModel(fit)` build plus a
+  `predict_energy(model, dataset)` round trip. Do not convert to
+  `@test_skip`.
 
-### P6. オプション: tools/test/ の CI 統合
+### P6. Optional: integrate `tools/test/` into CI
 
-- `.github/workflows/CI.yml` に `make test-tools` step を追加。
-- リリースをブロックしないが、補助スクリプトの腐敗を防ぐ。実施可否はユーザー判断。
+- Add a `make test-tools` step to `.github/workflows/CI.yml`.
+- Does not block the release; prevents bit rot in auxiliary scripts.
+  Final decision deferred to the user.
 
-## 検証手順
+## Verification
 
-1. `julia --project=examples examples/01_basic_flow.jl` と `examples/03_save_load.jl` の完走確認。
-2. `make test-all` — ユニット＋統合 pass（square_lattice / Version / Aqua 含む）。
-3. `make test-jet` / `make test-aqua` — 警告 0。
-4. `make test-tools` — tools スクリプトのテスト pass。
-5. `julia --project=docs docs/make.jl` — `:exports` 強化後にビルド pass、未文書化 export 無し。
-6. push 後 GitHub の "Cite this repository" ボタンが CITATION.cff を認識することを目視確認。
+1. `julia --project=examples examples/01_basic_flow.jl` and
+   `examples/03_save_load.jl` both run to completion.
+2. `make test-all` — unit + integration pass (square_lattice / Version
+   / Aqua included).
+3. `make test-jet` / `make test-aqua` — zero warnings.
+4. `make test-tools` — tools scripts pass.
+5. `julia --project=docs docs/make.jl` — builds with `:exports`, no
+   undocumented exports.
+6. After push, manually confirm that GitHub's "Cite this repository"
+   button recognizes `CITATION.cff`.
 
-## 検出されなかった（対象外の）項目
+## Not flagged (deliberately out of scope)
 
-事前調査で問題ないことを確認済み:
+Pre-audit confirmed clean:
 
-- `.jl` ソース中の日本語コメント・docstring
-- `CLAUDE.md` / `docs/specs/` / `.claude/` への参照
-- "spin cluster expansion" のハイフン抜け（src/Magesty.jl:5 で正しくハイフン有り）
-- アメリカ英語規約違反（SpheriCart の `normalisation=:L2` のみ例外、正しく維持）
-- TODO / FIXME / XXX / HACK コメント（square_lattice の 1 件のみ、P5 で対応）
-- デバッグ用 `@show` / `println` 残骸
-- `@test_broken` / `@test_skip` の不要残骸
-- コメントアウトされたコードブロック
-- `.DS_Store` の commit
-- examples 02_cif_input.jl の API 整合性
-- `docs/src/technical_notes.md` の数学規約と src 実装の整合
-- 型アノテーション / `@views` / `@inbounds` のホットパス適用状況
+- Japanese comments / docstrings in `.jl` source.
+- References to `CLAUDE.md` / `docs/specs/` / `.claude/`.
+- "spin cluster expansion" hyphenation (correct at src/Magesty.jl:5).
+- US English violations (only `normalisation=:L2` for SpheriCart, kept
+  intentionally).
+- TODO / FIXME / XXX / HACK comments (only the square_lattice one,
+  handled by P5).
+- Stray debug `@show` / `println`.
+- Stale `@test_broken` / `@test_skip`.
+- Commented-out blocks.
+- `.DS_Store` in the index.
+- `examples/02_cif_input.jl` API consistency.
+- Math conventions in `docs/src/technical_notes.md` vs the source.
+- Hot-path application of type annotations / `@views` / `@inbounds`.
 
-## 進め方
+## Workflow
 
-- 本 design-note で合意 → spec 化するか直接 PR 化するかは別途判断。
-- 実装時は機能単位で commit を分割（P0 / P1 / P2 / P3+P4 / P5 / 任意 P6）。
-- `git commit` / `push` は user の明示指示後に `git-helper` agent 経由で実施。
-- リリースタグ `v0.1.0` の作成は本作業 merge 後にユーザー側で実施想定。
+- Agree on this note, then decide whether to lift to a spec or go
+  directly to a PR.
+- Split commits per concern (P0 / P1 / P2 / P3 + P4 / P5 / optional
+  P6).
+- `git commit` / `git push` only after the user gives an explicit
+  instruction, via the `git-helper` agent.
+- The `v0.1.0` release tag is created by the user after this PR is
+  merged.
