@@ -223,7 +223,7 @@ function _ensure_sh_buffer!(
 	N = length(ls)
 	resize!(offsets, N + 1)
 	@inbounds offsets[1] = 0
-	@inbounds for i in 1:N
+	@inbounds for i = 1:N
 		offsets[i + 1] = offsets[i] + 2 * ls[i] + 1
 	end
 	total = @inbounds offsets[N + 1]
@@ -268,7 +268,7 @@ function build_design_matrix_energy(
 		# One workspace per @threads iteration. The Set/Vector buffers grow on
 		# first use and are reused across all (j, cbc) calls in this column.
 		ws = EnergyWorkspace()
-		@inbounds for j in 1:num_spinconfigs
+		@inbounds for j = 1:num_spinconfigs
 			# Sum contributions from all CoupledBasis_with_coefficient in this key group
 			group_value = 0.0
 			for cbc in key_group
@@ -338,7 +338,7 @@ function design_matrix_energy_element(
 
 	@inbounds for itrans in symmetry.symnum_translation
 		# Translate atoms
-		for site_idx in 1:(R - 1)
+		for site_idx = 1:(R - 1)
 			translated_atoms[site_idx] = symmetry.map_sym[cbc.atoms[site_idx], itrans]
 		end
 		# Sort atoms for comparison, but keep ls in original order
@@ -354,11 +354,11 @@ function design_matrix_energy_element(
 		# Compute spherical harmonics for each site into the workspace buffer.
 		# `Zₗₘ_unsafe(l, m, uvec, legendre_buf)` reuses the Legendre cache
 		# rather than reallocating it on every (l, m, atom).
-		for site_idx in 1:(R - 1)
+		for site_idx = 1:(R - 1)
 			atom = translated_atoms[site_idx]
 			l = cbc.ls[site_idx]
 			base = sh_offsets[site_idx]
-			for m_idx in 1:(2*l+1)
+			for m_idx = 1:(2*l+1)
 				# Convert tesseral index to m value: m = m_idx - l - 1
 				m = m_idx - l - 1
 				sh_values[base + m_idx] =
@@ -374,17 +374,17 @@ function design_matrix_energy_element(
 		tensor_result = 0.0
 
 		# Iterate over all Mf values
-		for mf_idx in 1:Mf_size
+		for mf_idx = 1:Mf_size
 			mf_contribution = 0.0
 
 			for other_tuple in other_site_indices
 				product_other = 1.0
-				for site_idx in 1:(R - 2)
+				for site_idx = 1:(R - 2)
 					m_idx_other = other_tuple.I[site_idx]
 					idx_buf[site_idx] = m_idx_other
 					product_other *= sh_values[sh_offsets[site_idx] + m_idx_other]
 				end
-				for m_idx_last in 1:dims_t[R - 1]
+				for m_idx_last = 1:dims_t[R - 1]
 					idx_buf[R - 1] = m_idx_last
 					mf_contribution +=
 						cbc.coeff_tensor[idx_buf..., mf_idx] *
@@ -440,14 +440,14 @@ function build_design_matrix_torque(
 	block_size = 3 * num_atoms
 	design_matrix = Matrix{Float64}(undef, num_spinconfigs * block_size, num_salcs)
 
-	@threads for sc_idx in 1:num_spinconfigs
+	@threads for sc_idx = 1:num_spinconfigs
 		spinconfig = spinconfig_list[sc_idx]
 		row_offset = block_size * (sc_idx - 1)
 		grad_u_buf = MVector{3, Float64}(0.0, 0.0, 0.0)
 		# One workspace per @threads iteration; reused across all (iatom,
 		# salc_idx, cbc) calls in this row block.
 		ws = GradWorkspace()
-		@inbounds for iatom in 1:num_atoms
+		@inbounds for iatom = 1:num_atoms
 			@views dir_iatom = spinconfig.spin_directions[:, iatom]
 			dir_iatom_svec = SVector{3, Float64}(dir_iatom)
 			@inbounds for (salc_idx, key_group) in enumerate(salc_list)
@@ -533,7 +533,7 @@ function calc_∇ₑu!(
 	@inbounds for itrans in symmetry.symnum_translation
 		# Translate atoms and identify the differentiated site index.
 		atom_site_idx = 0
-		for site_idx in 1:(R - 1)
+		for site_idx = 1:(R - 1)
 			ta = symmetry.map_sym[cbc.atoms[site_idx], itrans]
 			translated_atoms[site_idx] = ta
 			if ta == atom
@@ -566,11 +566,11 @@ function calc_∇ₑu!(
 		# Calling `Zₗₘ_unsafe` and then `∂ᵢZlm_unsafe` against the same buffer
 		# (the `site_idx == atom_site_idx` case below) is therefore safe; the
 		# second call simply overwrites the first call's cache state.
-		for site_idx in 1:(R - 1)
+		for site_idx = 1:(R - 1)
 			translated_atom = translated_atoms[site_idx]
 			l = cbc.ls[site_idx]
 			base = sh_offsets[site_idx]
-			for m_idx in 1:(2*l+1)
+			for m_idx = 1:(2*l+1)
 				# Convert tesseral index to m value: m = m_idx - l - 1
 				m = m_idx - l - 1
 
@@ -589,7 +589,7 @@ function calc_∇ₑu!(
 		grad_result = MVector{3, Float64}(0.0, 0.0, 0.0)
 		# Refill the other_sites/other_dims buffers for this `atom_site_idx`.
 		ki = 0
-		for s in 1:(R - 1)
+		for s = 1:(R - 1)
 			if s != atom_site_idx
 				ki += 1
 				other_sites_buf[ki] = s
@@ -601,20 +601,20 @@ function calc_∇ₑu!(
 		other_site_indices = CartesianIndices(Tuple(other_dims_buf))
 
 		# Iterate over all Mf values
-		for mf_idx in 1:Mf_size
+		for mf_idx = 1:Mf_size
 			mf_grad_contribution = MVector{3, Float64}(0.0, 0.0, 0.0)
 
 			# Reuse product over non-differentiated sites for each m on target site.
 			for other_tuple in other_site_indices
 				product_other = 1.0
-				for k in 1:(R - 2)
+				for k = 1:(R - 2)
 					site_idx = other_sites_buf[k]
 					m_idx_other = other_tuple.I[k]
 					idx_buf[site_idx] = m_idx_other
 					product_other *= sh_values[sh_offsets[site_idx] + m_idx_other]
 				end
 
-				for m_idx_atom in 1:(2*l_atom+1)
+				for m_idx_atom = 1:(2*l_atom+1)
 					idx_buf[atom_site_idx] = m_idx_atom
 					grad_atom = atom_grad_values[m_idx_atom]
 					coeff_val = cbc.coeff_tensor[idx_buf..., mf_idx]

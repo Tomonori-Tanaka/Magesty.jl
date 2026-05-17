@@ -42,7 +42,7 @@ function calc_local_magfield_vertical(
 	end
 
 	local_magfield_vertical = zeros(3, size(local_magfield, 2))
-	for i in 1:size(local_magfield, 2)
+	for i = 1:size(local_magfield, 2)
 		proj_B = dot(local_magfield[:, i], spin_directions[:, i]) * spin_directions[:, i]
 		local_magfield_vertical[:, i] = local_magfield[:, i] - proj_B
 	end
@@ -176,7 +176,7 @@ function calc_torques(
 )::Matrix{Float64}
 	num_atoms = length(magmom_size)
 	torques = zeros(3, num_atoms)
-	for i in 1:num_atoms
+	for i = 1:num_atoms
 		torques[:, i] = -1.0 * (magmom_size[i] * spin_directions[:, i]) × local_magfield[:, i]
 	end
 	return torques
@@ -213,7 +213,7 @@ function show(io::IO, ::MIME"text/plain", config::SpinConfig)
 	)
 
 	num_atoms = length(config.magmom_size)
-	@inbounds for i in 1:num_atoms
+	@inbounds for i = 1:num_atoms
 		println(io,
 			lpad(i, 7),
 			"  ",
@@ -288,7 +288,7 @@ function read_embset(filepath::AbstractString)::Vector{SpinConfig}
 	num_configs = length(filtered_lines) ÷ (num_atoms + 1)
 	configs = Vector{SpinConfig}(undef, num_configs)
 
-	for i in 1:num_configs
+	for i = 1:num_configs
 		configs[i] = separate_embset(filtered_lines, num_atoms, i)
 	end
 

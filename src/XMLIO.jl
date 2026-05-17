@@ -86,7 +86,7 @@ function _write_system_subtree!(
 
 	# Add lattice vectors
 	lattice_node = addelement!(system_node, TAG_LATTICE)
-	for i in 1:3
+	for i = 1:3
 		vector = structure.supercell.lattice_vectors[i, :]
 		vector_str = join([fmt_lattice(x) for x in vector], " ")
 		addelement!(lattice_node, "a$i", vector_str)
@@ -185,7 +185,7 @@ function _write_system_subtree!(
 			# Mf values range from -Lf to +Lf in tesseral basis
 			# Tesseral basis indexing: m_idx = 1 corresponds to Mf = -Lf, m_idx = 2 corresponds to Mf = -Lf+1, etc.
 			# So Mf = m_idx - Lf - 1 for tesseral basis
-			for mf_idx in 1:Mf_size
+			for mf_idx = 1:Mf_size
 				# Convert tesseral index to Mf value: Mf = m_idx - Lf - 1
 				Mf_value = mf_idx - amc.Lf - 1
 				mf_node = addelement!(coupling_node, TAG_MF)

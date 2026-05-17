@@ -282,7 +282,7 @@ function construct_map_sym(
 					diff_v = x_jat - x_new
 					# Wrap into fractional cell and take periodic-image distance squared.
 					d2 = 0.0
-					for k in 1:3
+					for k = 1:3
 						v = abs(diff_v[k]) % 1.0
 						v = min(v, 1.0 - v)
 						d2 += v * v

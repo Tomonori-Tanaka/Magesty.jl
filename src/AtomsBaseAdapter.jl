@@ -58,7 +58,7 @@ function _kind_tables(sys::AtomsBase.AbstractSystem)
     n = length(sys)
     kind_syms = Vector{Symbol}(undef, n)
     elem_syms = Vector{Symbol}(undef, n)
-    for i in 1:n
+    for i = 1:n
         kind_syms[i] = _kind_name(sys, i)
         elem_syms[i] = Symbol(AtomsBase.atomic_symbol(AtomsBase.species(sys, i)))
     end
@@ -66,7 +66,7 @@ function _kind_tables(sys::AtomsBase.AbstractSystem)
     kd_name = String.(unique_kinds)
     kd_int_list = [findfirst(==(k), unique_kinds)::Int for k in kind_syms]
     kind_to_element = Dict{Symbol, Symbol}()
-    for i in 1:n
+    for i = 1:n
         kind_to_element[kind_syms[i]] = elem_syms[i]
     end
     return kd_name, kd_int_list, kind_to_element
@@ -87,7 +87,7 @@ function _lattice_and_positions(sys::AtomsBase.AbstractSystem)
     lattice_mat = reduce(hcat, lattice_cols)
     n = length(sys)
     positions_mat = zeros(Float64, 3, n)
-    for i in 1:n
+    for i = 1:n
         cart = Float64[_to_angstrom(c) for c in AtomsBase.position(sys, i)]
         positions_mat[:, i] = lattice_mat \ cart
     end
@@ -188,7 +188,7 @@ function _build_interaction_spec(
         bodyn_lsum = OffsetArray(fill(0, nbody - 1), 2:nbody)
         bodyn_cutoff = OffsetArray(zeros(Float64, nbody - 1, nkd, nkd),
                                    2:nbody, 1:nkd, 1:nkd)
-        for n in 2:nbody
+        for n = 2:nbody
             bkey = Symbol("body$n")
             haskey(interaction, bkey) || throw(ArgumentError(
                 "interaction must contain `$bkey` for nbody = $nbody"))
@@ -197,7 +197,7 @@ function _build_interaction_spec(
             cutoff_dict = _bodyn_cutoff_dict(bn.cutoff, kd_name, kind_to_element)
             cutoff_mat = expand_pair_table(kd_name, cutoff_dict;
                                            context = "interaction.body$n.cutoff")
-            for i in 1:nkd, j in 1:nkd
+            for i = 1:nkd, j = 1:nkd
                 bodyn_cutoff[n, i, j] = cutoff_mat[i, j]
             end
         end
@@ -287,7 +287,7 @@ function kwargs_to_specs(;
     kd_name = String.(kd)
     kind_to_element = Dict(Symbol(k) => Symbol(k) for k in kd_name)
     lattice_mat = Matrix{Float64}(undef, 3, 3)
-    for i in 1:3, j in 1:3
+    for i = 1:3, j = 1:3
         lattice_mat[i, j] = _to_angstrom(lattice[i, j])
     end
     n = length(kd_list)

@@ -29,7 +29,7 @@ function c2r_sph_harm_matrix(l::Integer)::Matrix{ComplexF64}
     U[idx(0), idx(0)] = 1
 
     # m > 0 blocks (pair of real columns for ±m)
-    for m in 1:l
+    for m = 1:l
         ip, im_idx = idx(+m), idx(-m)
         # Row for complex +m
         U[idx(+m), ip] = (-1)^m / sqrt(2)
