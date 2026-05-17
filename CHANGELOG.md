@@ -44,6 +44,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Internally, the `Version` submodule was folded into a private helper
   inside `XMLIO.jl` (still records the package version in the XML
   `<version>` element).
+- **Breaking:** Removed `Magesty.install_tools()`. The CLI scripts
+  under `tools/` are unchanged; invoke them directly with
+  `julia --project=@vMAJOR.MINOR /path/to/script.jl` (or a shell
+  alias of your own) instead of relying on a packaged installer.
 
 ## [0.1.0] - 2026-05-17
 

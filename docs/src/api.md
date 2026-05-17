@@ -72,12 +72,6 @@ read_embset
 SpinConfig
 ```
 
-## CLI tools
-
-```@docs
-install_tools
-```
-
 ## Submodules
 
 ### Structures

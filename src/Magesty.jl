@@ -74,7 +74,6 @@ export fit, coef, intercept, nobs, dof
 export r2_energy, r2_torque, rss_energy, rss_torque
 export residuals_energy, residuals_torque, rmse_energy, rmse_torque
 export SpinConfig, read_embset
-export install_tools
 
 # Shared skeleton for the SCEBasis input-driven constructors.
 # Returns the (structure, symmetry, cluster) triplet; callers append the
@@ -1119,64 +1118,6 @@ function load(::Type{SCEModel}, path::AbstractString)::SCEModel
 	structure, symmetry, salcbasis, isotropy, j0, jphi =
 		XMLIO.read_model_components_from_xml(path)
 	return SCEModel(SCEBasis(structure, symmetry, salcbasis, isotropy), j0, jphi)
-end
-
-"""
-    install_tools(; bindir::AbstractString=joinpath(homedir(), ".julia", "bin"))
-
-Install CLI wrapper scripts for Magesty tools into `bindir` (default: `~/.julia/bin`).
-Each wrapper calls `julia /path/to/script.jl "\$@"`, so the correct package version
-is always used regardless of where the package is installed.
-
-After running this once, add `~/.julia/bin` to your PATH:
-    export PATH="\$HOME/.julia/bin:\$PATH"
-
-# Arguments
-- `bindir::AbstractString=joinpath(homedir(), ".julia", "bin")`: Target directory
-  for the wrapper scripts. The directory is created if it does not exist.
-
-# Returns
-- `Nothing`: Writes wrapper scripts as a side effect and prints their paths.
-
-# Throws
-- `ErrorException`: If the Magesty package directory cannot be determined.
-
-# Available commands after installation
-- `vasp2extxyz`           — convert a single VASP output to extxyz
-- `vasp2extxyz_recursive` — recursively convert VASP outputs under a directory
-
-# Examples
-```julia
-using Magesty
-Magesty.install_tools()
-# or to install into a custom location
-Magesty.install_tools(bindir="/usr/local/bin")
-```
-"""
-function install_tools(; bindir::AbstractString = joinpath(homedir(), ".julia", "bin"))
-    pkg_dir = pkgdir(Magesty)
-    if isnothing(pkg_dir)
-        error("Cannot determine Magesty package directory")
-    end
-
-    mkpath(bindir)
-
-    tools = [
-        "vasp2extxyz"           => joinpath("tools", "vasp", "vasp2extxyz.jl"),
-        "vasp2extxyz_recursive" => joinpath("tools", "vasp", "vasp2extxyz_recursive.jl"),
-    ]
-
-    global_env = "@v$(Sys.VERSION.major).$(Sys.VERSION.minor)"
-    for (name, rel_path) in tools
-        script = joinpath(pkg_dir, rel_path)
-        wrapper = joinpath(bindir, name)
-        write(wrapper, "#!/bin/sh\nexec julia --project=$global_env \"$script\" \"\$@\"\n")
-        chmod(wrapper, 0o755)
-        println("Installed: $wrapper")
-    end
-
-    println("\nMake sure ~/.julia/bin is in your PATH:")
-    println("  export PATH=\"\$HOME/.julia/bin:\$PATH\"")
 end
 
 # --- Compact show methods for the main public types ---------------------
