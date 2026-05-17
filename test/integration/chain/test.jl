@@ -36,7 +36,7 @@ input = TOML.parse(open(joinpath(@__DIR__, "input.toml"), "r"))
 
 	dataset = SCEDataset(basis, spinconfig_list)
 	# Energy-only fit (torque is the dummy zero field above; weight=0 reproduces the legacy w=0 path).
-	fitted = fit(SCEFit, dataset, OLS(); torque_weight = 0.0)
+	fitted = fit(SCEFit, dataset, OLS(); torque_weight = 0.0, verbosity = false)
 	model = SCEModel(fitted)
 	Magesty.save(model, joinpath(@__DIR__, "chain.xml"))
 

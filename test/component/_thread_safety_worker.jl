@@ -16,7 +16,7 @@ function compute_payload()
     input = TOML.parsefile(joinpath(EXAMPLE_DIR, "input.toml"))
     basis = SCEBasis(input; verbosity = false)
     dataset = SCEDataset(basis, joinpath(EXAMPLE_DIR, "EMBSET.dat"))
-    fitted = fit(SCEFit, dataset, Ridge(lambda = 0.0); torque_weight = 0.5)
+    fitted = fit(SCEFit, dataset, Ridge(lambda = 0.0); torque_weight = 0.5, verbosity = false)
     model = SCEModel(fitted)
 
     spinconfigs = dataset.spinconfigs

@@ -36,7 +36,7 @@ input = TOML.parse(open(joinpath(@__DIR__, "input.toml"), "r"))
 	spinconfig_list = [fm, afm]
 
 	dataset = SCEDataset(basis, spinconfig_list)
-	fitted = fit(SCEFit, dataset, OLS(); torque_weight = 0.0)
+	fitted = fit(SCEFit, dataset, OLS(); torque_weight = 0.0, verbosity = false)
 	model = SCEModel(fitted)
 	Magesty.save(model, joinpath(@__DIR__, "dimer.xml"))
 
@@ -106,7 +106,7 @@ input = TOML.parse(open(joinpath(@__DIR__, "input.toml"), "r"))
 		)
 
 		dmi_dataset = SCEDataset(dmi_basis, dmi_configs)
-		dmi_fitted = fit(SCEFit, dmi_dataset, OLS(); torque_weight = 0.0)
+		dmi_fitted = fit(SCEFit, dmi_dataset, OLS(); torque_weight = 0.0, verbosity = false)
 		dmi_model = SCEModel(dmi_fitted)
 
 		@test intercept(dmi_fitted) ≈ 0.0 atol = 1e-6

@@ -107,7 +107,7 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 	num_cfg = min(length(spinconfigs_all), num_cfg_target)
 	spinconfigs = spinconfigs_all[1:num_cfg]
 	dataset = SCEDataset(basis, spinconfigs)
-	fitted = fit(SCEFit, dataset, OLS(); torque_weight = 0.5)
+	fitted = fit(SCEFit, dataset, OLS(); torque_weight = 0.5, verbosity = false)
 	Magesty.save(SCEModel(fitted), joinpath(@__DIR__, "scecoeffs.xml"))
 
 	@testset "SCE Regression Roundtrip (energy + torque)" begin
@@ -135,7 +135,7 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 
 		# Recover the coefficients across the full torque-weight range.
 		for w in [0.0, 0.5, 1.0]
-			f = fit(SCEFit, synth_dataset, OLS(); torque_weight = w)
+			f = fit(SCEFit, synth_dataset, OLS(); torque_weight = w, verbosity = false)
 			@test isapprox(intercept(f), j0_true; rtol = 1e-8, atol = 1e-8)
 			@test isapprox(coef(f), jphi_true; rtol = 1e-8, atol = 1e-8)
 		end

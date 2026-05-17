@@ -493,6 +493,9 @@ This is the StatsAPI `fit` verb; `using Magesty` re-exports it.
 - `estimator::AbstractEstimator`: Regression estimator (`OLS()` or
   `Ridge(lambda=...)`).
 - `torque_weight::Real = 1.0`: Convex weight described above.
+- `verbosity::Bool = true`: Whether to print a summary of the fit
+  (estimator, sizes, `j0`, in-sample RSS / RMSE / R² on energy and
+  torque blocks, elapsed time) to stdout after solving.
 
 # Returns
 - `SCEFit`: The fitted model. Inspect with `coef`, `intercept`,
@@ -520,7 +523,9 @@ function fit(
 	dataset::SCEDataset,
 	estimator::AbstractEstimator;
 	torque_weight::Real = 1.0,
+	verbosity::Bool = true,
 )::SCEFit
+	start_time = time_ns()
 	X, y, bias_col = Fitting.assemble_weighted_problem(
 		dataset.X_E,
 		dataset.X_T,
@@ -531,7 +536,7 @@ function fit(
 	j_values = Fitting.solve_coefficients(estimator, X, y; bias_col = bias_col)
 	j0, jphi = Fitting.extract_j0_jphi(j_values, dataset.X_E, dataset.y_E)
 	residuals::Vector{Float64} = y .- X * j_values
-	return SCEFit(
+	f = SCEFit(
 		dataset,
 		j0,
 		jphi,
@@ -539,6 +544,11 @@ function fit(
 		Float64(torque_weight),
 		residuals,
 	)
+	if verbosity
+		elapsed_time = (time_ns() - start_time) / 1e9
+		_print_fit_summary(f, elapsed_time)
+	end
+	return f
 end
 
 # --- StatsAPI verbs (response-block independent) ------------------------
@@ -1131,6 +1141,38 @@ end
 # SCEFit / SCEModel that means dumping the SALCBasis (thousands of entries),
 # the design matrices, and the residuals. These compact forms keep REPL
 # output usable.
+
+function _print_fit_summary(f::SCEFit, elapsed_time::Real)
+	n_E = length(f.dataset.y_E)
+	n_T = length(f.dataset.y_T)
+	rss_E = rss_energy(f)
+	rss_T = rss_torque(f)
+	rmse_E = rmse_energy(f)
+	rmse_T = rmse_torque(f)
+	r2_E = r2_energy(f)
+	r2_T = r2_torque(f)
+	println(
+		"""
+
+		FIT
+		===
+		""",
+	)
+	println("Estimator      : ", f.estimator)
+	println("torque_weight  : ", f.torque_weight)
+	println("n_configs (n_E): ", n_E)
+	println("n_torques (n_T): ", n_T)
+	println("num_coefs      : ", length(f.jphi), " (+ j0)")
+	println(@sprintf("j0             : %+.6e eV", f.j0))
+	println(@sprintf("RSS  (energy)  :  %.6e eV²    (Σ residuals², no 1/n_E)", rss_E))
+	println(@sprintf("RSS  (torque)  :  %.6e eV²    (Σ residuals², no 1/n_T)", rss_T))
+	println(@sprintf("RMSE (energy)  :  %.6e eV     (= √(RSS_E / n_E))", rmse_E))
+	println(@sprintf("RMSE (torque)  :  %.6e eV     (= √(RSS_T / n_T))", rmse_T))
+	println(@sprintf("R²   (energy)  :  %.6f", r2_E))
+	println(@sprintf("R²   (torque)  :  %.6f", r2_T))
+	println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
+	println("-------------------------------------------------------------------")
+end
 
 function _summarize_jphi(io::IO, jphi::AbstractVector{<:Real})
 	n = length(jphi)

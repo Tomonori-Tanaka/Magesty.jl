@@ -95,7 +95,7 @@ const A_FEGE = 9.378              # Cubic lattice constant from input.toml
 	num_cfg = min(length(spinconfigs_all), num_cfg_target)
 	spinconfigs = spinconfigs_all[1:num_cfg]
 	dataset = SCEDataset(basis, spinconfigs)
-	fitted = fit(SCEFit, dataset, OLS(); torque_weight = 1.0)
+	fitted = fit(SCEFit, dataset, OLS(); torque_weight = 1.0, verbosity = false)
 	Magesty.save(SCEModel(fitted), joinpath(@__DIR__, "scecoeffs.xml"))
 
 	@testset "SCE Regression Roundtrip (energy + torque)" begin
@@ -122,7 +122,7 @@ const A_FEGE = 9.378              # Cubic lattice constant from input.toml
 		)
 
 		# Recover the coefficients via OLS (torque-only weight = 1.0).
-		f = fit(SCEFit, synth_dataset, OLS(); torque_weight = 1.0)
+		f = fit(SCEFit, synth_dataset, OLS(); torque_weight = 1.0, verbosity = false)
 		@test isapprox(intercept(f), j0_true; rtol = 1e-8, atol = 1e-8)
 		@test isapprox(coef(f), jphi_true; rtol = 1e-8, atol = 1e-8)
 	end

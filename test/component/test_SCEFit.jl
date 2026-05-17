@@ -27,7 +27,7 @@ end
     dataset = SCEDataset(basis, configs)
 
     @testset "fit returns a populated SCEFit" begin
-        f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3)
+        f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3, verbosity = false)
         @test f isa SCEFit
         @test f isa Magesty.StatsAPI.RegressionModel
         @test f.dataset === dataset
@@ -38,7 +38,7 @@ end
     end
 
     @testset "StatsAPI verbs" begin
-        f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3)
+        f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3, verbosity = false)
         @test coef(f) === f.jphi
         @test intercept(f) === f.j0
         @test nobs(f) == 2                       # n_configs
@@ -51,18 +51,18 @@ end
     end
 
     @testset "default torque_weight" begin
-        f = fit(SCEFit, dataset, OLS())
+        f = fit(SCEFit, dataset, OLS(); verbosity = false)
         @test f.torque_weight == 1.0
     end
 
     @testset "Ridge estimator" begin
-        f = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.3)
+        f = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.3, verbosity = false)
         @test f isa SCEFit
         @test f.estimator isa Ridge
     end
 
     @testset "SCEModel conversion" begin
-        f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3)
+        f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3, verbosity = false)
         m = SCEModel(f)
         @test m isa SCEModel
         @test m.basis === basis
@@ -71,7 +71,7 @@ end
     end
 
     @testset "predict_energy / predict_torque" begin
-        f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3)
+        f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3, verbosity = false)
         m = SCEModel(f)
         n_atoms = basis.structure.supercell.num_atoms
 
@@ -104,7 +104,7 @@ end
     end
 
     @testset "predict_* vector dispatches (configs / matrices)" begin
-        f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3)
+        f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3, verbosity = false)
         m = SCEModel(f)
         n_atoms = basis.structure.supercell.num_atoms
 
@@ -141,7 +141,7 @@ end
     end
 
     @testset "evaluation verbs are self-consistent" begin
-        f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3)
+        f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3, verbosity = false)
 
         # residuals / rss are self-consistent
         re = residuals_energy(f)
@@ -157,7 +157,7 @@ end
     end
 
     @testset "evaluation verbs accept configs and datasets" begin
-        f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3)
+        f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3, verbosity = false)
         m = SCEModel(f)
 
         # (model, dataset) is the base method; (fit, dataset) delegates
@@ -177,7 +177,7 @@ end
     end
 
     @testset "basis-identity check" begin
-        f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3)
+        f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3, verbosity = false)
         m = SCEModel(f)
         # a dataset built from a different SCEBasis is rejected
         other_basis = SCEBasis(input; verbosity = false)

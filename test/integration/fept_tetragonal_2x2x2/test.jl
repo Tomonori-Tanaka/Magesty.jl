@@ -36,7 +36,7 @@ using TOML
 	# Fit SCE coefficients and persist the fitted model alongside the basis.
 	embset_path = joinpath(@__DIR__, "EMBSET.dat")
 	dataset = SCEDataset(basis, embset_path)
-	fitted = fit(SCEFit, dataset, Ridge(lambda = 0.0); torque_weight = 1.0)
+	fitted = fit(SCEFit, dataset, Ridge(lambda = 0.0); torque_weight = 1.0, verbosity = false)
 	model = SCEModel(fitted)
 	Magesty.save(model, joinpath(@__DIR__, "scecoeffs.xml"))
 
