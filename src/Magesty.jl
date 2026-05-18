@@ -587,6 +587,13 @@ function fit(
 		dataset.y_T,
 		torque_weight,
 	)
+	# `j0` is eliminated analytically before this point: the energy
+	# block of `X` has been mean-centered inside
+	# `assemble_weighted_problem`, so the solver returns only `jphi`.
+	# `extract_j0_jphi` then recovers `j0` from the unscaled, un-centered
+	# energy data via `mean(y_E - X_E * jphi)` -- the closed form of
+	# `∂L/∂j0 = 0` -- which keeps `j0` in the input energy unit and
+	# independent of `torque_weight` / estimator choice.
 	j_values = Fitting.solve_coefficients(estimator, X, y)
 	j0, jphi = Fitting.extract_j0_jphi(j_values, dataset.X_E, dataset.y_E)
 	residuals::Vector{Float64} = y .- X * j_values
