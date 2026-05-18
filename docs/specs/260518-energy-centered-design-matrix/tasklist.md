@@ -1,6 +1,7 @@
 # Tasklist: energy-centered design matrix
 
-Status: draft (2026-05-18)
+Status: **complete (2026-05-18)** -- branch `refactor/energy-centered-design-matrix`,
+commits `6fa751a..195778f`.
 
 This file holds coarse-grained, commit-sized milestones. Day-to-day
 tracking goes through `TaskCreate` in-session.
@@ -175,4 +176,7 @@ items that do not apply.
 
 ## Implementation commits
 
-<!-- Append `<short SHA>  <subject>` lines here as commits land. -->
+- `6fa751a`  test: pin pre-refactor (j0, jphi) reference literals for energy-centered refactor
+- `96e3b3b`  refactor(Fitting): center energy block, drop X_E bias column
+- `546a8a0`  test: enable energy-centered regression test, drop ill-conditioned fege cases
+- `195778f`  docs: explain centered-block j0 recovery and record refactor in CHANGELOG
