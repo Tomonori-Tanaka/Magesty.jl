@@ -9,6 +9,7 @@ using Base.Threads
 using LinearAlgebra
 using Printf
 using MultivariateStats
+using GLMNet
 using Statistics
 using StaticArrays
 using ..TesseralHarmonics
