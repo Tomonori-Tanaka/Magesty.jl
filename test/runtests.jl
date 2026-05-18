@@ -36,6 +36,7 @@ if TEST_MODE in ("unit", "all")
 		include("./component/test_SCEBasis.jl")
 		include("./component/test_SCEDataset.jl")
 		include("./component/test_SCEFit.jl")
+		include("./component/test_energy_centered_design_matrix.jl")
 		include("./component/test_save_load.jl")
 		include("./component/test_thread_safety.jl")
 	end

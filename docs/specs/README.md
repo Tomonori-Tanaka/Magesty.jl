@@ -18,6 +18,7 @@ in the "Managing development units" section of
 | [260516-optimize-workspace](260516-optimize-workspace/) | complete (2026-05-16) | Scratch workspace for the Optimize hot path |
 | [260516-src-layout-refactor](260516-src-layout-refactor/) | complete (2026-05-16) | Flatten `src/`, drop `common/` / `types/` / `utils/` |
 | [260516-typed-input-spec](260516-typed-input-spec/) | merged (2026-05-16, tasklist still says draft) | Typed-value gate: `SystemSpec` / `InteractionSpec` / `SymmetryOptions` |
+| [260518-energy-centered-design-matrix](260518-energy-centered-design-matrix/) | complete (2026-05-18) | Remove the bias column from `X_E`; replace with energy-only centering in `assemble_weighted_problem` |
 
 This table and the `Status:` line in each `tasklist.md` are duplicated
 intentionally; update both when a spec lands. Reconcile in bulk when

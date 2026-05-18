@@ -72,8 +72,8 @@ SCEBasis
 SCEDataset
 ├── basis::SCEBasis
 ├── spinconfigs::Vector{SpinConfig}
-├── X_E::Matrix{Float64}    # Energy design matrix (unweighted; column 1 is the bias)
-├── X_T::Matrix{Float64}    # Torque design matrix (unweighted; no bias column)
+├── X_E::Matrix{Float64}    # Energy design matrix (unweighted; one column per SALC, no bias column)
+├── X_T::Matrix{Float64}    # Torque design matrix (unweighted; one column per SALC, no bias column)
 ├── y_E::Vector{Float64}    # Observed energies
 └── y_T::Vector{Float64}    # Observed torques (flattened)
 

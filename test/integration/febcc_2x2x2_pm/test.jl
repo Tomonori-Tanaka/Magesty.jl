@@ -114,14 +114,14 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 		num_atoms = basis.structure.supercell.num_atoms
 		num_salcs = length(basis.salcbasis.salc_list)
 
-		@test size(dataset.X_E, 2) == num_salcs + 1
+		@test size(dataset.X_E, 2) == num_salcs
 		@test size(dataset.X_T, 2) == num_salcs
 
 		# Synthesize ground-truth coefficients and the matching observations.
 		rng = Xoshiro(0x12345678)
 		jphi_true = randn(rng, num_salcs)
 		j0_true = 0.1234
-		y_E_synth = dataset.X_E[:, 2:end] * jphi_true .+ j0_true
+		y_E_synth = dataset.X_E * jphi_true .+ j0_true
 		y_T_synth = dataset.X_T * jphi_true
 
 		synth_dataset = SCEDataset(

@@ -49,6 +49,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `julia --project=@vMAJOR.MINOR /path/to/script.jl` (or a shell
   alias of your own) instead of relying on a packaged installer.
 
+### Internal
+
+- Removed the bias column from `SCEDataset.X_E` / the energy design
+  matrix returned by `Fitting.build_design_matrix_energy`. The
+  reference energy `j0` is now eliminated analytically before the
+  solver runs: `Fitting.assemble_weighted_problem` mean-centers the
+  energy block (closed form from `∂L/∂j0 = 0`,
+  `j0_star(jphi) = mean(y_E - X_E * jphi)`), the solver returns only
+  `jphi`, and `Fitting.extract_j0_jphi` recovers `j0` afterward from
+  the unscaled inputs via the same closed form. The public API
+  (`fit`, `predict_energy`, `predict_torque`, `coef`, `intercept`,
+  the estimator types, `Magesty.save` / `Magesty.load`) is
+  signature-unchanged. For `OLS` and `Ridge` the formulation is
+  mathematically equivalent to the previous bias-in-`X` setup;
+  numerical output agrees up to floating-point rounding noise from
+  the different operation sequences, with the regression test pinned
+  at `rtol = 1e-9` (measured worst case `2.3e-11`).
+
 ## [0.1.0] - 2026-05-17
 
 First public release.

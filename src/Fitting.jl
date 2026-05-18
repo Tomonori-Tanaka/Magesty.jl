@@ -59,9 +59,10 @@ struct OLS <: AbstractEstimator end
 """
 	Ridge(; lambda::Real = 0.0)
 
-L2-regularized least-squares (ridge) estimator. The bias column is
-excluded from the penalty by the dispatch boundary (see
-`solve_coefficients`).
+L2-regularized least-squares (ridge) estimator. The penalty applies
+uniformly to every SCE coefficient; the bias term `j0` does not need to
+be excluded explicitly because it is eliminated analytically before the
+solve (see `assemble_weighted_problem` / `extract_j0_jphi`).
 
 Unlike `OLS`, `Ridge` carries one hyperparameter, `lambda`, and is
 therefore a regular struct rather than a singleton. Constructing
@@ -251,11 +252,10 @@ function build_design_matrix_energy(
 	num_salcs = length(salc_list)  # Number of key groups
 	num_spinconfigs = length(spinconfig_list)
 
-	# construct design matrix A in Ax = b
-	design_matrix = zeros(Float64, num_spinconfigs, num_salcs + 1)
-
-	# set first column to 1 (reference_energy term)
-	design_matrix[:, 1] .= 1.0
+	# Construct design matrix A in Ax = b. One column per SALC; the bias
+	# term `j0` is not represented as a column here — it is recovered
+	# analytically after the solve by `extract_j0_jphi`.
+	design_matrix = zeros(Float64, num_spinconfigs, num_salcs)
 
 	# Parallel over key-group columns; each thread writes to a disjoint column.
 	# Rank-erasing annotations on `key_group` / `cbc` are intentionally absent so
@@ -279,7 +279,7 @@ function build_design_matrix_energy(
 					ws,
 				)
 			end
-			design_matrix[j, i+1] = group_value * scaling_factor
+			design_matrix[j, i] = group_value * scaling_factor
 		end
 	end
 
@@ -726,7 +726,7 @@ end
 """
 	assemble_weighted_problem(design_matrix_energy, design_matrix_torque,
 	                          observed_energy_list, observed_torque, weight)
-	    -> (X::Matrix{Float64}, y::Vector{Float64}, bias_col::Int)
+	    -> (X::Matrix{Float64}, y::Vector{Float64})
 
 Build the augmented `(X, y)` linear system that all estimators solve.
 
@@ -734,6 +734,14 @@ Build the augmented `(X, y)` linear system that all estimators solve.
 matrices (one per config) or as the already-flattened
 `3 * n_atoms * n_config` vector; the matrix form is flattened internally
 and both produce identical output.
+
+The bias term `j0` is *not* represented as a column of `X`. Instead, the
+energy block is mean-centered (column-wise on `design_matrix_energy` and
+on `observed_energy_list`) before row scaling, which is the closed-form
+result of eliminating `j0` analytically from the mixed energy / torque
+objective via `∂L/∂j0 = 0`. The solver returns only `jphi`; the bias is
+recovered afterward by `extract_j0_jphi` from the unscaled, un-centered
+inputs as `j0 = mean(y_E - X_E * jphi)`.
 
 Energy rows are scaled by `√((1 - weight) / n_E)` and torque rows
 (after flattening) by `√(weight / n_T)`, where `n_E` is the number of
@@ -743,13 +751,10 @@ least-squares objective equal to `(1 - weight) * MSE_energy + weight *
 MSE_torque`, so `weight` selects a convex combination of the two mean
 squared errors independent of how many rows each block contributes
 (mirroring the energy/force loss convention used by ML interatomic
-potentials). The bias column of the energy block is reset to `1.0`
-after scaling so that the bias coefficient is not absorbed into the
-weight factor. A zero column is prepended to the torque block so the
-two blocks share `bias_col = 1`.
+potentials).
 
 # Arguments
-- `design_matrix_energy`: Energy design matrix (bias column at column 1).
+- `design_matrix_energy`: Energy design matrix (no bias column).
 - `design_matrix_torque`: Torque design matrix (no bias column).
 - `observed_energy_list`: Observed energies.
 - `observed_torque`: Observed torques, either as `3×n_atoms` matrices per
@@ -757,9 +762,10 @@ two blocks share `bias_col = 1`.
 - `weight`: Trade-off; energy weight = `1 - weight`, torque weight = `weight`.
 
 # Returns
-- `X`: Augmented design matrix (energy rows stacked above flattened torque rows).
-- `y`: Augmented observation vector.
-- `bias_col`: Column index of the bias term (always `1`).
+- `X`: Augmented design matrix (centered, weighted energy rows stacked
+  above flattened weighted torque rows).
+- `y`: Augmented observation vector (centered, weighted energy entries
+  stacked above weighted torque entries).
 """
 function assemble_weighted_problem(
 	design_matrix_energy::AbstractMatrix{<:Real},
@@ -805,49 +811,53 @@ function assemble_weighted_problem(
 	scale_e = sqrt(w_e / n_E)
 	scale_m = sqrt(w_m / n_T)
 
-	# Normalize the design matrices
-	normalized_design_matrix_energy =
-		design_matrix_energy .* scale_e
-	normalized_design_matrix_energy[:, 1] .= 1.0
-	normalized_design_matrix_torque =
-		design_matrix_torque .* scale_m
+	# Eliminate `j0` analytically before row scaling. The closed form
+	# `j0_star(jphi) = mean(y_E - X_E * jphi)` (from `∂L/∂j0 = 0`)
+	# substituted back into the objective leaves an OLS-in-`jphi`
+	# problem on column-centered inputs `(y_E - mean(y_E),
+	# X_E - mean(X_E, dims = 1))`. The torque block is unchanged because
+	# `j0` does not enter it.
+	mean_X_E = mean(design_matrix_energy, dims = 1)
+	mean_y_E = mean(observed_energy_list)
+	centered_energy = design_matrix_energy .- mean_X_E
+	centered_observed_energy = observed_energy_list .- mean_y_E
 
-	# Also normalize the observed vectors
-	normalized_observed_energy_list =
-		observed_energy_list .* scale_e
-	normalized_observed_torque_flattened =
-		observed_torque_flattened .* scale_m
+	# Row-whitening for the per-sample MSE normalization.
+	normalized_design_matrix_energy = centered_energy .* scale_e
+	normalized_design_matrix_torque = design_matrix_torque .* scale_m
+	normalized_observed_energy_list = centered_observed_energy .* scale_e
+	normalized_observed_torque_flattened = observed_torque_flattened .* scale_m
 
-	# Add 0 bias column to the torque design matrix
-	# to align with the energy design matrix
-	with_bias_design_matrix_torque =
-		hcat(zeros(size(normalized_design_matrix_torque, 1)), normalized_design_matrix_torque)
-
-	# Construct the augmented design matrix
 	X = vcat(
 		normalized_design_matrix_energy,
-		with_bias_design_matrix_torque,
+		normalized_design_matrix_torque,
 	)
 	y = vcat(
 		normalized_observed_energy_list,
 		normalized_observed_torque_flattened,
 	)
 
-	return X, y, 1
+	return X, y
 end
 
 """
 	extract_j0_jphi(j_values, design_matrix_energy, observed_energy_list)
 	    -> (j0::Float64, jphi::Vector{Float64})
 
-Split the augmented coefficient vector into the bias `j0` and the SCE
-coefficients `jphi`. The bias is re-estimated from the unscaled energy
-residual `mean(ye .- Xe[:, 2:end] * jphi)` to undo the √weight scaling
-that affected the augmented bias column.
+Recover `(j0, jphi)` from the solver output. `j_values` is the
+coefficient vector returned by `solve_coefficients` and has length
+`num_salcs` — there is no bias slot to discard, because `j0` was
+eliminated analytically inside `assemble_weighted_problem`. The bias is
+re-estimated from the unscaled, un-centered energy data via
+`mean(y_E - X_E * jphi)`, the closed form of `j0_star(jphi)` from
+`∂L/∂j0 = 0`. Re-fitting on the original inputs keeps `j0` in the input
+energy unit and independent of `torque_weight`.
 
 # Arguments
-- `j_values`: Augmented coefficient vector returned by `solve_coefficients`.
-- `design_matrix_energy`: Unscaled energy design matrix (bias column at 1).
+- `j_values`: Coefficient vector returned by `solve_coefficients`
+  (length = `num_salcs`).
+- `design_matrix_energy`: Unscaled, un-centered energy design matrix
+  (no bias column; shape `(n_E, num_salcs)`).
 - `observed_energy_list`: Unscaled observed energies.
 
 # Returns
@@ -858,18 +868,19 @@ function extract_j0_jphi(
 	design_matrix_energy::AbstractMatrix{<:Real},
 	observed_energy_list::AbstractVector{<:Real},
 )
-	jphi = j_values[2:end]
-	j0 = mean(observed_energy_list .- design_matrix_energy[:, 2:end] * jphi)
+	jphi = collect(j_values)
+	j0 = mean(observed_energy_list .- design_matrix_energy * jphi)
 	return j0, jphi
 end
 
 """
-	solve_coefficients(estimator::AbstractEstimator, X, y; bias_col=1)
-	    -> Vector{Float64}
+	solve_coefficients(estimator::AbstractEstimator, X, y) -> Vector{Float64}
 
-Solve the augmented linear system `(X, y)` for the coefficient vector.
-The element at index `bias_col` is the bias (j0) and MUST be excluded
-from any regularization penalty by the estimator's method.
+Solve the augmented linear system `(X, y)` for the SCE coefficient
+vector `jphi`. The bias term `j0` is *not* an entry of the returned
+vector: it has been eliminated analytically before this point (the
+energy block of `X` is mean-centered inside `assemble_weighted_problem`),
+and is recovered afterward by `extract_j0_jphi`.
 
 Each `AbstractEstimator` subtype defines exactly one method of this
 function. Unknown estimator types raise `MethodError`.
@@ -879,32 +890,30 @@ function solve_coefficients end
 function solve_coefficients(
 	::OLS,
 	X::AbstractMatrix{<:Real},
-	y::AbstractVector{<:Real};
-	bias_col::Int = 1,
+	y::AbstractVector{<:Real},
 )
 	return X \ y
 end
 
 """
-	solve_coefficients(estimator::Ridge, X, y; bias_col=1) -> Vector{Float64}
+	solve_coefficients(estimator::Ridge, X, y) -> Vector{Float64}
 
-L2-regularized solve. Uses `MultivariateStats.ridge` with a per-column
-penalty vector that zeros out the bias column at `bias_col`. When
-`estimator.lambda ≈ 0` falls back to `X \\ y` to avoid building the
-penalty vector for an effectively unregularized problem.
+L2-regularized solve. Uses `MultivariateStats.ridge` with the scalar
+`lambda` applied uniformly to every column — `X` contains only SCE
+coefficient columns; the bias has already been removed by centering in
+`assemble_weighted_problem`. When `estimator.lambda ≈ 0` falls back to
+`X \\ y` to avoid constructing the penalty vector for an effectively
+unregularized problem.
 """
 function solve_coefficients(
 	e::Ridge,
 	X::AbstractMatrix{<:Real},
-	y::AbstractVector{<:Real};
-	bias_col::Int = 1,
+	y::AbstractVector{<:Real},
 )
 	if e.lambda ≈ 0.0
 		return X \ y
 	end
-	lambda_vec = fill(e.lambda, size(X, 2))
-	lambda_vec[bias_col] = 0.0  # exclude bias term from regularization
-	return ridge(X, y, lambda_vec; bias = false)
+	return ridge(X, y, e.lambda; bias = false)
 end
 
 function calc_rmse(list1::AbstractVector{<:Real}, list2::AbstractVector{<:Real})::Float64

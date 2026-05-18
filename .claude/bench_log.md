@@ -519,3 +519,39 @@ Note: the comparison is against the post-workspace-pooling baseline
 (`260516-optimize-workspace`), which had already removed the
 per-translation allocation pattern that B2 was originally framed
 around. This commit handles the residual structural concern.
+
+## Energy-centered design matrix (spec 260518) -- `build_design_matrix_energy` shape change
+
+Removes the bias column from `build_design_matrix_energy` /
+`SCEDataset.X_E`: shape goes from `(num_spinconfigs, num_salcs + 1)` to
+`(num_spinconfigs, num_salcs)` and the `design_matrix[:, 1] .= 1.0`
+initialization is dropped. The bias term `j0` is recovered analytically
+in `extract_j0_jphi` from the unscaled energy data, so the inner SH
+contraction loop is unchanged (still iterates `i = 1:num_salcs`); only
+the allocation size shrinks by one column.
+
+Logged because `Fitting.jl` is on the hot-path list. Numerical result
+is mathematically equivalent for OLS / Ridge up to FP rounding noise
+(`scecoeffs.xml` diffs at the 12-15th significant digit).
+
+Measurement (`bench/bench_b1_design_matrix.jl`, fept_tetragonal_2x2x2:
+30 spinconfigs x 31 salcs x 16 atoms, 5 trials per call, 2 independent
+samples reported as `a / b`):
+
+| function                      | before (6fa751a) min          | after (5f79f84) min           | allocs (med, both)  | bytes (med, both) |
+|-------------------------------|-------------------------------|-------------------------------|---------------------|-------------------|
+| `build_design_matrix_energy`  | 2.0 ms / 2.1 ms               | 2.3 ms / 2.0 ms               | 9,711               | 475 KB            |
+| `build_design_matrix_torque`  | 10.8 ms / 10.9 ms             | 11.1 ms / 11.1 ms             | 112,782             | 6.95 MB           |
+
+Wall-time deltas (a few hundred us on energy, ~300 us on torque) sit
+inside the run-to-run variance of single-trial `@timed` measurements;
+across the two samples neither side is consistently faster. The
+allocation count and total bytes are identical to the digit, as
+expected -- the `(n_E, num_salcs + 1) -> (n_E, num_salcs)` matrix
+shrinks by only `8 * n_E` bytes (~240 B), swamped by the SH-evaluation
+allocations in the inner contraction loop. `build_design_matrix_torque`
+is unchanged by this commit and serves as a noise reference.
+
+Conclusion: performance-neutral. The refactor is shape-only on the
+hot path; the substantive change lives in `assemble_weighted_problem`
+(call-once-per-fit, not hot).
