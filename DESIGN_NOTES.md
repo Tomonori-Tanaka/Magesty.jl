@@ -10,7 +10,7 @@ Operating rules: [`docs/design-notes/README.md`](docs/design-notes/README.md).
 
 | Topic | Status | Last update |
 |---|---|---|
-| [LASSO / Adaptive LASSO / Adaptive Ridge estimators](docs/design-notes/lasso-adaptive-estimators.md) | not started (GLMNet.jl chosen; pre-spec draft) | 2026-05-16 |
+| [ElasticNet / LASSO / Adaptive estimators](docs/design-notes/lasso-adaptive-estimators.md) | ElasticNet → spec [260517-elasticnet-estimator](docs/specs/260517-elasticnet-estimator/); Adaptive variants on hold | 2026-05-17 |
 | [Pre-release cleanup (v0.1.0)](docs/design-notes/pre-release-cleanup.md) | not started | 2026-05-17 |
 | [Julia compat policy](docs/design-notes/julia-compat-policy.md) | operating rule | 2026-05-17 |
 

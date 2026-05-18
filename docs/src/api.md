@@ -66,6 +66,8 @@ Magesty.load
 AbstractEstimator
 OLS
 Ridge
+ElasticNet
+Lasso
 ```
 
 ## Data loading

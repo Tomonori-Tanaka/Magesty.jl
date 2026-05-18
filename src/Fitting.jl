@@ -9,6 +9,7 @@ using Base.Threads
 using LinearAlgebra
 using Printf
 using MultivariateStats
+using GLMNet
 using Statistics
 using StaticArrays
 using ..TesseralHarmonics
@@ -19,7 +20,7 @@ using ..CoupledBases
 using ..SALCBases
 using ..SpinConfigs
 
-export AbstractEstimator, OLS, Ridge
+export AbstractEstimator, OLS, Ridge, ElasticNet, Lasso
 
 """
 	_cluster_scaling(n_sites::Integer) -> Float64
@@ -88,6 +89,77 @@ struct Ridge <: AbstractEstimator
 end
 
 Ridge(; lambda::Real = 0.0) = Ridge(Float64(lambda))
+
+"""
+	ElasticNet(; alpha::Real, lambda::Real, standardize::Bool = true)
+
+Elastic-Net estimator backed by GLMNet.jl. Covers Lasso (`alpha = 1`),
+GLMNet-style L2 (`alpha = 0`), and honest Elastic Net (mixed norm).
+`standardize = true` neutralizes the per-cluster `(4π)^(N/2)` column
+scale baked into the SCE design matrix, which would otherwise bias L1
+or mixed-norm selection against high-N clusters.
+
+The bias term `j0` is eliminated analytically inside
+`assemble_weighted_problem` (the energy block of `X` is mean-centered
+before the solve) and re-fit afterward by `extract_j0_jphi` from the
+un-scaled energy residual. This estimator therefore calls GLMNet with
+`intercept = false`; adding GLMNet's own intercept on top of the
+already-centered system would re-introduce a uniform offset across
+both energy and torque rows and bias `jphi`.
+
+# Fields
+- `alpha::Float64`: Mixing parameter, `0 ≤ alpha ≤ 1`. `alpha = 1` is
+  pure Lasso, `alpha = 0` is pure L2 (GLMNet's coordinate-descent
+  variant), in between is Elastic Net.
+- `lambda::Float64`: Penalty strength, `λ ≥ 0`. `λ = 0` reduces to OLS
+  up to GLMNet's coordinate-descent precision.
+- `standardize::Bool`: Forwarded to GLMNet. The default `true` matches
+  the SCE setting where columns carry the per-cluster `(4π)^(N/2)`
+  factor.
+
+# Examples
+```julia
+est = ElasticNet(alpha = 0.5, lambda = 1e-3)
+
+# Lasso(λ = ...) is a convenience function returning ElasticNet(alpha = 1, ...).
+est = Lasso(lambda = 1e-3)
+```
+"""
+struct ElasticNet <: AbstractEstimator
+	alpha::Float64
+	lambda::Float64
+	standardize::Bool
+end
+
+function ElasticNet(; alpha::Real, lambda::Real, standardize::Bool = true)
+	0.0 <= alpha <= 1.0 ||
+		throw(ArgumentError("ElasticNet alpha must satisfy 0 <= alpha <= 1; got $alpha"))
+	lambda >= 0.0 ||
+		throw(ArgumentError("ElasticNet lambda must be non-negative; got $lambda"))
+	return ElasticNet(Float64(alpha), Float64(lambda), standardize)
+end
+
+"""
+	Lasso(; lambda::Real, standardize::Bool = true) -> ElasticNet
+
+Convenience function (not a type) returning
+`ElasticNet(alpha = 1.0, lambda = lambda, standardize = standardize)`.
+
+There is no separate `Lasso` struct: `Lasso(lambda = ...) isa ElasticNet`
+is `true`, and code that needs to detect the Lasso case should test
+`e isa ElasticNet && e.alpha == 1.0`. A function (rather than a `const`
+alias) prevents `Lasso(alpha = 0.5, ...)` from parsing, which would
+contradict the intended meaning "α = 1 only".
+
+# Examples
+```julia
+est = Lasso(lambda = 1e-3)
+est isa ElasticNet  # true
+est.alpha           # 1.0
+```
+"""
+Lasso(; lambda::Real, standardize::Bool = true) =
+	ElasticNet(alpha = 1.0, lambda = lambda, standardize = standardize)
 
 """
 	EnergyWorkspace
@@ -914,6 +986,49 @@ function solve_coefficients(
 		return X \ y
 	end
 	return ridge(X, y, e.lambda; bias = false)
+end
+
+"""
+	solve_coefficients(estimator::ElasticNet, X, y) -> Vector{Float64}
+
+Elastic-Net solve via GLMNet's coordinate descent. The augmented `(X, y)`
+arriving here has already been row-scaled and energy-mean-centered inside
+`assemble_weighted_problem`, so GLMNet sees the right problem directly with
+`intercept = false`; `extract_j0_jphi` then recovers `j0` downstream from the
+un-scaled energy data — the same post-processing OLS and Ridge already use.
+"""
+function solve_coefficients(
+	e::ElasticNet,
+	X::AbstractMatrix{<:Real},
+	y::AbstractVector{<:Real},
+)
+	return _glmnet_solve(
+		X, y;
+		alpha = e.alpha,
+		lambda = e.lambda,
+		standardize = e.standardize,
+	)
+end
+
+# Single-lambda GLMNet wrapper. Returns the coefficient vector for the
+# requested (alpha, lambda) point on the regularization path. `intercept`
+# is fixed to `false` here because the energy block of `X` has already
+# been centered upstream in `assemble_weighted_problem`.
+function _glmnet_solve(
+	X::AbstractMatrix{<:Real},
+	y::AbstractVector{<:Real};
+	alpha::Real,
+	lambda::Real,
+	standardize::Bool,
+)::Vector{Float64}
+	path = glmnet(
+		Matrix{Float64}(X), Vector{Float64}(y);
+		alpha = Float64(alpha),
+		lambda = [Float64(lambda)],
+		standardize = standardize,
+		intercept = false,
+	)
+	return vec(Matrix(path.betas))
 end
 
 function calc_rmse(list1::AbstractVector{<:Real}, list2::AbstractVector{<:Real})::Float64

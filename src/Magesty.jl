@@ -68,7 +68,7 @@ include("XMLIO.jl")
 using .XMLIO
 
 export SCEBasis, SCEDataset, SCEFit, SCEModel
-export AbstractEstimator, OLS, Ridge
+export AbstractEstimator, OLS, Ridge, ElasticNet, Lasso
 export predict_energy, predict_torque
 export fit, coef, intercept, nobs, dof
 export r2_energy, r2_torque, rss_energy, rss_torque
@@ -1224,6 +1224,7 @@ function _print_fit_summary(f::SCEFit, elapsed_time::Real)
 	println("n_configs (n_E): ", n_E)
 	println("n_torques (n_T): ", n_T)
 	println("num_coefs      : ", length(f.jphi), " (+ j0)")
+	println("nonzero coefs  : ", count(!iszero, f.jphi), " / ", length(f.jphi))
 	println(@sprintf("j0             : %+.6e eV", f.j0))
 	println(@sprintf("RSS  (energy)  :  %.6e eV²    (Σ residuals², no 1/n_E)", rss_E))
 	println(@sprintf("RSS  (torque)  :  %.6e eV²    (Σ residuals², no 1/n_T)", rss_T))
