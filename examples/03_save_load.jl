@@ -20,7 +20,7 @@ function main()
         basis = SCEBasis(joinpath(FIXTURE, "input.toml"); verbosity = false)
         Magesty.save(basis, basis_path)
 
-        dataset = SCEDataset(basis, joinpath(FIXTURE, "EMBSET.dat"))
+        dataset = SCEDataset(basis, joinpath(FIXTURE, "EMBSET"))
         f = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
         Magesty.save(SCEModel(f), model_path)
 

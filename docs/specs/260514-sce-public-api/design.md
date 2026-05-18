@@ -427,7 +427,7 @@ Representative scripts in the new API. These drive the design; the
 
 ```julia
 basis   = SCEBasis("input.toml")                                # heavy: SALC
-dataset = SCEDataset(basis, "EMBSET.dat")                       # build design matrices
+dataset = SCEDataset(basis, "EMBSET")                       # build design matrices
 f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
 println("RMSE energy: ", rmse_energy(f), "  R2 energy: ", r2_energy(f))
 save(SCEModel(f), "model.xml")
@@ -444,7 +444,7 @@ basis   = SCEBasis(system;
                                            cutoff = Dict((:Fe, :Fe) => -1.0,
                                                          (:Fe, :Pt) => -1.0,
                                                          (:Pt, :Pt) => -1.0))))
-dataset = SCEDataset(basis, "EMBSET.dat")
+dataset = SCEDataset(basis, "EMBSET")
 f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 0.5)
 ```
 
@@ -455,7 +455,7 @@ Magesty when reading structure files.
 ### Estimator comparison (reuse one dataset)
 
 ```julia
-dataset = SCEDataset(SCEBasis("input.toml"), "EMBSET.dat")
+dataset = SCEDataset(SCEBasis("input.toml"), "EMBSET")
 for est in (OLS(), Ridge(lambda = 1e-4), Ridge(lambda = 1e-2))
     f = fit(SCEFit, dataset, est; torque_weight = 0.5)
     println(est, ": ", rmse_energy(f))
@@ -465,7 +465,7 @@ end
 ### Train / test split (slice + out-of-sample evaluation)
 
 ```julia
-dataset = SCEDataset(SCEBasis("input.toml"), "EMBSET.dat")
+dataset = SCEDataset(SCEBasis("input.toml"), "EMBSET")
 n_train = round(Int, 0.8 * length(dataset))
 train, test = dataset[1:n_train], dataset[n_train+1:end]
 f = fit(SCEFit, train, Ridge(lambda = 1e-4); torque_weight = 0.5)
@@ -479,7 +479,7 @@ println("out-sample: ", rmse_energy(f, test))
 save(SCEBasis("input.toml"), "basis.jld2")    # cache the heavy SALC result
 # --- later session ---
 basis = load(SCEBasis, "basis.jld2")
-f = fit(SCEFit, SCEDataset(basis, "EMBSET.dat"), Ridge(lambda = 1e-4))
+f = fit(SCEFit, SCEDataset(basis, "EMBSET"), Ridge(lambda = 1e-4))
 save(SCEModel(f), "model.xml")                # human-readable, byte-identical to old write_xml
 ```
 

@@ -256,11 +256,11 @@ end
 
 
 s = ArgParseSettings(
-	description = "Plot the histogram of magmom from EMBSET.txt format files (supports multiple files)",
+	description = "Plot the histogram of magmom from EMBSET format files (supports multiple files)",
 )
 @add_arg_table s begin
 	"inputs"
-	help = "The input files (i.e. EMBSET.txt). Multiple files can be specified."
+	help = "The input files (i.e. EMBSET). Multiple files can be specified."
 	nargs = '+'
 	required = true
 

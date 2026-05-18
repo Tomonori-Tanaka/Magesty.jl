@@ -42,7 +42,7 @@ R2. **Tests stay green as before**: `make test-unit` /
     `make test-tools` produce the same outcomes as pre-refactor.
 
 R3. **XML schema and EMBSET format unchanged**: existing `.xml` /
-    `EMBSET.dat` files continue to load.
+    `EMBSET` files continue to load.
 
 R4. **Docs build passes**: `make build` runs cleanly. `@docs` blocks
     follow the renamed modules / functions

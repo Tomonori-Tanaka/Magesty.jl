@@ -18,7 +18,7 @@ metrics.
 using Magesty
 
 basis   = SCEBasis("input.toml")
-dataset = SCEDataset(basis, "EMBSET.dat")
+dataset = SCEDataset(basis, "EMBSET")
 f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
 
 println("RMSE energy: ", rmse_energy(f) * 1000, " meV")
@@ -52,7 +52,7 @@ basis   = SCEBasis(
     tolerance_sym = 1e-5,
     isotropy = false,
 )
-dataset = SCEDataset(basis, "EMBSET.dat")
+dataset = SCEDataset(basis, "EMBSET")
 f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
 ```
 
@@ -64,7 +64,7 @@ you can sweep estimators and torque weights without rebuilding it.
 ```julia
 using Magesty
 
-dataset = SCEDataset(SCEBasis("input.toml"), "EMBSET.dat")
+dataset = SCEDataset(SCEBasis("input.toml"), "EMBSET")
 for est in (OLS(), Ridge(lambda = 1e-4), Ridge(lambda = 1e-2))
     f = fit(SCEFit, dataset, est)
     println(est, ": RMSE energy = ", rmse_energy(f))
@@ -79,7 +79,7 @@ shares the same `SCEBasis`.
 ```julia
 using Magesty
 
-dataset = SCEDataset(SCEBasis("input.toml"), "EMBSET.dat")
+dataset = SCEDataset(SCEBasis("input.toml"), "EMBSET")
 n_train = round(Int, 0.8 * length(dataset))
 train   = dataset[1:n_train]
 test    = dataset[(n_train + 1):end]
@@ -102,7 +102,7 @@ Magesty.save(SCEBasis("input.toml"), "basis.xml")
 
 # Session 2: reload, fit, save the model.
 basis   = Magesty.load(SCEBasis, "basis.xml")
-dataset = SCEDataset(basis, "EMBSET.dat")
+dataset = SCEDataset(basis, "EMBSET")
 f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
 Magesty.save(SCEModel(f), "model.xml")
 ```
@@ -114,7 +114,7 @@ using Magesty
 using LinearAlgebra
 
 basis   = SCEBasis("input.toml")
-dataset = SCEDataset(basis, "EMBSET.dat")
+dataset = SCEDataset(basis, "EMBSET")
 f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
 model   = SCEModel(f)
 

@@ -158,7 +158,7 @@ passed in Julia (to `SCEDataset`), not in the TOML.
 
 ```julia
 basis   = SCEBasis("input.toml")
-dataset = SCEDataset(basis, "EMBSET.dat")
+dataset = SCEDataset(basis, "EMBSET")
 f = fit(
     SCEFit, dataset,
     Ridge(lambda = 1e-4);   # estimator: OLS() or Ridge(; lambda)

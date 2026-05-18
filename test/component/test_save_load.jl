@@ -7,7 +7,7 @@ const SL_DIMER_TOML = joinpath(@__DIR__, "..", "integration", "dimer", "input.to
 const SL_FEPT_TOML =
 	joinpath(@__DIR__, "..", "integration", "fept_tetragonal_2x2x2", "input.toml")
 const SL_FEPT_EMBSET =
-	joinpath(@__DIR__, "..", "integration", "fept_tetragonal_2x2x2", "EMBSET.dat")
+	joinpath(@__DIR__, "..", "integration", "fept_tetragonal_2x2x2", "EMBSET")
 const SL_FEGE_TOML =
 	joinpath(@__DIR__, "..", "integration", "fege_2x2x2", "input.toml")
 const SL_BASELINE_DIR = joinpath(@__DIR__, "baselines")

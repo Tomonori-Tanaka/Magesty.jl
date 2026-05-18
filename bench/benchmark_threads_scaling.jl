@@ -31,7 +31,7 @@ const SECONDS = parse(Float64, get(ENV, "BENCH_SECONDS", "10.0"))
 function load_context()
     input = TOML.parsefile(INPUT_TOML)
     basis = SCEBasis(input; verbosity = false)
-    embset = joinpath(dirname(INPUT_TOML), "EMBSET.dat")
+    embset = joinpath(dirname(INPUT_TOML), "EMBSET")
     spinconfigs = Magesty.SpinConfigs.read_embset(embset)
     num_atoms = basis.structure.supercell.num_atoms
     return basis, spinconfigs, num_atoms

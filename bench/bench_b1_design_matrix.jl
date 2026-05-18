@@ -14,7 +14,7 @@ using Printf
 
 const EXAMPLE_DIR = joinpath(@__DIR__, "..", "test", "integration", "fept_tetragonal_2x2x2")
 const SYSTEM_XML  = joinpath(EXAMPLE_DIR, "system.xml")
-const EMBSET_PATH = joinpath(EXAMPLE_DIR, "EMBSET.dat")
+const EMBSET_PATH = joinpath(EXAMPLE_DIR, "EMBSET")
 const NTRIALS     = 5
 
 function bench_one(label::String, f::Function)

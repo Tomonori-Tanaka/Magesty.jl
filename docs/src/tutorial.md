@@ -53,7 +53,7 @@ using Magesty
 basis = SCEBasis("input.toml")
 
 # 2. Pair the basis with training data to form a dataset.
-dataset = SCEDataset(basis, "EMBSET.dat")
+dataset = SCEDataset(basis, "EMBSET")
 
 # 3. Fit. `torque_weight ∈ [0, 1]` is the convex combination of the
 #    per-sample energy MSE and torque MSE the augmented least-squares
@@ -84,7 +84,7 @@ Magesty.save(basis, "basis.xml")
 
 # Later session: reload and refit without recomputing SALCs.
 basis   = Magesty.load(SCEBasis, "basis.xml")
-dataset = SCEDataset(basis, "EMBSET.dat")
+dataset = SCEDataset(basis, "EMBSET")
 f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
 ```
 

@@ -9,7 +9,7 @@ spin-cluster expansion (SCE) analysis and fitting.
 using Magesty
 
 basis   = SCEBasis("input.toml")
-dataset = SCEDataset(basis, "EMBSET.dat")
+dataset = SCEDataset(basis, "EMBSET")
 f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4))   # torque_weight = 1.0 by default
 Magesty.save(SCEModel(f), "model.xml")                 # save / load are not exported; call via the module
 ```
@@ -106,6 +106,16 @@ computed inside the constructor to build `salcbasis`, then discarded.
   restriction (only `Lf = 0` terms). Provenance metadata: it is not
   derivable from `salcbasis` alone without inspecting every basis
   function.
+
+# Examples
+```julia
+# Build from a TOML input file (most common path):
+basis = SCEBasis("input.toml")
+
+# The SALC construction is the expensive step; persist for reuse:
+Magesty.save(basis, "basis.xml")
+basis2 = Magesty.load(SCEBasis, "basis.xml")
+```
 """
 struct SCEBasis
 	structure::Structure
@@ -232,6 +242,20 @@ evaluation verbs accept it. Build one from a `SCEFit` via `SCEModel(f)`.
 
 The constructor checks that `length(jphi)` matches the number of SALCs
 in `basis` — there is one coefficient per SALC.
+
+# Examples
+```julia
+# From a fit:
+model = SCEModel(f)
+
+# Predict on any dataset (e.g., the held-out split):
+ŷ_E = predict_energy(model, test)
+ŷ_T = predict_torque(model, test)
+
+# Persist and reload (round-trip is byte-stable):
+Magesty.save(model, "model.xml")
+model2 = Magesty.load(SCEModel, "model.xml")
+```
 """
 struct SCEModel
 	basis::SCEBasis
@@ -269,6 +293,19 @@ rebuilding design matrices.
 - `y_E::Vector{Float64}`: Observed energies, length `n_configs`.
 - `y_T::Vector{Float64}`: Observed torques, flattened, length
   `3 * num_atoms * n_configs`.
+
+# Examples
+```julia
+# Pair a basis with training data read from an EMBSET file:
+dataset = SCEDataset(basis, "EMBSET")
+
+# Indexing yields a new SCEDataset — handy for train/test splits:
+train = dataset[1:80]
+test  = dataset[81:end]
+
+# Concatenate datasets that share the same basis (e.g., for cross-validation):
+combined = vcat(train, test)
+```
 """
 struct SCEDataset
 	basis::SCEBasis
@@ -419,6 +456,21 @@ verbs `coef`, `intercept`, `nobs`, `dof` are defined for it.
   These carry the `torque_weight` scaling and are not in physical units;
   use `rmse_energy(f)` / `rmse_torque(f)` / `r2_energy(f)` /
   `r2_torque(f)` for interpretable in-sample errors.
+
+# Examples
+```julia
+# Fit (see `fit(SCEFit, ...)` for full options):
+f = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
+
+# Inspect:
+coef(f)         # SCE coefficient vector
+intercept(f)    # fitted reference energy j0 (eV)
+rmse_torque(f)  # in-sample torque RMSE
+r2_torque(f)    # in-sample torque R²
+
+# Convert to the persistable predictor:
+model = SCEModel(f)
+```
 """
 struct SCEFit <: StatsAPI.RegressionModel
 	dataset::SCEDataset

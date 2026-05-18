@@ -153,7 +153,7 @@ Magesty.load(SCEModel, path)       # Read SCEModel
 AbstractEstimator, OLS, Ridge
 
 # Data reading
-read_embset(path)                  # EMBSET.dat -> Vector{SpinConfig}
+read_embset(path)                  # EMBSET -> Vector{SpinConfig}
 SpinConfig(energy, magmom_size, spin_directions, local_magfield)
 ```
 

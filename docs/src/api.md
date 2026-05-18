@@ -5,7 +5,10 @@ CurrentModule = Magesty
 ```
 
 The user-facing API is built around four types: `SCEBasis`, `SCEDataset`,
-`SCEFit`, and `SCEModel`.
+`SCEFit`, and `SCEModel`. Names listed below are stable: removals and
+signature-incompatible changes follow a deprecation cycle. For lower-level
+building blocks used internally by the SCE pipeline (and not covered by
+this stability guarantee), see the [Internal API](@ref).
 
 ## Main types
 
@@ -72,68 +75,7 @@ read_embset
 SpinConfig
 ```
 
-## Submodules
-
-### Structures
-```@docs
-Structures.Structure
-```
-
-### Symmetries
-```@docs
-Symmetries.Symmetry
-Symmetries.SymmetryOperation
-Symmetries.Maps
-```
-
-### Clusters
-```@docs
-Clusters.Cluster
-```
-
-### SALCBases
-```@docs
-SALCBases.SALCBasis
-```
-
-## Utility types
-
-### Spherical harmonics transforms
-```@docs
-SphericalHarmonicsTransforms.c2r_sph_harm_matrix
-SphericalHarmonicsTransforms.r2c_sph_harm_matrix
-```
-
-### Atom cells
-```@docs
-AtomCells.AtomCell
-```
-
-### Input specs
-```@docs
-InputSpecs.SystemSpec
-InputSpecs.InteractionSpec
-InputSpecs.SymmetryOptions
-InputSpecs.parse_toml_inputs
-```
-
-## Utility functions
-
-### Spherical harmonics
-```@docs
-TesseralHarmonics.Zₗₘ
-TesseralHarmonics.Zₗₘ_unsafe
-TesseralHarmonics.∂ᵢZlm
-TesseralHarmonics.∂ᵢZlm_unsafe
-```
-
-### Rotation matrices
-```@docs
-RotationMatrix.rotmat2euler
-RotationMatrix.Δl
-```
-
-### Version information
+## Version information
 
 Use the standard Julia idioms:
 

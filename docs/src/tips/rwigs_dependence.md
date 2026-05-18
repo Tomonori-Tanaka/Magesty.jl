@@ -213,7 +213,7 @@ using TOML
 
 input   = TOML.parsefile("input.toml")
 basis   = SCEBasis(input; verbosity = true)
-dataset = SCEDataset(basis, "EMBSET.dat")
+dataset = SCEDataset(basis, "EMBSET")
 fitted  = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
 Magesty.save(SCEModel(fitted), "jphi.xml")
 ```

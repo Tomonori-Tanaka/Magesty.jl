@@ -7,7 +7,7 @@ using Magesty
 
 
 input = TOML.parse(open(joinpath(@__DIR__, "input.toml"), "r"))
-embset_path = joinpath(@__DIR__, "EMBSET.dat")
+embset_path = joinpath(@__DIR__, "EMBSET")
 
 basis = SCEBasis(input; verbosity = false)
 spinconfigs_all = Magesty.read_embset(embset_path)

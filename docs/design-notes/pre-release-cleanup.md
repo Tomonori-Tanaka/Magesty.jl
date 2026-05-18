@@ -30,7 +30,7 @@ the unimplemented `square_lattice` test.
   `"..", "test", "integration", "fept_tetragonal_2x2x2"`.
 - `examples/03_save_load.jl:12` — same fix.
 
-`test/integration/fept_tetragonal_2x2x2/{input.toml,EMBSET.dat}` are
+`test/integration/fept_tetragonal_2x2x2/{input.toml,EMBSET}` are
 present. `examples/02_cif_input.jl` has no issue.
 
 ### P1. `Project.toml` cleanup

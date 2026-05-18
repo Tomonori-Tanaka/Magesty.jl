@@ -16,7 +16,7 @@ function main()
     println("Number of SALCs: ", length(basis.salcbasis.salc_list))
 
     # 2. Build a dataset from the basis and an EMBSET file.
-    dataset = SCEDataset(basis, joinpath(FIXTURE, "EMBSET.dat"))
+    dataset = SCEDataset(basis, joinpath(FIXTURE, "EMBSET"))
     println("Number of training configurations: ", length(dataset))
 
     # 3. Fit with Ridge regression and inspect in-sample metrics.

@@ -218,8 +218,8 @@ Generate histograms of magnetic moment magnitudes from an EMBSET file.
 
 **Usage:**
 ```bash
-julia tools/histogram_magmom.jl EMBSET.txt
-julia tools/histogram_magmom.jl EMBSET.txt --atoms 1,2,3-5 --bin_width 0.1
+julia tools/histogram_magmom.jl EMBSET
+julia tools/histogram_magmom.jl EMBSET --atoms 1,2,3-5 --bin_width 0.1
 ```
 
 **Arguments:**
