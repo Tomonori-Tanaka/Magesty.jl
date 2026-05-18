@@ -68,7 +68,7 @@ include("XMLIO.jl")
 using .XMLIO
 
 export SCEBasis, SCEDataset, SCEFit, SCEModel
-export AbstractEstimator, OLS, Ridge
+export AbstractEstimator, OLS, Ridge, ElasticNet, Lasso
 export predict_energy, predict_torque
 export fit, coef, intercept, nobs, dof
 export r2_energy, r2_torque, rss_energy, rss_torque
