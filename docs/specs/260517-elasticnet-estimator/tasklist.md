@@ -1,6 +1,7 @@
 # Tasklist: ElasticNet estimator (with Lasso convenience)
 
-Status: draft (2026-05-17, rebased on top of 260518 energy-centered design matrix)
+Status: **complete (2026-05-18)** -- branch `refactor/lasso-estimator`,
+commits `1634fe8..ab3eee0`.
 
 This file holds coarse-grained, commit-sized milestones. Day-to-day
 tracking goes through `TaskCreate` in-session.
@@ -102,4 +103,8 @@ items that do not apply.
 
 ## Implementation commits
 
-<!-- Append `<short SHA>  <subject>` lines here as commits land. -->
+- `1634fe8`  chore(deps): add GLMNet for ElasticNet estimator
+- `391934f`  feat(Fitting): add ElasticNet estimator backed by GLMNet
+- `a094b32`  test(Fitting): add ElasticNet component tests
+- `45b97a9`  feat(Magesty): show nonzero coef count in fit summary
+- `ab3eee0`  docs: document ElasticNet/Lasso estimators and nonzero coef line

@@ -1,7 +1,9 @@
 # ElasticNet / LASSO / Adaptive estimators
 
-**Status**: ElasticNet (incl. Lasso convenience constructor) → spec
-started (2026-05-17); Adaptive variants → on hold
+**Status**: ElasticNet (incl. Lasso convenience constructor) -- spec
+complete (2026-05-18, merged on `refactor/lasso-estimator`).
+Adaptive variants -- next-up follow-up; pre-spec sketch at the bottom
+of this note.
 
 Design note for adopting GLMNet.jl and adding the L1 / mixed-norm /
 Adaptive families to the estimator-dispatch hierarchy in `Fitting.jl`.
