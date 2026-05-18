@@ -17,7 +17,7 @@ in `src/Magesty.jl` reflects the dependency order.
 | `Symmetries` | `src/Symmetries.jl` | Space-group symmetry operations (Spglib wrapper) |
 | `Clusters` | `src/Clusters.jl` | Cluster expansion and distance-matrix computation |
 | `SALCBases` | `src/SALCBases.jl` | SALC basis construction (computationally expensive) |
-| `Fitting` | `src/Fitting.jl` | Design-matrix construction and regression (OLS / Ridge) |
+| `Fitting` | `src/Fitting.jl` | Design-matrix construction and regression (`OLS` / `Ridge` / `ElasticNet`, with a `Lasso` convenience function) |
 | `SpinConfigs` | `src/SpinConfigs.jl` | Spin-configuration loading and management |
 
 ### Utilities and data types
@@ -150,7 +150,7 @@ Magesty.load(SCEBasis, path)       # Read SCEBasis (model XML also accepted)
 Magesty.load(SCEModel, path)       # Read SCEModel
 
 # Estimators
-AbstractEstimator, OLS, Ridge
+AbstractEstimator, OLS, Ridge, ElasticNet, Lasso
 
 # Data reading
 read_embset(path)                  # EMBSET -> Vector{SpinConfig}
@@ -169,3 +169,4 @@ SpinConfig(energy, magmom_size, spin_directions, local_magfield)
 | `WignerD`, `WignerSymbols`, `LegendrePolynomials` | Angular-momentum coupling |
 | `LinearAlgebra`, `Statistics` | Linear algebra and statistics |
 | `MultivariateStats` | Ridge regression (`ridge`) |
+| `GLMNet` | Elastic-Net / Lasso regression (`glmnet`) |

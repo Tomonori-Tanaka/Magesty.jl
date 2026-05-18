@@ -8,6 +8,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `ElasticNet` estimator and `Lasso` convenience function (returning
+  `ElasticNet(alpha = 1.0, ...)`) for sparse / mixed-norm SCE fits.
+  `ElasticNet` is backed by GLMNet.jl and exposes `alpha::Float64`
+  (`0 <= alpha <= 1`), `lambda::Float64` (`lambda >= 0`), and
+  `standardize::Bool` (default `true`, neutralising the per-cluster
+  `(4pi)^(N/2)` column scale). The estimator hooks into the existing
+  `solve_coefficients(estimator, X, y)` dispatch and calls GLMNet
+  with `intercept = false`: the energy block of `X` is already
+  mean-centered upstream by `assemble_weighted_problem`, and `j0` is
+  recovered downstream by `extract_j0_jphi` -- the same post-processing
+  `OLS` and `Ridge` already use. A regression test confirms
+  `ElasticNet(alpha = 0, lambda = lambda_a/n, standardize = false)`
+  reproduces analytic `Ridge(lambda = lambda_a)` to `rtol ~ 1e-3` over
+  `lambda_a in {1e-3, 1e-2, 1e-1}` (GLMNet's coordinate-descent
+  objective is `(1/2n)||y - X*beta||^2 + (lambda_g/2)||beta||^2`,
+  equivalent to analytic ridge under `lambda_g = lambda_a / n`).
+- The `fit(SCEFit, ...)` summary now prints an estimator-independent
+  `nonzero coefs : k / num_coefs` line, counting `count(!iszero, jphi)`.
+  For `OLS` / `Ridge` this is the full coefficient count (no exact
+  zeros); for `Lasso` / `ElasticNet` it reports the active support at
+  the chosen `lambda`.
 - `SpinConfig` is now exported from `Magesty` as a public type. The
   docstring fully describes its fields, including the
   derived-at-construction `local_magfield_vertical` and `torques`
