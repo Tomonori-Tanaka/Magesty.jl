@@ -68,6 +68,7 @@ OLS
 Ridge
 ElasticNet
 Lasso
+AdaptiveLasso
 ```
 
 ## Data loading

@@ -8,6 +8,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `AdaptiveLasso` estimator implementing the Zou 2006 / ALAMODE-style
+  one-shot reweighted L1. Runs a user-supplied
+  `pilot::AbstractEstimator` (default `OLS()`) to obtain a pilot
+  coefficient vector, then solves a weighted-L1 Lasso with
+  `pf[j] = 1 / max(|beta_pilot[j]|, epsilon)^gamma`. Exposed kwargs:
+  `pilot`, `lambda` (`>= 0`), `gamma` (`>= 0`, default `1.0`),
+  `epsilon` (`> 0`, default `eps(Float64)`), `standardize`
+  (default `true`). The docstring recommends `pilot = Ridge(lambda =
+  small)` on rank-deficient SCE designs (where OLS's minimum-norm
+  null-space noise miscalibrates the adaptive weights). The private
+  `_glmnet_solve` helper gained an optional
+  `penalty_factor::Union{Nothing, AbstractVector{<:Real}} = nothing`
+  keyword; the existing `OLS` / `Ridge` / `ElasticNet` / `Lasso`
+  paths are byte-for-byte unchanged (the `nothing` default routes
+  through the original glmnet call form). A regression test confirms
+  `AdaptiveLasso(gamma = 0)` reduces to plain Lasso to `atol = 1e-6`
+  (empirical worst ~3e-8 on the test fixture, ~30x headroom). GLMNet
+  internally rescales `penalty_factor` so the supplied weights sum to
+  `nvars`, so the user-supplied `lambda` interacts with the rescaled
+  vector -- matched-`lambda` comparison against plain Lasso is not
+  apples-to-apples once `gamma > 0`; per-side `lambda` tuning is the
+  recommended pattern.
 - `ElasticNet` estimator and `Lasso` convenience function (returning
   `ElasticNet(alpha = 1.0, ...)`) for sparse / mixed-norm SCE fits.
   `ElasticNet` is backed by GLMNet.jl and exposes `alpha::Float64`
