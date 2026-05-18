@@ -230,15 +230,26 @@ existing ElasticNet tests.
    `==` (or `isequal`), not merely `isapprox`. This test pins the
    exact construction of `pf` from `beta_pilot` -- any future edit
    to the weight formula (or to GLMNet's call shape) trips it.
-3. **`epsilon` clip is active for a Lasso pilot** (strict).
-   Build a synthetic `(X, y)` where `Lasso(lambda = large)` has
-   several exactly-zero entries. Pass `pilot = Lasso(lambda = large)`
-   into `AdaptiveLasso(pilot = ..., lambda = small, epsilon = 1e-12)`
-   and confirm: (a) the call returns without erroring, (b) the
-   resulting fit has all entries finite (`all(isfinite, b_fit)`),
-   (c) the columns at which `beta_pilot == 0` are exactly zero in
-   the adaptive fit (the very high `1/eps^gamma` penalty drove them
-   to zero).
+3. **`epsilon` clip keeps the call finite for a Lasso pilot**
+   (strict). Build a synthetic `(X, y)` where `Lasso(lambda = large)`
+   has several exactly-zero entries. Pass `pilot = Lasso(lambda =
+   large)` into `AdaptiveLasso(pilot = ..., lambda = small, epsilon =
+   eps(Float64))` and confirm: (a) the call returns without erroring,
+   (b) the resulting fit has all entries finite (`all(isfinite,
+   b_fit)`), (c) the truly-nonzero columns (those that were *not*
+   killed by the pilot) end nonzero in the adaptive fit. The
+   per-column behaviour of pilot-zero columns is intentionally **not**
+   asserted: GLMNet's internal `sum(pf) = nvars` rescale puts the
+   clipped columns at moderate effective `lambda` (`pf ~ nvars / k`,
+   with `k = pilot-zero count`) and crushes the alive-pilot columns
+   to `pf ~ 1e-15`. Whether a pilot-zero column ends at exactly zero
+   in the adaptive fit therefore depends on data signal vs the
+   (data-dependent) effective `lambda` on that column -- this is
+   correct adaptive-Lasso behaviour (the pilot is a heuristic, not a
+   permanent veto) but it breaks any strict "pilot-zero implies
+   adaptive-zero" claim. The substantive numerical claim test 3 pins
+   is that the clip prevents `Inf` / `NaN`, not that it locks pilot
+   zeros in place.
 4. **`pilot = Ridge(...)` path works** (qualitative).
    On the synthetic problem from test 5 below, `AdaptiveLasso(pilot
    = Ridge(lambda = 1e-3), lambda = ..., gamma = 1)` returns a
@@ -290,12 +301,18 @@ that already calls `fit(SCEFit, ...)`.)
     test 1 below remains a bit-level agreement check.
   - When `pilot` produces exact zeros (e.g. `pilot = Lasso(...)`),
     those columns receive `pf_j = 1 / epsilon^gamma` (a very large
-    number). After rescale, the effective `lambda` on the
-    non-clipped columns shrinks toward zero, so those columns
-    behave closer to an OLS fit than to a uniform-penalty Lasso.
-    Test 3 below specifically verifies the clipped columns end up
-    at exactly zero; the non-clipped columns' values are
-    intentionally not constrained.
+    number). After rescale, the clipped columns sit at `pf ~ nvars /
+    k` (`k = pilot-zero count`, so order-unity) and the alive-pilot
+    columns get crushed to `pf ~ 1e-15`. The alive-pilot columns
+    therefore behave closer to an OLS fit than to a uniform-penalty
+    Lasso, and the clipped columns end at a moderate effective
+    `lambda` -- *not* an infinite one. Whether a clipped column
+    ends at exactly zero in the adaptive fit depends on data signal
+    vs that moderate effective `lambda`. Test 3 below pins only the
+    numerical-safety claim (`isfinite` output) and the
+    alive-pilot-column survival; it deliberately does not claim
+    "pilot-zero columns end at exactly zero", which is data-
+    dependent and not the substantive guarantee the clip provides.
   - When `pilot = OLS()` runs on a rank-deficient design, Julia's
     minimum-norm solution populates the null space with noise of
     magnitude ~ 1e-10..1e-12. Those entries are *not* clipped by
