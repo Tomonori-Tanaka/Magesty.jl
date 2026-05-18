@@ -28,11 +28,14 @@ makedocs(
 		"Examples" => "examples.md",
 		"Tools" => "tools.md",
 		"Technical Notes" => "technical_notes.md",
-		"Tips" => [
-			"Overview" => "tips/index.md",
-			"Penalty term dependence" => "tips/penalty_parameter_dependence.md",
-			"RWIGS dependence" => "tips/rwigs_dependence.md",
-		],
+		hide(
+			"Tips" => "tips/index.md",
+			[
+				"tips/penalty_parameter_dependence.md",
+				"tips/rwigs_dependence.md",
+				"tips/mfa_analysis.md",
+			],
+		),
 	],
 	warnonly = true,
 	checkdocs = :exports,

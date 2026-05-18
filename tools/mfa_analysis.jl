@@ -1,7 +1,22 @@
 # Tool for mean-field analysis of SCE models.
-# Reads jphi.xml / scecoeffs.xml, Fourier-transforms exchange interactions J(q),
-# and finds the ordering wave vector with minimum MFA energy (= minimum eigenvalue
-# of J(q)).
+# Reads jphi.xml / scecoeffs.xml, Fourier-transforms the exchange tensor 𝒥(q),
+# and finds the ordering wave vector that maximizes the largest eigenvalue of
+# 𝒥(q), corresponding to the first instability from the paramagnetic state.
+#
+# Convention used here follows the ordered double-sum form of the classical
+# Heisenberg energy:
+#
+#     E = -Σ_{R,R'} Σ_{μν} e_{Rμ}^T 𝒥_{μν}(R'-R) e_{R'ν},
+#
+# with the reality condition 𝒥_{μν}(-Δ) = 𝒥_{νμ}^T(Δ).  The relation to the
+# per-bond tensor J^{per-bond} stored in jphi.xml (in the Magesty convention
+# H = +Σ_<ij> J_ij S_i·S_j, J<0 for FM) is
+#
+#     𝒥_{μν}(Δ) = -(1/2) J^{per-bond}_{μν}(Δ).
+#
+# Equivalent forms of the MF Tc:
+#     k_B T_c = (2/3) η_max(𝒥(q_max))           [paper convention, used here]
+#             = (1/3) (-λ_min(J^{per-bond}(q)))  [equivalent rewrite]
 using ArgParse
 using LinearAlgebra
 using Printf
@@ -15,12 +30,17 @@ using .ExchangeTensor
     PairData
 
 Precomputed quantities for a single (μ, atom_j) interaction pair.
+
+`tensor` stores the paper-convention exchange tensor
+`𝒥_{μν}(Δ) = -(1/2) J^{per-bond}_{μν}(Δ)`, so that the Fourier matrix built
+by [`build_jq_matrix!`](@ref) is directly the `𝒥(q)` of the linearized
+mean-field equation, whose largest eigenvalue gives `T_c` via `2η_max/3`.
 """
 struct PairData
     μ::Int                   # sublattice index of the primitive-cell source atom
     ν::Int                   # sublattice index of atom_j
     R::NTuple{3, Float64}    # minimum-image displacement (supercell fractional)
-    tensor::Matrix{Float64}  # 3×3 exchange tensor (meV)
+    tensor::Matrix{Float64}  # 3×3 paper-convention exchange tensor 𝒥 (meV)
 end
 
 """
@@ -28,6 +48,9 @@ end
 
 Gather all (μ, atom_j) pairs with their displacements and exchange tensors once.
 Zero tensors (no interaction) are skipped.
+
+The stored tensor is `-0.5 * J^{per-bond}`, converting from the Magesty
+unordered per-bond convention to the ordered double-sum paper convention 𝒥.
 """
 function precompute_pairs(
     symmetry,
@@ -51,7 +74,9 @@ function precompute_pairs(
             jij = Matrix(tensor.jij_tensor)
             iszero(jij) && continue  # skip pairs with no interaction
 
-            push!(pairs, PairData(μ, ν, (R[1], R[2], R[3]), jij))
+            # Convert per-bond J to paper-convention 𝒥 = -(1/2) J^{per-bond}.
+            𝒥 = (-0.5) .* jij
+            push!(pairs, PairData(μ, ν, (R[1], R[2], R[3]), 𝒥))
         end
     end
     return pairs
@@ -89,23 +114,26 @@ function prim_lattice_in_sc_frac(symmetry)::Matrix{Float64}
 end
 
 """
-    build_jq_matrix!(J_q, q_sc, pairs) -> J_q
+    build_jq_matrix!(𝒥_q, q_sc, pairs) -> 𝒥_q
 
-In-place construction of the Fourier-transformed exchange matrix J(q) at
+In-place construction of the Fourier-transformed exchange matrix 𝒥(q) at
 wavevector `q_sc` (supercell fractional reciprocal coordinates).
 
-J(q) is a (3 n_sub × 3 n_sub) block matrix.  Block (μ, ν) is:
+𝒥(q) is a (3 n_sub × 3 n_sub) block matrix.  Block (μ, ν) is:
 
-    J_μν(q) = Σ_{atom_j ∈ sublattice ν} J(prim_μ, atom_j) exp(2πi q·R_{μj})
+    𝒥_μν(q) = Σ_Δ exp(+2πi q·Δ) 𝒥_μν(Δ),
+
+where the sum runs over all displacements Δ where prim_μ has a neighbor in
+sublattice ν, and `𝒥(Δ) = -(1/2) J^{per-bond}(Δ)` is stored in `pairs.tensor`.
 
 `pairs` must be precomputed via `precompute_pairs`.
 """
 function build_jq_matrix!(
-    J_q::Matrix{ComplexF64},
+    𝒥_q::Matrix{ComplexF64},
     q_sc::Union{NTuple{3, <:Real}, AbstractVector{<:Real}},
     pairs::Vector{PairData},
 )
-    fill!(J_q, zero(ComplexF64))
+    fill!(𝒥_q, zero(ComplexF64))
     @inbounds for p in pairs
         # cispi(x) = exp(iπx), so cispi(2 q·R) = exp(2πi q·R).
         phase = cispi(2 * (q_sc[1] * p.R[1] + q_sc[2] * p.R[2] + q_sc[3] * p.R[3]))
@@ -113,23 +141,25 @@ function build_jq_matrix!(
         col0 = 3 * (p.ν - 1)
         T = p.tensor
         for b in 1:3, a in 1:3
-            J_q[row0 + a, col0 + b] += T[a, b] * phase
+            𝒥_q[row0 + a, col0 + b] += T[a, b] * phase
         end
     end
-    return J_q
+    return 𝒥_q
 end
 
 """
-    compute_lambda_grad(q_prim, A_prim, pairs, n_sub) -> (λ_min, grad, eigs)
+    compute_eta_grad(q_prim, A_prim, pairs, n_sub) -> (η_max, grad, eigs)
 
-Compute the minimum eigenvalue of J(q) and its gradient w.r.t. `q_prim`
+Compute the maximum eigenvalue of 𝒥(q) and its gradient w.r.t. `q_prim`
 (primitive reciprocal fractional coordinates) using the Hellmann-Feynman theorem:
 
-    ∂λ_min/∂q_sc_k = Re[v† (∂J/∂q_sc_k) v],   ∂J/∂q_sc_k = 2πi R_k J(q)
+    ∂η_max/∂q_sc_k = Re[v† (∂𝒥/∂q_sc_k) v],   ∂𝒥/∂q_sc_k = 2πi R_k 𝒥(q)
 
-with chain rule ∂λ/∂q_prim = A_prim' * ∂λ/∂q_sc.
+with chain rule ∂η/∂q_prim = A_prim' * ∂η/∂q_sc.
+
+The returned `eigs` is sorted in descending order so that `eigs[1]` is η_max.
 """
-function compute_lambda_grad(
+function compute_eta_grad(
     q_prim::AbstractVector{<:Real},
     A_prim::Matrix{Float64},
     pairs::Vector{PairData},
@@ -138,42 +168,42 @@ function compute_lambda_grad(
     dim = 3n_sub
     q_sc = A_prim * collect(Float64, q_prim)
 
-    J_q = zeros(ComplexF64, dim, dim)
-    dJ  = [zeros(ComplexF64, dim, dim) for _ in 1:3]   # ∂J/∂q_sc_k
+    𝒥_q = zeros(ComplexF64, dim, dim)
+    d𝒥  = [zeros(ComplexF64, dim, dim) for _ in 1:3]   # ∂𝒥/∂q_sc_k
 
     for p in pairs
         phase = cispi(2 * (q_sc[1]*p.R[1] + q_sc[2]*p.R[2] + q_sc[3]*p.R[3]))
         row0 = 3*(p.μ - 1); col0 = 3*(p.ν - 1)
         for b in 1:3, a in 1:3
             val = p.tensor[a, b] * phase
-            J_q[row0+a, col0+b] += val
-            dJ[1][row0+a, col0+b] += val * (2π * im * p.R[1])
-            dJ[2][row0+a, col0+b] += val * (2π * im * p.R[2])
-            dJ[3][row0+a, col0+b] += val * (2π * im * p.R[3])
+            𝒥_q[row0+a, col0+b] += val
+            d𝒥[1][row0+a, col0+b] += val * (2π * im * p.R[1])
+            d𝒥[2][row0+a, col0+b] += val * (2π * im * p.R[2])
+            d𝒥[3][row0+a, col0+b] += val * (2π * im * p.R[3])
         end
     end
 
-    H = Hermitian((J_q + J_q') / 2)
+    H = Hermitian((𝒥_q + 𝒥_q') / 2)
     F = eigen(H)
     eigs = real.(F.values)
-    idx  = argmin(eigs)
-    λ_min = eigs[idx]
+    idx  = argmax(eigs)
+    η_max = eigs[idx]
     v = F.vectors[:, idx]
 
-    # ∂λ/∂q_sc_k = Re[v† (∂J(q)/∂q_sc_k) v]
-    grad_sc = [real(dot(v, dJ[k] * v)) for k in 1:3]
+    # ∂η/∂q_sc_k = Re[v† (∂𝒥(q)/∂q_sc_k) v]
+    grad_sc = [real(dot(v, d𝒥[k] * v)) for k in 1:3]
     grad    = A_prim' * grad_sc
 
-    return λ_min, grad, sort(eigs)
+    return η_max, grad, sort(eigs; rev = true)
 end
 
 """
-    refine_minimum(q0, A_prim, pairs, n_sub; tol, max_iter) -> (q_opt, λ_min, eigs)
+    refine_maximum(q0, A_prim, pairs, n_sub; tol, max_iter) -> (q_opt, η_max, eigs)
 
-Refine the ordering wavevector starting from `q0` using steepest descent
-with Armijo backtracking line search.
+Refine the ordering wavevector starting from `q0` using steepest ascent
+with Armijo backtracking line search on `η_max(𝒥(q))`.
 """
-function refine_minimum(
+function refine_maximum(
     q0::Vector{Float64},
     A_prim::Matrix{Float64},
     pairs::Vector{PairData},
@@ -183,38 +213,41 @@ function refine_minimum(
 )
     q = copy(q0)
     for _ in 1:max_iter
-        λ, grad, _ = compute_lambda_grad(q, A_prim, pairs, n_sub)
+        η, grad, _ = compute_eta_grad(q, A_prim, pairs, n_sub)
         gnorm = norm(grad)
         gnorm < tol && break
 
         α = 1.0
         for _ in 1:60
-            λ_try, _, _ = compute_lambda_grad(q .- α .* grad, A_prim, pairs, n_sub)
-            λ_try ≤ λ - 1e-4 * α * gnorm^2 && break
+            η_try, _, _ = compute_eta_grad(q .+ α .* grad, A_prim, pairs, n_sub)
+            η_try ≥ η + 1e-4 * α * gnorm^2 && break
             α *= 0.5
         end
-        q .-= α .* grad
+        q .+= α .* grad
     end
-    λ_final, _, eigs = compute_lambda_grad(q, A_prim, pairs, n_sub)
-    return q, λ_final, eigs
+    η_final, _, eigs = compute_eta_grad(q, A_prim, pairs, n_sub)
+    return q, η_final, eigs
 end
 
 """
-    mfa_analysis(xml_path; nk, spin) -> (q_opt, λ_min, eigenvalues)
+    mfa_analysis(xml_path; nk, spin) -> (q_max, η_max, eigenvalues)
 
 Scan `nk^3` q-points uniformly over the primitive cell first Brillouin zone
-and return the ordering wave vector that minimizes the smallest eigenvalue of
-J(q), corresponding to the minimum MFA energy.
+and return the ordering wave vector that maximizes the largest eigenvalue
+`η_max` of the paper-convention exchange matrix `𝒥(q)`. This is the first
+instability mode from the paramagnetic state in the linearized mean-field
+self-consistency equation.
 
 Arguments:
 - `xml_path`: path to jphi.xml or scecoeffs.xml
 - `nk`      : number of q-points per reciprocal direction (default 20)
 - `spin`    : spin magnitude S.
-              If `nothing` (default): classical spin, Tc ∝ S²/3  with S=1.
-              If specified: quantum spin, Tc ∝ S(S+1)/3.
+              If `nothing` (default): classical spin, k_B T_c = (2/3) η_max.
+              If specified: quantum spin, k_B T_c = (2/3) S(S+1) η_max.
 
-Returns `(q_opt_prim, λ_min, eigenvalues_at_qopt)` where `q_opt_prim` is in
-primitive cell fractional reciprocal coordinates.
+Returns `(q_max_prim, η_max, eigenvalues_at_qmax)` where `q_max_prim` is in
+primitive cell fractional reciprocal coordinates, and `eigenvalues_at_qmax`
+is sorted in descending order so that the first element is `η_max`.
 """
 function mfa_analysis(xml_path::String; nk::Int = 20, spin::Union{Float64, Nothing} = nothing, refine::Bool = true, eigvec_indices::Union{Vector{Int}, Nothing} = nothing)
     nk > 0 || throw(ArgumentError("nk must be a positive integer, got $nk"))
@@ -233,22 +266,23 @@ function mfa_analysis(xml_path::String; nk::Int = 20, spin::Union{Float64, Nothi
         @printf("  [%+.4f  %+.4f  %+.4f]\n", col...)
     end
 
-    # Precompute all (μ, ν, R, tensor) pairs once (q-independent part of J(q)).
+    # Precompute all (μ, ν, R, 𝒥) pairs once (q-independent part of 𝒥(q)).
+    # `𝒥 = -(1/2) J^{per-bond}` is applied inside `precompute_pairs`.
     pairs = precompute_pairs(symmetry, structure, pre)
     @printf("Precomputed %d non-zero interaction pairs.\n", length(pairs))
     @printf("Scanning %d^3 = %d q-points in the primitive BZ (threads = %d)...\n",
         nk, nk^3, nthreads())
 
     # Scan q_frac_prim ∈ [0, 1)^3, convert to supercell fractional for the phase.
-    # Convention in Magesty: H = +Σ J_ij S_i·S_j with J < 0 for ferromagnetic coupling.
-    # The MFA ground state minimizes E(q) ∝ λ_min(J(q)).
+    # Paper convention: E = -Σ_{R,R'} Σ_{μν} e_{Rμ}^T 𝒥_{μν}(R'-R) e_{R'ν}.
+    # The first instability appears at the q that maximizes η_max(𝒥(q)).
     grid = collect(range(0.0, 1.0, length = nk + 1)[1:nk])
     nq = nk^3
 
     # Partition q-indices across a fixed number of tasks with per-task buffers.
     dim = 3n_sub
     ntasks = nthreads()
-    λ_min_local = fill(+Inf, ntasks)
+    η_max_local = fill(-Inf, ntasks)
     q_best_local = [zeros(3) for _ in 1:ntasks]
     eigs_best_local = [Float64[] for _ in 1:ntasks]
 
@@ -256,9 +290,9 @@ function mfa_analysis(xml_path::String; nk::Int = 20, spin::Union{Float64, Nothi
     tasks = Vector{Task}(undef, ntasks)
     for t in 1:ntasks
         tasks[t] = @spawn begin
-            J_q = Matrix{ComplexF64}(undef, dim, dim)
+            𝒥_q = Matrix{ComplexF64}(undef, dim, dim)
             H   = Matrix{ComplexF64}(undef, dim, dim)
-            local_λ = +Inf
+            local_η = -Inf
             local_q = zeros(3)
             local_eigs = Float64[]
             for idx in (chunks[t] + 1):chunks[t + 1]
@@ -271,33 +305,33 @@ function mfa_analysis(xml_path::String; nk::Int = 20, spin::Union{Float64, Nothi
                     A_prim[2, 1] * q_prim[1] + A_prim[2, 2] * q_prim[2] + A_prim[2, 3] * q_prim[3],
                     A_prim[3, 1] * q_prim[1] + A_prim[3, 2] * q_prim[2] + A_prim[3, 3] * q_prim[3],
                 )
-                build_jq_matrix!(J_q, q_sc, pairs)
+                build_jq_matrix!(𝒥_q, q_sc, pairs)
                 @inbounds for j in 1:dim, i in 1:dim
-                    H[i, j] = (J_q[i, j] + conj(J_q[j, i])) / 2
+                    H[i, j] = (𝒥_q[i, j] + conj(𝒥_q[j, i])) / 2
                 end
                 eigs = eigvals!(Hermitian(H))
-                λ = minimum(eigs)
-                if λ < local_λ
-                    local_λ = λ
+                η = maximum(eigs)
+                if η > local_η
+                    local_η = η
                     local_q = [q_prim[1], q_prim[2], q_prim[3]]
-                    local_eigs = sort(eigs)
+                    local_eigs = sort(eigs; rev = true)
                 end
             end
-            (local_λ, local_q, local_eigs)
+            (local_η, local_q, local_eigs)
         end
     end
     for t in 1:ntasks
-        λ_min_local[t], q_best_local[t], eigs_best_local[t] = fetch(tasks[t])
+        η_max_local[t], q_best_local[t], eigs_best_local[t] = fetch(tasks[t])
     end
 
-    tid_best = argmin(λ_min_local)
-    λ_min = λ_min_local[tid_best]
+    tid_best = argmax(η_max_local)
+    η_max = η_max_local[tid_best]
     q_prim_best = q_best_local[tid_best]
     eigs_best = eigs_best_local[tid_best]
 
     if refine
-        println("Refining minimum with gradient descent (Hellmann-Feynman)...")
-        q_prim_best, λ_min, eigs_best = refine_minimum(q_prim_best, A_prim, pairs, n_sub)
+        println("Refining maximum with gradient ascent (Hellmann-Feynman)...")
+        q_prim_best, η_max, eigs_best = refine_maximum(q_prim_best, A_prim, pairs, n_sub)
         @printf("Refined q (primitive reciprocal frac): [%.6f, %.6f, %.6f]\n", q_prim_best...)
     end
 
@@ -325,38 +359,38 @@ function mfa_analysis(xml_path::String; nk::Int = 20, spin::Union{Float64, Nothi
         a1_norm = norm(A_prim_cart[:, 1])
         @printf("Wavelength:   %.4f Å  =  %.4f a_prim\n", wavelength, wavelength / a1_norm)
     end
-    @printf("Min eigenvalue λ_min of J(q):  %+.4f meV\n", λ_min)
+    @printf("Max eigenvalue η_max of 𝒥(q):  %+.4f meV\n", η_max)
     if isnothing(spin)
-        # Classical spin: Tc = S²/3 * |λ_min|  with S=1
-        Tc = 1.0 / 3 * (-λ_min) / 8.617333e-2
+        # Classical spin: k_B T_c = (2/3) η_max
+        Tc = (2 / 3) * η_max / 8.617333e-2
         @printf("Estimated MFA Tc (classical):  %.1f K\n", Tc)
     else
-        # Quantum spin: Tc = S(S+1)/3 * |λ_min|
-        Tc = spin * (spin + 1) / 3 * (-λ_min) / 8.617333e-2
+        # Quantum spin: k_B T_c = (2/3) S(S+1) η_max
+        Tc = (2 / 3) * spin * (spin + 1) * η_max / 8.617333e-2
         @printf("Estimated MFA Tc (quantum, S=%.1f):  %.1f K\n", spin, Tc)
     end
-    println("All eigenvalues at q_opt (meV):")
+    println("All eigenvalues at q_max (meV, descending):")
     for (i, ev) in enumerate(eigs_best)
-        @printf("  λ_%d = %+.4f meV\n", i, ev)
+        @printf("  η_%d = %+.4f meV\n", i, ev)
     end
 
     if !isnothing(eigvec_indices)
         n_eigs = 3n_sub
         q_sc = A_prim * q_prim_best
-        J_q  = zeros(ComplexF64, n_eigs, n_eigs)
-        build_jq_matrix!(J_q, q_sc, pairs)
-        F    = eigen(Hermitian((J_q + J_q') / 2))
-        order = sortperm(real.(F.values))
+        𝒥_q  = zeros(ComplexF64, n_eigs, n_eigs)
+        build_jq_matrix!(𝒥_q, q_sc, pairs)
+        F    = eigen(Hermitian((𝒥_q + 𝒥_q') / 2))
+        order = sortperm(real.(F.values); rev = true)
 
         for eigvec_index in eigvec_indices
             idx = clamp(eigvec_index, 1, n_eigs)
             idx != eigvec_index &&
                 @printf("Warning: eigvec_index=%d out of range [1, %d]; using %d.\n", eigvec_index, n_eigs, idx)
 
-            λ_n = real(F.values[order[idx]])
+            η_n = real(F.values[order[idx]])
             v   = F.vectors[:, order[idx]]
 
-            @printf("\n=== Spin configuration (eigenvector %d, λ = %+.4f meV) ===\n", idx, λ_n)
+            @printf("\n=== Spin configuration (eigenvector %d, η = %+.4f meV) ===\n", idx, η_n)
             println("  sublattice μ |  Re[vx]   Re[vy]   Re[vz]  |  Im[vx]   Im[vy]   Im[vz]  | |v_μ|")
             for μ in 1:n_sub
                 s = 3(μ - 1) + 1
@@ -369,7 +403,7 @@ function mfa_analysis(xml_path::String; nk::Int = 20, spin::Union{Float64, Nothi
         end
     end
 
-    return q_prim_best, λ_min, eigs_best
+    return q_prim_best, η_max, eigs_best
 end
 
 function main()
@@ -384,14 +418,14 @@ function main()
             arg_type = Int
             default = 20
         "--spin", "-s"
-            help = "Spin magnitude S. If omitted: classical spin (Tc ∝ S²/3, S=1). If given: quantum spin (Tc ∝ S(S+1)/3)."
+            help = "Spin magnitude S. If omitted: classical spin (k_B Tc = (2/3) η_max). If given: quantum spin (k_B Tc = (2/3) S(S+1) η_max)."
             arg_type = Float64
             default = nothing
         "--no-refine"
-            help = "Skip gradient-descent refinement after grid search."
+            help = "Skip gradient-ascent refinement after grid search."
             action = :store_true
         "--eigvec", "-e"
-            help = "Comma-separated list of eigenvector indices to print (e.g. 1,2,3). 1 = minimum eigenvalue, 2 = second smallest, ..."
+            help = "Comma-separated list of eigenvector indices to print (e.g. 1,2,3). 1 = maximum eigenvalue, 2 = second largest, ..."
             arg_type = String
             default = nothing
     end
