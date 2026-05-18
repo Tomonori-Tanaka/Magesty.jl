@@ -123,13 +123,13 @@
     </AngularMomentumCouplings>
   </System>
   <JPhi unit="eV">
-    <ReferenceEnergy>-1.28662986618645562e+02</ReferenceEnergy>
-    <jphi salc_index="1">3.13620069919945182e-03</jphi>
-    <jphi salc_index="2">4.33227778765818070e-03</jphi>
-    <jphi salc_index="3">-4.45344979206338759e-04</jphi>
-    <jphi salc_index="4">7.58287424600808139e-04</jphi>
-    <jphi salc_index="5">-9.53533391944368135e-04</jphi>
-    <jphi salc_index="6">-6.75355036058340602e-02</jphi>
-    <jphi salc_index="7">-2.53429698053669623e-03</jphi>
+    <ReferenceEnergy>-1.28662986618645476e+02</ReferenceEnergy>
+    <jphi salc_index="1">3.13620069919912396e-03</jphi>
+    <jphi salc_index="2">4.33227778765535396e-03</jphi>
+    <jphi salc_index="3">-4.45344979216771495e-04</jphi>
+    <jphi salc_index="4">7.58287424606515271e-04</jphi>
+    <jphi salc_index="5">-9.53533391943520072e-04</jphi>
+    <jphi salc_index="6">-6.75355036058399305e-02</jphi>
+    <jphi salc_index="7">-2.53429698051956930e-03</jphi>
   </JPhi>
 </Magesty>

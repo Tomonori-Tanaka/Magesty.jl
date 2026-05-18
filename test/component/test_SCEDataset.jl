@@ -42,8 +42,7 @@ end
         @test length(d) == 2
         @test lastindex(d) == 2
         n_salc = length(basis.salcbasis.salc_list)
-        @test size(d.X_E) == (2, n_salc + 1)
-        @test all(d.X_E[:, 1] .== 1.0)            # bias column
+        @test size(d.X_E) == (2, n_salc)          # no bias column
         @test size(d.X_T) == (2 * block, n_salc)  # no bias column
         @test d.y_E == [-1.0, 1.0]
         @test d.y_T == vcat(vec(configs[1].torques), vec(configs[2].torques))
@@ -109,8 +108,9 @@ end
         @test d2.X_T == d.X_T[(block + 1):(2 * block), :]   # second config's block
 
         # getindex returns a copy: mutating the slice leaves the parent intact
+        original_first_entry = d.X_E[1, 1]
         d1.X_E[1, 1] = -999.0
-        @test d.X_E[1, 1] == 1.0
+        @test d.X_E[1, 1] == original_first_entry
 
         # reordering reorders both X_E rows and X_T blocks consistently
         dr = d[[2, 1]]

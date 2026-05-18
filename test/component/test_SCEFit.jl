@@ -91,7 +91,7 @@ end
         @test E_batch isa Vector{Float64}
         @test length(E_batch) == 2
         @test E_batch ≈ [predict_energy(m, sc) for sc in configs]
-        @test E_batch ≈ dataset.X_E[:, 2:end] * f.jphi .+ f.j0
+        @test E_batch ≈ dataset.X_E * f.jphi .+ f.j0
 
         T_batch = predict_torque(m, dataset)
         @test T_batch isa Vector{Matrix{Float64}}

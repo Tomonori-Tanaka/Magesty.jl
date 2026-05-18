@@ -286,8 +286,10 @@ rebuilding design matrices.
 # Fields
 - `basis::SCEBasis`: The SCE basis the design matrices were built from.
 - `spinconfigs::Vector{SpinConfig}`: Training spin configurations.
-- `X_E::Matrix{Float64}`: Energy design matrix, bias column at column 1,
-  one row per configuration. Unweighted.
+- `X_E::Matrix{Float64}`: Energy design matrix, one row per
+  configuration, one column per SALC. No bias column — the reference
+  energy `j0` is recovered analytically at `fit` time and is not a
+  column of `X_E`. Unweighted.
 - `X_T::Matrix{Float64}`: Torque design matrix, no bias column, a
   `3 * num_atoms` block of rows per configuration. Unweighted.
 - `y_E::Vector{Float64}`: Observed energies, length `n_configs`.
@@ -522,7 +524,7 @@ The default `1.0` is chosen on physical grounds: the SCE coefficients
 `jphi` are best determined by torque residuals, which carry the per-atom
 directional information that drives the response of the spin model.
 Energies enter the fit through the closed-form reference-energy
-recovery `j0 = mean(y_E - X_E[:, 2:end] * jphi)`, so a torque-only fit
+recovery `j0 = mean(y_E - X_E * jphi)`, so a torque-only fit
 still yields a usable `j0`. Set `torque_weight < 1` only when the
 energies carry information that the torques do not — typically because
 the dataset is energy-rich and torque-poor.
@@ -578,14 +580,14 @@ function fit(
 	verbosity::Bool = true,
 )::SCEFit
 	start_time = time_ns()
-	X, y, bias_col = Fitting.assemble_weighted_problem(
+	X, y = Fitting.assemble_weighted_problem(
 		dataset.X_E,
 		dataset.X_T,
 		dataset.y_E,
 		dataset.y_T,
 		torque_weight,
 	)
-	j_values = Fitting.solve_coefficients(estimator, X, y; bias_col = bias_col)
+	j_values = Fitting.solve_coefficients(estimator, X, y)
 	j0, jphi = Fitting.extract_j0_jphi(j_values, dataset.X_E, dataset.y_E)
 	residuals::Vector{Float64} = y .- X * j_values
 	f = SCEFit(
@@ -738,7 +740,7 @@ predict_energy(
 
 function predict_energy(model::SCEModel, dataset::SCEDataset)::Vector{Float64}
 	_check_basis(model, dataset)
-	return dataset.X_E[:, 2:end] * model.jphi .+ model.j0
+	return dataset.X_E * model.jphi .+ model.j0
 end
 predict_energy(f::SCEFit, dataset::SCEDataset)::Vector{Float64} =
 	predict_energy(SCEModel(f), dataset)
