@@ -20,7 +20,7 @@ using ..CoupledBases
 using ..SALCBases
 using ..SpinConfigs
 
-export AbstractEstimator, OLS, Ridge, ElasticNet, Lasso, AdaptiveLasso
+export AbstractEstimator, OLS, Ridge, ElasticNet, Lasso, AdaptiveLasso, PrecomputedPilot
 
 """
 	_cluster_scaling(n_sites::Integer) -> Float64
@@ -242,6 +242,35 @@ function AdaptiveLasso(;
 	epsilon > 0.0 ||
 		throw(ArgumentError("AdaptiveLasso epsilon must be strictly positive; got $epsilon"))
 	return AdaptiveLasso(pilot, Float64(lambda), Float64(gamma), Float64(epsilon), standardize)
+end
+
+"""
+	PrecomputedPilot(beta::AbstractVector{<:Real})
+
+Estimator adapter that returns a fixed coefficient vector from
+`solve_coefficients`, ignoring the supplied `(X, y)` except for a length
+check against `size(X, 2)`. Designed as an `AdaptiveLasso.pilot` choice:
+lets the adaptive call reuse coefficients from a previous fit instead of
+running a fresh pilot regression.
+
+The input vector is copied at construction (enforced by the inner
+constructor), so later mutation of the caller's storage does not leak
+into `PrecomputedPilot.beta`.
+
+# Fields
+- `beta::Vector{Float64}`: Pilot coefficient vector. Named `beta` rather
+  than `coef` to avoid visual collision with the `StatsAPI.coef`
+  function that Magesty extends.
+
+# Examples
+```julia
+# Reuse an existing fit's coefficients as the AdaptiveLasso pilot.
+est = AdaptiveLasso(pilot = PrecomputedPilot(coef(fit)), lambda = 1e-3)
+```
+"""
+struct PrecomputedPilot <: AbstractEstimator
+	beta::Vector{Float64}
+	PrecomputedPilot(b::AbstractVector{<:Real}) = new(Vector{Float64}(b))
 end
 
 """
@@ -1118,6 +1147,27 @@ function solve_coefficients(
 		standardize = e.standardize,
 		penalty_factor = pf,
 	)
+end
+
+"""
+	solve_coefficients(estimator::PrecomputedPilot, X, y) -> Vector{Float64}
+
+Return the stored coefficient vector unchanged, after a length check
+against `size(X, 2)`. The supplied `y` is ignored. Throws
+`DimensionMismatch` when the stored vector's length disagrees with the
+design-matrix column count, which most commonly indicates that the
+pilot fit used a different `SCEBasis`.
+"""
+function solve_coefficients(
+	e::PrecomputedPilot,
+	X::AbstractMatrix{<:Real},
+	y::AbstractVector{<:Real},
+)::Vector{Float64}
+	length(e.beta) == size(X, 2) || throw(DimensionMismatch(
+		"PrecomputedPilot coefficient length $(length(e.beta)) does not " *
+		"match design-matrix column count $(size(X, 2)); the pilot was " *
+		"likely fit on a different SCEBasis."))
+	return e.beta
 end
 
 # Single-lambda GLMNet wrapper. Returns the coefficient vector for the
