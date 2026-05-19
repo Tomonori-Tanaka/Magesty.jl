@@ -164,4 +164,43 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 			@test reloaded.jphi ≈ model.jphi
 		end
 	end
+
+	@testset "AdaptiveLasso(::SCEFit) / AdaptiveLasso(::SCEModel) reuse" begin
+		# Convenience constructors must wrap the prior fit's coefficients
+		# in a PrecomputedPilot and forward the rest of the kwargs to the
+		# underlying keyword ctor. `fitted` is the OLS SCEFit defined
+		# above; it shares the same dataset and SCEBasis as the
+		# AdaptiveLasso call below, so the length check inside
+		# `solve_coefficients(::PrecomputedPilot, X, y)` is satisfied.
+		est_from_fit = AdaptiveLasso(fitted; lambda = 1e-4)
+		@test est_from_fit isa AdaptiveLasso
+		@test est_from_fit.pilot isa PrecomputedPilot
+		@test est_from_fit.pilot.beta == coef(fitted)
+		@test est_from_fit.lambda == 1e-4
+		@test est_from_fit.gamma == 1.0  # default
+
+		model_ols = SCEModel(fitted)
+		est_from_model = AdaptiveLasso(model_ols; lambda = 1e-4, gamma = 0.5)
+		@test est_from_model.pilot isa PrecomputedPilot
+		@test est_from_model.pilot.beta == coef(model_ols)
+		@test est_from_model.gamma == 0.5
+
+		# End-to-end dispatch: pilot regression is skipped, the stored
+		# coefficients drive the adaptive weights, and the resulting
+		# coefficients are finite.
+		f_reuse = fit(
+			SCEFit, dataset, est_from_fit;
+			torque_weight = 0.5, verbosity = false,
+		)
+		@test all(isfinite, coef(f_reuse))
+		@test isfinite(intercept(f_reuse))
+
+		# Passing `pilot = ...` on top of the positional SCEFit would
+		# otherwise be silently overridden by Julia's kwarg-splat
+		# semantics. The convenience constructor guards against that
+		# footgun explicitly with an ArgumentError.
+		@test_throws ArgumentError AdaptiveLasso(
+			fitted; pilot = OLS(), lambda = 1e-4,
+		)
+	end
 end

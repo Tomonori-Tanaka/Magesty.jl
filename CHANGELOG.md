@@ -8,6 +8,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `PrecomputedPilot <: AbstractEstimator` adapter that returns a fixed
+  coefficient vector from `solve_coefficients` (after a length check
+  against `size(X, 2)`), letting `AdaptiveLasso.pilot` reuse a prior
+  fit's coefficients instead of running a fresh pilot regression. The
+  input vector is copied at construction (enforced by the inner
+  constructor) so caller-side mutation cannot leak into the stored
+  pilot. Designed as the primitive an iterative Adaptive variant will
+  call inside its inner loop.
+- `AdaptiveLasso(fit::SCEFit; kwargs...)` and
+  `AdaptiveLasso(model::SCEModel; kwargs...)` convenience constructors
+  that wrap `coef(fit)` / `coef(model)` in `PrecomputedPilot` and
+  forward the remaining kwargs (`lambda`, `gamma`, `epsilon`,
+  `standardize`) to the keyword constructor. The prior fit must have
+  been produced on the same `SCEBasis`; only a length check is
+  enforced (same-length, different-SALC-ordering mismatch is not
+  detectable). Passing a `pilot` keyword alongside the positional
+  `SCEFit` / `SCEModel` raises `ArgumentError` -- otherwise Julia's
+  kwarg-splat semantics would let the splatted `pilot` silently
+  override the precomputed one, defeating the constructor's purpose.
+  Placed in `src/Magesty.jl` after `coef(::SCEFit)` / `coef(::SCEModel)`
+  because `SCEFit` / `SCEModel` are not visible inside the `Fitting`
+  submodule (defined in the parent module after `include("Fitting.jl")`);
+  an explicit `import .Fitting: AdaptiveLasso` silences the Julia 1.12
+  "constructor extended without explicit qualification" warning.
 - `AdaptiveLasso` estimator implementing the Zou 2006 / ALAMODE-style
   one-shot reweighted L1. Runs a user-supplied
   `pilot::AbstractEstimator` (default `OLS()`) to obtain a pilot

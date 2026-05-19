@@ -63,12 +63,17 @@ using .Symmetries
 using .Clusters
 using .SALCBases
 using .Fitting
+# Explicit import so that the AdaptiveLasso convenience constructors
+# added below (AdaptiveLasso(::SCEFit) / AdaptiveLasso(::SCEModel))
+# extend Fitting.AdaptiveLasso without triggering the Julia 1.12
+# "constructor extended without explicit qualification" warning.
+import .Fitting: AdaptiveLasso
 
 include("XMLIO.jl")
 using .XMLIO
 
 export SCEBasis, SCEDataset, SCEFit, SCEModel
-export AbstractEstimator, OLS, Ridge, ElasticNet, Lasso, AdaptiveLasso
+export AbstractEstimator, OLS, Ridge, ElasticNet, Lasso, AdaptiveLasso, PrecomputedPilot
 export predict_energy, predict_torque
 export fit, coef, intercept, nobs, dof
 export r2_energy, r2_torque, rss_energy, rss_torque
@@ -623,6 +628,45 @@ and torque models.
 """
 coef(f::SCEFit)::Vector{Float64} = f.jphi
 coef(m::SCEModel)::Vector{Float64} = m.jphi
+
+"""
+	AdaptiveLasso(fit::SCEFit; kwargs...)
+	AdaptiveLasso(model::SCEModel; kwargs...)
+
+Build an `AdaptiveLasso` estimator that reuses `coef(fit)` / `coef(model)`
+as its pilot via `PrecomputedPilot`, skipping a fresh pilot regression
+inside `solve_coefficients`. All remaining keyword arguments (`lambda`,
+`gamma`, `epsilon`, `standardize`) are forwarded to the standard
+`AdaptiveLasso(; ...)` keyword constructor.
+
+The prior fit must have been produced on the same `SCEBasis`: the
+adaptive call applies a length check against the new design-matrix
+column count but cannot detect a same-length, different-SALC-ordering
+mismatch. Passing a `pilot` keyword in addition to the positional
+`SCEFit` / `SCEModel` raises `ArgumentError`; the precomputed pilot is
+the whole point of these constructors, and Julia's kwarg-splat
+semantics would otherwise silently override it.
+
+# Examples
+```julia
+fit_ols = fit(SCEFit, dataset, OLS(); torque_weight = 0.5)
+est = AdaptiveLasso(fit_ols; lambda = 1e-3)
+fit_ada = fit(SCEFit, dataset, est; torque_weight = 0.5)
+```
+"""
+function AdaptiveLasso(fit::SCEFit; kwargs...)
+	haskey(kwargs, :pilot) && throw(ArgumentError(
+		"AdaptiveLasso(::SCEFit; ...) sets the pilot from `coef(fit)`; " *
+		"passing a `pilot` keyword as well would silently override it."))
+	return AdaptiveLasso(; pilot = PrecomputedPilot(coef(fit)), kwargs...)
+end
+
+function AdaptiveLasso(model::SCEModel; kwargs...)
+	haskey(kwargs, :pilot) && throw(ArgumentError(
+		"AdaptiveLasso(::SCEModel; ...) sets the pilot from `coef(model)`; " *
+		"passing a `pilot` keyword as well would silently override it."))
+	return AdaptiveLasso(; pilot = PrecomputedPilot(coef(model)), kwargs...)
+end
 
 """
 	intercept(f::SCEFit) -> Float64
