@@ -142,4 +142,4 @@ On branch `refactor/pre-release-safety` (oldest first):
 - `e4419e5` docs(specs): defer torque_weight persistence from pre-release safety — M3 deferral.
 - `de24a62` feat(io): add save(::SCEFit) convenience that delegates to SCEModel — side task (separately requested by the user; rolled in here because it builds on M2).
 - `0cf9b81` test(integration): add SCEDataset/Fit/Model round trip on square lattice — M4.
-- M5 commit hash to be appended once the docs alignment commit lands.
+- `9b6a23f` docs: complete pre-release safety spec (M5) — M5.
