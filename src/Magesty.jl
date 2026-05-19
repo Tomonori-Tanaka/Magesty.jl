@@ -1187,16 +1187,20 @@ end
 """
 	save(obj::SCEBasis, path::AbstractString)
 	save(obj::SCEModel, path::AbstractString)
+	save(f::SCEFit, path::AbstractString)
 
 Write `obj` to an XML file at `path`. An `SCEBasis` is written as
 structure, symmetry parameters, and SALC basis; an `SCEModel` adds the
-fitted reference energy and SCE coefficients in a `<JPhi>` block.
+fitted reference energy and SCE coefficients in a `<JPhi>` block. An
+`SCEFit` is serialized as the corresponding `SCEModel(f)` — the
+fit-time dataset and estimator are not persisted.
 
 The path must end in `.xml`; any other extension is an error. Use
 `load` to read the file back.
 
 # Arguments
 - `obj::Union{SCEBasis, SCEModel}`: The object to serialize.
+- `f::SCEFit`: Trained fit; saved as `SCEModel(f)`.
 - `path::AbstractString`: Output file path; must end in `.xml`.
 
 # Throws
@@ -1227,6 +1231,8 @@ function save(obj::SCEModel, path::AbstractString)
 	)
 	return nothing
 end
+
+save(f::SCEFit, path::AbstractString) = save(SCEModel(f), path)
 
 """
 	load(::Type{SCEBasis}, path::AbstractString) -> SCEBasis

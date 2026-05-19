@@ -133,6 +133,35 @@ end
 		end
 	end
 
+	@testset "save(::SCEFit) delegates to SCEModel" begin
+		basis = SCEBasis(SL_DIMER_TOML; verbosity = false)
+		SC = Magesty.SpinConfigs.SpinConfig
+		configs = [
+			SC(-1.0, [1.0, 1.0],
+			   [0.0 0.0; 0.0 0.0; 1.0 1.0],
+			   [0.1 0.0; 0.0 -0.1; 0.0 0.0]),
+			SC(1.0, [1.0, 1.0],
+			   [0.0 0.0; 0.0 0.0; -1.0 1.0],
+			   [-0.1 0.0; 0.0 0.1; 0.0 0.0]),
+		]
+		dataset = SCEDataset(basis, configs)
+		f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3, verbosity = false)
+
+		# save(::SCEFit) is a convenience wrapper around save(SCEModel(f)):
+		# the two files must be byte-identical.
+		mktempdir() do dir
+			path_fit = joinpath(dir, "from_fit.xml")
+			path_model = joinpath(dir, "from_model.xml")
+			Magesty.save(f, path_fit)
+			Magesty.save(SCEModel(f), path_model)
+			@test read(path_fit) == read(path_model)
+
+			reloaded = Magesty.load(SCEModel, path_fit)
+			@test reloaded.j0 === f.j0
+			@test reloaded.jphi == f.jphi
+		end
+	end
+
 	@testset "load SCEBasis from an SCEModel XML" begin
 		basis = SCEBasis(SL_DIMER_TOML; verbosity = false)
 		n_salc = length(basis.salcbasis.salc_list)
