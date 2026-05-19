@@ -1,6 +1,6 @@
 # Tasklist: pre-release safety net
 
-Status: draft (2026-05-19)
+Status: complete (2026-05-20)
 
 This file holds coarse-grained, commit-sized milestones. Day-to-day
 tracking goes through `TaskCreate` in-session.
@@ -9,15 +9,15 @@ tracking goes through `TaskCreate` in-session.
 
 ### M1 — Spin unit-vector validation
 
-- [ ] Add per-column norm check + `atol_unit_norm` keyword to the
+- [x] Add per-column norm check + `atol_unit_norm` keyword to the
       `SpinConfig` inner constructor (`src/SpinConfigs.jl`).
-- [ ] Add a component test verifying rejection of a non-unit column and
+- [x] Add a component test verifying rejection of a non-unit column and
       acceptance under a loose tolerance.
-- [ ] `make test-unit` clean.
+- [x] `make test-unit` clean.
 
 ### M2 — Basis fingerprint
 
-- [ ] Implement `salc_fingerprint(::SALCBasis)::UInt64` in
+- [x] Implement `salc_fingerprint(::SALCBasis)::UInt64` in
       `src/SALCBases.jl` using `Base.hash` over the wire tuple
       pinned in `design.md` "Types and conventions". The tuple per
       `coupled::CoupledBasis_with_coefficient` is
@@ -27,20 +27,20 @@ tracking goes through `TaskCreate` in-session.
       seed with `hash(:Magesty_SALC_fingerprint_v1)` so the recipe
       can be versioned later without colliding with old saved
       values.
-- [ ] Add `salc_fingerprint::UInt64` as the 5th field of `SCEBasis`
+- [x] Add `salc_fingerprint::UInt64` as the 5th field of `SCEBasis`
       (`src/Magesty.jl:125-130`). Add a 4-arg outer convenience
       constructor that computes the fingerprint via
       `salc_fingerprint(salcbasis)` and forwards to the default
       5-arg constructor; existing call sites
       (`src/Magesty.jl:161, 1234, 1241`) keep their current shape.
-- [ ] Restructure `_check_basis` (`src/Magesty.jl:894-904`; the
+- [x] Restructure `_check_basis` (`src/Magesty.jl:894-904`; the
       current single-expression `model.basis === dataset.basis \|\|
       throw(...)` becomes two short-circuits: identity, then
       fingerprint, then throw) so that
       `model.basis.salc_fingerprint == dataset.basis.salc_fingerprint`
       is checked after the existing `===` fast-path. Signature
       unchanged. The `SCEFit` delegate at line 905 is left alone.
-- [ ] Add a component test (new file
+- [x] Add a component test (new file
       `test/component/test_fit_basis_check.jl`) that builds a second
       basis with a forced (mismatching) fingerprint via the default
       5-arg constructor and verifies `predict_energy` raises.
@@ -60,7 +60,7 @@ becomes a recurring need. See `requirements.md` "Excludes".
 
 ### M4 — Integration test gaps
 
-- [ ] **Build an `SCEDataset` in `square_lattice/test.jl`** —
+- [x] **Build an `SCEDataset` in `square_lattice/test.jl`** —
       currently the file has no `SCEDataset` and no `SpinConfig`
       list; it only calls `SCEModel(basis, 0.0, jphi_list)` directly.
       Synthesize a small list of `SpinConfig`s for the FM + AFM
@@ -73,7 +73,7 @@ becomes a recurring need. See `requirements.md` "Excludes".
       `SCEDataset(basis, configs)` call shape. The new fixture is
       contained inside the new `@testset` (no new files; no EMBSET
       file required for this short list).
-- [ ] Add a new `@testset` to
+- [x] Add a new `@testset` to
       `test/integration/square_lattice/test.jl` (next to the
       existing "Hypothetical SCE model (isotropic)" block) that
       consumes the dataset above, calls
@@ -82,10 +82,10 @@ becomes a recurring need. See `requirements.md` "Excludes".
       `predict_energy(SCEModel(fit), dataset)` agrees with
       `predict_energy(fit, dataset)` to machine precision. Do not
       touch the existing direct-`SCEModel`-construction testset.
-- [ ] In the same testset, exercise the batched `predict_*` overloads
+- [x] In the same testset, exercise the batched `predict_*` overloads
       (`AbstractVector{SpinConfig}` and
       `AbstractVector{<:AbstractMatrix}`) against the dataset path.
-- [ ] In the same testset, verify `Magesty.save(SCEModel(fit), ...)`
+- [x] In the same testset, verify `Magesty.save(SCEModel(fit), ...)`
       followed by `Magesty.load(SCEModel, ...)` produces a model whose
       `basis.salc_fingerprint` (recomputed on load) equals the
       original, and whose `predict_energy(reloaded_model, dataset)`
@@ -95,15 +95,17 @@ becomes a recurring need. See `requirements.md` "Excludes".
 
 ### M5 — Docs, changelog, design-note alignment
 
-- [ ] Update the `SPEC.md` `SCEBasis` type diagram to show the new
+- [x] Update the `SPEC.md` `SCEBasis` type diagram to show the new
       `salc_fingerprint::UInt64` field (`SCEModel` is unchanged by
       this spec).
-- [ ] Update `docs/src/api.md` with the new field and the strict
-      spin-norm invariant.
-- [ ] `CHANGELOG.md` `[Unreleased]` entry: stricter `SpinConfig`
+- [x] Update `docs/src/api.md` with the new field and the strict
+      spin-norm invariant. (Delivered via the `@docs SCEBasis` /
+      `@docs SpinConfig` blocks in `api.md`, which Documenter renders
+      from the source docstrings updated in M1 / M2.)
+- [x] `CHANGELOG.md` `[Unreleased]` entry: stricter `SpinConfig`
       validation and in-memory fingerprint-based basis check. The
       on-disk XML schema is unchanged.
-- [ ] Remove the `SCEModel(fit)` round-trip item from the
+- [x] Remove the `SCEModel(fit)` round-trip item from the
       pre-release cleanup design note and add a one-line
       cross-reference into this spec, so that note keeps single
       ownership of broken examples / Documenter / docstring
@@ -114,19 +116,30 @@ becomes a recurring need. See `requirements.md` "Excludes".
 Run through every item once implementation lands. ~~Strike through~~
 items that do not apply.
 
-- [ ] `make test-all` passes (component + integration).
-- [ ] `make test-aqua` / `make test-jet` clean (no new warnings).
+- [x] `make test-all` passes (component + integration).
+- [x] `make test-aqua` / `make test-jet` clean (no new warnings).
       These are not part of `make test-all`; run them as separate
       targets (also covered by `make ci-local`).
-- [ ] If results changed: regression or validation test added.
+- [x] If results changed: regression or validation test added.
       (Results should NOT change for valid inputs; this spec is
       strictly safety-net work.)
-- [ ] If public API changed: `SPEC.md` and `docs/src/api.md` updated.
-- [ ] ~~If a hot path was touched: before / after recorded in
+- [x] If public API changed: `SPEC.md` and `docs/src/api.md` updated.
+- [x] ~~If a hot path was touched: before / after recorded in
       `.claude/bench_log.md`.~~ — no hot path touched.
-- [ ] ~~If module names or Makefile targets changed:
+- [x] ~~If module names or Makefile targets changed:
       `.claude/agents/` swept and updated.~~ — no such changes.
-- [ ] `CHANGELOG.md` `[Unreleased]` updated.
-- [ ] `Status:` line in this file and the table in
+- [x] `CHANGELOG.md` `[Unreleased]` updated.
+- [x] `Status:` line in this file and the table in
       `docs/specs/README.md` updated in sync.
-- [ ] Implementation commit hash appended below.
+- [x] Implementation commit hash appended below.
+
+## Implementation commits
+
+On branch `refactor/pre-release-safety` (oldest first):
+
+- `6108dca` feat(SpinConfigs): validate spin_directions are unit vectors — M1.
+- `7e20746` feat(fitting): add SALC fingerprint for basis-identity check — M2.
+- `e4419e5` docs(specs): defer torque_weight persistence from pre-release safety — M3 deferral.
+- `de24a62` feat(io): add save(::SCEFit) convenience that delegates to SCEModel — side task (separately requested by the user; rolled in here because it builds on M2).
+- `0cf9b81` test(integration): add SCEDataset/Fit/Model round trip on square lattice — M4.
+- M5 commit hash to be appended once the docs alignment commit lands.

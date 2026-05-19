@@ -1,6 +1,6 @@
 # Requirements: pre-release safety net
 
-Status: draft (2026-05-19)
+Status: complete (2026-05-20)
 
 ## Goal
 

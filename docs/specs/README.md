@@ -22,7 +22,7 @@ in the "Managing development units" section of
 | [260518-energy-centered-design-matrix](260518-energy-centered-design-matrix/) | complete (2026-05-18) | Remove the bias column from `X_E`; replace with energy-only centering in `assemble_weighted_problem` |
 | [260518-adaptive-lasso-oneshot](260518-adaptive-lasso-oneshot/) | complete (2026-05-19) | `AdaptiveLasso` oneshot estimator (Zou 2006 / ALAMODE recipe) via the existing GLMNet path |
 | [260519-adaptive-lasso-precomputed-pilot](260519-adaptive-lasso-precomputed-pilot/) | complete (2026-05-19) | `PrecomputedPilot` adapter + `AdaptiveLasso(::SCEFit; ...)` / `AdaptiveLasso(::SCEModel; ...)` to reuse a fitted model as the pilot |
-| [260519-pre-release-safety](260519-pre-release-safety/) | draft (2026-05-19) | Basis fingerprint, `SpinConfig` unit-norm validation, `torque_weight` persistence, missing integration tests |
+| [260519-pre-release-safety](260519-pre-release-safety/) | complete (2026-05-20) | `SpinConfig` unit-norm validation, in-memory basis fingerprint, integration tests for `SCEModel(fit)` / batched `predict_*` / save-load round trip (M3 `torque_weight` persistence deferred) |
 
 This table and the `Status:` line in each `tasklist.md` are duplicated
 intentionally; update both when a spec lands. Reconcile in bulk when
