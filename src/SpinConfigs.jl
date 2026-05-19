@@ -81,14 +81,18 @@ verbs (`r2_energy`, `rmse_torque`, …).
   `predict_torque` during fitting and evaluation.
 
 # Constructors
-- `SpinConfig(energy, magmom_size, spin_directions, local_magfield)` —
-  `local_magfield_vertical` and `torques` are computed from the other
-  four fields.
+- `SpinConfig(energy, magmom_size, spin_directions, local_magfield;
+  atol_unit_norm = 1e-6)` — `local_magfield_vertical` and `torques`
+  are computed from the other four fields. `atol_unit_norm` is the
+  absolute tolerance applied to `‖spin_directions[:, i]‖ - 1` for
+  every atom column.
 
 # Throws
 - `ArgumentError` if `spin_directions` and `local_magfield` do not have
   matching `3 × num_atoms` shapes.
 - `ArgumentError` if any entry of `magmom_size` is negative.
+- `ArgumentError` if any column of `spin_directions` deviates from unit
+  norm by more than `atol_unit_norm` (NaN columns are also rejected).
 """
 struct SpinConfig
 	energy::Float64
@@ -102,7 +106,8 @@ struct SpinConfig
 		energy::Real,
 		magmom_size::AbstractVector{<:Real},
 		spin_directions::AbstractMatrix{<:Real},
-		local_magfield::AbstractMatrix{<:Real},
+		local_magfield::AbstractMatrix{<:Real};
+		atol_unit_norm::Float64 = 1e-6,
 	)
 		num_atoms = length(magmom_size)
 
@@ -141,6 +146,23 @@ struct SpinConfig
 		# Validate magnetic moment sizes
 		if any(x -> x < 0, magmom_size)
 			throw(ArgumentError("Magnetic moment sizes must be non-negative"))
+		end
+
+		# Validate per-column unit-norm of spin_directions. The real
+		# tesseral harmonics Zₗₘ are defined on the unit sphere, so a
+		# non-unit (or NaN) direction silently breaks every downstream
+		# basis evaluation. NaN columns fail the comparison and are
+		# reported here rather than propagating through predictions.
+		for i = 1:num_atoms
+			n = norm(@view spin_directions[:, i])
+			if !(isfinite(n) && abs(n - 1.0) ≤ atol_unit_norm)
+				throw(
+					ArgumentError(
+						"spin_directions[:, $i] is not a unit vector: " *
+						"‖·‖ = $n (tolerance atol_unit_norm = $atol_unit_norm)",
+					),
+				)
+			end
 		end
 
 		# Calculate vertical component of local magnetic field
