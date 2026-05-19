@@ -103,10 +103,15 @@ AdaptiveLasso(fit::SCEFit; kwargs...) =
 Notes on the convenience constructors:
 
 - They forward `kwargs...` (including `lambda`, which is required).
-  Passing `pilot` again via these kwargs raises Julia's standard
-  `ErrorException("duplicate keyword argument: pilot")` because the
-  underlying keyword ctor would receive `pilot` twice; that is the
-  intended error (the precomputed pilot is the whole point).
+- They guard against a passed-in `pilot` keyword with an explicit
+  `haskey(kwargs, :pilot) && throw(ArgumentError(...))`. Without that
+  check, Julia's kwarg-splat semantics would have the splatted
+  `kwargs...` *silently override* the precomputed `pilot =
+  PrecomputedPilot(coef(fit))` -- the user-facing return would still be
+  a valid `AdaptiveLasso` but the precomputed pilot would have been
+  discarded. Since the precomputed pilot is the whole point of these
+  constructors, the silent path is the wrong default; raising
+  `ArgumentError` makes the design intent enforceable in tests.
 - They do not infer `lambda` from the prior fit -- `lambda` belongs to
   the *adaptive* call, not the pilot.
 

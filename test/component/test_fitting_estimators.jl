@@ -441,3 +441,67 @@ const _ADALASSO_GAMMA0_ATOL = 1.0e-6
         @test !lasso_hit
     end
 end
+
+# Component tests for the PrecomputedPilot adapter. Three properties are
+# checked:
+#
+#   1. Pilot-reuse parity. `AdaptiveLasso` driven by `PrecomputedPilot(coef_ols)`
+#      must produce coefficients bit-exactly identical to `AdaptiveLasso` with
+#      `pilot = OLS()`, because both call sites compute the same `pf` and call
+#      `_glmnet_solve` with the same inputs.
+#   2. Defensive copy. Mutating the caller's vector after construction must
+#      not leak into the adapter's stored coefficients.
+#   3. Length mismatch is rejected. `solve_coefficients(::PrecomputedPilot, X, y)`
+#      raises `DimensionMismatch` when the stored vector length disagrees with
+#      `size(X, 2)`; this is the only check the adapter can make for an
+#      SCEBasis mismatch.
+#
+# Smoke coverage for the `AdaptiveLasso(::SCEFit; ...)` /
+# `AdaptiveLasso(::SCEModel; ...)` convenience constructors lives in the
+# integration tests, where a real `SCEFit` / `SCEModel` is available.
+
+@testset "PrecomputedPilot adapter" begin
+    @testset "pilot reuse is bit-exact against fresh OLS pilot" begin
+        rng = MersenneTwister(20260701)
+        X, y = _centered_energy_system(rng, 60, 8)
+        lambda = 1e-3
+        gamma = 1.0
+        beta_ols = Magesty.Fitting.solve_coefficients(OLS(), X, y)
+        b_fresh = Magesty.Fitting.solve_coefficients(
+            AdaptiveLasso(
+                pilot = OLS(), lambda = lambda,
+                gamma = gamma, standardize = false,
+            ),
+            X, y,
+        )
+        b_reuse = Magesty.Fitting.solve_coefficients(
+            AdaptiveLasso(
+                pilot = PrecomputedPilot(beta_ols), lambda = lambda,
+                gamma = gamma, standardize = false,
+            ),
+            X, y,
+        )
+        # Both code paths compute the same `pf` (the OLS solution is
+        # deterministic via LAPACK) and call `_glmnet_solve` with the
+        # same inputs, so equality must be element-wise.
+        @test b_reuse == b_fresh
+    end
+
+    @testset "input vector is copied at construction" begin
+        beta_src = [1.0, -2.0, 3.0]
+        pp = PrecomputedPilot(beta_src)
+        beta_src[1] = 999.0
+        # The adapter must hold its own storage so that later mutation
+        # of caller-side arrays does not leak into the stored pilot.
+        @test pp.beta[1] == 1.0
+    end
+
+    @testset "length mismatch raises DimensionMismatch" begin
+        rng = MersenneTwister(20260702)
+        X, y = _centered_energy_system(rng, 40, 6)
+        pp_wrong = PrecomputedPilot(zeros(5))  # one short
+        @test_throws DimensionMismatch Magesty.Fitting.solve_coefficients(
+            pp_wrong, X, y,
+        )
+    end
+end

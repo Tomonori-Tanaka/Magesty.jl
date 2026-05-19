@@ -642,8 +642,10 @@ inside `solve_coefficients`. All remaining keyword arguments (`lambda`,
 The prior fit must have been produced on the same `SCEBasis`: the
 adaptive call applies a length check against the new design-matrix
 column count but cannot detect a same-length, different-SALC-ordering
-mismatch. Passing a `pilot` keyword in addition to a positional
-`SCEFit` / `SCEModel` raises Julia's standard duplicate-keyword error.
+mismatch. Passing a `pilot` keyword in addition to the positional
+`SCEFit` / `SCEModel` raises `ArgumentError`; the precomputed pilot is
+the whole point of these constructors, and Julia's kwarg-splat
+semantics would otherwise silently override it.
 
 # Examples
 ```julia
@@ -652,11 +654,19 @@ est = AdaptiveLasso(fit_ols; lambda = 1e-3)
 fit_ada = fit(SCEFit, dataset, est; torque_weight = 0.5)
 ```
 """
-AdaptiveLasso(fit::SCEFit; kwargs...) =
-	AdaptiveLasso(; pilot = PrecomputedPilot(coef(fit)), kwargs...)
+function AdaptiveLasso(fit::SCEFit; kwargs...)
+	haskey(kwargs, :pilot) && throw(ArgumentError(
+		"AdaptiveLasso(::SCEFit; ...) sets the pilot from `coef(fit)`; " *
+		"passing a `pilot` keyword as well would silently override it."))
+	return AdaptiveLasso(; pilot = PrecomputedPilot(coef(fit)), kwargs...)
+end
 
-AdaptiveLasso(model::SCEModel; kwargs...) =
-	AdaptiveLasso(; pilot = PrecomputedPilot(coef(model)), kwargs...)
+function AdaptiveLasso(model::SCEModel; kwargs...)
+	haskey(kwargs, :pilot) && throw(ArgumentError(
+		"AdaptiveLasso(::SCEModel; ...) sets the pilot from `coef(model)`; " *
+		"passing a `pilot` keyword as well would silently override it."))
+	return AdaptiveLasso(; pilot = PrecomputedPilot(coef(model)), kwargs...)
+end
 
 """
 	intercept(f::SCEFit) -> Float64
