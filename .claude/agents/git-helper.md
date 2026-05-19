@@ -1,6 +1,6 @@
 ---
 name: git-helper
-description: Handles git operations (commit / push / status checks) for Magesty.jl. Drafts Conventional Commits messages, runs an ASCII-only check, applies commits via Write + `git commit -F file` (avoiding heredoc accidents), auto-detects BREAKING CHANGE, and adds `Refs:` lines. The parent agent must confirm the *content* of the commit with the user before invoking this agent.
+description: Handles git operations (commit / push / status checks) for Magesty.jl. Drafts Conventional Commits messages, runs a no-Japanese check (Unicode math / Greek letters are allowed), applies commits via Write + `git commit -F file` (avoiding heredoc accidents), auto-detects BREAKING CHANGE, and adds `Refs:` lines. The parent agent must confirm the *content* of the commit with the user before invoking this agent.
 model: sonnet
 tools:
   - Bash
@@ -87,18 +87,27 @@ When detected:
 2. Add a blank line and `BREAKING CHANGE: <details>` to the body.
 3. Mention the trigger in the report to the parent.
 
-### 3. ASCII-only check
+### 3. No-Japanese check
 
-Commit messages are English only, ASCII only. Japanese, em-dashes (`—`),
-smart quotes (`'`, `"`), and other non-ASCII are forbidden (CLAUDE.md).
+Commit messages are English as a natural language, but **non-ASCII
+Unicode is allowed** — Julia source legitimately uses Greek letters and
+math symbols (`α`, `β`, `∂`, `∇`, `∑`, `ℓ`, `Zₗₘ`, ...), and commit
+messages often need to quote them verbatim. Em-dashes (`—`) and smart
+quotes are also fine.
 
-Check command:
+The only hard ban is Japanese (Hiragana / Katakana / CJK Unified
+Ideographs) — same scope as the project-wide
+`.claude/hooks/no-japanese.sh` hook (CLAUDE.md "Language and
+terminology").
+
+Check command (mirrors the hook's regex):
 ```bash
-LC_ALL=C grep -nP '[^\x00-\x7F]' /tmp/commit_msg.txt
+perl -CSD -ne 'print "  line $.: $_" if /[\x{3040}-\x{30FF}\x{4E00}-\x{9FFF}]/' \
+  /tmp/commit_msg.txt
 ```
 
-If non-ASCII is detected, **do not commit** — report to the parent. Do not
-silently "fix" typos (the character may be intentional).
+If Japanese is detected, **do not commit** — report to the parent. Do
+not silently translate; the parent confirms the English wording.
 
 ### 4. Apply the message
 
@@ -107,7 +116,7 @@ text breaks the bash parser.
 
 ```bash
 # 1. Write the message to /tmp/commit_msg_<scope>.txt (via Write tool)
-# 2. Run the ASCII check
+# 2. Run the no-Japanese check
 # 3. git commit -F /tmp/commit_msg_<scope>.txt
 ```
 
@@ -136,10 +145,10 @@ Committed: <short hash> <subject>
    BREAKING CHANGE: yes/no
 ```
 
-### Stopped by ASCII check
+### Stopped by no-Japanese check
 
 ```
-ASCII check failed
+No-Japanese check failed
    offending line: <excerpt>
    message preserved at /tmp/commit_msg_<scope>.txt
    action: parent edits the content and re-invokes this agent
@@ -175,7 +184,8 @@ Requires forbidden operation: <command>
 Keep consistent with the git rules in CLAUDE.md:
 - "Always confirm before commit / push" — this agent does not re-confirm;
   the parent has already done so.
-- "Commit messages must be English" — enforced via the ASCII check.
+- "Commit messages must be English" — enforced via the no-Japanese
+  check (non-Japanese Unicode such as math / Greek letters is allowed).
 - "Follow Conventional Commits" — enforced at draft time.
 - "Do not name Claude scaffolding from `.jl` source" — `Refs:` lines in
   the commit message are the documented exception; never put them in
