@@ -151,14 +151,22 @@ using Magesty
 
 		# (d') Single-config predict_* paths agree with the dataset path
 		# entry by entry, both via SCEModel and via SCEFit, and for both
-		# SpinConfig and bare spin-direction matrices.
+		# SpinConfig and bare spin-direction matrices. The explicit
+		# atol covers configs whose predicted energy or torque rounds to
+		# ~0 (e.g. the AFM checkerboard): there the dataset-path
+		# evaluation (X_E * jphi) and the per-config basis evaluation
+		# arrive at the same value through different summation orders,
+		# and cross-BLAS rounding (Accelerate vs OpenBLAS) leaves a
+		# residual on the order of eps(Float64); the default rtol-only
+		# ≈ degenerates at zero. 1e-10 eV is six orders of magnitude
+		# below the SCE energy scale and well above the ULP noise.
 		for (i, sc) in enumerate(configs)
-			@test predict_energy(model, sc) ≈ E_dataset[i]
-			@test predict_energy(model, sc.spin_directions) ≈ E_dataset[i]
-			@test predict_energy(f, sc) ≈ E_dataset[i]
-			@test predict_torque(model, sc) ≈ T_dataset[i]
-			@test predict_torque(model, sc.spin_directions) ≈ T_dataset[i]
-			@test predict_torque(f, sc) ≈ T_dataset[i]
+			@test predict_energy(model, sc) ≈ E_dataset[i] atol = 1e-10
+			@test predict_energy(model, sc.spin_directions) ≈ E_dataset[i] atol = 1e-10
+			@test predict_energy(f, sc) ≈ E_dataset[i] atol = 1e-10
+			@test predict_torque(model, sc) ≈ T_dataset[i] atol = 1e-10
+			@test predict_torque(model, sc.spin_directions) ≈ T_dataset[i] atol = 1e-10
+			@test predict_torque(f, sc) ≈ T_dataset[i] atol = 1e-10
 		end
 
 		# (e) save / load round trip: the reloaded basis recomputes the
