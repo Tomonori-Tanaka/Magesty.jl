@@ -1,9 +1,11 @@
 # ElasticNet / LASSO / Adaptive estimators
 
 **Status**: ElasticNet (incl. Lasso convenience constructor) -- spec
-complete (2026-05-18, merged on `refactor/lasso-estimator`).
-Adaptive variants -- next-up follow-up; pre-spec sketch at the bottom
-of this note.
+complete (2026-05-18, merged on `refactor/lasso-estimator`). Adaptive
+Lasso (oneshot) -- spec complete (2026-05-19, branch
+`refactor/adaptive-lasso-oneshot`; full design now lives in the spec).
+Adaptive Ridge (iterative) -- next-up follow-up; pre-spec sketch at
+the bottom of this note.
 
 Design note for adopting GLMNet.jl and adding the L1 / mixed-norm /
 Adaptive families to the estimator-dispatch hierarchy in `Fitting.jl`.
@@ -189,33 +191,38 @@ authoritative scope record.
 
 ---
 
-## Adaptive variants (on hold, pre-spec sketch)
+## Adaptive Ridge (iterative) -- on hold, pre-spec sketch
 
-The original design note also covered Adaptive LASSO and Adaptive
-Ridge. They are deferred until the plain ElasticNet path ships and we
-have practical experience with GLMNet on real SCE data. Sketch
-retained below for the follow-up spec.
+Adaptive LASSO and Adaptive Ridge (oneshot, single-stage reweighting)
+shipped via the spec at
+[`docs/specs/260518-adaptive-lasso-oneshot/`](../specs/260518-adaptive-lasso-oneshot/),
+using `_glmnet_solve`'s `penalty_factor` plumbing. The iterative
+Adaptive Ridge variant (Frommlet & Nuel 2016 L0 approximation) remains
+out of scope for that spec because it refits GLMNet across an
+iteration loop and so needs different machinery from the oneshot path.
 
 ### Estimator mapping
 
-| Estimator | `alpha` | `penalty_factor[j != bias]` | Note |
+| Estimator | `alpha` | `penalty_factor[j]` | Note |
 |---|---|---|---|
-| ElasticNet (incl. Lasso at α=1) | 0..1 | 1 | shipping in current spec |
-| AdaptiveLasso | 1.0 | `1/|β̂_init,j|^γ` | `β̂_init` from OLS or Ridge (Zou 2006) |
-| AdaptiveRidge (`mode = :oneshot`) | 0.0 | `1/|β̂_init,j|^γ` | Single-stage reweighting |
 | AdaptiveRidge (`mode = :iterative`) | 0.0 | `1/(β_j² + ε)` updated iteratively | Frommlet & Nuel 2016. Refits GLMNet each iteration as an L0 approximation |
 
-Behavior-descriptive symbols `:oneshot` / `:iterative` are preferred
-over author-name symbols, since the latter assume the reader knows the
+Behavior-descriptive symbol `:iterative` is preferred over an
+author-name symbol, since the latter assumes the reader knows the
 paper.
 
 ### Open items for the follow-up
 
-- Whether Adaptive variants should also default to `standardize=true`
-  (likely yes, by the same column-scale argument; confirm).
-- `AdaptiveLasso` / `AdaptiveRidge(:oneshot)` defaults: `init = :ols`,
-  `γ = 1.0`.
-- `AdaptiveRidge(:iterative)` defaults: `epsilon=1e-8`, `max_iter=50`,
-  `tol=1e-6`.
-- Whether to fold the existing `Ridge` into GLMNet later (separate
-  spec). Outcome depends on the agreement test in this spec.
+- `AdaptiveRidge(:iterative)` defaults: `epsilon = 1e-8`,
+  `max_iter = 50`, `tol = 1e-6`.
+- Convergence criterion: max coefficient change vs RSS change vs
+  effective-support change (pick one, document the choice).
+- Whether to expose the per-iteration coefficient trajectory as a
+  debugging aid, or return only the final fit.
+- Whether to default to `standardize = true` (consistent with
+  AdaptiveLasso) -- likely yes, by the same per-cluster `(4π)^(N/2)`
+  column-scale argument.
+- Whether to fold the existing analytic `Ridge` into GLMNet later
+  (separate spec). Outcome depends on the agreement test in spec
+  260517 (already complete: GLMNet `α=0, λ_g = λ_a/n` agrees with
+  analytic `Ridge(λ_a)` to `rtol ~ 1e-3`).

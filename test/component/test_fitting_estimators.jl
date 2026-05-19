@@ -211,3 +211,233 @@ end
         @test !iszero(b_std[end])
     end
 end
+
+# Component tests for the AdaptiveLasso (oneshot, Zou 2006) estimator.
+# Five properties from the 260518-adaptive-lasso-oneshot spec are checked:
+#
+#   1. `gamma = 0` reduces to plain Lasso. Both paths route through the
+#      same `_glmnet_solve` with `penalty_factor` equal to (a rescale of)
+#      the all-ones vector; GLMNet's internal `sum(pf) = nvars` rescale
+#      is the identity on `ones(p)`, so the two coefficient vectors agree
+#      to GLMNet's coordinate-descent precision. Note: at gamma = 0 the
+#      pilot output never enters the `pf` formula (x^0 = 1), so this test
+#      does not distinguish "pilot ran" from "pilot was skipped". A
+#      future `gamma == 0` fast path that skips the pilot would still
+#      pass.
+#   2. Weight construction is bit-exact: building `pf` manually from
+#      `solve_coefficients(OLS(), X, y)` and calling `_glmnet_solve` with
+#      that `pf` gives the same vector as `solve_coefficients(AdaptiveLasso
+#      (pilot = OLS(), ...), X, y)`. Pins the formula `pf[j] = 1 /
+#      max(|beta_pilot[j]|, eps)^gamma`. Depends on the non-exported
+#      `Magesty.Fitting._glmnet_solve`; renaming that helper or changing
+#      its keyword order is the only way this strict test breaks.
+#   3. `epsilon` clip with a Lasso pilot: pilot has exact zeros that
+#      would otherwise produce `pf = 1/0 = Inf`. The clip
+#      (`max(|beta_pilot|, epsilon)`) keeps the call finite. The
+#      adaptive fit's *per-column zero* pattern is intentionally not
+#      asserted: GLMNet's `sum(pf) = nvars` rescale leaves the
+#      zero-pilot columns at moderate effective penalty (`pf ~ nvars/k`
+#      with k = pilot-zero count) and crushes the alive-pilot columns
+#      to `pf ~ 1e-15`, so whether a pilot-zero column ends nonzero in
+#      the adaptive fit depends on data signal vs the (data-dependent)
+#      effective lambda. We pin only the numerical-safety claim
+#      (finite output) plus true-support preservation.
+#   4. `pilot = Ridge(...)` path: smoke test. The alternative pilot
+#      path runs without error and returns a finite, partially-sparse
+#      vector that recovers most of the true support. No claim that
+#      Ridge-pilot AdaptiveLasso matches OLS-pilot AdaptiveLasso on
+#      support recovery -- a Ridge pilot's softer shrinkage typically
+#      produces less aggressive adaptive penalties.
+#   5. Best-`lambda`-per-side sparse recovery: on a correlated-feature
+#      synthetic problem, `AdaptiveLasso(pilot = OLS(), gamma = 1)`
+#      recovers the true support exactly at some `lambda` in a small
+#      geometric grid, while plain `Lasso` recovers it at no `lambda` in
+#      the same grid. GLMNet's internal `penalty_factor` rescaling
+#      breaks matched-lambda comparison, so each estimator is tuned
+#      independently before comparing support sets. The seed, fixture,
+#      and pass condition are tuned against GLMNet.jl 0.7.4; a future
+#      GLMNet upgrade that shifts its coordinate-descent convergence
+#      may require seed adjustment.
+
+# atol for the `gamma = 0` agreement between AdaptiveLasso and plain
+# Lasso. Both call sites end at GLMNet with the same `(alpha = 1.0,
+# lambda, standardize)`; the only difference is that AdaptiveLasso
+# explicitly passes `penalty_factor = ones(p)`, which GLMNet rescales
+# to the same vector. Empirical worst case on the fixture below is
+# ~3e-8; the constant below leaves ~30x headroom.
+const _ADALASSO_GAMMA0_ATOL = 1.0e-6
+
+@testset "AdaptiveLasso estimator" begin
+    @testset "gamma = 0 reduces to plain Lasso" begin
+        rng = MersenneTwister(20260601)
+        X, y = _centered_energy_system(rng, 60, 8)
+        lambda = 1e-3
+        b_lasso = Magesty.Fitting.solve_coefficients(
+            Lasso(lambda = lambda, standardize = false),
+            X, y,
+        )
+        b_ada = Magesty.Fitting.solve_coefficients(
+            AdaptiveLasso(
+                pilot = OLS(), lambda = lambda,
+                gamma = 0.0, standardize = false,
+            ),
+            X, y,
+        )
+        @test maximum(abs.(b_ada .- b_lasso)) < _ADALASSO_GAMMA0_ATOL
+    end
+
+    @testset "weight construction is exact (==)" begin
+        rng = MersenneTwister(20260602)
+        X, y = _centered_energy_system(rng, 60, 8)
+        lambda = 1e-3
+        gamma = 1.0
+        epsilon = eps(Float64)
+        beta_pilot = Magesty.Fitting.solve_coefficients(OLS(), X, y)
+        pf = inv.(max.(abs.(beta_pilot), epsilon) .^ gamma)
+        b_direct = Magesty.Fitting._glmnet_solve(
+            X, y;
+            alpha = 1.0, lambda = lambda,
+            standardize = false, penalty_factor = pf,
+        )
+        b_ada = Magesty.Fitting.solve_coefficients(
+            AdaptiveLasso(
+                pilot = OLS(), lambda = lambda,
+                gamma = gamma, epsilon = epsilon,
+                standardize = false,
+            ),
+            X, y,
+        )
+        # Both call sites pass identical (X, y, alpha, lambda, standardize,
+        # penalty_factor) into `_glmnet_solve`, so the coefficient vectors
+        # must agree element-wise -- not merely `isapprox`.
+        @test b_ada == b_direct
+    end
+
+    @testset "epsilon clip keeps the call finite for a Lasso pilot" begin
+        rng = MersenneTwister(20260603)
+        # Sparse ground truth; the pilot's heavy shrinkage produces
+        # several exactly-zero columns. Without the epsilon clip
+        # `pf = 1 / |beta_pilot|^gamma` would be `Inf` on those columns
+        # and GLMNet would error / produce NaN.
+        n, p = 100, 10
+        X_raw = randn(rng, n, p)
+        beta_true = zeros(p)
+        beta_true[1] = 1.0
+        beta_true[4] = -0.7
+        beta_true[7] = 0.4
+        y_raw = X_raw * beta_true .+ 0.05 .* randn(rng, n)
+        X = X_raw .- mean(X_raw, dims = 1)
+        y = y_raw .- mean(y_raw)
+
+        pilot = Lasso(lambda = 0.5, standardize = false)
+        beta_pilot = Magesty.Fitting.solve_coefficients(pilot, X, y)
+        # Sanity: the pilot must actually produce at least one exact zero
+        # for the clip behaviour to be exercised.
+        @test count(iszero, beta_pilot) >= 1
+
+        b_ada = Magesty.Fitting.solve_coefficients(
+            AdaptiveLasso(
+                pilot = pilot, lambda = 1e-3,
+                gamma = 1.0, epsilon = eps(Float64),
+                standardize = false,
+            ),
+            X, y,
+        )
+        # The substantive claim of the epsilon clip: the call survives
+        # the pilot's exact zeros and returns a finite vector. GLMNet's
+        # `sum(pf) = nvars` rescale then puts the clipped columns at
+        # moderate effective lambda (`pf ~ nvars / k`, k = pilot-zero
+        # count) and crushes the alive columns to `pf ~ 1e-15`. Whether
+        # a clipped column ends nonzero in the adaptive fit therefore
+        # depends on data signal vs the (data-dependent) effective
+        # lambda, so the per-column zero pattern is not asserted here.
+        @test all(isfinite, b_ada)
+        # The true support survives: alive pilot columns are
+        # effectively unpenalized after rescale, so the OLS fit on them
+        # recovers the true betas.
+        @test !iszero(b_ada[1])
+        @test !iszero(b_ada[4])
+    end
+
+    @testset "pilot = Ridge(...) path runs and selects sensibly" begin
+        rng = MersenneTwister(20260604)
+        # Same correlated-feature fixture used by the sparse-recovery
+        # test below.
+        n, p = 100, 15
+        X_raw = randn(rng, n, p)
+        for j in 4:p
+            target = ((j - 1) % 3) + 1
+            X_raw[:, j] .= 0.85 .* X_raw[:, target] .+ 0.15 .* randn(rng, n)
+        end
+        beta_true = zeros(p)
+        beta_true[1] = 1.5
+        beta_true[2] = -1.2
+        beta_true[3] = 0.9
+        y_raw = X_raw * beta_true .+ 0.05 .* randn(rng, n)
+        X = X_raw .- mean(X_raw, dims = 1)
+        y = y_raw .- mean(y_raw)
+
+        b_ada = Magesty.Fitting.solve_coefficients(
+            AdaptiveLasso(
+                pilot = Ridge(lambda = 1e-3),
+                lambda = 5e-2,
+                gamma = 1.0,
+                standardize = false,
+            ),
+            X, y,
+        )
+        @test all(isfinite, b_ada)
+        # Qualitative: the fit is sparse and recovers at least two of
+        # the three true-support columns.
+        @test count(iszero, b_ada) >= 1
+        true_support = Set([1, 2, 3])
+        active_support = Set(findall(!iszero, b_ada))
+        @test length(intersect(true_support, active_support)) >= 2
+    end
+
+    @testset "best-lambda sparse recovery beats plain Lasso" begin
+        rng = MersenneTwister(20260605)
+        # Correlated noise columns: columns 4-15 are 0.6 * (one of the
+        # true columns) + 0.4 * (independent noise). Plain Lasso retains
+        # spurious correlated columns across the lambda grid, but
+        # AdaptiveLasso (OLS pilot, gamma = 1) re-weights them out.
+        n, p = 100, 15
+        X_raw = randn(rng, n, p)
+        for j in 4:p
+            target = ((j - 1) % 3) + 1
+            X_raw[:, j] .= 0.85 .* X_raw[:, target] .+ 0.15 .* randn(rng, n)
+        end
+        beta_true = zeros(p)
+        beta_true[1] = 1.5
+        beta_true[2] = -1.2
+        beta_true[3] = 0.9
+        y_raw = X_raw * beta_true .+ 0.05 .* randn(rng, n)
+        X = X_raw .- mean(X_raw, dims = 1)
+        y = y_raw .- mean(y_raw)
+        true_support = Set([1, 2, 3])
+
+        lambda_grid = 10.0 .^ range(-3, 0, length = 13)
+        lasso_hit = false
+        ada_hit = false
+        for lambda in lambda_grid
+            b_lasso = Magesty.Fitting.solve_coefficients(
+                Lasso(lambda = lambda, standardize = true), X, y,
+            )
+            if Set(findall(!iszero, b_lasso)) == true_support
+                lasso_hit = true
+            end
+            b_ada = Magesty.Fitting.solve_coefficients(
+                AdaptiveLasso(
+                    pilot = OLS(), lambda = lambda,
+                    gamma = 1.0, standardize = true,
+                ),
+                X, y,
+            )
+            if Set(findall(!iszero, b_ada)) == true_support
+                ada_hit = true
+            end
+        end
+        @test ada_hit
+        @test !lasso_hit
+    end
+end

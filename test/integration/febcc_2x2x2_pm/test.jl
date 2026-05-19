@@ -140,4 +140,28 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 			@test isapprox(coef(f), jphi_true; rtol = 1e-8, atol = 1e-8)
 		end
 	end
+
+	@testset "AdaptiveLasso smoke + XML round-trip" begin
+		# AdaptiveLasso runs end-to-end on the same realistic SCE
+		# pipeline (basis -> dataset -> fit -> save -> load). The OLS
+		# pilot default is fine on this fixture because the design is
+		# well-conditioned at this configuration count. A small lambda
+		# is chosen on purpose: this is a numerical-safety / round-trip
+		# smoke test, not a support-recovery test.
+		f_ada = fit(
+			SCEFit, dataset, AdaptiveLasso(lambda = 1e-4);
+			torque_weight = 0.5, verbosity = false,
+		)
+		@test all(isfinite, coef(f_ada))
+		@test isfinite(intercept(f_ada))
+
+		mktempdir() do dir
+			xml_path = joinpath(dir, "scecoeffs_adalasso.xml")
+			model = SCEModel(f_ada)
+			Magesty.save(model, xml_path)
+			reloaded = Magesty.load(SCEModel, xml_path)
+			@test reloaded.j0 ≈ model.j0
+			@test reloaded.jphi ≈ model.jphi
+		end
+	end
 end

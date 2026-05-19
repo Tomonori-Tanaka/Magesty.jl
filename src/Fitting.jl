@@ -20,7 +20,7 @@ using ..CoupledBases
 using ..SALCBases
 using ..SpinConfigs
 
-export AbstractEstimator, OLS, Ridge, ElasticNet, Lasso
+export AbstractEstimator, OLS, Ridge, ElasticNet, Lasso, AdaptiveLasso
 
 """
 	_cluster_scaling(n_sites::Integer) -> Float64
@@ -160,6 +160,89 @@ est.alpha           # 1.0
 """
 Lasso(; lambda::Real, standardize::Bool = true) =
 	ElasticNet(alpha = 1.0, lambda = lambda, standardize = standardize)
+
+"""
+	AdaptiveLasso(; pilot::AbstractEstimator = OLS(),
+	                lambda::Real,
+	                gamma::Real = 1.0,
+	                epsilon::Real = eps(Float64),
+	                standardize::Bool = true)
+
+One-shot Adaptive Lasso (Zou 2006). Runs `pilot` on `(X, y)` to obtain
+`beta_pilot`, then solves the weighted-L1 Lasso
+
+    min_b ||y - X * b||^2 / (2 n) + lambda * sum_j w_j * |b_j|
+
+with `w_j = 1 / max(|beta_pilot[j]|, epsilon)^gamma`. Backed by GLMNet.jl
+with `intercept = false`; the energy block of `X` is already mean-centered
+upstream by `assemble_weighted_problem` and `j0` is recovered downstream by
+`extract_j0_jphi`, the same post-processing `OLS`, `Ridge`, and `ElasticNet`
+use.
+
+Defaults match the ALAMODE adaptive-LASSO recipe (OLS pilot, `gamma = 1`).
+`gamma = 0` reduces to plain Lasso, which the test suite exploits as a
+correctness anchor.
+
+Note: GLMNet internally rescales `penalty_factor` so the supplied weights
+sum to `nvars`. The user-supplied `lambda` therefore interacts with the
+*rescaled* weights, and matched-`lambda` comparison against plain Lasso is
+not apples-to-apples once `gamma > 0`. Per-side `lambda` tuning is the
+recommended pattern.
+
+# Fields
+- `pilot::AbstractEstimator`: First-stage estimator producing `beta_pilot`.
+  Default `OLS()` (Zou 2006 verbatim; matches ALAMODE). For SCE designs
+  that are rank-deficient or near-collinear (e.g. `num_salcs >=
+  num_spinconfigs` at `torque_weight = 0`), use `pilot = Ridge(lambda =
+  small)` instead -- the OLS minimum-norm solution populates null-space
+  directions with ~1e-10 noise that is not clipped by `eps(Float64)` and
+  miscalibrates the adaptive weights.
+- `lambda::Float64`: Final L1 penalty strength, `lambda >= 0`.
+- `gamma::Float64`: Weight exponent, `gamma >= 0`. Default `1.0`.
+  `gamma = 0` reduces to plain Lasso.
+- `epsilon::Float64`: Floor on `|beta_pilot[j]|` before reciprocation,
+  `epsilon > 0`. Default `eps(Float64)`. Prevents `penalty_factor = Inf`
+  when a pilot coefficient is numerically zero (e.g. when `pilot` is
+  itself a Lasso).
+- `standardize::Bool`: Forwarded to GLMNet. Default `true` for consistency
+  with `ElasticNet` / `Lasso`; on SCE designs this is partially redundant
+  with the adaptive reweighting but does not hurt.
+
+# Examples
+```julia
+# Default: OLS pilot, gamma = 1.0 (ALAMODE-style).
+est = AdaptiveLasso(lambda = 1e-3)
+
+# Recommended for rank-deficient designs.
+est = AdaptiveLasso(pilot = Ridge(lambda = 1e-4), lambda = 1e-3)
+
+# Sanity check: gamma = 0 reduces to plain Lasso.
+est = AdaptiveLasso(lambda = 1e-3, gamma = 0.0)
+```
+"""
+struct AdaptiveLasso <: AbstractEstimator
+	pilot::AbstractEstimator
+	lambda::Float64
+	gamma::Float64
+	epsilon::Float64
+	standardize::Bool
+end
+
+function AdaptiveLasso(;
+	pilot::AbstractEstimator = OLS(),
+	lambda::Real,
+	gamma::Real = 1.0,
+	epsilon::Real = eps(Float64),
+	standardize::Bool = true,
+)
+	lambda >= 0.0 ||
+		throw(ArgumentError("AdaptiveLasso lambda must be non-negative; got $lambda"))
+	gamma >= 0.0 ||
+		throw(ArgumentError("AdaptiveLasso gamma must be non-negative; got $gamma"))
+	epsilon > 0.0 ||
+		throw(ArgumentError("AdaptiveLasso epsilon must be strictly positive; got $epsilon"))
+	return AdaptiveLasso(pilot, Float64(lambda), Float64(gamma), Float64(epsilon), standardize)
+end
 
 """
 	EnergyWorkspace
@@ -1010,24 +1093,71 @@ function solve_coefficients(
 	)
 end
 
+"""
+	solve_coefficients(estimator::AdaptiveLasso, X, y) -> Vector{Float64}
+
+One-shot Adaptive Lasso: fit `e.pilot` on `(X, y)`, build per-column
+weights `pf[j] = 1 / max(|beta_pilot[j]|, e.epsilon)^e.gamma`, then call
+GLMNet with `alpha = 1.0`, `lambda = e.lambda`, and `penalty_factor = pf`.
+The augmented `(X, y)` arriving here has already been row-scaled and
+energy-mean-centered inside `assemble_weighted_problem`; `extract_j0_jphi`
+recovers `j0` downstream from the un-scaled energy data -- the same
+post-processing OLS / Ridge / ElasticNet already use.
+"""
+function solve_coefficients(
+	e::AdaptiveLasso,
+	X::AbstractMatrix{<:Real},
+	y::AbstractVector{<:Real},
+)
+	beta_pilot = solve_coefficients(e.pilot, X, y)
+	pf = inv.(max.(abs.(beta_pilot), e.epsilon) .^ e.gamma)
+	return _glmnet_solve(
+		X, y;
+		alpha = 1.0,
+		lambda = e.lambda,
+		standardize = e.standardize,
+		penalty_factor = pf,
+	)
+end
+
 # Single-lambda GLMNet wrapper. Returns the coefficient vector for the
 # requested (alpha, lambda) point on the regularization path. `intercept`
 # is fixed to `false` here because the energy block of `X` has already
 # been centered upstream in `assemble_weighted_problem`.
+#
+# `penalty_factor` is forwarded to GLMNet's per-column weight when given,
+# and omitted otherwise so the ElasticNet / Lasso call site stays
+# byte-for-byte identical to the pre-AdaptiveLasso form. GLMNet rescales
+# the supplied weights internally so that they sum to `nvars`, so the
+# user-supplied `lambda` interacts with the rescaled vector.
 function _glmnet_solve(
 	X::AbstractMatrix{<:Real},
 	y::AbstractVector{<:Real};
 	alpha::Real,
 	lambda::Real,
 	standardize::Bool,
+	penalty_factor::Union{Nothing, AbstractVector{<:Real}} = nothing,
 )::Vector{Float64}
-	path = glmnet(
-		Matrix{Float64}(X), Vector{Float64}(y);
-		alpha = Float64(alpha),
-		lambda = [Float64(lambda)],
-		standardize = standardize,
-		intercept = false,
-	)
+	Xf = Matrix{Float64}(X)
+	yf = Vector{Float64}(y)
+	path = if penalty_factor === nothing
+		glmnet(
+			Xf, yf;
+			alpha = Float64(alpha),
+			lambda = [Float64(lambda)],
+			standardize = standardize,
+			intercept = false,
+		)
+	else
+		glmnet(
+			Xf, yf;
+			alpha = Float64(alpha),
+			lambda = [Float64(lambda)],
+			standardize = standardize,
+			intercept = false,
+			penalty_factor = Vector{Float64}(penalty_factor),
+		)
+	end
 	return vec(Matrix(path.betas))
 end
 
