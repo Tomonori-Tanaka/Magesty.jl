@@ -4,8 +4,12 @@
 complete (2026-05-18, merged on `refactor/lasso-estimator`). Adaptive
 Lasso (oneshot) -- spec complete (2026-05-19, branch
 `refactor/adaptive-lasso-oneshot`; full design now lives in the spec).
-Adaptive Ridge (iterative) -- next-up follow-up; pre-spec sketch at
-the bottom of this note.
+Precomputed-pilot adapter `PrecomputedPilot` + `AdaptiveLasso(::SCEFit; ...)`
+/ `AdaptiveLasso(::SCEModel; ...)` convenience constructors --
+spec complete (2026-05-19, branch
+`refactor/adaptive-lasso-precomputed-pilot`). Adaptive Ridge
+(iterative) -- next-up follow-up; pre-spec sketch at the bottom of
+this note.
 
 Design note for adopting GLMNet.jl and adding the L1 / mixed-norm /
 Adaptive families to the estimator-dispatch hierarchy in `Fitting.jl`.
@@ -196,10 +200,18 @@ authoritative scope record.
 Adaptive LASSO and Adaptive Ridge (oneshot, single-stage reweighting)
 shipped via the spec at
 [`docs/specs/260518-adaptive-lasso-oneshot/`](../specs/260518-adaptive-lasso-oneshot/),
-using `_glmnet_solve`'s `penalty_factor` plumbing. The iterative
-Adaptive Ridge variant (Frommlet & Nuel 2016 L0 approximation) remains
-out of scope for that spec because it refits GLMNet across an
-iteration loop and so needs different machinery from the oneshot path.
+using `_glmnet_solve`'s `penalty_factor` plumbing. A follow-up spec
+([`docs/specs/260519-adaptive-lasso-precomputed-pilot/`](../specs/260519-adaptive-lasso-precomputed-pilot/))
+then added a `PrecomputedPilot <: AbstractEstimator` adapter that
+returns a fixed coefficient vector from `solve_coefficients`. That
+adapter is the primitive the iterative variant will call inside its
+inner loop: each iteration's coefficients become the next
+`PrecomputedPilot.beta`, and the existing oneshot kernel handles the
+GLMNet refit. The iterative Adaptive Ridge variant (Frommlet & Nuel
+2016 L0 approximation) is still out of scope for that spec because
+it adds an outer iteration loop with its own convergence criteria;
+the planning notes below remain accurate, with the only update being
+that `PrecomputedPilot` is now in place as the inner-loop primitive.
 
 ### Estimator mapping
 

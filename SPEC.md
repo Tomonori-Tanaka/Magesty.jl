@@ -150,7 +150,9 @@ Magesty.load(SCEBasis, path)       # Read SCEBasis (model XML also accepted)
 Magesty.load(SCEModel, path)       # Read SCEModel
 
 # Estimators
-AbstractEstimator, OLS, Ridge, ElasticNet, Lasso, AdaptiveLasso
+AbstractEstimator, OLS, Ridge, ElasticNet, Lasso, AdaptiveLasso, PrecomputedPilot
+AdaptiveLasso(fit::SCEFit; kwargs...)    # reuse an existing fit as pilot
+AdaptiveLasso(model::SCEModel; kwargs...) # reuse an existing model as pilot
 
 # Data reading
 read_embset(path)                  # EMBSET -> Vector{SpinConfig}

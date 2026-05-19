@@ -69,6 +69,7 @@ Ridge
 ElasticNet
 Lasso
 AdaptiveLasso
+PrecomputedPilot
 ```
 
 ## Data loading

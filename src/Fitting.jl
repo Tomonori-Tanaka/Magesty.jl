@@ -218,6 +218,12 @@ est = AdaptiveLasso(pilot = Ridge(lambda = 1e-4), lambda = 1e-3)
 
 # Sanity check: gamma = 0 reduces to plain Lasso.
 est = AdaptiveLasso(lambda = 1e-3, gamma = 0.0)
+
+# Reuse a previously fitted SCEFit / SCEModel as the pilot, skipping
+# the pilot regression. See `PrecomputedPilot` for the underlying
+# adapter and `AdaptiveLasso(::SCEFit; ...)` /
+# `AdaptiveLasso(::SCEModel; ...)` for the convenience constructors.
+est = AdaptiveLasso(pilot = PrecomputedPilot(coef(prior_fit)), lambda = 1e-3)
 ```
 """
 struct AdaptiveLasso <: AbstractEstimator
