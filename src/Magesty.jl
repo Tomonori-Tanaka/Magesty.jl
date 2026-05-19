@@ -111,6 +111,13 @@ computed inside the constructor to build `salcbasis`, then discarded.
   restriction (only `Lf = 0` terms). Provenance metadata: it is not
   derivable from `salcbasis` alone without inspecting every basis
   function.
+- `salc_fingerprint::UInt64`: Structural fingerprint of `salcbasis`
+  computed via `SALCBases.salc_fingerprint(salcbasis)`. Used by the
+  basis-identity check between an `SCEModel` / `SCEFit` and an
+  `SCEDataset` so that a basis reloaded from disk still matches the
+  in-memory original. Stable across `Magesty.save` / `Magesty.load`
+  because the recipe hashes only integer structural identifiers; see
+  `SALCBases.salc_fingerprint` for the included / excluded fields.
 
 # Examples
 ```julia
@@ -127,7 +134,20 @@ struct SCEBasis
 	symmetry::Symmetry
 	salcbasis::SALCBasis
 	isotropy::Bool
+	salc_fingerprint::UInt64
 end
+
+# Forwards four concrete components and derives `salc_fingerprint`
+# from `salcbasis`. The default 5-arg constructor is also callable
+# directly when a test needs to inject a deliberately mismatching
+# fingerprint.
+SCEBasis(
+	structure::Structure,
+	symmetry::Symmetry,
+	salcbasis::SALCBasis,
+	isotropy::Bool,
+) = SCEBasis(structure, symmetry, salcbasis, isotropy,
+             SALCBases.salc_fingerprint(salcbasis))
 
 """
 	SCEBasis(input_dict::AbstractDict; verbosity = true) -> SCEBasis
@@ -892,7 +912,13 @@ const SCEEvalData = Union{SCEDataset, AbstractVector{SpinConfig}, AbstractString
 # SCEDataset (configs / EMBSET paths are evaluated through the
 # predictor's own basis, so they are compatible by construction).
 function _check_basis(model::SCEModel, dataset::SCEDataset)
-	model.basis === dataset.basis || throw(ArgumentError(
+	# Identical SCEBasis instances pass immediately.
+	model.basis === dataset.basis && return nothing
+	# Two SCEBasis objects loaded from the same XML share an identical
+	# structural fingerprint, so the model matches the dataset.
+	model.basis.salc_fingerprint == dataset.basis.salc_fingerprint &&
+		return nothing
+	throw(ArgumentError(
 		"the evaluation SCEDataset was built from a different SCEBasis " *
 		"than the predictor; design-matrix column ordering is set by " *
 		"the SCEBasis, so combining objects from different bases would " *
@@ -900,7 +926,6 @@ function _check_basis(model::SCEModel, dataset::SCEDataset)
 		"the SCEDataset, SCEFit, and SCEModel from the *same* SCEBasis " *
 		"instance, or, if reloading from disk, reuse a single " *
 		"`Magesty.load(SCEBasis, path)` result everywhere."))
-	return nothing
 end
 _check_basis(f::SCEFit, dataset::SCEDataset) = _check_basis(SCEModel(f), dataset)
 
