@@ -63,6 +63,11 @@ using .Symmetries
 using .Clusters
 using .SALCBases
 using .Fitting
+# Explicit import so that the AdaptiveLasso convenience constructors
+# added below (AdaptiveLasso(::SCEFit) / AdaptiveLasso(::SCEModel))
+# extend Fitting.AdaptiveLasso without triggering the Julia 1.12
+# "constructor extended without explicit qualification" warning.
+import .Fitting: AdaptiveLasso
 
 include("XMLIO.jl")
 using .XMLIO
@@ -623,6 +628,35 @@ and torque models.
 """
 coef(f::SCEFit)::Vector{Float64} = f.jphi
 coef(m::SCEModel)::Vector{Float64} = m.jphi
+
+"""
+	AdaptiveLasso(fit::SCEFit; kwargs...)
+	AdaptiveLasso(model::SCEModel; kwargs...)
+
+Build an `AdaptiveLasso` estimator that reuses `coef(fit)` / `coef(model)`
+as its pilot via `PrecomputedPilot`, skipping a fresh pilot regression
+inside `solve_coefficients`. All remaining keyword arguments (`lambda`,
+`gamma`, `epsilon`, `standardize`) are forwarded to the standard
+`AdaptiveLasso(; ...)` keyword constructor.
+
+The prior fit must have been produced on the same `SCEBasis`: the
+adaptive call applies a length check against the new design-matrix
+column count but cannot detect a same-length, different-SALC-ordering
+mismatch. Passing a `pilot` keyword in addition to a positional
+`SCEFit` / `SCEModel` raises Julia's standard duplicate-keyword error.
+
+# Examples
+```julia
+fit_ols = fit(SCEFit, dataset, OLS(); torque_weight = 0.5)
+est = AdaptiveLasso(fit_ols; lambda = 1e-3)
+fit_ada = fit(SCEFit, dataset, est; torque_weight = 0.5)
+```
+"""
+AdaptiveLasso(fit::SCEFit; kwargs...) =
+	AdaptiveLasso(; pilot = PrecomputedPilot(coef(fit)), kwargs...)
+
+AdaptiveLasso(model::SCEModel; kwargs...) =
+	AdaptiveLasso(; pilot = PrecomputedPilot(coef(model)), kwargs...)
 
 """
 	intercept(f::SCEFit) -> Float64
