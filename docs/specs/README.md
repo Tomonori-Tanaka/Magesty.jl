@@ -21,6 +21,7 @@ in the "Managing development units" section of
 | [260517-elasticnet-estimator](260517-elasticnet-estimator/) | complete (2026-05-18) | `ElasticNet` (incl. `Lasso` convenience) via GLMNet.jl |
 | [260518-energy-centered-design-matrix](260518-energy-centered-design-matrix/) | complete (2026-05-18) | Remove the bias column from `X_E`; replace with energy-only centering in `assemble_weighted_problem` |
 | [260518-adaptive-lasso-oneshot](260518-adaptive-lasso-oneshot/) | complete (2026-05-19) | `AdaptiveLasso` oneshot estimator (Zou 2006 / ALAMODE recipe) via the existing GLMNet path |
+| [260519-adaptive-lasso-precomputed-pilot](260519-adaptive-lasso-precomputed-pilot/) | draft (2026-05-19) | `PrecomputedPilot` adapter + `AdaptiveLasso(::SCEFit; ...)` / `AdaptiveLasso(::SCEModel; ...)` to reuse a fitted model as the pilot |
 
 This table and the `Status:` line in each `tasklist.md` are duplicated
 intentionally; update both when a spec lands. Reconcile in bulk when
