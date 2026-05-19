@@ -4,11 +4,12 @@ Status: draft (2026-05-19)
 
 ## Summary
 
-Four small, independent changes share a common motivation — making
-`SCEBasis` / `SCEFit` / `SCEModel` correctly self-describe what they
-were built with, so that load-then-predict cannot silently use a
-mismatched basis or a forgotten `torque_weight`, and so that the
-unit-vector spin invariant is enforced rather than documented.
+Three small, independent changes share a common motivation — making
+`SCEBasis` correctly self-describe its SALC ordering so that
+load-then-predict cannot silently use a mismatched basis, enforcing
+the unit-vector spin invariant rather than documenting it, and
+closing the `SCEModel` / batched `predict_*` / cross-basis mismatch
+gaps at the integration level.
 
 The basis fingerprint is the central design choice. The fingerprint is
 a deterministic `UInt64` derived from the public-facing key-group
@@ -19,18 +20,21 @@ re-derived SALC for a different cutoff, accidentally swapped basis —
 will produce a different fingerprint. `_check_basis` keeps its existing
 `===` fast-path for in-session identity and adds a fingerprint
 comparison for cross-process / cross-file cases. The fingerprint is
-informational metadata only: predictions never branch on it.
-
-`torque_weight` is added to `SCEModel` and to the model XML schema as a
-plain field, mirroring `j0`. Older XML files default to `1.0`
-(equivalent to the prior implicit behavior). This is additive and does
-not break the XML round-trip invariant.
+in-memory informational metadata only: it is recomputed from the
+reconstructed `salcbasis` on every XML load, is not part of the
+on-disk schema, and predictions never branch on it.
 
 Spin unit-vector validation is a five-line change in the `SpinConfig`
 inner constructor (per-column `isapprox(norm(c), 1.0; atol)`). The
 tolerance is exposed as a keyword `atol_unit_norm` to keep test fixtures
 that may have been written with slightly off-unit data working — but the
 default is strict.
+
+Persisting `torque_weight` on `SCEModel` was considered and dropped
+(see `requirements.md` "Excludes"): every future estimator would want
+its own audit fields and the model XML schema would grow estimator-
+specific nodes without bound. For v0.1.0 the weighting lives only on
+`SCEFit`, where the user can keep it alongside the model if needed.
 
 Missing tests are placed alongside the relevant existing tests, with no
 new test infrastructure.
@@ -42,15 +46,13 @@ new test infrastructure.
 | `src/SALCBases.jl` | Add `salc_fingerprint(salcbasis::SALCBasis)::UInt64`; derive deterministically from the existing key-group ordering. |
 | `src/Magesty.jl` (`SCEBasis` struct) | Add `salc_fingerprint::UInt64` as the 5th field. Provide an outer convenience constructor `SCEBasis(structure, symmetry, salcbasis, isotropy)` that computes the fingerprint via `salc_fingerprint(salcbasis)` and calls the default 5-arg constructor. The existing 3 call sites (`src/Magesty.jl:161, 1234, 1241`) keep their current 4-arg call shape and get the fingerprint for free. |
 | `src/Magesty.jl` (`_check_basis`, lines 894-904) | The current body is a single `model.basis === dataset.basis \|\| throw(...)` expression. Restructure into two short-circuits: the existing identity check, then `model.basis.salc_fingerprint == dataset.basis.salc_fingerprint && return nothing`, with the throw at the end. Signature unchanged (`(model::SCEModel, dataset::SCEDataset)`); the `SCEFit` delegate at line 905 needs no change. |
-| `src/Magesty.jl` (`SCEModel` struct, lines 265-278) | `SCEModel` currently has an **inner** constructor (lines 270-277) that validates `length(jphi) == length(basis.salcbasis.salc_list)`. Restructure: the inner constructor becomes the 4-arg form `SCEModel(basis, j0, jphi, torque_weight)` and retains the length check; add an outer 3-arg `SCEModel(basis, j0, jphi)` wrapper that defaults `torque_weight = 1.0` and delegates to the 4-arg inner. Existing 3-arg fixtures (e.g. `test/integration/square_lattice/test.jl:39`) keep working unchanged. |
 | `src/SpinConfigs.jl` | Per-column unit-norm assertion in the inner constructor (`src/SpinConfigs.jl:101-157`); `atol_unit_norm` keyword (default `1e-6`, see Risks). |
-| `src/XMLIO.jl` | Write / read `salc_fingerprint` attribute on the basis root and `torque_weight` element on the model root; tolerate absence on read (defaults: ignore disk value and recompute fingerprint for older basis XML; `torque_weight = 1.0` for older model XML). |
-| `test/component/test_save_load.jl` | Round-trip test for both new fields; loadability of older XML synthesized on the fly with the new nodes removed. |
+| `src/XMLIO.jl` | No change to the on-disk schema. The XMLIO loader already constructs `SCEBasis` via the 4-arg convenience constructor, which derives `salc_fingerprint` from the reconstructed `salcbasis` for free. |
 | `test/component/test_SpinConfigs.jl` | Reject a column with `norm = 1.01`; accept the same input under `atol_unit_norm = 1e-2`. |
 | `test/component/test_fit_basis_check.jl` (new file) | Construct two `SCEModel` values whose `basis.salc_fingerprint` differs (via the default 5-arg constructor with a hand-picked fingerprint, since immutable structs cannot be mutated post-hoc), build an `SCEDataset` from one, and assert that `predict_energy(model_other, dataset)` raises the `_check_basis` error. |
-| `test/integration/square_lattice/test.jl` | Add a new `@testset` that fits the existing isotropic basis (`fit(SCEFit, dataset, OLS())` against the analytic FM / AFM data) and verifies `predict_energy(SCEModel(fit), dataset)`, batched `predict_*` overloads, and XML round-trip of the fitted model. The existing direct-`SCEModel`-construction testset stays untouched. |
+| `test/integration/square_lattice/test.jl` | Add a new `@testset` that fits the existing isotropic basis (`fit(SCEFit, dataset, OLS())` against the analytic FM / AFM data) and verifies `predict_energy(SCEModel(fit), dataset)`, batched `predict_*` overloads, and XML round-trip of the fitted model (the reloaded basis recomputes the same `salc_fingerprint` and predictions match in-memory to machine precision). The existing direct-`SCEModel`-construction testset stays untouched. |
 | pre-release cleanup design note | Remove the entry that owns the `SCEModel(fit)` round-trip; note in the "Issues found" section that the item moved into this spec. |
-| `SPEC.md`, `docs/src/api.md`, `CHANGELOG.md` | Document new fields and the strict spin-norm invariant. |
+| `SPEC.md`, `docs/src/api.md`, `CHANGELOG.md` | Document the new `salc_fingerprint` field on `SCEBasis` and the strict spin-norm invariant. |
 
 ## API
 
@@ -77,33 +79,7 @@ SCEBasis(structure::Structure, symmetry::Symmetry,
     SCEBasis(structure, symmetry, salcbasis, isotropy,
              salc_fingerprint(salcbasis))
 
-# SCEModel: add field. The existing inner constructor (which validates
-# length(jphi) == n_salc) takes the new field; a 3-arg outer wrapper
-# preserves the existing call shape.
-struct SCEModel
-    basis::SCEBasis
-    j0::Float64
-    jphi::Vector{Float64}
-    torque_weight::Float64     # NEW; defaults to 1.0 in older XML and
-                               # in the 3-arg convenience constructor
-
-    function SCEModel(basis::SCEBasis, j0::Real,
-                      jphi::AbstractVector{<:Real},
-                      torque_weight::Real)
-        n_salc = length(basis.salcbasis.salc_list)
-        length(jphi) == n_salc || throw(ArgumentError(
-            "length(jphi) ($(length(jphi))) must equal the number " *
-            "of SALCs ($n_salc)"))
-        return new(basis, j0, jphi, torque_weight)
-    end
-end
-
-# Outer 3-arg wrapper: defaults torque_weight = 1.0
-SCEModel(basis::SCEBasis, j0::Real, jphi::AbstractVector{<:Real}) =
-    SCEModel(basis, j0, jphi, 1.0)
-
-# SCEModel(f::SCEFit) carries torque_weight through
-SCEModel(f::SCEFit) -> SCEModel  # propagates f.torque_weight
+# SCEModel is unchanged by this spec (see Summary; M3 deferred).
 
 # SpinConfig inner ctor: new keyword
 SpinConfig(energy, magmom_size, spin_directions, local_magfield;
@@ -132,11 +108,10 @@ _check_basis(f::SCEFit, dataset::SCEDataset) =
 ## Types and conventions
 
 - `salc_fingerprint::UInt64` is in-session metadata only. It is not an
-  input to any numerical computation. On XML load the on-disk value is
-  ignored and the fingerprint is recomputed from the reconstructed
-  `salcbasis`, so cross-Julia-version hash drift cannot cause spurious
-  load-time mismatches. The on-disk value is written purely for
-  external debugging / cross-save comparison.
+  input to any numerical computation and is not part of the on-disk
+  XML schema. Every XML load recomputes the fingerprint from the
+  reconstructed `salcbasis`, so cross-Julia-version hash drift cannot
+  cause spurious load-time mismatches.
 
 - **Wire-tuple recipe** (authoritative). Iterate `salc_list ::
   Vector{Vector{CoupledBasis_with_coefficient}}` in the natural order
@@ -180,9 +155,6 @@ _check_basis(f::SCEFit, dataset::SCEDataset) =
 
   The leading `:Magesty_SALC_fingerprint_v1` seed lets us bump the
   recipe (`_v2`) later without colliding with old saved values.
-- `torque_weight` on `SCEModel` is the weighting that was active during
-  the fit; it is **not** a knob for prediction. Prediction continues to
-  ignore it. The field exists for reproducibility and audit only.
 - Spin direction unit-norm constraint becomes a hard invariant at
   construction time. Existing in-memory fixtures that constructed
   `SpinConfig` directly are expected to comply; if any fail, they were
@@ -191,12 +163,11 @@ _check_basis(f::SCEFit, dataset::SCEDataset) =
 ## Impact on linked sites
 
 - [x] Spherical-harmonics convention (`TesseralHarmonics`): no change.
-- [x] SCE coefficient XML (`save` / `load`): **additive**. New optional
-      `salc_fingerprint` attribute on the basis root, new
-      `torque_weight` element on the model root. Older XML without
-      them must still load: basis loads recompute the fingerprint from
-      the reconstructed SALC ordering; model loads default
-      `torque_weight = 1.0`.
+- [x] SCE coefficient XML (`save` / `load`): no schema change. The
+      loader already constructs `SCEBasis` via the 4-arg convenience
+      constructor, which derives `salc_fingerprint` from the
+      reconstructed SALC ordering for free. Older XML files load
+      unchanged.
 - [x] `Fitting` ↔ `SALCBasis`: fingerprint is derived from
       `SALCBasis.salc_list` key-group ordering; if that ordering ever
       changes deliberately, the fingerprint changes accordingly. No
@@ -208,10 +179,6 @@ _check_basis(f::SCEFit, dataset::SCEDataset) =
 ## Test strategy
 
 - Component:
-  - `test/component/test_save_load.jl`: round-trip of
-    `salc_fingerprint` and `torque_weight`; loadability of an XML
-    fixture lacking these new nodes (created on the fly by writing a
-    file and then deleting the new nodes with `EzXML`).
   - `test/component/test_SpinConfigs.jl`: rejects a column with
     `norm = 1.01` under the default tolerance, and accepts the same
     input with `atol_unit_norm = 1e-2`.
@@ -233,10 +200,14 @@ _check_basis(f::SCEFit, dataset::SCEDataset) =
     (b) the batched `predict_*` overloads over
     `AbstractVector{SpinConfig}` and `AbstractVector{<:AbstractMatrix}`
     agree with the dataset path, (c) `Magesty.save(SCEModel(fit), ...)`
-    followed by `Magesty.load(SCEModel, ...)` preserves
-    `torque_weight = 0.5` and `salc_fingerprint`. The existing
-    direct-`SCEModel(basis, 0.0, jphi_list)` testset is left
-    untouched.
+    followed by `Magesty.load(SCEModel, ...)` produces a model whose
+    `basis.salc_fingerprint` (recomputed on load) matches the
+    original and whose `predict_energy(reloaded, dataset)` reproduces
+    the in-memory prediction. The `torque_weight = 0.5` passed to
+    `fit` is exercised at fit time (`SCEFit.torque_weight`) but is
+    not asserted to survive save / load — see "Excludes" in
+    `requirements.md`. The existing direct-`SCEModel(basis, 0.0,
+    jphi_list)` testset is left untouched.
 - No new benchmarks needed; nothing in this spec touches a hot path.
 
 ## Risks and open items
@@ -286,8 +257,3 @@ _check_basis(f::SCEFit, dataset::SCEDataset) =
   any meaningful violation (a 1e-4 deviation already shifts `Zlm`
   noticeably). Tighten later if real fixtures show no false negatives.
 
-- **`torque_weight` semantics when an `SCEModel` is built outside
-  `fit`**: the 3-arg `SCEModel(basis, j0, jphi)` convenience
-  constructor defaults `torque_weight = 1.0`, matching prior implicit
-  behavior. This is what `test/integration/square_lattice/test.jl:39`
-  uses today and we deliberately keep it working.

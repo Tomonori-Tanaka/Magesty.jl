@@ -45,27 +45,18 @@ tracking goes through `TaskCreate` in-session.
       basis with a forced (mismatching) fingerprint via the default
       5-arg constructor and verifies `predict_energy` raises.
 
-### M3 — `torque_weight` persistence
+### M3 — `torque_weight` persistence — Deferred
 
-- [ ] Add `torque_weight::Float64` field to `SCEModel`
-      (`src/Magesty.jl:265-278`). The inner constructor (currently
-      at lines 270-277) becomes the 4-arg form
-      `SCEModel(basis, j0, jphi, torque_weight)` and retains the
-      `length(jphi) == n_salc` validation. Add a 3-arg outer wrapper
-      `SCEModel(basis, j0, jphi) = SCEModel(basis, j0, jphi, 1.0)`
-      so existing fixtures (e.g.
-      `test/integration/square_lattice/test.jl:39`) keep working.
-- [ ] Propagate from `SCEFit` in `SCEModel(f::SCEFit)`
-      (`src/Magesty.jl:713`).
-- [ ] Extend the model XML schema (`src/XMLIO.jl`): write
-      `torque_weight` on save, read with default `1.0` when absent.
-      Also write `salc_fingerprint` on the basis root (informational;
-      ignored on load — the loader recomputes).
-- [ ] Round-trip test in `test/component/test_save_load.jl`:
-      `salc_fingerprint` and `torque_weight` survive `save` / `load`,
-      and an XML file with these nodes stripped on the fly (older
-      schema) still loads — `torque_weight` defaults to `1.0`;
-      fingerprint is recomputed from SALC.
+Dropped from this spec (decision recorded 2026-05-20). Rationale:
+adding `torque_weight` to `SCEModel` and the model XML schema starts a
+slippery slope of estimator-specific audit fields (Ridge `lambda`,
+AdaptiveLasso `gamma` / `lambda_grid` / `pilot_strategy`, ...) that
+would inevitably want the same treatment, and the model XML would grow
+estimator-specific nodes without bound. For v0.1.0, users who need the
+weighting can keep the `SCEFit` object alongside the model (it already
+carries `torque_weight`) or record the value in the TOML input. A
+future spec may introduce a dedicated provenance side-channel if this
+becomes a recurring need. See `requirements.md` "Excludes".
 
 ### M4 — Integration test gaps
 
@@ -95,23 +86,23 @@ tracking goes through `TaskCreate` in-session.
       (`AbstractVector{SpinConfig}` and
       `AbstractVector{<:AbstractMatrix}`) against the dataset path.
 - [ ] In the same testset, verify `Magesty.save(SCEModel(fit), ...)`
-      followed by `Magesty.load(SCEModel, ...)` preserves
-      `torque_weight = 0.5` and `salc_fingerprint`, and that the
-      reloaded model still passes `_check_basis` against the original
-      dataset (covers the load-then-predict path that motivated the
-      fingerprint). The older-schema XML compatibility check itself
-      lives in M3's component round-trip test, not here.
+      followed by `Magesty.load(SCEModel, ...)` produces a model whose
+      `basis.salc_fingerprint` (recomputed on load) equals the
+      original, and whose `predict_energy(reloaded_model, dataset)`
+      still passes `_check_basis` and reproduces the in-memory
+      prediction to machine precision (covers the load-then-predict
+      path that motivated the fingerprint).
 
 ### M5 — Docs, changelog, design-note alignment
 
-- [ ] Update `SPEC.md` type diagrams (`SCEBasis`, `SCEModel`) and the
-      `Magesty.save` / `Magesty.load` API description.
-- [ ] Update `docs/src/api.md` with the new fields and the strict
+- [ ] Update the `SPEC.md` `SCEBasis` type diagram to show the new
+      `salc_fingerprint::UInt64` field (`SCEModel` is unchanged by
+      this spec).
+- [ ] Update `docs/src/api.md` with the new field and the strict
       spin-norm invariant.
-- [ ] `CHANGELOG.md` `[Unreleased]` entry (additive XML fields,
-      stricter `SpinConfig` validation, fingerprint-based basis
-      check). Note that the new XML nodes are additive and older
-      XML files still load.
+- [ ] `CHANGELOG.md` `[Unreleased]` entry: stricter `SpinConfig`
+      validation and in-memory fingerprint-based basis check. The
+      on-disk XML schema is unchanged.
 - [ ] Remove the `SCEModel(fit)` round-trip item from the
       pre-release cleanup design note and add a one-line
       cross-reference into this spec, so that note keeps single
