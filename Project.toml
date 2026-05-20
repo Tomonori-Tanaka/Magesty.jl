@@ -6,6 +6,7 @@ authors = ["T.Tanaka <tomonori.tanaka.academic@gmail.com>"]
 [deps]
 AtomsBase = "a963bdd2-2df7-4f54-a1ee-49d51e6be12a"
 Combinat = "a6b051d1-fc4b-4ede-b53e-347fa9fb9a74"
+Comonicon = "863f3e99-da2a-4334-8734-de3dacbe5542"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 EzXML = "8f5d6c58-4d21-5cfd-889c-e3ad7ee6a615"
@@ -31,6 +32,7 @@ ArgParse = "1"
 AtomsBase = "0.5"
 BenchmarkTools = "1"
 Combinat = "0.1"
+Comonicon = "1"
 DataStructures = "0.19"
 Dates = "1"
 EzXML = "1.2"
@@ -68,3 +70,6 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test", "BenchmarkTools", "JET", "Aqua", "SpheriCart", "Rotations", "ArgParse", "Serialization"]
+
+[tool.comonicon]
+name = "magesty"

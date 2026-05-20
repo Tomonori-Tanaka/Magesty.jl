@@ -9,15 +9,28 @@ using Pkg
 Pkg.add(url="https://github.com/Tomonori-Tanaka/Magesty.jl")
 ```
 
-## CLI Tools
+## Command-Line Interface
 
-Magesty.jl ships helper scripts under `tools/` (for example
-`tools/vasp/vasp2extxyz.jl`). Run them directly with Julia against this
-package's environment:
+Magesty.jl provides a `magesty` command-line tool. Install it after
+adding the package:
 
-```sh
-julia --project=@v$(VERSION.major).$(VERSION.minor) /path/to/Magesty.jl/tools/vasp/vasp2extxyz.jl ARGS
+```julia
+using Pkg
+Pkg.build("Magesty")
 ```
 
-If you use these scripts frequently, wrap them in a shell function or
-alias yourself.
+This writes the `magesty` launcher into `~/.julia/bin`. Add that
+directory to your `PATH`:
+
+```sh
+export PATH="$HOME/.julia/bin:$PATH"
+```
+
+Then list the available commands:
+
+```sh
+magesty --help
+```
+
+The launcher resolves Magesty.jl by name through its own environment, so
+it keeps working after the package is updated — no reinstall needed.

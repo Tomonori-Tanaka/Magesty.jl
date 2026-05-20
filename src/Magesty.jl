@@ -1354,5 +1354,9 @@ end
 # last as they depend on the predictor types and the predict_* verbs.
 include("FitCheckIO.jl")
 
+# Command-line interface; included last so the Comonicon macros see the
+# full package API.
+include("CLI.jl")
+
 
 end # module Magesty
