@@ -26,6 +26,7 @@ Makefile.
 | `make test-jet` | — | JET.jl static type analysis |
 | `make test-aqua` | — | Aqua.jl package-quality checks |
 | `make test-sphericart` | — | Numerical agreement with SpheriCart |
+| `make test-cli` | `cli/test/` | `MagestyCLI` package tests |
 
 Selection guide:
 - Bug fix or small change: `make test-unit`.
@@ -34,6 +35,7 @@ Selection guide:
   `SphericalHarmonicsTransforms.jl`): `make test-all` plus
   `make test-sphericart`.
 - Type-stability work: `make test-jet`.
+- `cli/` (the `MagestyCLI` package): `make test-cli`.
 
 ## Test coverage map
 

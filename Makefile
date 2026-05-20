@@ -13,6 +13,11 @@ test-jet:
 test-aqua:
 	TEST_MODE=aqua julia --project -e 'using Pkg; Pkg.test()'
 
+# Test the MagestyCLI package under cli/. It depends on the core by path,
+# so develop the core into the cli/ environment before testing.
+test-cli:
+	julia --project=cli -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate(); Pkg.test()'
+
 # Note: SpheriCart agreement tests are part of test-unit (no separate target).
 
 coverage-setup:
@@ -64,3 +69,4 @@ ci-local:
 	julia +release --project -e 'using Pkg; Pkg.test()'
 	$(MAKE) test-aqua
 	$(MAKE) test-jet
+	$(MAKE) test-cli
