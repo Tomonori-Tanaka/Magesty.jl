@@ -23,7 +23,6 @@ Makefile.
 | `make test-unit` | `test/component/` | Module-level unit tests |
 | `make test-integration` | `test/integration/` | Integration tests on real computational examples |
 | `make test-all` | Both of the above | Default for routine checks |
-| `make test-tools` | `tools/test/` | Tests for `tools/` scripts |
 | `make test-jet` | — | JET.jl static type analysis |
 | `make test-aqua` | — | Aqua.jl package-quality checks |
 | `make test-sphericart` | — | Numerical agreement with SpheriCart |

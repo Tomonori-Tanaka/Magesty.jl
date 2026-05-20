@@ -34,6 +34,9 @@ in `src/Magesty.jl` reflects the dependency order.
 | `AtomsBaseAdapter.jl` | AtomsBase / Unitful boundary adapter (`system_to_specs` / `kwargs_to_specs`) |
 | `AtomCells.jl` | Lightweight type holding atom sites plus unit-cell info |
 | `SortedCounters.jl` | Internal counter that iterates by sorted key |
+| `ExtXYZ.jl` | Writer for the extended XYZ (extxyz) format |
+| `VaspIO.jl` | Parser for VASP output (`vasprun.xml`, `OSZICAR`) |
+| `CLI.jl` | Comonicon-based `magesty` command-line interface |
 
 ## Main types (current API)
 
@@ -105,6 +108,7 @@ test/
 tools/             Scripts independent of the package source
   vasp/            VASP I/O conversion utilities
   personal/        Personal scripts (not quality-assured)
+deps/              build.jl — installs the `magesty` CLI command
 docs/              Documenter.jl documentation
 examples/          Usage examples (basic_flow / CIF input / save-load)
 ```
@@ -166,6 +170,9 @@ AdaptiveLasso(model::SCEModel; kwargs...) # reuse an existing model as pilot
 # Data reading
 read_embset(path)                  # EMBSET -> Vector{SpinConfig}
 SpinConfig(energy, magmom_size, spin_directions, local_magfield)
+
+# VASP conversion (also the `magesty vasp extxyz` command-line subcommand)
+vasp_to_extxyz(vasprun; oszicar, output) -> String
 ```
 
 ## Primary external libraries
@@ -181,3 +188,4 @@ SpinConfig(energy, magmom_size, spin_directions, local_magfield)
 | `LinearAlgebra`, `Statistics` | Linear algebra and statistics |
 | `MultivariateStats` | Ridge regression (`ridge`) |
 | `GLMNet` | Elastic-Net / Lasso regression (`glmnet`) |
+| `Comonicon` | `magesty` command-line interface generation |

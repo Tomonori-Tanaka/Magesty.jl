@@ -109,12 +109,6 @@ check it motivated — was folded into M4 of the
 keeps single ownership of broken examples, Documenter strictness,
 docstring normalization, `CITATION.cff`, and `Project.toml` tidy-up.
 
-### P6. Optional: integrate `tools/test/` into CI
-
-- Add a `make test-tools` step to `.github/workflows/CI.yml`.
-- Does not block the release; prevents bit rot in auxiliary scripts.
-  Final decision deferred to the user.
-
 ## Verification
 
 1. `julia --project=examples examples/01_basic_flow.jl` and
@@ -122,10 +116,9 @@ docstring normalization, `CITATION.cff`, and `Project.toml` tidy-up.
 2. `make test-all` — unit + integration pass (square_lattice / Version
    / Aqua included).
 3. `make test-jet` / `make test-aqua` — zero warnings.
-4. `make test-tools` — tools scripts pass.
-5. `julia --project=docs docs/make.jl` — builds with `:exports`, no
+4. `julia --project=docs docs/make.jl` — builds with `:exports`, no
    undocumented exports.
-6. After push, manually confirm that GitHub's "Cite this repository"
+5. After push, manually confirm that GitHub's "Cite this repository"
    button recognizes `CITATION.cff`.
 
 ## Not flagged (deliberately out of scope)

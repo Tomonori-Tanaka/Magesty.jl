@@ -32,5 +32,11 @@ Then list the available commands:
 magesty --help
 ```
 
+For example, convert a VASP run to extended XYZ:
+
+```sh
+magesty vasp extxyz vasprun.xml --oszicar OSZICAR --output frame.extxyz
+```
+
 The launcher resolves Magesty.jl by name through its own environment, so
 it keeps working after the package is updated — no reinstall needed.

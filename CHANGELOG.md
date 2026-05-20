@@ -8,6 +8,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `magesty` command-line interface, built with Comonicon.jl and installed
+  by `Pkg.build("Magesty")` into `~/.julia/bin`. The launcher resolves the
+  package by name through its own environment, so it follows package
+  updates without a reinstall. Subcommands: `magesty vasp extxyz` (convert
+  a VASP run to extended XYZ) and `magesty version`.
+- `vasp_to_extxyz`: exported function that converts a VASP run
+  (`vasprun.xml`, optionally `OSZICAR`) to extended XYZ and returns the
+  extxyz text; the `magesty vasp extxyz` subcommand is a thin wrapper over
+  it. The VASP parsing and extxyz writing previously living under `tools/`
+  are now package submodules (`VaspIO`, `ExtXYZ`).
 - `write_energies` / `write_torques`: exported plain-text writers that dump
   observed (DFT) versus predicted (SCE) energies and per-atom torques to
   whitespace-separated files, consumed by the `FitCheck_energy.py` /
@@ -140,10 +150,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Internally, the `Version` submodule was folded into a private helper
   inside `XMLIO.jl` (still records the package version in the XML
   `<version>` element).
-- **Breaking:** Removed `Magesty.install_tools()`. The CLI scripts
-  under `tools/` are unchanged; invoke them directly with
-  `julia --project=@vMAJOR.MINOR /path/to/script.jl` (or a shell
-  alias of your own) instead of relying on a packaged installer.
+- **Breaking:** Removed `Magesty.install_tools()`, superseded by the
+  Comonicon-based `magesty` command-line interface (see Added).
+- The standalone `tools/vasp/vasp2extxyz.jl` script — its single-directory
+  VASP-to-extxyz conversion is now the `magesty vasp extxyz` command (and
+  the `vasp_to_extxyz` API function).
+- The `make test-tools` target: the converter tests it ran are now package
+  component tests covered by `make test-unit` / `make test-all`.
 
 ### Internal
 

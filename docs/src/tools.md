@@ -4,25 +4,27 @@ This page describes the utility tools available in the `tools/` directory of Mag
 
 ## ExtXYZ Tools
 
-These tools convert VASP output to the [extended XYZ (extxyz)](https://github.com/libAtoms/extxyz) format, which is the standard training-data format for machine-learning interatomic potentials.
+These convert VASP output to the [extended XYZ (extxyz)](https://github.com/libAtoms/extxyz) format, the standard training-data format for machine-learning interatomic potentials. Single-directory conversion is part of the `magesty` command-line tool; batch conversion over a directory tree uses the `tools/vasp/vasp2extxyz_recursive.jl` script.
 
-### tools/vasp/vasp2extxyz.jl
+### `magesty vasp extxyz`
 
-Convert a single VASP calculation directory (vasprun.xml + optional OSZICAR) to an extxyz file.
+Convert a single VASP calculation directory (vasprun.xml + optional OSZICAR) to an extxyz file. Install the `magesty` command as described in [Installation](installation.md).
 
 **Usage:**
 ```bash
 # Structure, forces, stress, and energies only
-julia tools/vasp/vasp2extxyz.jl --vasprun vasprun.xml
+magesty vasp extxyz vasprun.xml
 
 # Add per-atom magnetic moments and constraint field
-julia tools/vasp/vasp2extxyz.jl --vasprun vasprun.xml --oszicar OSZICAR --output out.xyz
+magesty vasp extxyz vasprun.xml --oszicar OSZICAR --output out.xyz
 ```
 
 **Arguments:**
-- `--vasprun`, `-v`: Path to `vasprun.xml` (required)
-- `--oszicar`, `-s`: Path to `OSZICAR` — enables per-atom magnetic moment (`magmom_smoothed`, `magmom_raw`) and constraint field (`constr_field`) columns
+- `vasprun` (positional): Path to `vasprun.xml` (required)
+- `--oszicar`: Path to `OSZICAR` — enables per-atom magnetic moment (`magmom_smoothed`, `magmom_raw`) and constraint field (`constr_field`) columns
 - `--output`, `-o`: Output filename (appends `.extxyz` automatically if omitted; default: stdout)
+
+The same conversion is available programmatically as the exported `vasp_to_extxyz` function.
 
 **Output columns (extxyz Properties field):**
 

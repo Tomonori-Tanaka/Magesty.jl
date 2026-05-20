@@ -146,8 +146,7 @@ Use `Grep` / `Glob` to confirm that:
   exist (and have not been renamed away). Flag references to deleted
   or moved symbols.
 - New test files named in `tasklist.md` land in directories that match
-  the existing layout (`test/component/`, `test/integration/`,
-  `tools/test/`).
+  the existing layout (`test/component/`, `test/integration/`).
 - Makefile targets named in the exit checklist exist (`make test-all`,
   `make test-jet`, `make test-aqua`, etc.).
 - Naming follows existing conventions (snake_case for functions,

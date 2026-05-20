@@ -1,6 +1,6 @@
 # Design: CLI foundation (Comonicon) with VASP-to-extxyz pilot
 
-Status: draft (2026-05-20)
+Status: complete (2026-05-21)
 
 ## Summary
 
@@ -143,5 +143,14 @@ regression test).
   package-extension path is **not** taken.
 - Removing `tools/vasp/vasp2extxyz.jl` breaks anyone invoking that exact
   script path; note in `CHANGELOG.md` (as was done for `install_tools`).
+- **JET cannot analyze the package while the Comonicon CLI lives in
+  `src/`.** *Found in M4:* `report_package` macro-expands
+  `Comonicon.@main` through its interpreter-based loader, which throws
+  (`Comonicon.AST.Entry has no field name`) — an external Comonicon/JET
+  incompatibility, not a Magesty defect. `test/jet.jl` is marked
+  `@test_broken`; it reverts to a real assertion automatically once
+  `report_package` succeeds. The structural fix — extracting the CLI into
+  a separate `MagestyCLI` package — is deferred to a follow-up spec
+  (tracked in `DESIGN_NOTES.md`).
 - `sysimg` / `application` install modes deferred; revisit if startup
   latency is reported as a problem.

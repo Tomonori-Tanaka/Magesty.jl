@@ -61,6 +61,16 @@ write_energies
 write_torques
 ```
 
+## VASP conversion
+
+`vasp_to_extxyz` converts a VASP run (`vasprun.xml`, optionally `OSZICAR`)
+to extended XYZ. The same conversion is available from the command line as
+`magesty vasp extxyz` (see [Installation](@ref) and [Tools](@ref)).
+
+```@docs
+vasp_to_extxyz
+```
+
 ## Persistence
 
 `save` and `load` are not exported — call them as `Magesty.save` /
