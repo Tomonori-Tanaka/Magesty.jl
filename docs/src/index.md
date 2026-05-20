@@ -21,7 +21,8 @@ Magesty.jl (MAGnetic model ESTimator) is a Julia package for construction of Spi
 | [API Reference](api.md) | Detailed documentation of all exported functions and types |
 | [Internal API](api_internal.md) | Lower-level building blocks, not covered by the stability guarantee |
 | [Tools](tools.md) | Utility scripts in the `tools/` directory |
-| [Technical Notes](technical_notes.md) | Theory behind the SCE formalism |
+| [Theoretical Background](theory/overview.md) | The SCE theory, end to end, linked to the implementation |
+| [Technical Notes](technical_notes.md) | Conversion of SCE coefficients to conventional spin-model parameters |
 | [Tips](tips/index.md) | Practical tips|
 
 ## Tools

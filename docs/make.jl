@@ -28,7 +28,14 @@ makedocs(
 		"Input Keys" => "input_keys.md",
 		"Examples" => "examples.md",
 		"Tools" => "tools.md",
-		"Technical Notes" => "technical_notes.md",
+		"Theoretical Background" => [
+			"theory/overview.md",
+			"theory/spherical_harmonics.md",
+			"theory/angular_momentum_coupling.md",
+			"theory/symmetry_adaptation.md",
+			"theory/design_matrix_and_fitting.md",
+			"Technical Notes" => "technical_notes.md",
+		],
 		hide(
 			"Tips" => "tips/index.md",
 			[
