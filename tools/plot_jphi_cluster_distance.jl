@@ -20,10 +20,7 @@ using ArgParse
 using Printf
 using Plots
 
-if !@isdefined(Magesty)
-	include(joinpath(@__DIR__, "..", "src", "Magesty.jl"))
-end
-using .Magesty
+using Magesty
 
 """Minimum-image distance (Å) between atoms i and j; same 27-cell sweep as `plot_jij_atom.jl`."""
 function pairwise_mic_distance(st::Magesty.Structure, i::Int, j::Int)::Float64

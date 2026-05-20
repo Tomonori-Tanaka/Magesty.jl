@@ -2,8 +2,7 @@ using ArgParse
 using Plots
 using Statistics
 
-include("../src/SpinConfigs.jl")
-using .SpinConfigs
+using Magesty
 
 # parse indices argument that may include ranges like "1-5" and comma-separated tokens
 function parse_indices_args(args::AbstractVector{<:AbstractString})::Vector{Int}
@@ -96,7 +95,7 @@ function plot_histogram(
 	end
 
 	# Detect number of atoms from the first file
-	n_atoms = SpinConfigs.detect_num_atoms(inputs[1])
+	n_atoms = Magesty.SpinConfigs.detect_num_atoms(inputs[1])
 	if n_atoms <= 0
 		error("The total number of atoms must be positive: $n_atoms")
 	end
@@ -120,7 +119,7 @@ function plot_histogram(
 	
 	for (file_idx, input) in enumerate(inputs)
 		# read the input file
-		embset::Vector{SpinConfig} = SpinConfigs.read_embset(input)
+		embset::Vector{SpinConfig} = read_embset(input)
 		n_data = length(embset)
 		if n_data <= 0
 			error("No data found in file: $input")

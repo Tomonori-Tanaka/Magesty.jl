@@ -6,10 +6,7 @@ using ArgParse
 using LinearAlgebra
 using EzXML
 
-@isdefined(Magesty) || begin
-	include("../src/Magesty.jl")
-end
-using .Magesty
+using Magesty
 
 @isdefined(convert2tensor) || begin
 	include("./convert2tensor.jl")

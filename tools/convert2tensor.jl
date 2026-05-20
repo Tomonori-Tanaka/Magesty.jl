@@ -3,10 +3,7 @@ using EzXML
 using LinearAlgebra
 using Printf
 
-if !@isdefined(Magesty)
-	include("../src/Magesty.jl")
-end
-using .Magesty
+using Magesty
 
 export ExchangeTensorData, print_full, convert2tensor
 export PrecomputedXMLData, precompute_xml, convert2tensor_fast

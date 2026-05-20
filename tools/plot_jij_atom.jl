@@ -10,10 +10,7 @@ using Plots
 using ArgParse
 using Printf
 
-if !@isdefined(Magesty)
-	include("../src/Magesty.jl")
-end
-using .Magesty
+using Magesty
 
 include("./convert2tensor.jl")
 using .ExchangeTensor
