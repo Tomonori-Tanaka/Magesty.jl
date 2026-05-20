@@ -424,7 +424,6 @@ function _ensure_sh_buffer!(
 	return buf
 end
 
-# `alpha` is a deprecated remnant of the old ElasticNet(alpha, lambda) API.
 @inline function _atoms_hash_key(atoms_sorted::AbstractVector{Int})::UInt
 	h = UInt(0x9e3779b97f4a7c15)
 	@inbounds for a in atoms_sorted
