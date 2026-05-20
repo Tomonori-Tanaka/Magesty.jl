@@ -265,7 +265,7 @@ end
 
 
 """
-	build_all_complex_bases(ls; normalize=:none, time_reversal::Bool=true, isotropy::Bool=true)
+	build_all_complex_bases(ls::Vector{Int}; normalize::Symbol = :none, isotropy::Bool = false)
 	  -> Dict{Int, Vector{Array{Float64}}}, Dict{Int, Vector{Vector{Int}}}
 
 Build and group all complex-basis coefficient tensors C^(Lf,M) by final Lf.
@@ -278,8 +278,8 @@ Options:
 	:none -> no normalization (pure CG chaining; already orthogonal)
 	:fro  -> Frobenius-norm normalization
   isotropy:
-	if true (default), keep only Lf == 0 (isotropic scalar). This filtering
-	takes precedence over time_reversal.
+	if true, keep only Lf == 0 (the isotropic scalar sector). The default
+	is false.
 """
 function build_all_complex_bases(ls::Vector{Int}; normalize::Symbol = :none, isotropy::Bool = false)
 	bases_by_L = Dict{Int, Vector{Array{Float64}}}()
@@ -305,7 +305,7 @@ function build_all_complex_bases(ls::Vector{Int}; normalize::Symbol = :none, iso
 end
 
 """
-	build_all_real_bases(ls; normalize=:none, time_reversal::Bool=true, isotropy::Bool=true)
+	build_all_real_bases(ls::Vector{Int}; normalize::Symbol = :none, isotropy::Bool = false)
 	  -> Dict{Int, Vector{Array{Float64}}}, Dict{Int, Vector{Vector{Int}}}
 
 Build and group all real (tesseral) coefficient tensors by final Lf.
@@ -316,6 +316,9 @@ Options:
   normalize:
 	:none -> no normalization (orthogonality preserved by unitary transforms)
 	:fro  -> Frobenius-norm normalization
+  isotropy:
+	if true, keep only Lf == 0 (the isotropic scalar sector). The default
+	is false.
 """
 function build_all_real_bases(ls::Vector{Int}; normalize::Symbol = :none, isotropy::Bool = false)
 	bases_by_L = Dict{Int, Vector{Array{Float64}}}()
