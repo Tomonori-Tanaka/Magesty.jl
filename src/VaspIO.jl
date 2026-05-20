@@ -250,8 +250,15 @@ end
 function _read_energies(calc_node)
     e_node = findfirst("energy", calc_node)
     e_node === nothing && error("No <energy> in last calculation")
-    e_free = parse(Float64, nodecontent(findfirst("i[@name='e_fr_energy']", e_node)))
-    e_zero = parse(Float64, nodecontent(findfirst("i[@name='e_0_energy']",  e_node)))
+
+    e_fr_node = findfirst("i[@name='e_fr_energy']", e_node)
+    e_fr_node === nothing && error("No e_fr_energy in <energy> block")
+    e_free = parse(Float64, nodecontent(e_fr_node))
+
+    e_0_node = findfirst("i[@name='e_0_energy']", e_node)
+    e_0_node === nothing && error("No e_0_energy in <energy> block")
+    e_zero = parse(Float64, nodecontent(e_0_node))
+
     return e_free, e_zero
 end
 

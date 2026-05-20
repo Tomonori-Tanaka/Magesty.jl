@@ -1,13 +1,14 @@
 """
-Regression tests for `vasp_to_extxyz` and the `magesty vasp extxyz`
-subcommand. The output must be byte-identical to the golden extxyz
-fixtures, which were generated from the VASP fixture inputs.
+Regression tests for the `vasp_to_extxyz` API. The output must be
+byte-identical to the golden extxyz fixtures, which were generated from
+the VASP fixture inputs. The `magesty vasp extxyz` CLI subcommand is
+covered separately by the `MagestyCLI` package tests.
 """
 
 using Magesty
 using Test
 
-@testset "vasp_to_extxyz / vasp extxyz: $(system)" for system in ("FeRh", "IrMn3")
+@testset "vasp_to_extxyz: $(system)" for system in ("FeRh", "IrMn3")
 	dir          = joinpath(@__DIR__, "fixtures", system)
 	vasprun_path = joinpath(dir, "vasprun.xml")
 	oszicar_path = joinpath(dir, "OSZICAR")
@@ -23,18 +24,6 @@ using Test
 		@test read(api_outfile, String) == golden_text
 	finally
 		isfile(api_outfile) && rm(api_outfile)
-	end
-
-	# CLI subcommand `magesty vasp extxyz`: exits 0 and writes the same bytes.
-	cli_outfile = tempname() * ".extxyz"
-	try
-		exit_code = Magesty.command_main(
-			["vasp", "extxyz", vasprun_path, "--oszicar", oszicar_path, "--output", cli_outfile],
-		)
-		@test exit_code == 0
-		@test read(cli_outfile, String) == golden_text
-	finally
-		isfile(cli_outfile) && rm(cli_outfile)
 	end
 end
 

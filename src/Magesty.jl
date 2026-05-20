@@ -73,7 +73,7 @@ include("XMLIO.jl")
 using .XMLIO
 
 # VASP I/O and extxyz writer; reached as `Magesty.VaspIO` / `Magesty.ExtXYZ`
-# and used by the command-line interface.
+# and used by the `vasp_to_extxyz` conversion API.
 include("ExtXYZ.jl")
 include("VaspIO.jl")
 
@@ -1360,9 +1360,8 @@ end
 # last as they depend on the predictor types and the predict_* verbs.
 include("FitCheckIO.jl")
 
-# Command-line interface; included last so the Comonicon macros see the
-# full package API.
-include("CLI.jl")
+# VASP-to-extxyz conversion API; depends on the VaspIO / ExtXYZ modules.
+include("VaspConvert.jl")
 
 
 end # module Magesty
