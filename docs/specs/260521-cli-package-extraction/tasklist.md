@@ -1,6 +1,6 @@
 # Tasklist: extract the CLI into a `MagestyCLI` subdirectory package
 
-Status: draft (2026-05-21)
+Status: complete (2026-05-21)
 
 This file holds coarse-grained, commit-sized milestones. Day-to-day
 tracking goes through `TaskCreate` in-session.
@@ -36,33 +36,49 @@ Branch: `refactor/cli-package-extraction`.
 
 ### M3 — CI and Makefile integration
 
-- [ ] Add a Makefile target that instantiates and tests `cli/`.
-- [ ] Add a `MagestyCLI` job/step to `.github/workflows/CI.yml`.
-- [ ] Sweep `.claude/agents/` if a new Makefile target was added.
+- [x] Add a Makefile target that instantiates and tests `cli/`
+      (`test-cli`; also wired into `ci-local`).
+- [x] Add a `MagestyCLI` job/step to `.github/workflows/CI.yml`.
+- [x] Sweep `.claude/agents/` if a new Makefile target was added
+      (`test-runner.md` target table updated).
 
 ### M4 — Documentation and close-out
 
-- [ ] Update `docs/src/installation.md` / `docs/src/tools.md` install path.
-- [ ] Update `SPEC.md` (module table, directory layout) and `CHANGELOG.md`.
-- [ ] Update the CLI-package-extraction design note `Status:` line.
-- [ ] Update this `Status:` line and the `docs/specs/README.md` table.
+- [x] Update `docs/src/installation.md` install path (`MagestyCLI` /
+      `Pkg.build("MagestyCLI")`). `docs/src/tools.md` needed no change —
+      it only links to the install instructions.
+- [x] Update `SPEC.md` (module table, directory layout, external-library
+      table) and `CHANGELOG.md`.
+- [x] Update the CLI-package-extraction design note `Status:` line and
+      the `DESIGN_NOTES.md` index row.
+- [x] Update this `Status:` line and the `docs/specs/README.md` table.
+- [x] Re-resolve `docs/Manifest.toml` (the core dropped `Comonicon`).
 
 ## Exit checklist
 
 Run through every item once implementation lands. ~~Strike through~~
 items that do not apply.
 
-- [ ] `make test-all` passes.
-- [ ] `make test-aqua` / `make test-jet` clean (`test/jet.jl` is a plain
-      assertion again, 0 issues).
-- [ ] ~~If results changed: regression or validation test added.~~ (no
+- [x] `make test-all` passes (22797 passed).
+- [x] `make test-aqua` / `make test-jet` clean (`test/jet.jl` is a plain
+      assertion again, 0 issues); `make test-cli` passes.
+- [x] ~~If results changed: regression or validation test added.~~ (no
       numerical change)
-- [ ] If public API changed: `SPEC.md` and `docs/src/api.md` updated.
-      (core API unchanged; `SPEC.md` still updated for the layout change)
-- [ ] ~~If a hot path was touched: `.claude/bench_log.md`.~~ (no hot path)
-- [ ] If module names or Makefile targets changed: `.claude/agents/`
-      swept and updated.
-- [ ] `CHANGELOG.md` `[Unreleased]` updated.
-- [ ] `Status:` line in this file and the table in
+- [x] If public API changed: `SPEC.md` and `docs/src/api.md` updated.
+      (core API unchanged; `SPEC.md` updated for the layout change;
+      `api.md`'s `vasp_to_extxyz` `@docs` block is unaffected)
+- [x] ~~If a hot path was touched: `.claude/bench_log.md`.~~ (no hot path)
+- [x] If module names or Makefile targets changed: `.claude/agents/`
+      swept and updated (`test-runner.md` target table).
+- [x] `CHANGELOG.md` `[Unreleased]` updated.
+- [x] `Status:` line in this file and the table in
       `docs/specs/README.md` updated in sync.
-- [ ] Implementation commit hash appended below.
+- [x] Implementation commit hashes appended below.
+
+## Commits
+
+- `8314043` docs(specs): add the CLI-package-extraction spec
+- `bbfd9dd` refactor(cli): remove the Comonicon CLI from the core package (M1)
+- `82b5892` feat(cli): add the MagestyCLI package (M2)
+- M3 (CI / Makefile integration) and M4 (docs / close-out): see the
+  branch history for `refactor/cli-package-extraction`.

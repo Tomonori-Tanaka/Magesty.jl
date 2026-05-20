@@ -1,6 +1,6 @@
 # Extract the CLI into a separate `MagestyCLI` package
 
-Status: not started — follow-up to spec `260520-cli-foundation`.
+Status: complete — implemented in spec `260521-cli-package-extraction`.
 
 ## Problem
 

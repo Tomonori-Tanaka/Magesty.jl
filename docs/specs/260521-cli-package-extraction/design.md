@@ -1,6 +1,6 @@
 # Design: extract the CLI into a `MagestyCLI` subdirectory package
 
-Status: draft (2026-05-21)
+Status: complete (2026-05-21)
 
 ## Summary
 

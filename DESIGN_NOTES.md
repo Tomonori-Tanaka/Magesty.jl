@@ -12,7 +12,7 @@ Operating rules: [`docs/design-notes/README.md`](docs/design-notes/README.md).
 |---|---|---|
 | [ElasticNet / LASSO / Adaptive estimators](docs/design-notes/lasso-adaptive-estimators.md) | ElasticNet → spec [260517-elasticnet-estimator](docs/specs/260517-elasticnet-estimator/); Adaptive variants on hold | 2026-05-17 |
 | [Pre-release cleanup (v0.1.0)](docs/design-notes/pre-release-cleanup.md) | not started | 2026-05-17 |
-| [Extract the CLI into a `MagestyCLI` package](docs/design-notes/cli-package-extraction.md) | not started — follow-up to spec 260520-cli-foundation | 2026-05-21 |
+| [Extract the CLI into a `MagestyCLI` package](docs/design-notes/cli-package-extraction.md) | complete → spec [260521-cli-package-extraction](docs/specs/260521-cli-package-extraction/) | 2026-05-21 |
 | [Julia compat policy](docs/design-notes/julia-compat-policy.md) | operating rule | 2026-05-17 |
 
 Completed proposals are folded into their corresponding spec under

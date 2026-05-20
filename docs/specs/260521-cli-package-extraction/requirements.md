@@ -1,6 +1,6 @@
 # Requirements: extract the CLI into a `MagestyCLI` subdirectory package
 
-Status: draft (2026-05-21)
+Status: complete (2026-05-21)
 
 ## Goal
 
@@ -64,15 +64,15 @@ Excludes:
 
 ## Completion criteria
 
-- [ ] `make test-all` passes.
-- [ ] `make test-jet` passes with a plain `@test` (no `@test_broken`);
+- [x] `make test-all` passes.
+- [x] `make test-jet` passes with a plain `@test` (no `@test_broken`);
       `report_package(Magesty)` returns and reports 0 issues.
-- [ ] `MagestyCLI` instantiates against the dev-ed core, and the installed
+- [x] `MagestyCLI` instantiates against the dev-ed core, and the installed
       `magesty vasp extxyz` produces byte-identical output to a recorded
       golden file.
-- [ ] CI builds and tests `MagestyCLI`.
-- [ ] `docs/src/installation.md` and `docs/src/tools.md` reflect the new
-      install path; `SPEC.md` and `CHANGELOG.md` updated.
+- [x] CI builds and tests `MagestyCLI` (the `cli` job runs `make test-cli`).
+- [x] `docs/src/installation.md` reflects the new install path; `SPEC.md`
+      and `CHANGELOG.md` updated. (`docs/src/tools.md` needed no change.)
 
 ## References
 

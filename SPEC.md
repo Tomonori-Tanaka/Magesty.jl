@@ -36,7 +36,7 @@ in `src/Magesty.jl` reflects the dependency order.
 | `SortedCounters.jl` | Internal counter that iterates by sorted key |
 | `ExtXYZ.jl` | Writer for the extended XYZ (extxyz) format |
 | `VaspIO.jl` | Parser for VASP output (`vasprun.xml`, `OSZICAR`) |
-| `CLI.jl` | Comonicon-based `magesty` command-line interface |
+| `VaspConvert.jl` | VASP-to-extxyz conversion API (`vasp_to_extxyz`) |
 
 ## Main types (current API)
 
@@ -108,7 +108,7 @@ test/
 tools/             Scripts independent of the package source
   vasp/            VASP I/O conversion utilities
   personal/        Personal scripts (not quality-assured)
-deps/              build.jl — installs the `magesty` CLI command
+cli/               MagestyCLI — the Comonicon-based `magesty` command
 docs/              Documenter.jl documentation
 examples/          Usage examples (basic_flow / CIF input / save-load)
 ```
@@ -188,4 +188,3 @@ vasp_to_extxyz(vasprun; oszicar, output) -> String
 | `LinearAlgebra`, `Statistics` | Linear algebra and statistics |
 | `MultivariateStats` | Ridge regression (`ridge`) |
 | `GLMNet` | Elastic-Net / Lasso regression (`glmnet`) |
-| `Comonicon` | `magesty` command-line interface generation |

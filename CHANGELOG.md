@@ -8,11 +8,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- `magesty` command-line interface, built with Comonicon.jl and installed
-  by `Pkg.build("Magesty")` into `~/.julia/bin`. The launcher resolves the
-  package by name through its own environment, so it follows package
-  updates without a reinstall. Subcommands: `magesty vasp extxyz` (convert
-  a VASP run to extended XYZ) and `magesty version`.
+- `magesty` command-line interface, provided by the `MagestyCLI` package
+  in the `cli/` subdirectory of the repository and built with Comonicon.jl.
+  Adding `MagestyCLI` and running `Pkg.build("MagestyCLI")` writes the
+  launcher into `~/.julia/bin`. Keeping the CLI in its own package leaves
+  the core `Magesty` package free of the Comonicon dependency, so static
+  analysis (JET) covers the whole core again. Subcommands:
+  `magesty vasp extxyz` (convert a VASP run to extended XYZ) and
+  `magesty version`.
 - `vasp_to_extxyz`: exported function that converts a VASP run
   (`vasprun.xml`, optionally `OSZICAR`) to extended XYZ and returns the
   extxyz text; the `magesty vasp extxyz` subcommand is a thin wrapper over
