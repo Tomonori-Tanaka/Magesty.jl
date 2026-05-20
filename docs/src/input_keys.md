@@ -174,7 +174,10 @@ f = fit(
   residuals, and `j0` is recovered in closed form from the energy
   block).
 - **Estimator** — `OLS()` for no regularization, or `Ridge(lambda = λ)`
-  for L2 with strength `λ ≥ 0`. The reference energy `j0` is recovered
+  for L2 with strength `λ ≥ 0`. `ElasticNet`, `Lasso`, `AdaptiveLasso`,
+  and `PrecomputedPilot` are also available; see the
+  [API Reference](api.md) for the full estimator list. The reference
+  energy `j0` is recovered
   analytically after the solve (closed-form
   `mean(y_E - X_E * jphi)`) and is therefore not subject to any
   estimator's penalty.

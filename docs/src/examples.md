@@ -1,9 +1,9 @@
 # Examples
 
-This page demonstrates the new SCE public API:
+This page demonstrates the SCE public API:
 `SCEBasis` → `SCEDataset` → `fit(SCEFit, ...)` → `SCEModel` →
-`Magesty.save` / `Magesty.load`. Runnable versions of these examples
-live in the `examples/` directory of the repository.
+`Magesty.save` / `Magesty.load`. Runnable scripts for several of these
+examples live in the `examples/` directory of the repository.
 
 `save` and `load` are intentionally **not exported** to avoid clashing
 with the generic names from JLD2, FileIO, CSV.jl, etc.; call them as

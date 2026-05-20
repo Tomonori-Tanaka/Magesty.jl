@@ -14,11 +14,12 @@ Magesty.jl (MAGnetic model ESTimator) is a Julia package for construction of Spi
 
 | Page | Description |
 |------|-------------|
-| [Installation](installation.md) | Package installation and PATH setup for CLI tools |
+| [Installation](installation.md) | Package installation and how to run the CLI tools |
 | [Tutorial](tutorial.md) | Step-by-step guide for first-time users |
 | [Examples](examples.md) | Code examples for common tasks |
 | [Input Keys](input_keys.md) | Full reference for TOML configuration keys |
 | [API Reference](api.md) | Detailed documentation of all exported functions and types |
+| [Internal API](api_internal.md) | Lower-level building blocks, not covered by the stability guarantee |
 | [Tools](tools.md) | Utility scripts in the `tools/` directory |
 | [Technical Notes](technical_notes.md) | Theory behind the SCE formalism |
 | [Tips](tips/index.md) | Practical tips|

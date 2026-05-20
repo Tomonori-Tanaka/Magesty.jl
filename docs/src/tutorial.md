@@ -60,7 +60,7 @@ dataset = SCEDataset(basis, "EMBSET")
 #    problem minimizes; the default `1.0` is a torque-only fit. Set
 #    `torque_weight = 0.5` to weigh both equally, or `0.0` to fit on
 #    energies alone.
-f = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
+f = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 1.0)
 
 println("Reference energy j0: ", intercept(f), " eV")
 println("Number of SCE coefficients: ", length(coef(f)))

@@ -20,4 +20,4 @@ julia --project=@v$(VERSION.major).$(VERSION.minor) /path/to/Magesty.jl/tools/va
 ```
 
 If you use these scripts frequently, wrap them in a shell function or
-alias yourself — the package no longer ships a one-shot installer.
+alias yourself.
