@@ -43,6 +43,7 @@ if TEST_MODE in ("unit", "all")
 		include("./component/test_fitcheck_io.jl")
 		include("./component/test_ExtXYZ.jl")
 		include("./component/test_VaspIO.jl")
+		include("./component/test_vasp_to_extxyz.jl")
 		include("./component/test_thread_safety.jl")
 	end
 end

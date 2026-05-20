@@ -68,21 +68,25 @@ function vasp_to_extxyz(vasprun::AbstractString;
                         output::Union{AbstractString,Nothing} = nothing)::String
 
 # src/CLI.jl — Comonicon CLI, reached as `magesty vasp extxyz ...`
-@cast module Vasp
+Comonicon.@cast module Vasp
     import Comonicon
+    import ..vasp_to_extxyz
     Comonicon.@cast function extxyz(vasprun::String;
                                     oszicar::String = "", output::String = "")
         ...
     end
-    Comonicon.@main
-end
+end                       # no inner @main: a @cast module is a command group
+Comonicon.@main           # the package-level entry, after all @cast targets
 ```
 
 The leaf subcommand is a thin shell: it normalizes empty-string options to
-`nothing` and calls `Magesty.vasp_to_extxyz`. All conversion behavior
-lives in the exported API function so it is testable without the CLI.
-`@cast` / `@main` are qualified with `Comonicon.` because `@main` clashes
-with `Base.@main` on Julia 1.12.
+`nothing` and calls `vasp_to_extxyz`. All conversion behavior lives in the
+exported API function so it is testable without the CLI. `@cast` / `@main`
+are qualified with `Comonicon.` because `@main` clashes with `Base.@main`
+on Julia 1.12. A `@cast module` used as a command group carries no inner
+`@main`; only the package-level entry does. Comonicon requires a short
+option to share the long option's first letter, so `--oszicar` has no
+short form (`-o` belongs to `--output`).
 
 ### Install path
 

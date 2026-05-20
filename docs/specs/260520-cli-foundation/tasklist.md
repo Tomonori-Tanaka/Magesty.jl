@@ -36,17 +36,20 @@ tracking goes through `TaskCreate` in-session.
       drop the CI `Tools` job; update the `test-tools` / `tools/test/`
       references in `CLAUDE.md`, `CONTRIBUTING.md`, and `SPEC.md`.
 
-### M3 — `vasp_to_extxyz` API and `vasp extxyz` subcommand
+### M3 — `vasp_to_extxyz` API and `vasp extxyz` subcommand (done)
 
-- [ ] Implement `vasp_to_extxyz` in `src/CLI.jl` (logic copied verbatim
-      from `tools/vasp/vasp2extxyz.jl`); export it.
-- [ ] Add the `@cast module Vasp` command group with an `extxyz` leaf
-      subcommand wrapping it (`magesty vasp extxyz`).
-- [ ] Regression test: `vasp_to_extxyz` byte-identical output vs. a
-      stored reference.
-- [ ] Smoke test: `magesty vasp extxyz` converts a fixture and exits 0
-      with output matching the reference.
-- [ ] Remove `tools/vasp/vasp2extxyz.jl`.
+- [x] Implement `vasp_to_extxyz` in `src/CLI.jl` (logic copied verbatim
+      from `tools/vasp/vasp2extxyz.jl`); exported from `Magesty`.
+- [x] Add the `Comonicon.@cast module Vasp` command group with an
+      `extxyz` leaf subcommand wrapping it (`magesty vasp extxyz`).
+- [x] Regenerate the golden `FeRh.extxyz` / `IrMn3.extxyz` fixtures from
+      the current `vasp2extxyz.jl` — the committed copies were stale
+      (`MAGMOM_smoothed` vs. the current `magmom_smoothed`).
+- [x] Regression test (`test/component/test_vasp_to_extxyz.jl`):
+      `vasp_to_extxyz`, its `output` keyword, and the `magesty vasp
+      extxyz` subcommand all produce byte-identical output vs. the golden
+      fixtures; subcommand exits 0.
+- [x] Remove `tools/vasp/vasp2extxyz.jl`.
 
 ### M4 — Documentation and cleanup
 
