@@ -176,15 +176,22 @@ end
               3 * basis.structure.supercell.num_atoms
     end
 
-    @testset "basis-identity check" begin
+    @testset "basis-identity check (same recipe accepted)" begin
         f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3, verbosity = false)
         m = SCEModel(f)
-        # a dataset built from a different SCEBasis is rejected
+        # A separately constructed SCEBasis with the same structural
+        # recipe shares the same SALC fingerprint and is accepted.
+        # This guards the save → load round trip: the reloaded basis is
+        # not `===` the original but matches via the fingerprint.
         other_basis = SCEBasis(input; verbosity = false)
+        @test other_basis.salc_fingerprint == basis.salc_fingerprint
         other_dataset = SCEDataset(other_basis, configs)
-        @test_throws ArgumentError r2_energy(f, other_dataset)
-        @test_throws ArgumentError r2_energy(m, other_dataset)
-        @test_throws ArgumentError predict_energy(m, other_dataset)
-        @test_throws ArgumentError predict_torque(f, other_dataset)
+        @test r2_energy(f, other_dataset) ≈ r2_energy(f, dataset)
+        @test r2_energy(m, other_dataset) ≈ r2_energy(m, dataset)
+        @test predict_energy(m, other_dataset) ≈ predict_energy(m, dataset)
+        T_other = predict_torque(f, other_dataset)
+        T_ref = predict_torque(f, dataset)
+        @test length(T_other) == length(T_ref)
+        @test all(T_other[i] ≈ T_ref[i] for i in eachindex(T_ref))
     end
 end

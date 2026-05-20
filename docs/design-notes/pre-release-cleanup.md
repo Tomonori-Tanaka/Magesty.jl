@@ -100,13 +100,14 @@ Confirm paper title / authors / arXiv ID at implementation time.
   CLAUDE.md rule, matching the style of `r2_energy` / `rmse_torque` in
   the same file.
 
-### P5. Remove unimplemented test
+### P5. Moved to `docs/specs/260519-pre-release-safety/`
 
-- `test/integration/square_lattice/test.jl:85` — drop the
-  `# TODO: Add test for SCEModel` placeholder. Following the dimer /
-  chain / febcc_2x2x2_pm pattern, add an `SCEModel(fit)` build plus a
-  `predict_energy(model, dataset)` round trip. Do not convert to
-  `@test_skip`.
+The `square_lattice` `SCEModel(fit)` round-trip task — together with
+the batched `predict_*` overload coverage and the basis-identity
+check it motivated — was folded into M4 of the
+`260519-pre-release-safety` spec and shipped from there. This note
+keeps single ownership of broken examples, Documenter strictness,
+docstring normalization, `CITATION.cff`, and `Project.toml` tidy-up.
 
 ### P6. Optional: integrate `tools/test/` into CI
 

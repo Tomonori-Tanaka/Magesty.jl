@@ -64,10 +64,11 @@ SymmetryOptions
 # Downstream SCE pipeline
 
 SCEBasis
-├── structure::Structure    # Crystal structure (unit cell + supercell)
-├── symmetry::Symmetry      # Symmetry operations and translational symmetry
-├── salcbasis::SALCBasis    # SALC basis list
-└── isotropy::Bool          # Whether the basis was built with the isotropy restriction
+├── structure::Structure          # Crystal structure (unit cell + supercell)
+├── symmetry::Symmetry            # Symmetry operations and translational symmetry
+├── salcbasis::SALCBasis          # SALC basis list
+├── isotropy::Bool                # Whether the basis was built with the isotropy restriction
+└── salc_fingerprint::UInt64      # Structural hash of `salcbasis.salc_list`; recomputed on load, not persisted to XML
 
 SCEDataset
 ├── basis::SCEBasis

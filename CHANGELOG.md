@@ -87,6 +87,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   existing single-config / `SCEDataset` inputs. Both vector forms
   return `Vector{Float64}` / `Vector{Matrix{Float64}}` in input order,
   letting callers skip building an `SCEDataset` for ad-hoc batches.
+- `SpinConfig` inner constructor now validates that every column of
+  `spin_directions` has unit norm, enforcing the documented unit-vector
+  invariant that `Zₗₘ` semantics rely on. Tolerance is controlled by
+  the new keyword `atol_unit_norm::Float64` (default `1e-6`). Columns
+  containing `NaN` are rejected explicitly. Existing in-memory
+  fixtures that already supplied unit-norm directions are unaffected.
+- In-memory basis-identity check: `SCEBasis` gains a fifth field
+  `salc_fingerprint::UInt64` derived from the structural identifiers
+  of every SALC (`ls`, `Lf`, `Lseq`, `atoms`, `multiplicity`) in
+  key-group order. `_check_basis` now short-circuits on either `===`
+  identity or matching fingerprint, so a model reloaded from XML can
+  be applied to a dataset built before save without a spurious
+  `ArgumentError`. The XML schema is unchanged; the fingerprint is
+  recomputed from the reconstructed SALC ordering on every load.
+- `Magesty.save(f::SCEFit, path)` convenience that delegates to
+  `Magesty.save(SCEModel(f), path)`. The fit-time dataset and
+  estimator are not persisted -- saving an `SCEFit` and saving its
+  `SCEModel(f)` produce byte-identical files.
 
 ### Changed
 

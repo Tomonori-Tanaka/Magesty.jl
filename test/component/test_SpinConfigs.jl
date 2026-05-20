@@ -44,22 +44,49 @@ using LinearAlgebra
 	end
 
 	@testset "constructor input validation" begin
-		good_magmom = [1.0, 1.0]
+		good_magmom_magnitude = [1.0, 1.0]
 		good_field = zeros(3, 2)
 
 		# spin_directions must be 3 x num_atoms (row count == 3).
-		@test_throws ArgumentError SpinConfig(0.0, good_magmom, zeros(2, 2), good_field)
-		@test_throws ArgumentError SpinConfig(0.0, good_magmom, zeros(4, 2), good_field)
+		@test_throws ArgumentError SpinConfig(0.0, good_magmom_magnitude, zeros(2, 2), good_field)
+		@test_throws ArgumentError SpinConfig(0.0, good_magmom_magnitude, zeros(4, 2), good_field)
 
 		# local_magfield must be 3 x num_atoms.
-		@test_throws ArgumentError SpinConfig(0.0, good_magmom, zeros(3, 2), zeros(2, 2))
-		@test_throws ArgumentError SpinConfig(0.0, good_magmom, zeros(3, 2), zeros(4, 2))
+		@test_throws ArgumentError SpinConfig(0.0, good_magmom_magnitude, zeros(3, 2), zeros(2, 2))
+		@test_throws ArgumentError SpinConfig(0.0, good_magmom_magnitude, zeros(3, 2), zeros(4, 2))
 
 		# Column count must match length(magmom_size).
-		@test_throws ArgumentError SpinConfig(0.0, good_magmom, zeros(3, 3), good_field)
+		@test_throws ArgumentError SpinConfig(0.0, good_magmom_magnitude, zeros(3, 3), good_field)
 
 		# Negative magnetic moment sizes are rejected.
 		@test_throws ArgumentError SpinConfig(0.0, [1.0, -0.5], zeros(3, 2), good_field)
+	end
+
+	@testset "spin_directions unit-norm validation" begin
+		magmom_magnitude = [1.0, 1.0]
+		field = zeros(3, 2)
+
+		# A non-unit column (norm = 2.0) is rejected at the default tolerance.
+		non_unit_directions = hcat([1.0, 0.0, 0.0], [2.0, 0.0, 0.0])
+		@test_throws ArgumentError SpinConfig(0.0, magmom_magnitude, non_unit_directions, field)
+
+		# A NaN column (e.g. a zero-moment row normalized as moment / 0) is
+		# rejected explicitly rather than propagating NaN through predictions.
+		nan_directions = hcat([1.0, 0.0, 0.0], [NaN, NaN, NaN])
+		@test_throws ArgumentError SpinConfig(0.0, magmom_magnitude, nan_directions, field)
+
+		# A column within 5e-7 of unit norm is accepted under the default 1e-6 tol.
+		near_unit_offset = 5e-7
+		near_unit_directions = hcat([1.0 + near_unit_offset, 0.0, 0.0], [0.0, 1.0, 0.0])
+		@test SpinConfig(0.0, magmom_magnitude, near_unit_directions, field) isa SpinConfig
+
+		# A loose tolerance accepts norms that the default would reject.
+		loose_directions = hcat([1.3, 0.0, 0.0], [0.0, 1.0, 0.0])
+		@test_throws ArgumentError SpinConfig(0.0, magmom_magnitude, loose_directions, field)
+		@test SpinConfig(
+			0.0, magmom_magnitude, loose_directions, field;
+			atol_unit_norm = 0.5,
+		) isa SpinConfig
 	end
 
 end

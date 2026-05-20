@@ -76,6 +76,66 @@ struct SALCBasis
 end
 
 """
+	salc_fingerprint(b::SALCBasis) -> UInt64
+
+Compute a stable structural fingerprint of `b.salc_list`. Two `SALCBasis`
+values that share the same key-group ordering and the same per-SALC
+structural identifiers produce the same fingerprint, even after a round
+trip through `Magesty.save` / `Magesty.load`. Used by the basis-identity
+check between an `SCEModel` / `SCEFit` and an `SCEDataset`.
+
+# Recipe
+
+For each `coupled::CoupledBasis_with_coefficient` visited in the order
+`(outer key-group index, inner SALC index)`, the tuple
+
+	(coupled.ls, coupled.Lf, coupled.Lseq, coupled.atoms,
+	 coupled.multiplicity)
+
+is mixed into a running hash seeded with
+`hash(:Magesty_SALC_fingerprint_v1)`. The versioned seed lets a future
+recipe revision (`v2`, ...) coexist with values produced by the current
+implementation.
+
+# Fields included
+
+All structural identifiers are integer-valued and bit-identical across
+`save` / `load` (XML parses them via `parse.(Int, ...)`):
+
+- `ls::Vector{Int}` — per-site orbital angular momenta
+- `Lf::Int` — final coupled L
+- `Lseq::Vector{Int}` — intermediate L sequence
+- `atoms::Vector{Int}` — atom indices
+- `multiplicity::Int` — SALC multiplicity
+
+# Fields deliberately excluded
+
+The floating-point payload is **not** mixed in:
+
+- `coefficient::Vector{Float64}` — serialized to XML as decimal text;
+  reloaded values can differ by a few ULPs.
+- `coeff_tensor::Array{Float64,R}` — derived from upstream tensor
+  algebra; same round-off concern.
+
+Including either would make the fingerprint flip on every save/load
+cycle and defeat the purpose of disk-aware basis matching.
+
+# Returns
+- `UInt64` — usable as an O(1) basis-identity check.
+"""
+function salc_fingerprint(b::SALCBasis)::UInt64
+	h = hash(:Magesty_SALC_fingerprint_v1)
+	for group in b.salc_list, coupled in group
+		h = hash(
+			(coupled.ls, coupled.Lf, coupled.Lseq, coupled.atoms,
+			 coupled.multiplicity),
+			h,
+		)
+	end
+	return h
+end
+
+"""
 	_canonicalize_sign!(v::AbstractVector{<:Real}, tol::Real = 1e-8) -> v
 
 Apply a deterministic sign convention to `v` in place. Scans from index
