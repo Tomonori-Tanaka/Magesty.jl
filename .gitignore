@@ -1,5 +1,6 @@
 /Manifest.toml
 /bench/Manifest.toml
+/cli/Manifest.toml
 /coverage/Manifest.toml
 **/*.cov
 /coverage.lcov
