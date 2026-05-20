@@ -34,6 +34,29 @@ generates a launcher naming the module `@main` ran in — does not work, and
 the launcher would have to be hand-rolled. A separate package keeps
 Comonicon's standard install machinery intact.
 
+## Repository layout: same repo, separate subdirectory
+
+`MagestyCLI` lives in a **subdirectory of this repository** (e.g. `cli/`),
+not a separate repository:
+
+```
+Magesty.jl/
+├── Project.toml          # Magesty core — no Comonicon dependency
+├── src/
+└── cli/
+    ├── Project.toml      # MagestyCLI — deps: Magesty, Comonicon
+    └── src/MagestyCLI.jl
+```
+
+During development `MagestyCLI` reaches the core via `Pkg.develop(path="..")`.
+This keeps one git history, one CI, and one set of conventions, so a core
+API change and its CLI follow-up land in the same change. The General
+registry supports subdirectory packages (`subdir = "cli"`), so registering
+`MagestyCLI` independently later is still possible. A fully separate
+repository was rejected as disproportionate overhead at the current
+development scale: every cross-package API change would otherwise require
+coordinated commits and version bumps across two repositories.
+
 Scope sketch:
 
 - `Magesty` core loses `src/CLI.jl`, the `Comonicon` dependency, and

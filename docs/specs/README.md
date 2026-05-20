@@ -25,6 +25,7 @@ in the "Managing development units" section of
 | [260519-pre-release-safety](260519-pre-release-safety/) | complete (2026-05-20) | `SpinConfig` unit-norm validation, in-memory basis fingerprint, integration tests for `SCEModel(fit)` / batched `predict_*` / save-load round trip (M3 `torque_weight` persistence deferred) |
 | [260520-fitcheck-io-writers](260520-fitcheck-io-writers/) | complete (2026-05-20) | `write_energies` / `write_torques` text writers for the current API, feeding `FitCheck_*.py` visualization |
 | [260520-cli-foundation](260520-cli-foundation/) | complete (2026-05-21) | Comonicon-based `magesty` CLI foundation; VASP-to-extxyz promoted to API + `magesty vasp extxyz` subcommand |
+| [260521-cli-package-extraction](260521-cli-package-extraction/) | draft (2026-05-21) | Extract the Comonicon CLI into a `MagestyCLI` subdirectory package; de-Comonicon the core to restore JET coverage |
 
 This table and the `Status:` line in each `tasklist.md` are duplicated
 intentionally; update both when a spec lands. Reconcile in bulk when
