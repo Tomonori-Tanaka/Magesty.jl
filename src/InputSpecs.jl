@@ -316,8 +316,8 @@ Expand a per-species table that may contain a wildcard key (`"*"`) into
 a concrete `Vector{Int}` of length `nkd`. Concrete species keys override
 the wildcard for that species.
 
-Returns `zeros(Int, nkd)` if `entries` is empty (preserves the
-"body1 section omitted" default of the legacy parser).
+Returns `zeros(Int, nkd)` if `entries` is empty: an omitted table
+section leaves every species at the zero default.
 """
 function expand_species_table(
     kd_name::AbstractVector{<:AbstractString},

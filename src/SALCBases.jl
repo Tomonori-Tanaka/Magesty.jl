@@ -144,10 +144,11 @@ is negative. Entries with `abs(x) ≤ tol` — including `+0.0` and `-0.0`
 — are skipped, so the choice is robust to round-off noise and to the
 IEEE-754 negative-zero / positive-zero distinction.
 
-This replaces the older `sum(v) < 0` convention, which fails to
-disambiguate any vector with `sum(v) ≈ 0` (e.g., `(0, a, -a)` and
-`(0, -a, a)` both have `sum = 0` and were preserved as distinct,
-breaking cross-platform reproducibility).
+Pivoting on the first significant entry (rather than the sign of
+`sum(v)`) is what makes the convention deterministic: a `sum`-based
+rule cannot disambiguate vectors with `sum(v) ≈ 0` — e.g. `(0, a, -a)`
+and `(0, -a, a)` — and would keep them as distinct, breaking
+cross-platform reproducibility.
 """
 function _canonicalize_sign!(
 	v::AbstractVector{<:Real},
@@ -790,8 +791,8 @@ function projection_matrix_coupled_basis(
 	full_matrix_dim = nbasis * submatrix_dim
 
 	# Precompute Wigner D matrices Δl(Lf, …) once per symmetry op. base_rot_mat depends
-	# only on (Lf, symop), not on time_rev_sym or the basis indices, so the loop body
-	# was previously recomputing the same matrix 2*nbasis times per (n, time_rev_sym).
+	# only on (Lf, symop), not on time_rev_sym or the basis indices, so it is hoisted
+	# out of the per-basis / per-time-reversal inner loops.
 	base_rot_mats = Vector{Matrix{Float64}}(undef, length(symmetry.symdata))
 	for (n, symop) in enumerate(symmetry.symdata)
 		rotmat = symop.is_proper ? symop.rotation_cart : -1 * symop.rotation_cart
