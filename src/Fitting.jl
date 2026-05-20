@@ -26,9 +26,12 @@ export AbstractEstimator, OLS, Ridge, ElasticNet, Lasso, AdaptiveLasso, Precompu
 	_cluster_scaling(n_sites::Integer) -> Float64
 
 Return the SCE basis normalization factor `(4π)^(n_sites/2)` for an
-`n_sites`-body cluster contribution. The factor compensates the
-`1/√(4π)` carried by each per-site tesseral harmonic so that fitted
-coefficients `Jφ` are in the input energy unit (typically eV).
+`n_sites`-body cluster contribution. The factor cancels the
+`(4π)^(-n_sites/2)` carried by the per-site tesseral harmonics. Being
+dimensionless it does not change the unit of the fitted coefficients
+`Jφ` (always the input energy unit, typically eV); it fixes their
+normalization so their magnitudes map onto conventional spin-model
+parameters.
 
 See the Magesty.jl technical notes for the derivation. This helper is
 internal; callers in this module invoke it directly as

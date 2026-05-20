@@ -3,7 +3,7 @@ module AngularMomentumCoupling
 # AngularMomentumCoupling.jl
 # Build coupled angular momentum bases for arbitrary N bodies.
 # - Enumerate all left-coupling paths and final total L (Lf)
-# - Build coefficient tensors C^{(Lf,M)} by chaining Wigner 3j (complex basis)
+# - Build coefficient tensors C^{(Lf,M)} by chaining Clebsch-Gordan coefficients (complex basis)
 # - Convert to real (tesseral) basis for sites and the final multiplet
 #
 # Dependencies:

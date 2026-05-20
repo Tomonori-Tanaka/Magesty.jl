@@ -734,7 +734,7 @@ function ∂Zₗₘ_∂z(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::
 end
 
 """
-	∂ᵢZlm_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Vector{Float64}
+	∂ᵢZlm_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> SVector{3,Float64}
 
 Same as [`∂ᵢZlm`](@ref) without validating `l`, `m`, or `uvec`.
 """
