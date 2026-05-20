@@ -23,7 +23,7 @@ in the "Managing development units" section of
 | [260518-adaptive-lasso-oneshot](260518-adaptive-lasso-oneshot/) | complete (2026-05-19) | `AdaptiveLasso` oneshot estimator (Zou 2006 / ALAMODE recipe) via the existing GLMNet path |
 | [260519-adaptive-lasso-precomputed-pilot](260519-adaptive-lasso-precomputed-pilot/) | complete (2026-05-19) | `PrecomputedPilot` adapter + `AdaptiveLasso(::SCEFit; ...)` / `AdaptiveLasso(::SCEModel; ...)` to reuse a fitted model as the pilot |
 | [260519-pre-release-safety](260519-pre-release-safety/) | complete (2026-05-20) | `SpinConfig` unit-norm validation, in-memory basis fingerprint, integration tests for `SCEModel(fit)` / batched `predict_*` / save-load round trip (M3 `torque_weight` persistence deferred) |
-| [260520-fitcheck-io-writers](260520-fitcheck-io-writers/) | draft (2026-05-20) | `write_energies` / `write_torques` text writers for the current API, feeding `FitCheck_*.py` visualization |
+| [260520-fitcheck-io-writers](260520-fitcheck-io-writers/) | complete (2026-05-20) | `write_energies` / `write_torques` text writers for the current API, feeding `FitCheck_*.py` visualization |
 
 This table and the `Status:` line in each `tasklist.md` are duplicated
 intentionally; update both when a spec lands. Reconcile in bulk when

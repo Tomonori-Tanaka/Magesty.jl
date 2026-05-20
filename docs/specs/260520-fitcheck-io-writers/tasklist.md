@@ -1,6 +1,6 @@
 # Tasklist: `write_energies` / `write_torques` for the current API
 
-Status: draft (2026-05-20)
+Status: complete (2026-05-20)
 
 This file holds coarse-grained, commit-sized milestones. Day-to-day
 tracking goes through `TaskCreate` in-session.
@@ -32,7 +32,7 @@ tracking goes through `TaskCreate` in-session.
 Run through every item once implementation lands. ~~Strike through~~
 items that do not apply.
 
-- [x] `make test-unit` passes (`make test-all` to be run with integration).
+- [x] `make test-all` passes (component 21795/21795, integration 879/879).
 - [x] `make test-aqua` / `make test-jet` clean (no new warnings).
 - [x] If results changed: regression or validation test added.
       (No numerical results change; format regression test added.)
@@ -42,6 +42,11 @@ items that do not apply.
 - [ ] ~~If module names or Makefile targets changed:
       `.claude/agents/` swept and updated.~~ (No such change.)
 - [x] `CHANGELOG.md` `[Unreleased]` updated.
-- [ ] `Status:` line in this file and the table in
+- [x] `Status:` line in this file and the table in
       `docs/specs/README.md` updated in sync.
-- [ ] Implementation commit hash appended below.
+- [x] Implementation commit hash appended below.
+
+## Implementation commits
+
+- `7752d81` — feat(FitCheckIO): add write_energies / write_torques
+  plain-text writers.
