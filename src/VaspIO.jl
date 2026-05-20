@@ -1,9 +1,9 @@
 """
-    VaspParser
+    VaspIO
 
 Parse VASP output files (vasprun.xml and OSZICAR) into plain Julia structs.
 """
-module VaspParser
+module VaspIO
 
 using EzXML
 using Printf
@@ -365,4 +365,4 @@ function parse_oszicar_magdata(
     return OszicarMagData(magmom_smoothed, magmom_raw, constr_field)
 end
 
-end # module VaspParser
+end # module VaspIO

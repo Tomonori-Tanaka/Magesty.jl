@@ -40,9 +40,10 @@ deferred until CLI startup latency is shown to matter.
 | `src/Magesty.jl` | Insert `include` of `ExtXYZ.jl`, `VaspIO.jl` after `XMLIO.jl`; include `CLI.jl` last. Final order: `... → XMLIO.jl → ExtXYZ.jl → VaspIO.jl → FitCheckIO.jl → CLI.jl` (`FitCheckIO.jl` is the current last include). Export `vasp_to_extxyz`. |
 | `deps/build.jl` | New. Calls `Magesty.comonicon_install()` to install the `magesty` launcher into `~/.julia/bin`. |
 | `tools/ExtXYZ.jl`, `tools/vasp/VaspParser.jl` | Removed (logic now in `src/`). |
-| `tools/vasp/vasp2extxyz.jl` | Removed; replaced by the `magesty vasp extxyz` subcommand. |
-| `tools/vasp/vasp2extxyz_recursive.jl` | Updated: the two `include` lines + `using .ExtXYZWriter` / `using .VaspParser` become `using Magesty` + `Magesty.ExtXYZ` / `Magesty.VaspIO`. Its `using ArgParse` is **kept** — the script still needs `ArgParse` in its run environment until its own promotion spec. Stays a script; full promotion deferred. |
-| `test/component/test_ExtXYZ.jl`, `test/component/test_VaspIO.jl` | Moved from `tools/test/`, retargeted at `Magesty.ExtXYZ` / `Magesty.VaspIO` (the `using .ExtXYZWriter` / `using .VaspParser` lines updated for the renamed modules). `tools/test/fixtures/` reused (relocated or referenced). |
+| `tools/vasp/vasp2extxyz.jl` | M2: the two `include` lines + `using .ExtXYZWriter` / `using .VaspParser` become `using Magesty.ExtXYZ` / `Magesty.VaspIO`, keeping it runnable. M3: removed once its logic is lifted into `vasp_to_extxyz` and the `magesty vasp extxyz` subcommand. |
+| `tools/vasp/vasp2extxyz_recursive.jl` | Same M2 loading update as `vasp2extxyz.jl`. Its `using ArgParse` is **kept** — the script still needs `ArgParse` in its run environment until its own promotion spec. Stays a script; full promotion deferred. |
+| `Makefile`, `CLAUDE.md` | The `make test-tools` target (and its `ci-local` reference) is dropped — `tools/test/` no longer exists; the CLAUDE.md test-target table is updated to match. |
+| `test/component/test_ExtXYZ.jl`, `test/component/test_VaspIO.jl` | Moved from `tools/test/`, retargeted at `Magesty.ExtXYZ` / `Magesty.VaspIO`, and added to `test/runtests.jl`. `tools/test/fixtures/` is relocated to `test/component/fixtures/`. |
 | `docs/src/installation.md`, `tools.md`, `api.md`, `SPEC.md` | Updated (see Impact). |
 
 ## API

@@ -9,11 +9,8 @@ Usage (with magnetic data):
     julia vasp2extxyz.jl --vasprun vasprun.xml --oszicar OSZICAR --output out.xyz
 """
 
-include(joinpath(@__DIR__, "../ExtXYZ.jl"))
-include(joinpath(@__DIR__, "VaspParser.jl"))
-
-using .ExtXYZWriter
-using .VaspParser
+using Magesty.ExtXYZ
+using Magesty.VaspIO
 using ArgParse
 using Printf
 

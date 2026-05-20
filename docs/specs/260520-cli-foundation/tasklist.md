@@ -19,14 +19,22 @@ tracking goes through `TaskCreate` in-session.
 - [x] Load-time delta measured (~0.20 s upper bound); Comonicon kept as a
       plain `[deps]` entry (see design.md "Risks and open items").
 
-### M2 — Move conversion modules into `src/`
+### M2 — Move conversion modules into `src/` (done)
 
-- [ ] `tools/ExtXYZ.jl` -> `src/ExtXYZ.jl`; `tools/vasp/VaspParser.jl` ->
-      `src/VaspIO.jl`; `include` both in `src/Magesty.jl`.
-- [ ] Relocate `tools/test/test_ExtXYZ.jl` / `test_VaspParser.jl` to
-      `test/component/`, retargeted at the `src/` modules.
-- [ ] Update `tools/vasp/vasp2extxyz_recursive.jl` to `using Magesty`.
-- [ ] Remove `tools/ExtXYZ.jl` / `tools/vasp/VaspParser.jl`.
+- [x] `tools/ExtXYZ.jl` -> `src/ExtXYZ.jl` (module `ExtXYZWriter` ->
+      `ExtXYZ`); `tools/vasp/VaspParser.jl` -> `src/VaspIO.jl` (module
+      `VaspParser` -> `VaspIO`); both `include`d in `src/Magesty.jl`
+      after `XMLIO.jl`.
+- [x] Relocate `test_ExtXYZ.jl` / `test_VaspParser.jl` (-> `test_VaspIO.jl`)
+      and `fixtures/` to `test/component/`; retargeted at `Magesty.ExtXYZ`
+      / `Magesty.VaspIO`; added to `test/runtests.jl`.
+- [x] Update `tools/vasp/vasp2extxyz.jl` and `vasp2extxyz_recursive.jl` to
+      `using Magesty.ExtXYZ` / `Magesty.VaspIO` (both kept as scripts;
+      `vasp2extxyz.jl` is removed in M3, recursive deferred).
+- [x] Remove `tools/ExtXYZ.jl`, `tools/vasp/VaspParser.jl`, `tools/test/`;
+      drop the `make test-tools` target and its `ci-local` reference;
+      drop the CI `Tools` job; update the `test-tools` / `tools/test/`
+      references in `CLAUDE.md`, `CONTRIBUTING.md`, and `SPEC.md`.
 
 ### M3 — `vasp_to_extxyz` API and `vasp extxyz` subcommand
 
@@ -42,9 +50,14 @@ tracking goes through `TaskCreate` in-session.
 
 ### M4 — Documentation and cleanup
 
-- [ ] Rewrite the `installation.md` "CLI Tools" section.
-- [ ] Update `tools.md`, `api.md`, `SPEC.md`, `CHANGELOG.md`.
-- [ ] Sweep `.claude/agents/` for module / test-layout references.
+- [ ] Polish the `installation.md` "Command-Line Interface" section
+      (drafted in M1) once the `vasp extxyz` subcommand exists.
+- [ ] Update `tools.md` (drop the removed `vasp2extxyz.jl` entry),
+      `api.md`, `SPEC.md`, `CHANGELOG.md`.
+- [ ] Sweep `.claude/agents/` for module / test-layout references
+      (`test-runner.md` test-target table, `spec-reviewer.md` `tools/test`
+      mention) and the `tools/test` reference in the pre-release-cleanup
+      design note.
 
 ## Exit checklist
 

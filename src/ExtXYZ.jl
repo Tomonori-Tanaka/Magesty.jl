@@ -6,7 +6,7 @@ Separating this module from VASP-specific code allows future support for other c
 
 Reference: https://github.com/libAtoms/extxyz
 """
-module ExtXYZWriter
+module ExtXYZ
 
 using Printf
 
@@ -154,4 +154,4 @@ function _quote_if_needed(s::AbstractString)::String
     return occursin(r"\s", s) ? "\"$(s)\"" : String(s)
 end
 
-end # module ExtXYZWriter
+end # module ExtXYZ

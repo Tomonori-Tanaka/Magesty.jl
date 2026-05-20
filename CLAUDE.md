@@ -76,7 +76,6 @@ Always run tests via the Makefile after edits.
 | `make test-unit` | `test/component/` | Module-level unit tests |
 | `make test-integration` | `test/integration/` | End-to-end integration tests |
 | `make test-all` | both of the above | Default for routine checks |
-| `make test-tools` | `tools/test/` | Tests for `tools/` scripts |
 | `make test-jet` | — | JET.jl static type analysis |
 | `make test-aqua` | — | Aqua.jl package-quality checks |
 | `make test-coverage` | `src/` | Per-file coverage report (ascending). One-time `make coverage-setup` first |

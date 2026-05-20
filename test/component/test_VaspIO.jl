@@ -1,19 +1,16 @@
 """
-Integration tests for VaspParser, using fixture files under tools/test/fixtures/.
-
-Run from repo root:
-    julia tools/test/test_VaspParser.jl
+Integration tests for the `VaspIO` module, using fixture files under
+`test/component/fixtures/`.
 """
 
-include(joinpath(@__DIR__, "../vasp/VaspParser.jl"))
-using .VaspParser
+using Magesty.VaspIO
 using Test
 
 const FIXTURE_DIR = joinpath(@__DIR__, "fixtures")
 const FERH_DIR    = joinpath(FIXTURE_DIR, "FeRh")
 const IRMN3_DIR   = joinpath(FIXTURE_DIR, "IrMn3")
 
-# 1 kBar = 1/1602.1766208 eV/Å³  (same constant as VaspParser)
+# 1 kBar = 1/1602.1766208 eV/Å³  (same constant as VaspIO)
 const KBAR_TO_EV_A3 = 1.0 / 1602.1766208
 
 # ── parse_vasprun: FeRh ───────────────────────────────────────────────────────
@@ -179,4 +176,4 @@ end
     @test md.constr_field[1, 3] ≈  0.15883e-4 atol=1e-8
 end
 
-println("All VaspParser tests passed.")
+println("All VaspIO tests passed.")

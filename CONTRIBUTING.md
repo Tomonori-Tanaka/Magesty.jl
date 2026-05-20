@@ -31,7 +31,6 @@ and physical consistency take precedence over stylistic refactoring.
    make test-all      # unit + integration
    make test-aqua     # package hygiene
    make test-jet      # static type analysis
-   make test-tools    # tools/ scripts
    ```
    `make ci-local` runs the same matrix CI runs on Julia `release`.
 5. Update documentation as needed:

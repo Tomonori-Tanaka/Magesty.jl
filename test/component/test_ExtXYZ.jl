@@ -1,13 +1,9 @@
 """
-Unit tests for ExtXYZWriter.
-
-Tests are self-contained — no fixture files required.
-Run from repo root:
-    julia tools/test/test_ExtXYZ.jl
+Unit tests for the `ExtXYZ` module. Self-contained — no fixture files
+required.
 """
 
-include(joinpath(@__DIR__, "../ExtXYZ.jl"))
-using .ExtXYZWriter
+using Magesty.ExtXYZ
 using Test
 using LinearAlgebra
 
@@ -208,4 +204,4 @@ end
     end
 end
 
-println("All ExtXYZWriter tests passed.")
+println("All ExtXYZ tests passed.")

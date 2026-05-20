@@ -104,7 +104,6 @@ test/
   integration/     Integration tests (real computational examples)
 tools/             Scripts independent of the package source
   vasp/            VASP I/O conversion utilities
-  test/            Tests for tools (run via `make test-tools`)
   personal/        Personal scripts (not quality-assured)
 docs/              Documenter.jl documentation
 examples/          Usage examples (basic_flow / CIF input / save-load)

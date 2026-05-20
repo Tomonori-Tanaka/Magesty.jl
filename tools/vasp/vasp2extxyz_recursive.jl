@@ -16,11 +16,8 @@ Skipping / warning rules:
   - Parse error in either file → warn and skip that directory.
 """
 
-include(joinpath(@__DIR__, "../ExtXYZ.jl"))
-include(joinpath(@__DIR__, "VaspParser.jl"))
-
-using .ExtXYZWriter
-using .VaspParser
+using Magesty.ExtXYZ
+using Magesty.VaspIO
 using ArgParse
 using Printf
 

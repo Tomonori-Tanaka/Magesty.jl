@@ -7,9 +7,6 @@ test-unit:
 test-integration:
 	TEST_MODE=integration julia --project -e 'using Pkg; Pkg.test()'
 
-test-tools:
-	julia --project tools/test/runtests.jl
-
 test-jet:
 	TEST_MODE=jet julia --project -e 'using Pkg; Pkg.test()'
 
@@ -67,4 +64,3 @@ ci-local:
 	julia +release --project -e 'using Pkg; Pkg.test()'
 	$(MAKE) test-aqua
 	$(MAKE) test-jet
-	$(MAKE) test-tools

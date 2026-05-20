@@ -72,6 +72,11 @@ import .Fitting: AdaptiveLasso
 include("XMLIO.jl")
 using .XMLIO
 
+# VASP I/O and extxyz writer; reached as `Magesty.VaspIO` / `Magesty.ExtXYZ`
+# and used by the command-line interface.
+include("ExtXYZ.jl")
+include("VaspIO.jl")
+
 export SCEBasis, SCEDataset, SCEFit, SCEModel
 export AbstractEstimator, OLS, Ridge, ElasticNet, Lasso, AdaptiveLasso, PrecomputedPilot
 export predict_energy, predict_torque
