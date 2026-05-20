@@ -8,6 +8,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `write_energies` / `write_torques`: exported plain-text writers that dump
+  observed (DFT) versus predicted (SCE) energies and per-atom torques to
+  whitespace-separated files, consumed by the `FitCheck_energy.py` /
+  `FitCheck_torque.py` visualization scripts under `tools/`. Each writer has
+  a self-contained `write_*(f::SCEFit)` form (evaluates the fit's own
+  training dataset) and a general `write_*(predictor, data)` form where
+  `predictor` is `SCEModel` or `SCEFit` and `data` is an `SCEDataset`, a
+  `Vector{SpinConfig}`, or an EMBSET file path -- so a held-out validation
+  or test set can be checked too. The output format matches the legacy
+  writers; predictions go through `predict_energy` / `predict_torque`
+  unchanged (pure I/O, no numerical-convention impact).
 - `PrecomputedPilot <: AbstractEstimator` adapter that returns a fixed
   coefficient vector from `solve_coefficients` (after a length check
   against `size(X, 2)`), letting `AdaptiveLasso.pilot` reuse a prior

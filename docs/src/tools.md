@@ -144,6 +144,10 @@ julia tools/vasp/oszicar2magmom.jl OSZICAR --output magmom.txt
 
 Scatter plot comparing observed (DFT) and predicted (SCE) energies. Requires Python with `matplotlib` and `numpy`.
 
+The `energy_list.txt` input is produced by the exported `write_energies`
+function (see the [API Reference](@ref)); e.g. `write_energies(f)` for a
+fitted `SCEFit`.
+
 **Usage:**
 ```bash
 python3 tools/FitCheck_energy.py energy_list.txt -o energy.png
@@ -173,6 +177,10 @@ python3 tools/FitCheck_energy.py energy_list.txt -o energy.png -l 0.2
 
 ### tools/FitCheck_torque.py
 Scatter plot comparing observed (DFT) and predicted (SCE) torques. Supports component, magnitude, and direction comparisons, with filtering by atom indices or elements. Requires Python with `matplotlib` and `numpy`.
+
+The `torque_list.txt` input is produced by the exported `write_torques`
+function (see the [API Reference](@ref)); e.g. `write_torques(f)` for a
+fitted `SCEFit`.
 
 **Usage:**
 ```bash

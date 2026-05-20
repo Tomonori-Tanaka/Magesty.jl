@@ -49,6 +49,18 @@ residuals_energy
 residuals_torque
 ```
 
+## Fit-quality output
+
+`write_energies` and `write_torques` dump observed (DFT) versus predicted
+(SCE) values to whitespace-separated text files. The files are consumed by
+the `FitCheck_energy.py` / `FitCheck_torque.py` visualization scripts under
+`tools/`.
+
+```@docs
+write_energies
+write_torques
+```
+
 ## Persistence
 
 `save` and `load` are not exported — call them as `Magesty.save` /

@@ -40,6 +40,7 @@ if TEST_MODE in ("unit", "all")
 		include("./component/test_fit_basis_check.jl")
 		include("./component/test_energy_centered_design_matrix.jl")
 		include("./component/test_save_load.jl")
+		include("./component/test_fitcheck_io.jl")
 		include("./component/test_thread_safety.jl")
 	end
 end

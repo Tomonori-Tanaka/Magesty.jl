@@ -75,6 +75,7 @@ using .XMLIO
 export SCEBasis, SCEDataset, SCEFit, SCEModel
 export AbstractEstimator, OLS, Ridge, ElasticNet, Lasso, AdaptiveLasso, PrecomputedPilot
 export predict_energy, predict_torque
+export write_energies, write_torques
 export fit, coef, intercept, nobs, dof
 export r2_energy, r2_torque, rss_energy, rss_torque
 export residuals_energy, residuals_torque, rmse_energy, rmse_torque
@@ -1348,6 +1349,10 @@ function Base.show(io::IO, m::SCEModel)
 	_summarize_jphi(io, m.jphi)
 	print(io, ", j0=", m.j0, ")")
 end
+
+# Fit-quality text writers (consumed by tools/FitCheck_*.py); included
+# last as they depend on the predictor types and the predict_* verbs.
+include("FitCheckIO.jl")
 
 
 end # module Magesty

@@ -144,6 +144,15 @@ rmse_energy(f), rmse_torque(f)
 rss_energy(f), rss_torque(f)
 residuals_energy(f), residuals_torque(f)
 
+# Fit-quality output (text files for the tools/FitCheck_*.py scripts)
+write_energies(f::SCEFit, path = "energy_list.txt")  # f's own training data
+write_energies(model_or_fit, data, path)             # explicit path required
+write_torques(f::SCEFit, path = "torque_list.txt")
+write_torques(model_or_fit, data, path)
+#   data may be: SCEDataset, Vector{SpinConfig}, or an EMBSET file path.
+#   The 3-arg form requires an explicit path so a string `data` (EMBSET
+#   path) cannot be mistaken for the output path.
+
 # Persistence (XML) — not exported; call through the module to avoid
 # clashing with `save` / `load` from JLD2, FileIO, CSV.jl, etc.
 Magesty.save(basis_or_model, path) # path is .xml
