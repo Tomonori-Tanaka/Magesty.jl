@@ -66,70 +66,11 @@ Direct
 0
 Gamma
 3 3 3
-0 0 0</code></pre><p>Input toml file and julia script for Magesty.jl are follows:</p><pre><code class="language-doc-input-toml hljs">[general]
-name = &quot;bccFe&quot;
-nat = 16
-kd = [&quot;Fe&quot;]
-periodicity = [true, true, true]
-
-[symmetry]
-tolerance = 1.0e-5
-isotropy = true
-
-[interaction]
-nbody = 2
-
-[interaction.body1]
-lmax.Fe = 0
-
-[interaction.body2]
-cutoff.&quot;Fe-Fe&quot; = -1
-lsum = 2
-
-[regression]
-datafile = &quot;EMBSET&quot;
-weight = 1.0
-alpha = 0
-lambda = 0.0
-
-[structure]
-lattice = [
-  [5.6596, 0.0, 0.0],
-  [0.0, 5.6596, 0.0],
-  [0.0, 0.0, 5.6596],
-]
-
-[structure]
-lattice = [
-  [5.6596, 0.0, 0.0],
-  [0.0, 5.6596, 0.0],
-  [0.0, 0.0, 5.6596],
-]
-kd_list = [
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
-]
-position = [
-  [0.000000000000000, 0.000000000000000, 0.000000000000000],
-  [0.250000000000000, 0.250000000000000, 0.250000000000000],
-  [0.000000000000000, 0.000000000000000, 0.500000000000000],
-  [0.500000000000000, 0.000000000000000, 0.000000000000000],
-  [0.000000000000000, 0.500000000000000, 0.000000000000000],
-  [0.250000000000000, 0.250000000000000, 0.750000000000000],
-  [0.750000000000000, 0.250000000000000, 0.250000000000000],
-  [0.250000000000000, 0.750000000000000, 0.250000000000000],
-  [0.000000000000000, 0.500000000000000, 0.500000000000000],
-  [0.500000000000000, 0.000000000000000, 0.500000000000000],
-  [0.500000000000000, 0.500000000000000, 0.000000000000000],
-  [0.250000000000000, 0.750000000000000, 0.750000000000000],
-  [0.750000000000000, 0.250000000000000, 0.750000000000000],
-  [0.750000000000000, 0.750000000000000, 0.250000000000000],
-  [0.500000000000000, 0.500000000000000, 0.500000000000000],
-  [0.750000000000000, 0.750000000000000, 0.750000000000000],
-]</code></pre><pre><code class="language-doc-run jl hljs">using Magesty
+0 0 0</code></pre><p>The Julia script used with Magesty.jl is as follows. It reads the system definition from <code>input.toml</code>; see <a href="../../input_keys/">Input Keys</a> for the TOML format.</p><pre><code class="language-doc-run jl hljs">using Magesty
 using TOML
 
 input   = TOML.parsefile(&quot;input.toml&quot;)
 basis   = SCEBasis(input; verbosity = true)
 dataset = SCEDataset(basis, &quot;EMBSET&quot;)
 fitted  = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
-Magesty.save(SCEModel(fitted), &quot;jphi.xml&quot;)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../penalty_parameter_dependence/">« Penalty Term Dependence</a><a class="docs-footer-nextpage" href="../mfa_analysis/">Mean-Field Analysis: Finding the Ordering Wave Vector »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Wednesday 20 May 2026 02:07">Wednesday 20 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+Magesty.save(SCEModel(fitted), &quot;jphi.xml&quot;)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../penalty_parameter_dependence/">« Penalty Term Dependence</a><a class="docs-footer-nextpage" href="../mfa_analysis/">Mean-Field Analysis: Finding the Ordering Wave Vector »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Wednesday 20 May 2026 02:39">Wednesday 20 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
