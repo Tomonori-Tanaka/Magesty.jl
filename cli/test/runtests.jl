@@ -1,8 +1,9 @@
 """
-Regression tests for the `magesty vasp` CLI subcommands (`extxyz`, `toml`).
-The command output must be byte-identical to the golden fixtures, which
-live in the core package test tree (`test/component/fixtures/`) and are
-reused here by resolving a path relative to the repository root.
+Regression tests for the `magesty vasp` CLI subcommands (`extxyz`, `toml`,
+`embset`). The command output must be byte-identical to the golden
+fixtures, which live in the core package test tree
+(`test/component/fixtures/`) and are reused here by resolving a path
+relative to the repository root.
 """
 
 using MagestyCLI
@@ -39,6 +40,24 @@ end
 	try
 		exit_code = MagestyCLI.command_main(
 			["vasp", "toml", poscar_path, "--output", cli_outfile],
+		)
+		@test exit_code == 0
+		@test read(cli_outfile, String) == golden_text
+	finally
+		isfile(cli_outfile) && rm(cli_outfile)
+	end
+end
+
+@testset "magesty vasp embset" begin
+	dir         = joinpath(FIXTURE_DIR, "outcar")
+	outcar_path = joinpath(dir, "OUTCAR")
+	golden_text = read(joinpath(dir, "expected.embset"), String)
+
+	# CLI subcommand `magesty vasp embset`: exits 0 and writes the same bytes.
+	cli_outfile = tempname()
+	try
+		exit_code = MagestyCLI.command_main(
+			["vasp", "embset", outcar_path, "--output", cli_outfile],
 		)
 		@test exit_code == 0
 		@test read(cli_outfile, String) == golden_text

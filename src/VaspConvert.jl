@@ -289,3 +289,97 @@ function poscar_to_toml(
 	end
 	return text
 end
+
+# ── OUTCAR → EMBSET ─────────────────────────────────────────────────────────
+
+# Rotation built from the `saxis` quantization axis: `Rz(alpha) * Ry(beta)`,
+# where `(alpha, beta)` are the azimuthal and polar angles of `saxis`.
+function _saxis_rotation(saxis::AbstractVector{<:Real})::Matrix{Float64}
+	alpha = atan(saxis[2], saxis[1])
+	beta  = atan(sqrt(saxis[1]^2 + saxis[2]^2), saxis[3])
+	Rz = [cos(alpha) -sin(alpha) 0.0; sin(alpha) cos(alpha) 0.0; 0.0 0.0 1.0]
+	Ry = [cos(beta) 0.0 sin(beta); 0.0 1.0 0.0; -sin(beta) 0.0 cos(beta)]
+	return Rz * Ry
+end
+
+# Write one EMBSET configuration block: a comment line, the energy, and one
+# row per atom (magnetic moment x/y/z, then constraining field x/y/z).
+function _write_embset_config(
+	io::IO,
+	concated_data::Matrix{Float64},
+	energy::Float64,
+	idx::Int,
+	label::AbstractString,
+)
+	println(io,
+		"# $idx, $label, energy unit = eV, magmom unit = Bohr magneton, " *
+		"magnetic field unit = eV/Bohr magneton")
+	@printf(io, "%.5f\n", energy)
+	for (row_idx, row) in enumerate(eachrow(concated_data))
+		println(io,
+			lpad(row_idx, 7),
+			"  ",
+			join([lpad(@sprintf("%.7f", x), 12) for x in row[1:3]], " "),
+			"  ",
+			join([lpad(@sprintf("%.5e", x), 14) for x in row[4:6]], " "))
+	end
+	return nothing
+end
+
+"""
+	outcar_to_embset(outcars; saxis=[0.0, 0.0, 1.0], energy_kind="f", mint=false, output=nothing) -> String
+
+Convert one or more VASP OUTCAR files to the EMBSET training-data format
+and return the EMBSET text.
+
+Each OUTCAR contributes one configuration block: the final-step energy,
+the per-atom magnetic moments, and the per-atom constraining field. The
+magnetic moments and fields are rotated by the `saxis` quantization-axis
+rotation `Rz(alpha) * Ry(beta)`.
+
+# Arguments
+- `outcars::AbstractVector{<:AbstractString}`: paths to the OUTCAR files;
+  each becomes one configuration, numbered in the given order.
+
+# Keyword arguments
+- `saxis::AbstractVector{<:Real} = [0.0, 0.0, 1.0]`: quantization axis.
+- `energy_kind::AbstractString = "f"`: `"f"` for the free energy, `"e0"`
+  for energy(sigma->0).
+- `mint::Bool = false`: when `true`, read the magnetic moment from the
+  `M_int` columns; otherwise from `MW_int`.
+- `output::Union{AbstractString, Nothing} = nothing`: when given, the
+  EMBSET text is also written to this file.
+
+# Returns
+- `String`: the full EMBSET text.
+
+# Examples
+```julia
+text = outcar_to_embset(["run1/OUTCAR", "run2/OUTCAR"])
+outcar_to_embset(["OUTCAR"]; saxis = [1.0, 0.0, 0.0], output = "EMBSET")
+```
+"""
+function outcar_to_embset(
+	outcars::AbstractVector{<:AbstractString};
+	saxis::AbstractVector{<:Real} = [0.0, 0.0, 1.0],
+	energy_kind::AbstractString = "f",
+	mint::Bool = false,
+	output::Union{AbstractString, Nothing} = nothing,
+)::String
+	R = _saxis_rotation(saxis)
+
+	buf = IOBuffer()
+	for (idx, file) in enumerate(outcars)
+		od = VaspIO.parse_outcar(file; energy_kind = energy_kind, mint = mint)
+		magmom   = (R * od.magmom')'    # n_atoms × 3
+		magfield = (R * od.magfield')'  # n_atoms × 3
+		concated = hcat(magmom, magfield)
+		_write_embset_config(buf, concated, od.energy, idx, basename(file))
+	end
+	text = String(take!(buf))
+
+	if output !== nothing
+		write(output, text)
+	end
+	return text
+end

@@ -65,25 +65,31 @@ The generated configuration fills `[general]`, `[symmetry]`, `[interaction]`, `[
 
 ---
 
-### tools/extract.jl
-Extract energy, magnetic moments, and local magnetic field from VASP OUTCAR files and write in EMBSET format.
+### `magesty vasp embset`
+
+Extract the energy, magnetic moments, and local magnetic field from one or more VASP `OUTCAR` files and write them in the EMBSET training-data format. Install the `magesty` command as described in [Installation](installation.md).
 
 **Usage:**
 ```bash
-julia tools/extract.jl -f OUTCAR1 OUTCAR2 -e f -s 0 0 1
+# Print the EMBSET text to stdout
+magesty vasp embset OUTCAR1 OUTCAR2
+
+# Write it to a file, with a non-default quantization axis
+magesty vasp embset OUTCAR1 OUTCAR2 --saxis "1 0 0" --output EMBSET
 ```
 
 **Arguments:**
-- `--target_files`, `-f`: Target OUTCAR files (required, multiple files allowed)
-- `--energy_kind`, `-e`: Kind of energy: `f` (free energy) or `e0` (energy σ→0) (default: `"f"`)
-- `--mint`: Extract magnetic moment from `"M_int"` instead of `"MW_int"` (flag)
-- `--saxis`, `-s`: Quantization axis as three real numbers (default: `[0.0, 0.0, 1.0]`)
-- `--randomize`: Randomize the order of spin configurations (flag)
+- `outcars` (positional): Paths to one or more `OUTCAR` files; each becomes one configuration block, numbered in the given order
 
-**Example:**
-```bash
-julia tools/extract.jl -f OUTCAR1 OUTCAR2 -e f -s 1 0 0 --randomize
-```
+**Options:**
+- `--saxis`: Quantization axis as three numbers in one quoted argument (default: `"0.0 0.0 1.0"`)
+- `--energy-kind`: `f` (free energy) or `e0` (energy σ→0) (default: `f`)
+- `--output`, `-o`: Output filename (default: stdout)
+
+**Flags:**
+- `--mint`: Extract the magnetic moment from the `M_int` columns instead of `MW_int`
+
+The same conversion is available programmatically as the exported `outcar_to_embset` function.
 
 ---
 

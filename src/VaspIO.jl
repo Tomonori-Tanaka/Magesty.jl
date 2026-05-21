@@ -9,7 +9,8 @@ module VaspIO
 using EzXML
 using Printf
 
-export VaspRunData, OszicarMagData, PoscarData, parse_vasprun, parse_oszicar_magdata, parse_poscar
+export VaspRunData, OszicarMagData, PoscarData, OutcarData
+export parse_vasprun, parse_oszicar_magdata, parse_poscar, parse_outcar
 
 # 1 kBar = 0.1 GPa; 1 eV/Å³ ≈ 1602.18 GPa  →  1 kBar ≈ 6.2415e-4 eV/Å³
 const KBAR_TO_EV_A3 = 1.0 / 1602.1766208
@@ -522,6 +523,145 @@ function parse_poscar(filename::AbstractString)::PoscarData
 
         return PoscarData(comment, lattice_vectors, element_symbols, numbers, positions)
     end
+end
+
+# ── OUTCAR ──────────────────────────────────────────────────────────────────
+
+"""
+Data extracted from a VASP OUTCAR file.
+
+Fields
+- `energy`   : final-step energy (eV); free energy or energy(sigma->0)
+- `magmom`   : per-atom magnetic moment, `n_atoms × 3` (Bohr magneton)
+- `magfield` : per-atom constraining field lambda*MW_perp, `n_atoms × 3`
+               (eV / Bohr magneton)
+"""
+struct OutcarData
+    energy::Float64
+    magmom::Matrix{Float64}
+    magfield::Matrix{Float64}
+end
+
+# Extract the final-step energy and per-atom magnetic moments from an OUTCAR.
+# `energy_kind` is "f" (free energy) or "e0" (energy(sigma->0)). When `mint`
+# is true the moment is read from the M_int columns, otherwise from MW_int.
+function _extract_energy_magmom(
+    file::AbstractString,
+    energy_kind::AbstractString,
+    mint::Bool,
+)::Tuple{Float64, Matrix{Float64}}
+    magmom_listoflist = Vector{Vector{Float64}}()
+    magmom_temp_listoflist = Vector{Vector{Float64}}()
+
+    energy::Float64 = 0.0
+    energy_found = false
+    open(file, "r") do f
+        collecting = false
+        for line in eachline(f)
+            # Start of a magnetic-moment block
+            if occursin("M_int", line)
+                collecting = true
+                empty!(magmom_temp_listoflist)
+                continue
+            end
+
+            # End of a magnetic-moment block: a ":" keyword line (such as
+            # "DAV:" / "RMM:") or a line that is not 7 columns wide.
+            if collecting && (occursin(":", line)) || (length(split(line)) ≠ 7)
+                collecting = false
+                magmom_listoflist = deepcopy(magmom_temp_listoflist)
+            end
+
+            if collecting
+                parts = split(line)
+                if mint
+                    moment_x = parse(Float64, parts[5])
+                    moment_y = parse(Float64, parts[6])
+                    moment_z = parse(Float64, parts[7])
+                    push!(magmom_temp_listoflist, [moment_x, moment_y, moment_z])
+                else
+                    moment_x = parse(Float64, parts[2])
+                    moment_y = parse(Float64, parts[3])
+                    moment_z = parse(Float64, parts[4])
+                    push!(magmom_temp_listoflist, [moment_x, moment_y, moment_z])
+                end
+            end
+
+            # Energy line
+            if occursin("F=", line)
+                if energy_kind == "f"
+                    energy = parse(Float64, split(line)[3])
+                    energy_found = true
+                elseif energy_kind == "e0"
+                    energy = parse(Float64, split(line)[5])
+                    energy_found = true
+                end
+            end
+        end
+    end
+    if !energy_found
+        error("energy not found in $file")
+    end
+    if isempty(magmom_listoflist)
+        error("no magnetic-moment block (M_int) found in $file")
+    end
+    magmom_matrix::Matrix{Float64} = reduce(vcat, magmom_listoflist')
+    return energy, magmom_matrix
+end
+
+# Extract the per-atom constraining magnetic field (lambda*MW_perp) from an
+# OUTCAR. `num_atoms` rows are read from the first such block found.
+function _extract_magfield(file::AbstractString, num_atoms::Int)::Matrix{Float64}
+    magfield_matrix = zeros(Float64, num_atoms, 3)
+    open(file, "r") do f
+        collecting = false
+        atom_count = 0
+        for line in eachline(f)
+            if occursin("lambda*MW_perp", line)
+                collecting = true
+                continue
+            end
+            if collecting
+                parts = split(line)
+                atom_idx = parse(Int, parts[1])
+                magfield_x = parse(Float64, parts[2])
+                magfield_y = parse(Float64, parts[3])
+                magfield_z = parse(Float64, parts[4])
+                magfield_matrix[atom_idx, :] = [magfield_x, magfield_y, magfield_z]
+                atom_count += 1
+            end
+            if atom_count == num_atoms
+                break
+            end
+        end
+    end
+    return magfield_matrix
+end
+
+"""
+    parse_outcar(file; energy_kind="f", mint=false) -> OutcarData
+
+Read a VASP OUTCAR file and return its final-step energy, per-atom magnetic
+moments, and per-atom constraining magnetic field.
+
+# Arguments
+- `file::AbstractString`: path to an OUTCAR file.
+
+# Keyword arguments
+- `energy_kind::AbstractString = "f"`: `"f"` for the free energy, `"e0"`
+  for energy(sigma->0).
+- `mint::Bool = false`: when `true`, read the magnetic moment from the
+  `M_int` columns; otherwise from `MW_int` (the usual choice).
+"""
+function parse_outcar(
+    file::AbstractString;
+    energy_kind::AbstractString = "f",
+    mint::Bool = false,
+)::OutcarData
+    energy, magmom = _extract_energy_magmom(file, energy_kind, mint)
+    num_atoms = size(magmom, 1)
+    magfield = _extract_magfield(file, num_atoms)
+    return OutcarData(energy, magmom, magfield)
 end
 
 end # module VaspIO
