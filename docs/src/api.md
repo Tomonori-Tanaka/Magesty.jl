@@ -64,11 +64,14 @@ write_torques
 ## VASP conversion
 
 `vasp_to_extxyz` converts a VASP run (`vasprun.xml`, optionally `OSZICAR`)
-to extended XYZ. The same conversion is available from the command line as
-`magesty vasp extxyz` (see [Installation](@ref) and [Tools](@ref)).
+to extended XYZ; `poscar_to_toml` converts a VASP POSCAR structure file to
+a Magesty input TOML configuration. Both are available from the command
+line as `magesty vasp extxyz` / `magesty vasp toml` (see
+[Installation](@ref) and [Tools](@ref)).
 
 ```@docs
 vasp_to_extxyz
+poscar_to_toml
 ```
 
 ## Persistence

@@ -4,7 +4,7 @@ This page describes the utility tools available in the `tools/` directory of Mag
 
 ## ExtXYZ Tools
 
-These convert VASP output to the [extended XYZ (extxyz)](https://github.com/libAtoms/extxyz) format, the standard training-data format for machine-learning interatomic potentials. Single-directory conversion is part of the `magesty` command-line tool; batch conversion over a directory tree uses the `tools/vasp/vasp2extxyz_recursive.jl` script.
+These convert VASP output to the [extended XYZ (extxyz)](https://github.com/libAtoms/extxyz) format, the standard training-data format for machine-learning interatomic potentials. Single-directory conversion is part of the `magesty` command-line tool.
 
 ### `magesty vasp extxyz`
 
@@ -40,65 +40,28 @@ The same conversion is available programmatically as the exported `vasp_to_extxy
 
 **Global header keys:** `energy_free` (eV), `energy_zero` (eV), `stress` (eV/Å³, Voigt notation), `comment` (VASP version, ENCUT, KPOINTS, ICONST, LAMBDA).
 
----
-
-### tools/vasp/vasp2extxyz_recursive.jl
-
-Recursively walk a directory tree and convert every subdirectory that contains `vasprun.xml` to extxyz. Useful for batch-processing large training datasets.
-
-**Usage:**
-```bash
-# Write <dirname>.extxyz in each subdirectory
-julia tools/vasp/vasp2extxyz_recursive.jl --root ./calculations
-
-# Collect all frames into a single file
-julia tools/vasp/vasp2extxyz_recursive.jl --root ./calculations --mode combined --output dataset.extxyz
-
-# Both individual files and a combined file
-julia tools/vasp/vasp2extxyz_recursive.jl --root ./calculations --mode both
-```
-
-**Arguments:**
-- `--root`, `-r`: Root directory to search (default: `.`)
-- `--vasprun`, `-v`: `vasprun.xml` filename to look for (default: `vasprun.xml`)
-- `--oszicar`, `-s`: `OSZICAR` filename to look for (default: `OSZICAR`)
-- `--mode`, `-m`: Output mode — `each`, `combined`, or `both` (default: `each`)
-- `--output`, `-o`: Output filename for `combined` mode (default: `combined.extxyz`)
-
-**Output modes:**
-
-| Mode | Behavior |
-|------|----------|
-| `each` | Write `<dirname>.extxyz` inside each successfully processed directory |
-| `combined` | Append all frames to a single file (set with `--output`) |
-| `both` | Do both of the above |
-
-**Skip / warning rules:**
-- Neither `vasprun.xml` nor `OSZICAR` found → silently skip
-- `vasprun.xml` missing but `OSZICAR` present → warn and skip
-- `OSZICAR` missing but `vasprun.xml` present → note and proceed (magnetic data omitted)
-- Parse error → warn and skip that directory
-
 ## Data Processing Tools
 
-### tools/vasp/pos2toml.jl
+### `magesty vasp toml`
 
-Convert a VASP structure file (POSCAR) to a Magesty.jl TOML configuration file.
+Convert a VASP POSCAR structure file to a Magesty input TOML configuration. Install the `magesty` command as described in [Installation](installation.md).
 
 **Usage:**
 ```bash
-julia tools/vasp/pos2toml.jl POSCAR
-julia tools/vasp/pos2toml.jl POSCAR --output structure.toml
+# Print the TOML configuration to stdout
+magesty vasp toml POSCAR
+
+# Write it to a file
+magesty vasp toml POSCAR --output input.toml
 ```
 
 **Arguments:**
-- `input` (positional): Input VASP structure file (e.g., POSCAR) (required)
-- `--output`, `-o`: Output TOML file (default: `"input.toml"`)
+- `poscar` (positional): Path to a POSCAR structure file (required)
+- `--output`, `-o`: Output filename (appends `.toml` automatically if omitted; default: stdout)
 
-**Features:**
-- Parses VASP POSCAR format (direct and Cartesian coordinates)
-- Converts to Magesty.jl TOML format
-- Handles scaling factors and element symbols
+The same conversion is available programmatically as the exported `poscar_to_toml` function.
+
+The generated configuration fills `[general]`, `[symmetry]`, `[interaction]`, `[regression]`, and `[structure]` from the POSCAR. POSCAR direct and Cartesian coordinates are both accepted (Cartesian is converted to direct). The interaction settings are placeholders (`lmax = 0`, `cutoff = -1`) and should be edited before use.
 
 ---
 

@@ -104,3 +104,188 @@ function vasp_to_extxyz(
 	end
 	return text
 end
+
+# ── POSCAR → Magesty input TOML ─────────────────────────────────────────────
+
+# Write a Magesty input TOML configuration built from parsed POSCAR data.
+# Ordered dictionaries keep section keys in a deterministic write order.
+function _write_input_toml(io::IO, data::VaspIO.PoscarData)
+	# [general]
+	general = DataStructures.OrderedDict{String, Any}()
+	general["name"]        = data.comment
+	general["nat"]         = sum(data.numbers)
+	general["kd"]          = data.element_symbols
+	general["periodicity"] = [true, true, true]
+
+	# [symmetry]
+	symmetry = DataStructures.OrderedDict{String, Any}()
+	symmetry["tolerance"] = 1e-5
+	symmetry["isotropy"]  = true
+
+	# [interaction.body1] lmax: one entry per element symbol
+	lmax = DataStructures.OrderedDict{String, Any}()
+	for element in data.element_symbols
+		lmax[element] = 0
+	end
+
+	# [interaction.body2] cutoff: one entry per element pair
+	cutoff = DataStructures.OrderedDict{String, Any}()
+	for i = 1:length(data.element_symbols)
+		for j = i:length(data.element_symbols)
+			pair = join(sort([data.element_symbols[i], data.element_symbols[j]]), "-")
+			cutoff[pair] = -1
+		end
+	end
+
+	# [regression]
+	regression = DataStructures.OrderedDict{String, Any}()
+	regression["datafile"] = "EMBSET"
+	regression["weight"]   = 1.0
+	regression["alpha"]    = 0
+	regression["lambda"]   = 0.0
+
+	# [structure] kd_list / position: expand species counts to per-atom rows
+	kd_list = Int[]
+	positions = Vector{Vector{Float64}}()
+	atom_index = 1
+	for (i, count) in enumerate(data.numbers)
+		for _ = 1:count
+			push!(kd_list, i)
+			push!(positions, data.positions[atom_index])
+			atom_index += 1
+		end
+	end
+
+	# [general]
+	write(io, "[general]\n")
+	for (key, value) in general
+		if key == "kd"
+			quoted = join(["\"$(v)\"" for v in value], ", ")
+			write(io, "kd = [$quoted]\n")
+		elseif key == "periodicity"
+			joined = join(string.(value), ", ")
+			write(io, "periodicity = [$joined]\n")
+		elseif key == "name"
+			write(io, "name = \"$value\"\n")
+		else
+			write(io, "$key = $value\n")
+		end
+	end
+	write(io, "\n")
+
+	# [symmetry]
+	write(io, "[symmetry]\n")
+	for (key, value) in symmetry
+		write(io, "$key = $value\n")
+	end
+	write(io, "\n")
+
+	# [interaction]
+	write(io, "[interaction]\n")
+	write(io, "nbody = 2\n\n")
+
+	# [interaction.body1]
+	write(io, "[interaction.body1]\n")
+	for (element, value) in lmax
+		write(io, "lmax.$element = $value\n")
+	end
+	write(io, "\n")
+
+	# [interaction.body2]
+	write(io, "[interaction.body2]\n")
+	for (pair, value) in cutoff
+		write(io, "cutoff.\"$pair\" = $value\n")
+	end
+	write(io, "lsum = 2\n\n")
+
+	# [regression]
+	write(io, "[regression]\n")
+	for (key, value) in regression
+		if key == "datafile"
+			write(io, "$key = \"$value\"\n")
+		else
+			write(io, "$key = $value\n")
+		end
+	end
+	write(io, "\n")
+
+	# [structure]
+	write(io, "[structure]\n")
+	write(io, "lattice = [\n")
+	for vec in data.lattice_vectors
+		write(io, "  [$(join(vec, ", "))],\n")
+	end
+	write(io, "]\n")
+
+	# kd_list: group consecutive equal values, at most 20 per line
+	write(io, "kd_list = [\n")
+	current_line = Int[]
+	current_value = kd_list[1]
+	for value in kd_list
+		if value != current_value || length(current_line) >= 20
+			if !isempty(current_line)
+				write(io, "  $(join(current_line, ", ")),\n")
+			end
+			current_line = Int[]
+			current_value = value
+		end
+		push!(current_line, value)
+	end
+	if !isempty(current_line)
+		write(io, "  $(join(current_line, ", ")),\n")
+	end
+	write(io, "]\n")
+
+	write(io, "position = [\n")
+	for pos in positions
+		formatted_pos = map(x -> @sprintf("%.15f", x), pos)
+		write(io, "  [$(join(formatted_pos, ", "))],\n")
+	end
+	write(io, "]\n")
+	return nothing
+end
+
+"""
+	poscar_to_toml(poscar; output=nothing) -> String
+
+Convert a VASP POSCAR structure file to a Magesty input TOML configuration
+and return the TOML text.
+
+The generated configuration is a starting point for an SCE input file: it
+fills `[general]`, `[symmetry]`, `[interaction]`, `[regression]`, and
+`[structure]` from the POSCAR, with placeholder interaction settings
+(`lmax = 0`, `cutoff = -1`) meant to be edited before use.
+
+# Arguments
+- `poscar::AbstractString`: path to a POSCAR structure file.
+
+# Keyword arguments
+- `output::Union{AbstractString, Nothing} = nothing`: when given, the TOML
+  text is also written to this file (`.toml` is appended if the name does
+  not already end with it).
+
+# Returns
+- `String`: the full TOML text.
+
+# Examples
+```julia
+text = poscar_to_toml("POSCAR")
+poscar_to_toml("POSCAR"; output = "input.toml")
+```
+"""
+function poscar_to_toml(
+	poscar::AbstractString;
+	output::Union{AbstractString, Nothing} = nothing,
+)::String
+	data = VaspIO.parse_poscar(poscar)
+
+	buf = IOBuffer()
+	_write_input_toml(buf, data)
+	text = String(take!(buf))
+
+	if output !== nothing
+		outfile = endswith(output, ".toml") ? output : output * ".toml"
+		write(outfile, text)
+	end
+	return text
+end

@@ -1,14 +1,15 @@
 """
     VaspIO
 
-Parse VASP output files (vasprun.xml and OSZICAR) into plain Julia structs.
+Parse VASP files (vasprun.xml, OSZICAR, and POSCAR) into plain Julia
+structs.
 """
 module VaspIO
 
 using EzXML
 using Printf
 
-export VaspRunData, OszicarMagData, parse_vasprun, parse_oszicar_magdata
+export VaspRunData, OszicarMagData, PoscarData, parse_vasprun, parse_oszicar_magdata, parse_poscar
 
 # 1 kBar = 0.1 GPa; 1 eV/Å³ ≈ 1602.18 GPa  →  1 kBar ≈ 6.2415e-4 eV/Å³
 const KBAR_TO_EV_A3 = 1.0 / 1602.1766208
@@ -370,6 +371,157 @@ function parse_oszicar_magdata(
     end
 
     return OszicarMagData(magmom_smoothed, magmom_raw, constr_field)
+end
+
+# ── POSCAR ──────────────────────────────────────────────────────────────────
+
+"""
+Structure data parsed from a VASP POSCAR file.
+
+Fields
+- `comment`         : first-line comment
+- `lattice_vectors` : the three lattice vectors (each a 3-element vector,
+                      Å), already multiplied by the POSCAR scaling factor
+- `element_symbols` : element symbol per species (`"X"` when the POSCAR
+                      omits the symbol line)
+- `numbers`         : atom count per species
+- `positions`       : fractional (direct) coordinates, one 3-element vector
+                      per atom; Cartesian input is converted to direct
+"""
+struct PoscarData
+    comment::String
+    lattice_vectors::Vector{Vector{Float64}}
+    element_symbols::Vector{String}
+    numbers::Vector{Int}
+    positions::Vector{Vector{Float64}}
+end
+
+# Convert Cartesian atomic positions to direct (fractional) coordinates.
+function _cart_to_direct(
+    lattice_vectors::Vector{Vector{Float64}},
+    positions::Vector{Vector{Float64}},
+)::Vector{Vector{Float64}}
+    lattice_matrix  = hcat(lattice_vectors...)   # (3, 3)
+    position_matrix = hcat(positions...)         # (3, n_atoms)
+    direct_positions = lattice_matrix \ position_matrix
+    return [col for col in eachcol(direct_positions)]
+end
+
+"""
+    parse_poscar(filename) -> PoscarData
+
+Read a VASP POSCAR structure file. The expected layout is the common
+POSCAR format:
+  - Line 1: comment
+  - Line 2: scaling factor
+  - Lines 3-5: lattice vectors
+  - Line 6: element symbols, or the atom count per species
+  - Line 7: atom count per species (when line 6 holds element symbols)
+  - Next line: coordinate mode (`Direct` or `Cartesian`)
+  - Following lines: atomic positions (first three tokens are x, y, z)
+
+Cartesian positions are converted to direct (fractional) coordinates.
+Throws `ErrorException` when the file is missing or the format is invalid.
+"""
+function parse_poscar(filename::AbstractString)::PoscarData
+    if !isfile(filename)
+        throw(ErrorException("File not found: $filename"))
+    end
+
+    open(filename, "r") do io
+        lines = readlines(io)
+
+        if length(lines) < 9
+            throw(ErrorException("POSCAR file is too short to be valid"))
+        end
+
+        comment = strip(lines[1])
+        scaling = try
+            parse(Float64, strip(lines[2]))
+        catch
+            throw(ErrorException("Invalid scaling factor in line 2: $(lines[2])"))
+        end
+
+        lattice_vectors = Vector{Vector{Float64}}(undef, 3)
+        for i = 1:3
+            try
+                lv_tokens = split(strip(lines[i+2]))
+                lattice_vectors[i] = parse.(Float64, lv_tokens)
+                if length(lattice_vectors[i]) != 3
+                    throw(ErrorException(
+                        "Invalid lattice vector in line $(i+2): $(lines[i+2])"))
+                end
+            catch
+                throw(ErrorException(
+                    "Error parsing lattice vector in line $(i+2): $(lines[i+2])"))
+            end
+        end
+        lattice_vectors = scaling .* lattice_vectors
+
+        element_symbols = String[]
+        numbers = Int[]
+        coord_line_index = 0
+        tokens = split(strip(lines[6]))
+
+        try
+            # Try parsing line 6 as integers (atom count per species)
+            parsed_ints = [parse(Int, token) for token in tokens]
+            if all(x -> x > 0, parsed_ints)
+                # Line 6 holds atom counts; element symbols are not provided
+                numbers = parsed_ints
+                element_symbols = fill("X", length(numbers))
+                coord_line_index = 7
+            else
+                throw(ErrorException("Invalid atom count in line 6: $(lines[6])"))
+            end
+        catch
+            # Line 6 holds element symbols; line 7 must hold the atom counts
+            element_symbols = tokens
+            try
+                numbers = [parse(Int, token) for token in split(strip(lines[7]))]
+                if !all(x -> x > 0, numbers)
+                    throw(ErrorException("Invalid atom count in line 7: $(lines[7])"))
+                end
+                coord_line_index = 8
+            catch
+                throw(ErrorException("Error parsing atom count in line 7: $(lines[7])"))
+            end
+        end
+
+        coordinate_mode = lowercase(strip(lines[coord_line_index]))
+        header_character = coordinate_mode[1]
+        if header_character ∉ ['d', 'c']
+            throw(ErrorException("Invalid coordinate mode: $header_character"))
+        end
+
+        n_atoms = sum(numbers)
+        start_pos = coord_line_index + 1
+        positions = Vector{Vector{Float64}}(undef, n_atoms)
+        for i = 1:n_atoms
+            line_idx = start_pos + i - 1
+            if line_idx > length(lines)
+                throw(ErrorException("Unexpected end of file in atomic positions"))
+            end
+            try
+                tokens = split(strip(lines[line_idx]))
+                if length(tokens) < 3
+                    throw(ErrorException("Invalid position format in line $line_idx"))
+                end
+                positions[i] = [parse(Float64, token) for token in tokens[1:3]]
+            catch
+                throw(ErrorException(
+                    "Error parsing position in line $line_idx: $(lines[line_idx])"))
+            end
+        end
+
+        # VASP applies the scaling factor to Cartesian coordinates as well, so
+        # scale the raw positions before converting them to direct coordinates.
+        if header_character == 'c'
+            positions = _cart_to_direct(lattice_vectors, scaling .* positions)
+        end
+
+        return PoscarData(comment, lattice_vectors, element_symbols, numbers, positions)
+    end
 end
 
 end # module VaspIO

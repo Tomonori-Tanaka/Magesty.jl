@@ -31,6 +31,7 @@ module Magesty
 using Printf
 using TOML
 import AtomsBase
+import DataStructures
 import StatsAPI                          # for the StatsAPI.RegressionModel supertype
 import StatsAPI: fit, coef, nobs, dof    # extended with SCEFit / SCEModel methods
 
@@ -85,7 +86,7 @@ export fit, coef, intercept, nobs, dof
 export r2_energy, r2_torque, rss_energy, rss_torque
 export residuals_energy, residuals_torque, rmse_energy, rmse_torque
 export SpinConfig, read_embset
-export vasp_to_extxyz
+export vasp_to_extxyz, poscar_to_toml
 
 # Shared skeleton for the SCEBasis input-driven constructors.
 # Returns the (structure, symmetry, cluster) triplet; callers append the

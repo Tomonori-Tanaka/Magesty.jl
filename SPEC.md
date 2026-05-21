@@ -35,8 +35,8 @@ in `src/Magesty.jl` reflects the dependency order.
 | `AtomCells.jl` | Lightweight type holding atom sites plus unit-cell info |
 | `SortedCounters.jl` | Internal counter that iterates by sorted key |
 | `ExtXYZ.jl` | Writer for the extended XYZ (extxyz) format |
-| `VaspIO.jl` | Parser for VASP output (`vasprun.xml`, `OSZICAR`) |
-| `VaspConvert.jl` | VASP-to-extxyz conversion API (`vasp_to_extxyz`) |
+| `VaspIO.jl` | Parser for VASP files (`vasprun.xml`, `OSZICAR`, `POSCAR`) |
+| `VaspConvert.jl` | VASP conversion APIs (`vasp_to_extxyz`, `poscar_to_toml`) |
 
 ## Main types (current API)
 
@@ -171,8 +171,9 @@ AdaptiveLasso(model::SCEModel; kwargs...) # reuse an existing model as pilot
 read_embset(path)                  # EMBSET -> Vector{SpinConfig}
 SpinConfig(energy, magmom_size, spin_directions, local_magfield)
 
-# VASP conversion (also the `magesty vasp extxyz` command-line subcommand)
+# VASP conversion (also the `magesty vasp` command-line subcommands)
 vasp_to_extxyz(vasprun; oszicar, output) -> String
+poscar_to_toml(poscar; output) -> String
 ```
 
 ## Primary external libraries

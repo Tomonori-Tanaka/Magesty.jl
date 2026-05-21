@@ -1,0 +1,45 @@
+[general]
+name = "FePt test structure"
+nat = 4
+kd = ["Fe", "Pt"]
+periodicity = [true, true, true]
+
+[symmetry]
+tolerance = 1.0e-5
+isotropy = true
+
+[interaction]
+nbody = 2
+
+[interaction.body1]
+lmax.Fe = 0
+lmax.Pt = 0
+
+[interaction.body2]
+cutoff."Fe-Fe" = -1
+cutoff."Fe-Pt" = -1
+cutoff."Pt-Pt" = -1
+lsum = 2
+
+[regression]
+datafile = "EMBSET"
+weight = 1.0
+alpha = 0
+lambda = 0.0
+
+[structure]
+lattice = [
+  [3.86, 0.0, 0.0],
+  [0.0, 3.86, 0.0],
+  [0.0, 0.0, 3.71],
+]
+kd_list = [
+  1, 1,
+  2, 2,
+]
+position = [
+  [0.000000000000000, 0.000000000000000, 0.000000000000000],
+  [0.500000000000000, 0.500000000000000, 0.000000000000000],
+  [0.500000000000000, 0.000000000000000, 0.500000000000000],
+  [0.000000000000000, 0.500000000000000, 0.500000000000000],
+]

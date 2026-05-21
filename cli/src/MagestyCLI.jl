@@ -26,7 +26,7 @@ VASP input/output conversion commands.
 Comonicon.@cast module Vasp
 
 import Comonicon
-import Magesty: vasp_to_extxyz
+import Magesty: vasp_to_extxyz, poscar_to_toml
 
 """
 Convert a VASP run to extended XYZ (extxyz) format.
@@ -50,6 +50,29 @@ Comonicon.@cast function extxyz(vasprun::String; oszicar::String = "", output::S
 	osz = isempty(oszicar) ? nothing : oszicar
 	out = isempty(output) ? nothing : output
 	text = vasp_to_extxyz(vasprun; oszicar = osz, output = out)
+	out === nothing && print(text)
+	return nothing
+end
+
+"""
+Convert a VASP POSCAR structure file to a Magesty input TOML configuration.
+
+The generated configuration is a starting point for an SCE input file;
+the placeholder interaction settings (`lmax = 0`, `cutoff = -1`) are meant
+to be edited before use.
+
+# Args
+
+- `poscar`: path to a POSCAR structure file.
+
+# Options
+
+- `-o, --output=<path>`: output file (`.toml` is appended if missing).
+  Without it, the TOML text is printed to stdout.
+"""
+Comonicon.@cast function toml(poscar::String; output::String = "")
+	out = isempty(output) ? nothing : output
+	text = poscar_to_toml(poscar; output = out)
 	out === nothing && print(text)
 	return nothing
 end

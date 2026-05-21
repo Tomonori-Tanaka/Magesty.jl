@@ -14,13 +14,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   launcher into `~/.julia/bin`. Keeping the CLI in its own package leaves
   the core `Magesty` package free of the Comonicon dependency, so static
   analysis (JET) covers the whole core again. Subcommands:
-  `magesty vasp extxyz` (convert a VASP run to extended XYZ) and
-  `magesty version`.
+  `magesty vasp extxyz` (convert a VASP run to extended XYZ),
+  `magesty vasp toml` (convert a VASP POSCAR to a Magesty input TOML
+  configuration), and `magesty version`.
 - `vasp_to_extxyz`: exported function that converts a VASP run
   (`vasprun.xml`, optionally `OSZICAR`) to extended XYZ and returns the
   extxyz text; the `magesty vasp extxyz` subcommand is a thin wrapper over
   it. The VASP parsing and extxyz writing previously living under `tools/`
   are now package submodules (`VaspIO`, `ExtXYZ`).
+- `poscar_to_toml`: exported function that converts a VASP POSCAR
+  structure file to a Magesty input TOML configuration and returns the
+  TOML text; the `magesty vasp toml` subcommand is a thin wrapper over it.
+  The generated configuration is a starting point with placeholder
+  interaction settings (`lmax = 0`, `cutoff = -1`).
 - `write_energies` / `write_torques`: exported plain-text writers that dump
   observed (DFT) versus predicted (SCE) energies and per-atom torques to
   whitespace-separated files, consumed by the `FitCheck_energy.py` /
@@ -158,6 +164,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The standalone `tools/vasp/vasp2extxyz.jl` script — its single-directory
   VASP-to-extxyz conversion is now the `magesty vasp extxyz` command (and
   the `vasp_to_extxyz` API function).
+- The standalone `tools/vasp/pos2toml.jl` script — its POSCAR-to-TOML
+  conversion is now the `magesty vasp toml` command (and the
+  `poscar_to_toml` API function).
+- The `tools/vasp/vasp2extxyz_recursive.jl` script (batch directory-tree
+  conversion), removed as unused.
 - The `make test-tools` target: the converter tests it ran are now package
   component tests covered by `make test-unit` / `make test-all`.
 
