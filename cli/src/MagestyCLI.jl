@@ -31,6 +31,8 @@ import Magesty: vasp_to_extxyz, poscar_to_toml, outcar_to_embset
 """
 Convert a VASP run to extended XYZ (extxyz) format.
 
+# Introduction
+
 When only `vasprun` is given, the extxyz carries structure, forces, stress,
 and energies. Passing `--oszicar` additionally writes per-atom magnetic
 moments and the constraint field.
@@ -57,6 +59,8 @@ end
 """
 Convert a VASP POSCAR structure file to a Magesty input TOML configuration.
 
+# Introduction
+
 The generated configuration is a starting point for an SCE input file;
 the placeholder interaction settings (`lmax = 0`, `cutoff = -1`) are meant
 to be edited before use.
@@ -79,6 +83,8 @@ end
 
 """
 Convert one or more VASP OUTCAR files to the EMBSET training-data format.
+
+# Introduction
 
 Each OUTCAR becomes one configuration block (energy, per-atom magnetic
 moments, per-atom constraining field), numbered in the given order.
