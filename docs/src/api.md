@@ -67,7 +67,7 @@ The `vasp_to_extxyz`, `poscar_to_toml`, and `outcar_to_embset` functions
 convert VASP output to, respectively, extended XYZ, a Magesty input TOML
 configuration, and the EMBSET training-data format. Each is also available
 from the command line under `magesty vasp` (see [Installation](@ref) and
-[Tools](@ref)).
+[Tools](tools.md)).
 
 ```@docs
 vasp_to_extxyz

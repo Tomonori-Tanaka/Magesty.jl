@@ -20,22 +20,21 @@ Magesty.jl (MAGnetic model ESTimator) is a Julia package for construction of Spi
 | [Input Keys](input_keys.md) | Full reference for TOML configuration keys |
 | [API Reference](api.md) | Detailed documentation of all exported functions and types |
 | [Internal API](api_internal.md) | Lower-level building blocks, not covered by the stability guarantee |
-| [Tools](tools.md) | Utility scripts in the `tools/` directory |
+| [Tools](tools.md) | The `magesty` command-line interface |
 | [Theoretical Background](theory/overview.md) | The SCE theory, end to end, linked to the implementation |
 | [Technical Notes](technical_notes.md) | Conversion of SCE coefficients to conventional spin-model parameters |
 | [Tips](tips/index.md) | Practical tips|
 
 ## Tools
 
-Magesty.jl includes a comprehensive set of utility tools in the `tools/` directory for:
+Magesty.jl provides a `magesty` command-line interface for converting VASP
+output into the formats used by the spin-cluster expansion workflow:
 
-- **Data Processing**: Convert between different file formats (VASP, TOML, XML)
-- **Analysis**: Compare energies, perform cross-validation, analyze magnetic moments
-- **Visualization**: Create scatter plots for energy/torque fit quality
-- **Sampling**: Generate spin configurations using Mean-Field Approximation
-- **Advanced Analysis**: Calculate micromagnetics parameters
+- `magesty vasp extxyz` — convert a VASP run to extended XYZ
+- `magesty vasp toml` — convert a VASP POSCAR to a Magesty input TOML configuration
+- `magesty vasp embset` — convert VASP OUTCAR files to the EMBSET training-data format
 
-See the [Tools](tools.md) page for detailed documentation of all available tools.
+See the [Tools](tools.md) page for details.
 
 ## Citation
 
