@@ -35,6 +35,9 @@ Then list the available commands:
 magesty --help
 ```
 
+See the [Tools](tools.md) page for the full list of `magesty` subcommands
+and their options.
+
 For example, convert a VASP run to extended XYZ:
 
 ```sh

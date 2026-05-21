@@ -6,21 +6,21 @@
 
 The SCE model energy per supercell is
 
-$$E = J_0 + \sum_\nu J_\nu \,\Phi_\nu\!\left(\{\hat{e}_i\}\right),$$
+$$E = J_0 + \sum_\nu J_\nu \,\Phi_\nu\!\left(\{\hat{\boldsymbol{e}}_i\}\right),$$
 
 where $J_0$ = `intercept(model)` (`model.j0`) and $J_\nu$ = `coef(model)[ν]` (`model.jphi[ν]`) for a fitted `SCEModel` (or, equivalently, an `SCEFit`).
 
 The design feature $\Phi_\nu$ for a 2-body SALC is computed as
 
-$$\Phi_\nu = (4\pi) \sum_{M_f} c_\nu^{M_f} \!\!\!\sum_{\text{clusters in orbit}} \;\sum_{m_1,m_2} T^{(L_f,M_f)}_{m_1 m_2}\; Z_{1,m_1}(\hat{e}_i)\, Z_{1,m_2}(\hat{e}_j),$$
+$$\Phi_\nu = (4\pi) \sum_{M_f} c_\nu^{M_f} \!\!\!\sum_{\text{clusters in orbit}} \;\sum_{m_1,m_2} T^{(L_f,M_f)}_{m_1 m_2}\; Z_{1,m_1}(\hat{\boldsymbol{e}}_i)\, Z_{1,m_2}(\hat{\boldsymbol{e}}_j),$$
 
 where $T^{(L_f,M_f)}$ is the real (tesseral) coupled angular momentum tensor, $c_\nu^{M_f}$ is the SALC coefficient vector, and the sum runs over all clusters in the symmetry orbit.
 
 ### Tesseral harmonics for $l = 1$
 
-The $l = 1$ tesseral harmonics evaluated on a unit spin vector $\hat{e} = (e_x, e_y, e_z)$ are
+The $l = 1$ tesseral harmonics evaluated on a unit spin vector $\hat{\boldsymbol{e}} = (e_x, e_y, e_z)$ are
 
-$$Z_{1,m}(\hat{e}) = \sqrt{\frac{3}{4\pi}}\,\hat{e}_{\mu(m)}, \qquad
+$$Z_{1,m}(\hat{\boldsymbol{e}}) = \sqrt{\frac{3}{4\pi}}\,e_{\mu(m)}, \qquad
 \mu(m) = \begin{cases} y & m = -1 \\ z & m = 0 \\ x & m = +1 \end{cases}$$
 
 ### Design features for $l_1 = l_2 = 1$
@@ -29,13 +29,13 @@ The three channels $L_f = 0, 1, 2$ arising from coupling $l_1 = l_2 = 1$ yield t
 
 #### $L_f = 0$ — Heisenberg exchange
 
-$$\boxed{\Phi^{(0)} = \sqrt{3}\;\hat{e}_i \cdot \hat{e}_j}$$
+$$\boxed{\Phi^{(0)} = \sqrt{3}\;\hat{\boldsymbol{e}}_i \cdot \hat{\boldsymbol{e}}_j}$$
 
 #### $L_f = 1$ — Dzyaloshinskii–Moriya interaction
 
 The three components ($M_f = -1,0,+1$ correspond to $\mu = y, z, x$, respectively):
 
-$$\boxed{\Phi^{(1)}_\mu = \frac{3}{\sqrt{2}}\,(\hat{e}_i \times \hat{e}_j)_\mu}$$
+$$\boxed{\Phi^{(1)}_\mu = \frac{3}{\sqrt{2}}\,(\hat{\boldsymbol{e}}_i \times \hat{\boldsymbol{e}}_j)_\mu}$$
 
 #### $L_f = 2$ — Anisotropic symmetric exchange
 
@@ -57,7 +57,7 @@ The five components are
 
 The bilinear exchange Hamiltonian for a pair $(i,j)$ is often written as
 
-$$E_{ij} = J\,\hat{e}_i\cdot\hat{e}_j \;+\; \vec{D}_{ij}\cdot(\hat{e}_i\times\hat{e}_j) \;+\; \hat{e}_i^{\,\top}\boldsymbol{\Gamma}_{ij}\,\hat{e}_j,$$
+$$E_{ij} = J\,\hat{\boldsymbol{e}}_i\cdot\hat{\boldsymbol{e}}_j \;+\; \vec{D}_{ij}\cdot(\hat{\boldsymbol{e}}_i\times\hat{\boldsymbol{e}}_j) \;+\; \hat{\boldsymbol{e}}_i^{\,\top}\boldsymbol{\Gamma}_{ij}\,\hat{\boldsymbol{e}}_j,$$
 
 where $\boldsymbol{\Gamma}_{ij}$ is symmetric and traceless.
 
@@ -81,19 +81,19 @@ One can verify that $\mathrm{Tr}(\boldsymbol{\Gamma}) = 0$ and $\boldsymbol{\Gam
 
 ### Full bilinear exchange tensor
 
-Combining all three channels, the full exchange tensor $\mathbf{J}_{ij}$ (so that $E_{ij} = \hat{e}_i^{\,\top}\mathbf{J}_{ij}\,\hat{e}_j$) is
+Combining all three channels, the full exchange tensor $\mathbf{J}_{ij}$ (so that $E_{ij} = \hat{\boldsymbol{e}}_i^{\,\top}\mathbf{J}_{ij}\,\hat{\boldsymbol{e}}_j$) is
 
 $$\mathbf{J}_{ij} = J\,\mathbf{I} + \begin{pmatrix} 0 & D_z & -D_y \\ -D_z & 0 & D_x \\ D_y & -D_x & 0 \end{pmatrix} + \boldsymbol{\Gamma}_{ij},$$
 
 where $J = \sqrt{3}\,J^{\mathrm{SCE}}_0$, $\vec{D} = \frac{3}{\sqrt{2}}\vec{J}^{\mathrm{SCE}}_1$, and $\boldsymbol{\Gamma}$ is given above.
 
-> **Note on sign convention**: In the literature the Heisenberg term is often written as $-J\hat{e}_i\cdot\hat{e}_j$. With that convention replace $J \to -J$ in the formula above, giving $J_{\mathrm{Heis}} = -\sqrt{3}\,J^{\mathrm{SCE}}_0$.
+> **Note on sign convention**: In the literature the Heisenberg term is often written as $-J\hat{\boldsymbol{e}}_i\cdot\hat{\boldsymbol{e}}_j$. With that convention replace $J \to -J$ in the formula above, giving $J_{\mathrm{Heis}} = -\sqrt{3}\,J^{\mathrm{SCE}}_0$.
 
 ### Summary table
 
 | Physical parameter | Conversion from SCE |
 |:---|:---|
-| Isotropic exchange $J$ ($E = J\,\hat{e}_i\cdot\hat{e}_j$) | $J = \sqrt{3}\;J^{\mathrm{SCE}}_{L_f=0}$ |
+| Isotropic exchange $J$ ($E = J\,\hat{\boldsymbol{e}}_i\cdot\hat{\boldsymbol{e}}_j$) | $J = \sqrt{3}\;J^{\mathrm{SCE}}_{L_f=0}$ |
 | DM vector component $D_\mu$ | $D_\mu = \dfrac{3}{\sqrt{2}}\;J^{\mathrm{SCE}}_{L_f=1,\,\mu}$ |
 | Anisotropic exchange $\Gamma_{zz}$ | $\Gamma_{zz} = \sqrt{6}\;J^{\mathrm{SCE}}_{L_f=2,\,M_f=0}$ |
 | Anisotropic exchange $\Gamma_{xz}$ | $\Gamma_{xz} = \dfrac{3}{\sqrt{2}}\;J^{\mathrm{SCE}}_{L_f=2,\,M_f=+1}$ |

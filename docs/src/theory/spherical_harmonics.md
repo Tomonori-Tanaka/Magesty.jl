@@ -6,7 +6,7 @@ module that computes it, `src/TesseralHarmonics.jl`.
 
 ## Why a spherical-harmonic basis
 
-The energy depends on each spin only through its direction ``\hat{e}_i``, a
+The energy depends on each spin only through its direction ``\hat{\boldsymbol{e}}_i``, a
 point on the unit sphere. Any well-behaved function on the sphere expands
 in spherical harmonics, so they are the natural per-site basis: a finite
 set ``\{Z_{l,m}\}`` with ``l \le l_{\max}`` spans all angular dependence up
@@ -33,10 +33,10 @@ real, which is both physically transparent and faster.
 
 The ``Z_{l,m}`` are orthonormal over the unit sphere; each carries a
 normalization factor ``1/\sqrt{4\pi}``. For ``l = 1`` on a unit spin
-vector ``\hat{e} = (e_x, e_y, e_z)``,
+vector ``\hat{\boldsymbol{e}} = (e_x, e_y, e_z)``,
 
 ```math
-Z_{1,m}(\hat{e}) = \sqrt{\tfrac{3}{4\pi}}\;\hat{e}_{\mu(m)},
+Z_{1,m}(\hat{\boldsymbol{e}}) = \sqrt{\tfrac{3}{4\pi}}\;e_{\mu(m)},
 \qquad
 \mu(m) = \begin{cases} y & m = -1 \\ z & m = 0 \\ x & m = +1. \end{cases}
 ```
@@ -59,13 +59,13 @@ parameters without a stray ``4\pi``. That step is described on the
 |---|---|
 | `Zₗₘ(l, m, uvec)` | Tesseral harmonic ``Z_{l,m}``; validates inputs. |
 | `Zₗₘ_unsafe(l, m, uvec)` | Same value, no validation — for hot paths. |
-| `∂ᵢZlm(l, m, uvec)` | Cartesian gradient ``\partial Z_{l,m}/\partial\hat{e}`` as a `Vector{Float64}`; validates inputs. |
+| `∂ᵢZlm(l, m, uvec)` | Cartesian gradient ``\partial Z_{l,m}/\partial\hat{\boldsymbol{e}}`` as a `Vector{Float64}`; validates inputs. |
 | `∂ᵢZlm_unsafe(l, m, uvec)` | Cartesian gradient as an `SVector{3,Float64}`, no validation — for hot paths. |
 
 The unsafe variants are semantically identical to the checked ones but
 skip bounds and argument validation; the basis-evaluation loop in
 `Fitting.jl` uses them, together with pre-allocated scratch buffers, to
-avoid per-call heap allocation. The gradient ``\partial Z_{l,m}/\partial\hat{e}`` is what
+avoid per-call heap allocation. The gradient ``\partial Z_{l,m}/\partial\hat{\boldsymbol{e}}`` is what
 makes torque prediction possible — see
 [Design matrix and fitting](design_matrix_and_fitting.md).
 

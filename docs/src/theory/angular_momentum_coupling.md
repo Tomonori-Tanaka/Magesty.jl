@@ -8,7 +8,7 @@ combined. This page explains how, and which modules do it:
 ## Why couple
 
 The naive cluster basis function is a plain product
-``Z_{l_1,m_1}(\hat{e}_1)\,Z_{l_2,m_2}(\hat{e}_2)\cdots``. That product
+``Z_{l_1,m_1}(\hat{\boldsymbol{e}}_1)\,Z_{l_2,m_2}(\hat{\boldsymbol{e}}_2)\cdots``. That product
 works, but it does not transform simply under a global rotation of all
 spins: the ``m`` indices mix among themselves in a way that obscures the
 physics and makes symmetry adaptation awkward.
@@ -24,6 +24,17 @@ the lowest coupled channels their direct physical reading: for a pair with
 Heisenberg exchange, the Dzyaloshinskii–Moriya interaction, and
 anisotropic symmetric exchange (see the
 [Technical Notes](../technical_notes.md)).
+
+This same covariance also explains the `isotropy` option. A coupled object
+of total angular momentum ``L_f`` transforms like a degree-``L_f``
+harmonic, so under a global rotation of all spins only the ``L_f = 0``
+channel — the rotational scalar — stays invariant; every ``L_f \ge 1``
+channel rotates into its other ``M_f`` components. Demanding that the
+energy itself be invariant under a global spin rotation (an isotropic spin
+model, with no preferred direction in spin space) therefore keeps only the
+``L_f = 0`` coupled bases and discards all ``L_f \ge 1`` ones. Setting
+`isotropy = true` imposes exactly this restriction, leaving the purely
+isotropic, Heisenberg-like part of the model.
 
 ## Coupling scheme
 
@@ -64,8 +75,8 @@ harmonics:
 
 ```math
 T^{(L_f, M_f)}_{m_1 m_2 \cdots m_n}\;
-  Z_{l_1, m_1}(\hat{e}_1)\, Z_{l_2, m_2}(\hat{e}_2)\cdots
-  Z_{l_n, m_n}(\hat{e}_n),
+  Z_{l_1, m_1}(\hat{\boldsymbol{e}}_1)\, Z_{l_2, m_2}(\hat{\boldsymbol{e}}_2)\cdots
+  Z_{l_n, m_n}(\hat{\boldsymbol{e}}_n),
 ```
 
 summed over all site ``m`` indices.

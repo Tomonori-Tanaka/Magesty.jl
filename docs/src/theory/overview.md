@@ -7,17 +7,17 @@ it. It is meant to be read in order; each page builds on the previous one.
 ## The problem
 
 A noncollinear spin DFT calculation returns, for one fixed set of spin
-directions ``\{\hat{e}_i\}``, a total energy and the torque on every
+directions ``\{\hat{\boldsymbol{e}}_i\}``, a total energy and the torque on every
 magnetic atom. We want a closed-form *effective spin model*: an energy
 function
 
 ```math
-E\bigl(\{\hat{e}_i\}\bigr)
+E\bigl(\{\hat{\boldsymbol{e}}_i\}\bigr)
 ```
 
 that reproduces the DFT energies and torques over the whole space of
 noncollinear configurations, not just the few that were computed. Here
-``\hat{e}_i`` is the unit vector along the classical spin on atom ``i``
+``\hat{\boldsymbol{e}}_i`` is the unit vector along the classical spin on atom ``i``
 (the magnetic-moment magnitude is treated separately).
 
 The SCE solves this by writing ``E`` as a linear model in a fixed,
@@ -30,8 +30,8 @@ The SCE expands the energy as a sum of contributions from *clusters* of
 atoms — single sites, pairs, triplets, and so on:
 
 ```math
-E\bigl(\{\hat{e}_i\}\bigr)
-  = J_0 + \sum_{\nu} J_\nu \, \Phi_\nu\!\bigl(\{\hat{e}_i\}\bigr).
+E\bigl(\{\hat{\boldsymbol{e}}_i\}\bigr)
+  = J_0 + \sum_{\nu} J_\nu \, \Phi_\nu\!\bigl(\{\hat{\boldsymbol{e}}_i\}\bigr).
 ```
 
 ``J_0`` is a constant reference energy, and the sum index ``\nu`` labels
@@ -41,23 +41,43 @@ fitted. This is the angular-momentum analogue of the
 cluster expansion used for substitutional alloys: instead of discrete
 occupation variables, the degrees of freedom are continuous spin
 directions on the unit sphere, so the per-site factors of ``\Phi_\nu`` are
-spherical harmonics of ``\hat{e}_i`` rather than occupation numbers.
+spherical harmonics of ``\hat{\boldsymbol{e}}_i`` rather than occupation numbers.
 
 Concretely, each ``\Phi_\nu`` is built from per-site real spherical
 harmonics ``Z_{l,m}``. For a cluster of ``n`` atoms the elementary building
 block is a product of one harmonic per atom,
 
 ```math
-(4\pi)^{n/2}\;\prod_{a=1}^{n} Z_{l_a, m_a}\bigl(\hat{e}_{i_a}\bigr),
+(4\pi)^{n/2}\;\prod_{a=1}^{n} Z_{l_a, m_a}\bigl(\hat{\boldsymbol{e}}_{i_a}\bigr),
 ```
 
 where ``i_a`` is the ``a``-th atom of the cluster, ``(l_a, m_a)`` its
 angular indices, and ``(4\pi)^{n/2}`` a fixed normalization factor (see
-[Real spherical harmonics](spherical_harmonics.md)). A basis function
-``\Phi_\nu`` is a specific linear combination of such products: the
-per-site harmonics are *coupled* into a rotationally well-behaved object
-and the result is *symmetrized* over the crystal, so that one coefficient
-``J_\nu`` multiplies one independent interaction.
+[Real spherical harmonics](spherical_harmonics.md)).
+
+A basis function ``\Phi_\nu`` is a specific linear combination of such
+products — the per-site harmonics are *coupled* into a rotationally
+well-behaved object and the result is *symmetrized* over the crystal:
+
+```math
+\Phi_\nu\bigl(\{\hat{\boldsymbol{e}}_i\}\bigr)
+  = (4\pi)^{n/2}
+    \sum_{\text{clusters in orbit }\nu}\;
+    \sum_{M_f} c_\nu^{M_f}
+    \sum_{m_1,\ldots,m_n}
+      T^{(L_f, M_f)}_{m_1 \cdots m_n}\;
+      \prod_{a=1}^{n} Z_{l_a, m_a}\bigl(\hat{\boldsymbol{e}}_{i_a}\bigr).
+```
+
+Here ``T^{(L_f, M_f)}`` is the *coupling tensor* that combines the per-site
+harmonics into an object of total angular momentum ``L_f`` and order
+``M_f`` ([Angular-momentum coupling](angular_momentum_coupling.md));
+``c_\nu^{M_f}`` is the *SALC coefficient vector*, and the sum over the
+symmetry orbit ``\nu`` enforces the crystal symmetry
+([Symmetry adaptation](symmetry_adaptation.md)). The result is one
+coefficient ``J_\nu`` per independent interaction, fitted on the
+[Design matrix and fitting](design_matrix_and_fitting.md) page; each symbol
+is defined in full on the page indicated.
 
 Building a usable model means answering three questions, each handled by a
 later page:
