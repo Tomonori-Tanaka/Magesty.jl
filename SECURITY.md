@@ -18,7 +18,7 @@ input files, or similar), please **do not** open a public GitHub issue.
 
 Instead, email the maintainer:
 
-- **T. Tanaka** — `tanaka.t.bj3ac@gmail.com`
+- **T. Tanaka** — `tomonori.tanaka.academic@gmail.com`
 
 Please include:
 
