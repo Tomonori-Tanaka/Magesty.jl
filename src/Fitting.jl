@@ -20,7 +20,8 @@ using ..CoupledBases
 using ..SALCBases
 using ..SpinConfigs
 
-export AbstractEstimator, OLS, Ridge, ElasticNet, Lasso, AdaptiveLasso, PrecomputedPilot
+export AbstractEstimator, OLS, Ridge, ElasticNet, Lasso, AdaptiveLasso, PrecomputedPilot,
+	AdaptiveRidge
 
 """
 	_cluster_scaling(n_sites::Integer) -> Float64
@@ -293,6 +294,87 @@ Base.show(io::IO, e::AdaptiveLasso) =
 	print(io, "AdaptiveLasso(pilot=", e.pilot, ", lambda=", e.lambda,
 		", gamma=", e.gamma, ", epsilon=", e.epsilon,
 		", standardize=", e.standardize, ")")
+
+"""
+	AdaptiveRidge(; lambda::Real,
+	                epsilon::Real = 1e-8,
+	                max_iter::Integer = 50,
+	                tol::Real = 1e-6)
+
+Iterative Adaptive Ridge estimator (Frommlet & Nuel 2016). Approximates
+an L0-penalized fit by repeatedly refitting a per-coefficient weighted
+ridge problem
+
+    min_b  ||y - X b||^2 + lambda * sum_j w_j * b_j^2
+
+and updating the weights `w_j = 1 / (b_j^2 + epsilon)` between
+iterations. Iteration zero is a plain ridge solve (uniform weights);
+each subsequent step rebuilds the weights from the current coefficients.
+Large coefficients receive a light penalty and small ones a heavy
+penalty, so iterating drives the small coefficients toward zero -- an L0
+approximation.
+
+Each weighted ridge subproblem is solved analytically via the closed
+form `b = (X'X + lambda * Diagonal(w)) \\ (X'y)`, the same analytic
+family as `Ridge`. Unlike `ElasticNet` / `AdaptiveLasso` no GLMNet call
+is involved, so there is no `standardize` keyword: like `Ridge`,
+`AdaptiveRidge` does not standardize columns, and the per-cluster
+`(4π)^(N/2)` column scale therefore enters the weights. Rescale the
+design upstream if that bias matters.
+
+The iteration stops when the relative infinity-norm change in the
+coefficient vector drops below `tol`, or after `max_iter` reweighting
+steps, whichever comes first.
+
+# Fields
+- `lambda::Float64`: Ridge penalty strength, `lambda >= 0`. `lambda = 0`
+  reduces to OLS -- the penalty term vanishes and the iteration is a
+  no-op.
+- `epsilon::Float64`: Floor added to `b_j^2` before reciprocation,
+  `epsilon > 0`. Default `1e-8`. Keeps the weights finite when a
+  coefficient is numerically zero, and sets the scale below which a
+  coefficient is treated as negligible.
+- `max_iter::Int`: Maximum number of reweighting iterations,
+  `max_iter >= 1`. Default `50`.
+- `tol::Float64`: Convergence threshold on the relative infinity-norm
+  coefficient change, `tol > 0`. Default `1e-6`.
+
+# Examples
+```julia
+# Default iterative Adaptive Ridge.
+est = AdaptiveRidge(lambda = 1e-3)
+
+# Tighter convergence, more iterations.
+est = AdaptiveRidge(lambda = 1e-3, tol = 1e-8, max_iter = 200)
+```
+"""
+struct AdaptiveRidge <: AbstractEstimator
+	lambda::Float64
+	epsilon::Float64
+	max_iter::Int
+	tol::Float64
+end
+
+function AdaptiveRidge(;
+	lambda::Real,
+	epsilon::Real = 1e-8,
+	max_iter::Integer = 50,
+	tol::Real = 1e-6,
+)
+	lambda >= 0.0 ||
+		throw(ArgumentError("AdaptiveRidge lambda must be non-negative; got $lambda"))
+	epsilon > 0.0 ||
+		throw(ArgumentError("AdaptiveRidge epsilon must be strictly positive; got $epsilon"))
+	max_iter >= 1 ||
+		throw(ArgumentError("AdaptiveRidge max_iter must be at least 1; got $max_iter"))
+	tol > 0.0 ||
+		throw(ArgumentError("AdaptiveRidge tol must be strictly positive; got $tol"))
+	return AdaptiveRidge(Float64(lambda), Float64(epsilon), Int(max_iter), Float64(tol))
+end
+
+Base.show(io::IO, e::AdaptiveRidge) =
+	print(io, "AdaptiveRidge(lambda=", e.lambda, ", epsilon=", e.epsilon,
+		", max_iter=", e.max_iter, ", tol=", e.tol, ")")
 
 """
 	EnergyWorkspace
@@ -1095,7 +1177,7 @@ function solve_coefficients(
 	::OLS,
 	X::AbstractMatrix{<:Real},
 	y::AbstractVector{<:Real},
-)
+)::Vector{Float64}
 	return X \ y
 end
 
@@ -1113,7 +1195,7 @@ function solve_coefficients(
 	e::Ridge,
 	X::AbstractMatrix{<:Real},
 	y::AbstractVector{<:Real},
-)
+)::Vector{Float64}
 	if e.lambda ≈ 0.0
 		return X \ y
 	end
@@ -1133,7 +1215,7 @@ function solve_coefficients(
 	e::ElasticNet,
 	X::AbstractMatrix{<:Real},
 	y::AbstractVector{<:Real},
-)
+)::Vector{Float64}
 	return _glmnet_solve(
 		X, y;
 		alpha = e.alpha,
@@ -1157,7 +1239,7 @@ function solve_coefficients(
 	e::AdaptiveLasso,
 	X::AbstractMatrix{<:Real},
 	y::AbstractVector{<:Real},
-)
+)::Vector{Float64}
 	beta_pilot = solve_coefficients(e.pilot, X, y)
 	pf = inv.(max.(abs.(beta_pilot), e.epsilon) .^ e.gamma)
 	return _glmnet_solve(
@@ -1188,6 +1270,80 @@ function solve_coefficients(
 		"match design-matrix column count $(size(X, 2)); the pilot was " *
 		"likely fit on a different SCEBasis."))
 	return e.beta
+end
+
+"""
+	solve_coefficients(estimator::AdaptiveRidge, X, y) -> Vector{Float64}
+
+Iterative Adaptive Ridge (Frommlet & Nuel 2016). A fixed-point iteration
+that approximates an L0 penalty by repeatedly refitting a per-coefficient
+weighted ridge problem. Iteration zero is a plain ridge solve; each
+subsequent step rebuilds the weights `w[j] = 1 / (beta[j]^2 + epsilon)`
+from the current coefficients and solves the analytic weighted ridge
+`beta = (X'X + lambda * Diagonal(w)) \\ (X'y)`. The Gram matrix `X'X` and
+`X'y` are formed once and reused; only the penalty diagonal changes
+between iterations.
+
+The augmented `(X, y)` arriving here has already been row-scaled and
+energy-mean-centered inside `assemble_weighted_problem`; `extract_j0_jphi`
+recovers `j0` downstream from the un-scaled energy data -- the same
+post-processing OLS / Ridge / ElasticNet already use.
+
+# Arguments
+- `estimator::AdaptiveRidge`: Supplies `lambda`, `epsilon`, `max_iter`,
+  `tol`.
+- `X::AbstractMatrix{<:Real}`: Design matrix, already centered / scaled.
+- `y::AbstractVector{<:Real}`: Observation vector, already centered /
+  scaled.
+
+# Returns
+- `Vector{Float64}`: The converged coefficient vector, or the last
+  iterate when `max_iter` reweighting steps are exhausted first.
+"""
+function solve_coefficients(
+	e::AdaptiveRidge,
+	X::AbstractMatrix{<:Real},
+	y::AbstractVector{<:Real},
+)::Vector{Float64}
+	if e.lambda ≈ 0.0
+		# The penalty term vanishes; the reweighting iteration is a no-op.
+		return X \ y
+	end
+	Xf = Matrix{Float64}(X)
+	yf = Vector{Float64}(y)
+	XtX = Xf' * Xf
+	Xty = Xf' * yf
+	p = size(XtX, 1)
+	# Iteration zero: plain ridge with uniform weights, numerically the
+	# same fit as `Ridge(e.lambda)`. The reweighting steps start here.
+	beta = Symmetric(XtX + e.lambda * I) \ Xty
+	w = Vector{Float64}(undef, p)
+	# Penalty-augmented Gram matrix. Only its diagonal changes between
+	# iterations, so it is rebuilt in place: `XtX` is copied back and the
+	# weighted `e.lambda * w` is added to the diagonal each step.
+	A = Matrix{Float64}(undef, p, p)
+	iters = 0
+	rel = Inf
+	for outer iters in 1:e.max_iter
+		@. w = 1.0 / (beta^2 + e.epsilon)
+		copyto!(A, XtX)
+		@inbounds for j in 1:p
+			A[j, j] += e.lambda * w[j]
+		end
+		# X'X is positive semidefinite and lambda * diag(w) is strictly
+		# positive (epsilon > 0 keeps every weight finite and positive),
+		# so A is symmetric positive definite -- no rank-deficiency
+		# handling is needed.
+		beta_new = Symmetric(A) \ Xty
+		delta = mapreduce((a, b) -> abs(a - b), max, beta_new, beta)
+		# The eps(Float64) floor only guards the 0/0 case where the whole
+		# coefficient vector is zero; it is not a convergence scale.
+		rel = delta / max(maximum(abs, beta_new), eps(Float64))
+		beta = beta_new
+		rel < e.tol && break
+	end
+	@debug "AdaptiveRidge solve" iterations = iters relative_change = rel
+	return beta
 end
 
 # Single-lambda GLMNet wrapper. Returns the coefficient vector for the
