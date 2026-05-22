@@ -667,27 +667,22 @@ function irreducible_clusters(
 	for body in sort(collect(keys(cluster_dict)))
 		result[body] = SortedCounter{Vector{Int}}()
 
+		# Translation orbit representatives are keyed by canonical form.
+		# The first cluster encountered in (prim_atom_sc, cluster_dict key)
+		# iteration order wins, exactly matching the previous linear-scan
+		# behavior, so the atom-list stored in `result[body]` is unchanged.
+		seen_canonical = Set{Vector{Int}}()
+
 		for prim_atom_sc in symmetry.atoms_in_prim
 			for cluster::Vector{Int} in keys(cluster_dict[body][prim_atom_sc])
 				cluster_list = sort(cluster)
-				# Get the count from the original cluster_dict
-				original_count = cluster_dict[body][prim_atom_sc][cluster]
-
-				# Check if this cluster is translationally equivalent to any existing cluster in result[body]
-				found_equivalent = false
-				for cluster_ref::Vector{Int} in result[body]
-					if is_translationally_equiv_cluster(cluster_list, cluster_ref, symmetry)
-						# If equivalent, skip this cluster (continue)
-						found_equivalent = true
-						break
-					end
-				end
-
-				# If equivalent cluster found, skip this iteration
-				if found_equivalent
+				canonical = _translation_canonical_form(cluster_list, symmetry)
+				if canonical in seen_canonical
 					continue
 				end
+				push!(seen_canonical, canonical)
 
+				original_count = cluster_dict[body][prim_atom_sc][cluster]
 				push!(result[body], cluster_list, original_count)
 			end
 		end
