@@ -8,6 +8,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `AdaptiveRidge`: iterative Adaptive Ridge estimator (Frommlet & Nuel
+  2016) that approximates an L0-penalized fit. It refits a per-coefficient
+  weighted ridge problem and updates the weights
+  `w_j = 1 / (beta_j^2 + epsilon)` between iterations, driving small
+  coefficients toward zero. Each weighted ridge subproblem is solved by
+  the analytic closed form `(X'X + lambda * Diagonal(w)) \ (X'y)` — the
+  same analytic family as `Ridge`, no GLMNet call — so there is no
+  `standardize` keyword. Keyword constructor:
+  `AdaptiveRidge(; lambda, epsilon = 1e-8, max_iter = 50, tol = 1e-6)`;
+  the iteration stops on a relative infinity-norm coefficient change
+  below `tol`. Purely additive, no impact on existing estimators.
 - `SCEDataset(model::SCEModel, ...)` / `SCEDataset(fit::SCEFit, ...)`
   constructors that accept a fitted `SCEModel` or `SCEFit` in place of an
   `SCEBasis`, reusing the basis embedded in it (`model.basis` /

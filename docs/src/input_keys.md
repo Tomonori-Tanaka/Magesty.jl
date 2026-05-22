@@ -175,7 +175,7 @@ f = fit(
   block).
 - **Estimator** — `OLS()` for no regularization, or `Ridge(lambda = λ)`
   for L2 with strength `λ ≥ 0`. `ElasticNet`, `Lasso`, `AdaptiveLasso`,
-  and `PrecomputedPilot` are also available; see the
+  `AdaptiveRidge`, and `PrecomputedPilot` are also available; see the
   [API Reference](api.md) for the full estimator list. The reference
   energy `j0` is recovered
   analytically after the solve (closed-form

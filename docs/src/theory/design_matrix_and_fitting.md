@@ -138,6 +138,7 @@ The `estimator` then selects how that loss is regularized:
 | `ElasticNet(alpha, lambda)` | mix of ``L_1`` and ``L_2`` |
 | `AdaptiveLasso(pilot, lambda, gamma)` | weighted ``L_1`` (Zou, 2006) |
 | `PrecomputedPilot(beta)` | adapter to reuse prior coefficients as an `AdaptiveLasso` pilot |
+| `AdaptiveRidge(lambda, epsilon)` | iteratively reweighted ``L_2`` — an ``L_0`` approximation (Frommlet & Nuel, 2016) |
 
 The fitted coefficient vector ``\hat{J}`` minimizes the loss plus the
 estimator's penalty. With ``\lVert J\rVert_1 = \sum_\nu |J_\nu|`` and
@@ -174,6 +175,13 @@ is:
 w_\nu = \frac{1}{\max\bigl(|J_\nu^\text{pilot}|,\ \epsilon\bigr)^{\gamma}}.
 ```
 
+```math
+\textbf{AdaptiveRidge:}\qquad
+\hat{J} = \arg\min_{J}\ \text{loss}(J) + \lambda\sum_{\nu} w_\nu\,J_\nu^2,
+\qquad
+w_\nu = \frac{1}{J_\nu^2 + \epsilon}.
+```
+
 `OLS` is `Ridge` at ``\lambda = 0``, and `Lasso` is `ElasticNet` at
 ``\alpha = 1``. In `AdaptiveLasso`, ``J^\text{pilot}`` is the coefficient
 vector of a preliminary *pilot* fit: a large pilot coefficient gets a small
@@ -182,18 +190,34 @@ weight and is pushed harder toward zero — the mechanism behind the oracle
 property of Zou (2006). `PrecomputedPilot` has no objective of its own; it
 simply supplies a stored ``J^\text{pilot}`` to an `AdaptiveLasso`.
 
+`AdaptiveRidge` is iterative: its weights ``w_\nu`` depend on the very
+coefficients being solved for, so they are found self-consistently. A plain
+ridge fit initializes ``J``; then ``w_\nu`` and ``J`` are refit alternately
+until ``J`` stops changing. Because the penalty term
+``w_\nu J_\nu^2 = J_\nu^2 / (J_\nu^2 + \epsilon)`` saturates at ``1`` for
+``J_\nu^2 \gg \epsilon`` and vanishes for ``J_\nu^2 \ll \epsilon``, the
+converged penalty approximates ``\lambda`` times the number of nonzero
+coefficients — an ``L_0`` penalty (Frommlet & Nuel, 2016). `AdaptiveRidge`
+is `OLS` at ``\lambda = 0``.
+
 In these constructors ``lambda`` (``\lambda``) is the overall
 regularization strength; ``alpha`` (``\alpha \in [0, 1]``) is the ``L_1``
 fraction of the `ElasticNet` penalty, with ``\alpha = 1`` recovering
 `Lasso`; ``gamma`` (``\gamma \ge 0``, default ``1``) is the exponent in the
-adaptive weight ``w_\nu``; ``epsilon`` (``\epsilon``, default machine
-epsilon) floors the pilot magnitude so ``w_\nu`` stays finite when a pilot
-coefficient is zero; ``pilot`` is the estimator that supplies
+adaptive weight ``w_\nu``; ``pilot`` is the estimator that supplies
 ``J^\text{pilot}``; and ``beta`` is a precomputed coefficient vector reused
-directly as that pilot.
+directly as that pilot. The parameter ``epsilon`` (``\epsilon``) appears in
+both adaptive estimators but plays distinct roles: in `AdaptiveLasso`
+(default machine epsilon) it floors the pilot magnitude so ``w_\nu`` stays
+finite when a pilot coefficient is zero; in `AdaptiveRidge` (default
+``10^{-8}``) it sets the magnitude scale ``\sqrt{\epsilon}`` below which a
+coefficient is treated as negligible. `AdaptiveRidge` additionally takes
+``max_iter`` (iteration cap, default ``50``) and ``tol`` (relative
+coefficient-change convergence threshold, default ``10^{-6}``).
 
 !!! note "Comparing `lambda` across estimators"
-    `Ridge` adds its penalty to the un-normalized loss, whereas
+    `Ridge` and `AdaptiveRidge` add their penalty to the un-normalized
+    loss and are solved analytically, whereas
     `ElasticNet` / `Lasso` / `AdaptiveLasso` are solved by GLMNet, whose
     objective divides the data term by ``2N`` and standardizes the columns
     of ``X`` internally. GLMNet also rescales the `AdaptiveLasso` weights
@@ -203,8 +227,10 @@ directly as that pilot.
     per estimator.
 
 Regularization matters here because the SALC basis can be large relative
-to the number of DFT configurations; `Lasso` / `AdaptiveLasso` additionally
-drive small coefficients to zero, yielding a sparse, interpretable model.
+to the number of DFT configurations; `Lasso` / `AdaptiveLasso` produce
+exactly sparse solutions, and `AdaptiveRidge` drives small coefficients
+toward zero as an ``L_0`` approximation, yielding a sparse, interpretable
+model.
 
 ## Result types
 
@@ -226,3 +252,6 @@ anisotropic exchange tensor ``\boldsymbol{\Gamma}`` — is the subject of the
 1. H. Zou, "The Adaptive Lasso and Its Oracle Properties",
    *J. Am. Stat. Assoc.* **101**, 1418 (2006).
    DOI: [10.1198/016214506000000735](https://doi.org/10.1198/016214506000000735)
+2. F. Frommlet and G. Nuel, "An Adaptive Ridge Procedure for L0
+   Regularization", *PLoS ONE* **11**, e0148620 (2016).
+   DOI: [10.1371/journal.pone.0148620](https://doi.org/10.1371/journal.pone.0148620)
