@@ -26,6 +26,8 @@ items that do not apply.
 - [ ] If public API changed: `SPEC.md` and `docs/src/api.md` updated.
 - [ ] If a hot path was touched: before / after recorded in
       `.claude/bench_log.md`.
+- [ ] Tier 2 review panel run (numerical / maintainability / performance /
+      API axes) and findings resolved.
 - [ ] If module names or Makefile targets changed:
       `.claude/agents/` swept and updated.
 - [ ] `CHANGELOG.md` `[Unreleased]` updated.

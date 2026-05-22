@@ -244,8 +244,6 @@ Procedure (Claude executes):
 
 - After implementing, use the `test-runner` agent to run and diagnose tests
   (`.claude/agents/test-runner.md`).
-- Before committing, use the `code-reviewer` agent on the diff
-  (`.claude/agents/code-reviewer.md`).
 - For performance investigation, use the `profiler` agent
   (`.claude/agents/profiler.md`).
 - Once the user gives an explicit commit / push instruction, hand off to
@@ -254,6 +252,47 @@ Procedure (Claude executes):
   commit via `Write` + `git commit -F file` (to avoid heredoc accidents),
   detects `BREAKING CHANGE`s, and adds `Refs:` lines. The main agent must
   not run `git commit -m` directly.
+
+### Code review: two tiers
+
+Choose the review tier by the size of the change.
+
+**Tier 1 — `code-reviewer` (`.claude/agents/code-reviewer.md`).** A single
+generalist pass over the diff. Use it for bug fixes, small diffs, and any
+change too small to warrant a spec. Run it before committing.
+
+**Tier 2 — the four-axis review panel.** Use it after a spec-level feature
+lands (anything that went through the spec-folder workflow). The four axes:
+
+- `numerical-reviewer` (model: opus) — equations, physical assumptions,
+  units, boundary conditions, numerical stability, linked-site
+  synchronization.
+- `maintainability-reviewer` — extensibility, separation of concerns,
+  readability, `STYLE_GUIDE.md` compliance.
+- `performance-reviewer` — complexity, memory, allocations, cache
+  locality, hot-path Julia performance.
+- `api-reviewer` — public-API design, argument names and order, types,
+  docstrings, error messages, usability.
+
+Panel procedure (the main agent orchestrates):
+
+1. Launch all four reviewers **in one message** (parallel), each given the
+   same diff range or file list.
+2. Collect the four reports. They share a common schema: findings graded
+   `blocker` / `major` / `minor`, each optionally tagged
+   `[contention: <axis>]` when the reviewer expects another axis to
+   disagree.
+3. Apply every `numerical-reviewer` finding — numerical correctness is
+   non-negotiable and is never escalated. Apply the remaining
+   blockers / major findings unless contested.
+4. Detect conflicts: two findings on the same location with mutually
+   exclusive fixes, or a `[contention:]`-tagged finding that the named
+   axis actually contradicts.
+5. Correctness always wins automatically. For a **material**
+   performance vs maintainability tradeoff with no correctness angle,
+   present both positions to the user via `AskUserQuestion` and let them
+   decide. Do not escalate trivial or one-sided disagreements.
+6. Hand the user a single merged summary.
 
 ### Propose before implementing
 

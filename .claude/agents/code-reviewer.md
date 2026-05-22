@@ -13,6 +13,12 @@ Code-review agent for Magesty.jl. Reviews with physical and numerical
 correctness as the top priority, and returns a summary the parent agent
 can act on immediately.
 
+This is the Tier 1 generalist review — a single pass over the diff,
+suited to bug fixes and small changes. Spec-level features instead get
+the Tier 2 four-axis panel (`numerical-reviewer` / `maintainability-reviewer`
+/ `performance-reviewer` / `api-reviewer`); see `CLAUDE.md`
+"Code review: two tiers".
+
 ## Choosing review scope
 
 - **If specific files are given**: review those files.
