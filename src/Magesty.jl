@@ -355,16 +355,16 @@ end
 	SCEDataset(basis::SCEBasis, spinconfigs::AbstractVector{SpinConfig}) -> SCEDataset
 	SCEDataset(basis::SCEBasis, embset_path::AbstractString) -> SCEDataset
 	SCEDataset(model::SCEModel, spinconfigs_or_embset_path) -> SCEDataset
-	SCEDataset(fit::SCEFit, spinconfigs_or_embset_path) -> SCEDataset
+	SCEDataset(f::SCEFit, spinconfigs_or_embset_path) -> SCEDataset
 	SCEDataset(system::AtomsBase.AbstractSystem, spinconfigs; interaction, ...) -> SCEDataset
-	SCEDataset(toml_path::AbstractString, spinconfigs::AbstractVector{SpinConfig})
+	SCEDataset(toml_path::AbstractString, spinconfigs::AbstractVector{SpinConfig}) -> SCEDataset
 
 Build a `SCEDataset` from a basis and training data. The base method
 takes an explicit `SCEBasis` and a vector of `SpinConfig`; it builds the
 unweighted energy and torque design matrices once. The `embset_path`
 method reads the configurations from an EMBSET file first. Passing a
 fitted `SCEModel` or `SCEFit` in place of the basis reuses the basis
-embedded in it (`model.basis` / `fit.dataset.basis`) without rebuilding
+embedded in it (`model.basis` / `f.dataset.basis`) without rebuilding
 it. The two sugar methods build a throwaway `SCEBasis` internally (from
 an `AtomsBase.AbstractSystem` or a TOML file) and embed it in the
 dataset; for workflows that share one basis across several datasets,
@@ -457,10 +457,23 @@ end
 Base.getindex(d::SCEDataset, i::Integer)::SCEDataset = d[i:i]
 Base.getindex(d::SCEDataset, r::AbstractVector{Bool})::SCEDataset = d[findall(r)]
 
+# Two SCEBasis objects are interchangeable for design-matrix purposes
+# when they are the same object or share a structural fingerprint. The
+# fingerprint hashes the SALC structure (see `SALCBases.salc_fingerprint`),
+# so an equal fingerprint guarantees the same SALC count and the same
+# design-matrix column ordering. Bases reloaded from the same XML are
+# distinct objects but compare equal here.
+_same_basis(b1::SCEBasis, b2::SCEBasis)::Bool =
+	b1 === b2 || b1.salc_fingerprint == b2.salc_fingerprint
+
 function Base.vcat(d1::SCEDataset, ds::SCEDataset...)::SCEDataset
 	for d in ds
-		d.basis === d1.basis || throw(ArgumentError(
-			"vcat requires all SCEDataset arguments to share the same SCEBasis"))
+		_same_basis(d.basis, d1.basis) || throw(ArgumentError(
+			"vcat requires all SCEDataset arguments to share the same SALC " *
+			"basis: their SCEBasis fingerprints differ, so the design-matrix " *
+			"columns follow different (l, m, site) orderings and cannot be " *
+			"stacked. Build the datasets from the same SCEBasis, or from " *
+			"bases reloaded from the same XML."))
 	end
 	all_d = (d1, ds...)
 	return SCEDataset(
@@ -534,7 +547,7 @@ SCEDataset(f::SCEFit, embset_path::AbstractString) =
 
 """
 	fit(::Type{SCEFit}, dataset::SCEDataset, estimator::AbstractEstimator;
-	    torque_weight::Real = 1.0) -> SCEFit
+	    torque_weight::Real = 1.0, verbosity::Bool = true) -> SCEFit
 
 Fit SCE coefficients on `dataset` with `estimator`, returning a `SCEFit`.
 
@@ -674,10 +687,10 @@ coef(f::SCEFit)::Vector{Float64} = f.jphi
 coef(m::SCEModel)::Vector{Float64} = m.jphi
 
 """
-	AdaptiveLasso(fit::SCEFit; kwargs...)
+	AdaptiveLasso(f::SCEFit; kwargs...)
 	AdaptiveLasso(model::SCEModel; kwargs...)
 
-Build an `AdaptiveLasso` estimator that reuses `coef(fit)` / `coef(model)`
+Build an `AdaptiveLasso` estimator that reuses `coef(f)` / `coef(model)`
 as its pilot via `PrecomputedPilot`, skipping a fresh pilot regression
 inside `solve_coefficients`. All remaining keyword arguments (`lambda`,
 `gamma`, `epsilon`, `standardize`) are forwarded to the standard
@@ -698,11 +711,11 @@ est = AdaptiveLasso(fit_ols; lambda = 1e-3)
 fit_ada = fit(SCEFit, dataset, est; torque_weight = 0.5)
 ```
 """
-function AdaptiveLasso(fit::SCEFit; kwargs...)
+function AdaptiveLasso(f::SCEFit; kwargs...)
 	haskey(kwargs, :pilot) && throw(ArgumentError(
-		"AdaptiveLasso(::SCEFit; ...) sets the pilot from `coef(fit)`; " *
+		"AdaptiveLasso(::SCEFit; ...) sets the pilot from `coef(f)`; " *
 		"passing a `pilot` keyword as well would silently override it."))
-	return AdaptiveLasso(; pilot = PrecomputedPilot(coef(fit)), kwargs...)
+	return AdaptiveLasso(; pilot = PrecomputedPilot(coef(f)), kwargs...)
 end
 
 function AdaptiveLasso(model::SCEModel; kwargs...)
@@ -936,12 +949,7 @@ const SCEEvalData = Union{SCEDataset, AbstractVector{SpinConfig}, AbstractString
 # SCEDataset (configs / EMBSET paths are evaluated through the
 # predictor's own basis, so they are compatible by construction).
 function _check_basis(model::SCEModel, dataset::SCEDataset)
-	# Identical SCEBasis instances pass immediately.
-	model.basis === dataset.basis && return nothing
-	# Two SCEBasis objects loaded from the same XML share an identical
-	# structural fingerprint, so the model matches the dataset.
-	model.basis.salc_fingerprint == dataset.basis.salc_fingerprint &&
-		return nothing
+	_same_basis(model.basis, dataset.basis) && return nothing
 	throw(ArgumentError(
 		"the evaluation SCEDataset was built from a different SCEBasis " *
 		"than the predictor; design-matrix column ordering is set by " *
@@ -1305,12 +1313,17 @@ end
 function _print_fit_summary(f::SCEFit, elapsed_time::Real)
 	n_E = length(f.dataset.y_E)
 	n_T = length(f.dataset.y_T)
-	rss_E = rss_energy(f)
-	rss_T = rss_torque(f)
-	rmse_E = rmse_energy(f)
-	rmse_T = rmse_torque(f)
-	r2_E = r2_energy(f)
-	r2_T = r2_torque(f)
+	# Evaluate the energy and torque predictions once each; the six
+	# in-sample metrics below are all derived from these two vectors,
+	# avoiding three redundant `X_E * jphi` / `X_T * jphi` products.
+	obs_E, pred_E = _eval_energy(f, f.dataset)
+	obs_T, pred_T = _eval_torque(f, f.dataset)
+	rss_E = sum(abs2, obs_E .- pred_E)
+	rss_T = sum(abs2, obs_T .- pred_T)
+	rmse_E = Fitting.calc_rmse(obs_E, pred_E)
+	rmse_T = Fitting.calc_rmse(obs_T, pred_T)
+	r2_E = Fitting.calc_r2score(obs_E, pred_E)
+	r2_T = Fitting.calc_r2score(obs_T, pred_T)
 	println(
 		"""
 

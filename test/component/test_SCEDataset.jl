@@ -141,7 +141,7 @@ end
         @test d_from_fit.X_T == d_ref.X_T
     end
 
-    @testset "vcat reconstructs and checks basis identity" begin
+    @testset "vcat checks SALC-basis fingerprint compatibility" begin
         d = SCEDataset(basis, configs)
         merged = vcat(d[1], d[2])
         @test length(merged) == 2
@@ -151,9 +151,28 @@ end
         @test merged.y_T == d.y_T
         @test merged.basis === basis
 
-        # datasets built from different SCEBasis objects cannot be vcat-ed
-        other_basis = SCEBasis(DIMER_TOML_DS; verbosity = false)
-        d_other = SCEDataset(other_basis, configs)
-        @test_throws ArgumentError vcat(d, d_other)
+        # A basis rebuilt from the same input is a distinct object but
+        # has an identical structural fingerprint (the fingerprint is a
+        # deterministic hash of the SALC structure). Its dataset can be
+        # vcat-ed: the design-matrix column orderings provably agree.
+        twin_basis = SCEBasis(DIMER_TOML_DS; verbosity = false)
+        @test twin_basis !== basis
+        @test twin_basis.salc_fingerprint == basis.salc_fingerprint
+        d_twin = SCEDataset(twin_basis, configs)
+        merged_twin = vcat(d, d_twin)
+        @test length(merged_twin) == 4
+        @test merged_twin.basis === basis              # keeps the first basis
+        @test merged_twin.X_E == vcat(d.X_E, d_twin.X_E)
+        @test merged_twin.X_T == vcat(d.X_T, d_twin.X_T)
+
+        # A basis with a different SALC structure has a different
+        # fingerprint, so its dataset cannot be vcat-ed.
+        d_diff = SCEDataset(_periodic_pair_ds(), configs;
+            interaction = (body1 = (lmax = Dict(:Fe => 2),),
+                           body2 = (lsum = 2, cutoff = Dict((:Fe, :Fe) => -1.0))),
+            verbosity = false,
+        )
+        @test d_diff.basis.salc_fingerprint != basis.salc_fingerprint
+        @test_throws ArgumentError vcat(d, d_diff)
     end
 end

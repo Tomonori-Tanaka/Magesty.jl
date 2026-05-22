@@ -59,9 +59,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   constructor) so caller-side mutation cannot leak into the stored
   pilot. Designed as the primitive an iterative Adaptive variant will
   call inside its inner loop.
-- `AdaptiveLasso(fit::SCEFit; kwargs...)` and
+- `AdaptiveLasso(f::SCEFit; kwargs...)` and
   `AdaptiveLasso(model::SCEModel; kwargs...)` convenience constructors
-  that wrap `coef(fit)` / `coef(model)` in `PrecomputedPilot` and
+  that wrap `coef(f)` / `coef(model)` in `PrecomputedPilot` and
   forward the remaining kwargs (`lambda`, `gamma`, `epsilon`,
   `standardize`) to the keyword constructor. The prior fit must have
   been produced on the same `SCEBasis`; only a length check is
@@ -151,6 +151,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `vcat` of `SCEDataset` objects now accepts any datasets whose
+  `SCEBasis` objects share a `salc_fingerprint`, not only datasets built
+  from the *same* `SCEBasis` instance. Two bases constructed from the
+  same input — or reloaded from the same XML — are distinct objects with
+  an identical fingerprint, so their datasets can now be concatenated.
+  This matches the prediction path (`predict_energy` / `predict_torque`),
+  which already accepted fingerprint-equal bases. Datasets from
+  structurally different bases (mismatched fingerprint) still raise
+  `ArgumentError`. Non-breaking: every `vcat` call that previously
+  succeeded still succeeds.
 - **Breaking:** `save` and `load` are no longer exported from `Magesty`.
   Call them as `Magesty.save(...)` / `Magesty.load(...)`. This avoids the
   name clash with the generic `save` / `load` exported by JLD2, FileIO,
