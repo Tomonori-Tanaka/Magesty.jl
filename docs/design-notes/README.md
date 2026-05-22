@@ -26,11 +26,12 @@ topic body lives here as one file.
 
 1. **New topic**: create `docs/design-notes/<topic>.md` and add a row
    to `DESIGN_NOTES.md`.
-2. **When the topic becomes a spec**: replace the link in
-   `DESIGN_NOTES.md` with the new `docs/specs/...` path. Keep the
-   design-note body as a historical record (do not delete it).
-3. **Completed state**: leave the file in place. Track status via the
-   `**Status**:` line under the title and the `DESIGN_NOTES.md` index.
+2. **When the topic becomes a spec**: point the `DESIGN_NOTES.md` row
+   at the new `docs/specs/...` path. The design-note body stays in
+   place only while the spec is active.
+3. **When the spec completes**: delete the design-note file and remove
+   its row from `DESIGN_NOTES.md`. The spec folder is the canonical
+   history; git preserves the original design-note body.
 4. **Length**: if a single file exceeds ~500 lines, consider splitting.
 
 ## File header template
