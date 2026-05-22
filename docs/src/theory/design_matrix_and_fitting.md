@@ -232,6 +232,37 @@ exactly sparse solutions, and `AdaptiveRidge` drives small coefficients
 toward zero as an ``L_0`` approximation, yielding a sparse, interpretable
 model.
 
+### Post-selection refit
+
+`Lasso` and `AdaptiveLasso` shrink the surviving coefficients toward
+zero (the bias inherent in any ``L_1`` penalty), and `AdaptiveRidge`
+likewise leaves them attenuated by its ``L_0`` approximation. Once the
+support has been chosen, that shrinkage is no longer useful: a plain
+`OLS` (or low-``\lambda`` `Ridge`) restricted to the selected columns
+recovers an unbiased estimate of the coefficients on that support.
+`refit` performs this post-selection refit:
+
+```math
+\text{support} = \{\,\nu : |J_\nu|\,\lVert X_{\cdot,\nu}\rVert > \tau\,\},
+\qquad
+J^\text{refit} = \arg\min_{J}\,
+  \tfrac{1-w}{n_E}\,\lVert y_E - X_E J\rVert^2
++ \tfrac{w}{n_T}\,\lVert y_T - X_T J\rVert^2
+\quad\text{s.t.}\ J_\nu = 0\ \forall\, \nu \notin \text{support},
+```
+
+with ``X`` the same energy-centered, row-whitened design matrix that the
+original fit assembled (the input fit's `torque_weight` is reused). The
+selection criterion ``|J_\nu|\,\lVert X_{\cdot,\nu}\rVert`` weights the
+raw coefficient by its column norm to cancel the per-cluster
+``(4\pi)^{N/2}`` factor that otherwise makes ``|J_\nu|`` magnitudes
+incomparable across cluster sizes. At the default ``\tau = 0`` an
+``L_1``-selected support survives intact (exact zeros are dropped, all
+other coefficients kept), while an `AdaptiveRidge` user passes a
+positive ``\tau`` to drop near-negligible bases. Coefficients of dropped
+SALC key groups remain ``0`` in the returned `SCEFit`, so the
+coefficient ordering is preserved.
+
 ## Result types
 
 The fit returns an `SCEFit` (fitted coefficients `j0` / `jphi`, the

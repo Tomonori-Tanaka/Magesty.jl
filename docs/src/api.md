@@ -23,6 +23,7 @@ SCEModel
 
 ```@docs
 fit
+refit
 coef
 intercept
 nobs

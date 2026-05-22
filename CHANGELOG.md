@@ -8,6 +8,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `refit(fit::SCEFit, estimator = OLS(); threshold = 0.0, verbosity = true)`: post-selection
+  refit on the basis support of an existing fit. A basis is kept iff
+  `abs(coef(f)[j]) * norm(X[:, j]) > threshold`, where `X` is the
+  weighted, energy-centered design matrix that `f` was fitted against
+  (`f.dataset` and `f.torque_weight` are reused). The column-norm factor
+  cancels the per-cluster `(4π)^(N/2)` scaling so the scaled criterion
+  is comparable across cluster sizes, and the default `threshold = 0.0`
+  keeps an L1 fit's exact-zero support intact while `AdaptiveRidge`
+  users pass a positive threshold. The support is re-solved with the
+  caller-chosen `estimator` (default `OLS()` for classic post-selection
+  debiasing); dropped bases stay at `0.0`, so `jphi` length and SALC
+  ordering are preserved. `PrecomputedPilot`-backed estimators (and
+  `AdaptiveLasso` whose pilot is one, including the
+  `AdaptiveLasso(::SCEFit)` form) are rejected upfront because their
+  fixed pilot vector has the original column count, not the refit
+  support length. Purely additive — no impact on `fit` or any existing
+  estimator.
 - `AdaptiveRidge`: iterative Adaptive Ridge estimator (Frommlet & Nuel
   2016) that approximates an L0-penalized fit. It refits a per-coefficient
   weighted ridge problem and updates the weights

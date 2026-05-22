@@ -87,8 +87,7 @@ SCEFit <: StatsAPI.RegressionModel
 ├── jphi::Vector{Float64}   # Estimated SCE coefficients
 ├── estimator::AbstractEstimator
 ├── torque_weight::Float64
-├── residuals::Vector{Float64}
-└── metrics::Dict{Symbol, Any}  # In-sample RMSE / R²
+└── residuals::Vector{Float64}
 
 SCEModel
 ├── basis::SCEBasis
@@ -128,7 +127,9 @@ SCEDataset(system, spinconfigs; interaction, ...)  # AtomsBase shortcut
 SCEDataset(toml_path, spinconfigs) # TOML shortcut
 
 # Fitting
-fit(SCEFit, dataset, estimator; torque_weight = 1.0) -> SCEFit
+fit(SCEFit, dataset, estimator; torque_weight = 1.0, verbosity = true) -> SCEFit
+refit(fit::SCEFit, estimator = OLS(); threshold = 0.0, verbosity = true) -> SCEFit
+                                   # Post-selection refit on the basis support
 SCEModel(f::SCEFit) -> SCEModel    # Lightweight prediction-only conversion
 
 # Prediction (data may be: AbstractMatrix, SpinConfig,
