@@ -136,7 +136,25 @@ T = predict_torque(model, spins_spiral)
 println("Max torque magnitude: ", maximum(norm.(eachcol(T))))
 ```
 
-## Example 7: Inspect symmetry, structure, and SALCs
+## Example 7: Evaluate a saved model on new data
+
+`SCEDataset` accepts a fitted `SCEModel` or `SCEFit` in place of an
+`SCEBasis`: it reuses the basis embedded in it (`model.basis` /
+`fit.dataset.basis`) without rebuilding the SALCs. This is convenient
+when reloading a saved model to score it on a fresh EMBSET file.
+
+```julia
+using Magesty
+
+# Reload a model saved earlier and score it on new reference data.
+model    = Magesty.load(SCEModel, "model.xml")
+new_data = SCEDataset(model, "EMBSET_new")   # basis taken from the model
+
+ŷ_E = predict_energy(model, new_data)
+ŷ_T = predict_torque(model, new_data)
+```
+
+## Example 8: Inspect symmetry, structure, and SALCs
 
 ```julia
 using Magesty

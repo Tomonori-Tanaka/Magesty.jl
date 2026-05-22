@@ -8,6 +8,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `SCEDataset(model::SCEModel, ...)` / `SCEDataset(fit::SCEFit, ...)`
+  constructors that accept a fitted `SCEModel` or `SCEFit` in place of an
+  `SCEBasis`, reusing the basis embedded in it (`model.basis` /
+  `fit.dataset.basis`) without rebuilding the SALCs. The second argument
+  is the usual `Vector{SpinConfig}` or EMBSET file path; the methods
+  forward to the basis-based constructors, so design matrices are built
+  exactly as before (purely additive, no numerical-convention impact).
 - `magesty` command-line interface, provided by the `MagestyCLI` package
   in the `cli/` subdirectory of the repository and built with Comonicon.jl.
   Adding `MagestyCLI` and running `Pkg.build("MagestyCLI")` writes the
