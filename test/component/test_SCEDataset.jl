@@ -123,6 +123,24 @@ end
         @test db.X_E == d.X_E[1:1, :]
     end
 
+    @testset "SCEModel / SCEFit reuse the embedded basis" begin
+        d_ref = SCEDataset(basis, configs)
+        f = fit(SCEFit, d_ref, OLS(); verbosity = false)
+        model = SCEModel(f)
+
+        d_from_model = SCEDataset(model, configs)
+        @test d_from_model isa SCEDataset
+        @test d_from_model.basis === basis   # basis reused, not rebuilt
+        @test d_from_model.X_E == d_ref.X_E
+        @test d_from_model.X_T == d_ref.X_T
+
+        d_from_fit = SCEDataset(f, configs)
+        @test d_from_fit isa SCEDataset
+        @test d_from_fit.basis === basis
+        @test d_from_fit.X_E == d_ref.X_E
+        @test d_from_fit.X_T == d_ref.X_T
+    end
+
     @testset "vcat reconstructs and checks basis identity" begin
         d = SCEDataset(basis, configs)
         merged = vcat(d[1], d[2])

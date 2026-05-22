@@ -354,17 +354,21 @@ end
 """
 	SCEDataset(basis::SCEBasis, spinconfigs::AbstractVector{SpinConfig}) -> SCEDataset
 	SCEDataset(basis::SCEBasis, embset_path::AbstractString) -> SCEDataset
+	SCEDataset(model::SCEModel, spinconfigs_or_embset_path) -> SCEDataset
+	SCEDataset(fit::SCEFit, spinconfigs_or_embset_path) -> SCEDataset
 	SCEDataset(system::AtomsBase.AbstractSystem, spinconfigs; interaction, ...) -> SCEDataset
 	SCEDataset(toml_path::AbstractString, spinconfigs::AbstractVector{SpinConfig})
 
 Build a `SCEDataset` from a basis and training data. The base method
 takes an explicit `SCEBasis` and a vector of `SpinConfig`; it builds the
 unweighted energy and torque design matrices once. The `embset_path`
-method reads the configurations from an EMBSET file first. The two sugar
-methods build a throwaway `SCEBasis` internally (from an
-`AtomsBase.AbstractSystem` or a TOML file) and embed it in the dataset;
-for workflows that share one basis across several datasets, construct the
-`SCEBasis` explicitly and pass it to the base method.
+method reads the configurations from an EMBSET file first. Passing a
+fitted `SCEModel` or `SCEFit` in place of the basis reuses the basis
+embedded in it (`model.basis` / `fit.dataset.basis`) without rebuilding
+it. The two sugar methods build a throwaway `SCEBasis` internally (from
+an `AtomsBase.AbstractSystem` or a TOML file) and embed it in the
+dataset; for workflows that share one basis across several datasets,
+construct the `SCEBasis` explicitly and pass it to the base method.
 """
 function SCEDataset(basis::SCEBasis, spinconfigs::AbstractVector{SpinConfig})
 	X_E = Fitting.build_design_matrix_energy(
@@ -515,6 +519,18 @@ struct SCEFit <: StatsAPI.RegressionModel
 	torque_weight::Float64
 	residuals::Vector{Float64}
 end
+
+# `SCEDataset` constructors that reuse the basis embedded in a fitted
+# `SCEModel` / `SCEFit`. Defined here because `SCEFit` is declared after
+# `SCEDataset`. They forward to the basis-based base methods above.
+SCEDataset(model::SCEModel, spinconfigs::AbstractVector{SpinConfig}) =
+	SCEDataset(model.basis, spinconfigs)
+SCEDataset(model::SCEModel, embset_path::AbstractString) =
+	SCEDataset(model.basis, embset_path)
+SCEDataset(f::SCEFit, spinconfigs::AbstractVector{SpinConfig}) =
+	SCEDataset(f.dataset.basis, spinconfigs)
+SCEDataset(f::SCEFit, embset_path::AbstractString) =
+	SCEDataset(f.dataset.basis, embset_path)
 
 """
 	fit(::Type{SCEFit}, dataset::SCEDataset, estimator::AbstractEstimator;
