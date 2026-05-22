@@ -79,7 +79,8 @@ include("ExtXYZ.jl")
 include("VaspIO.jl")
 
 export SCEBasis, SCEDataset, SCEFit, SCEModel
-export AbstractEstimator, OLS, Ridge, ElasticNet, Lasso, AdaptiveLasso, PrecomputedPilot
+export AbstractEstimator, OLS, Ridge, ElasticNet, Lasso, AdaptiveLasso,
+	PrecomputedPilot, AdaptiveRidge
 export predict_energy, predict_torque
 export write_energies, write_torques
 export fit, coef, intercept, nobs, dof

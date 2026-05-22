@@ -10,7 +10,8 @@ Operating rules: [`docs/design-notes/README.md`](docs/design-notes/README.md).
 
 | Topic | Status | Last update |
 |---|---|---|
-| [Adaptive Ridge (iterative)](docs/design-notes/adaptive-ridge-iterative.md) | on hold, pre-spec sketch | 2026-05-19 |
+
+_No open design proposals._
 
 Completed proposals are folded into their corresponding spec under
 `docs/specs/` and removed from this index. The spec folder is the

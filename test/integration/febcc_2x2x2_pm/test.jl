@@ -165,6 +165,29 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
 		end
 	end
 
+	@testset "AdaptiveRidge smoke + XML round-trip" begin
+		# AdaptiveRidge runs the iterative L0-approximation end-to-end on
+		# the same realistic SCE pipeline (basis -> dataset -> fit ->
+		# save -> load). A small lambda is chosen on purpose: this is a
+		# numerical-safety / round-trip smoke test, not a support-recovery
+		# test.
+		f_ar = fit(
+			SCEFit, dataset, AdaptiveRidge(lambda = 1e-4);
+			torque_weight = 0.5, verbosity = false,
+		)
+		@test all(isfinite, coef(f_ar))
+		@test isfinite(intercept(f_ar))
+
+		mktempdir() do dir
+			xml_path = joinpath(dir, "scecoeffs_adaridge.xml")
+			model = SCEModel(f_ar)
+			Magesty.save(model, xml_path)
+			reloaded = Magesty.load(SCEModel, xml_path)
+			@test reloaded.j0 ≈ model.j0
+			@test reloaded.jphi ≈ model.jphi
+		end
+	end
+
 	@testset "AdaptiveLasso(::SCEFit) / AdaptiveLasso(::SCEModel) reuse" begin
 		# Convenience constructors must wrap the prior fit's coefficients
 		# in a PrecomputedPilot and forward the rest of the kwargs to the

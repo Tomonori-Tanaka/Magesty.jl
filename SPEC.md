@@ -17,7 +17,7 @@ in `src/Magesty.jl` reflects the dependency order.
 | `Symmetries` | `src/Symmetries.jl` | Space-group symmetry operations (Spglib wrapper) |
 | `Clusters` | `src/Clusters.jl` | Cluster expansion and distance-matrix computation |
 | `SALCBases` | `src/SALCBases.jl` | SALC basis construction (computationally expensive) |
-| `Fitting` | `src/Fitting.jl` | Design-matrix construction and regression (`OLS` / `Ridge` / `ElasticNet` / `AdaptiveLasso`, with a `Lasso` convenience function) |
+| `Fitting` | `src/Fitting.jl` | Design-matrix construction and regression (`OLS` / `Ridge` / `ElasticNet` / `AdaptiveLasso` / `AdaptiveRidge`, with a `Lasso` convenience function) |
 | `SpinConfigs` | `src/SpinConfigs.jl` | Spin-configuration loading and management |
 
 ### Utilities and data types
@@ -163,9 +163,11 @@ Magesty.load(SCEBasis, path)       # Read SCEBasis (model XML also accepted)
 Magesty.load(SCEModel, path)       # Read SCEModel
 
 # Estimators
-AbstractEstimator, OLS, Ridge, ElasticNet, Lasso, AdaptiveLasso, PrecomputedPilot
+AbstractEstimator, OLS, Ridge, ElasticNet, Lasso, AdaptiveLasso,
+    PrecomputedPilot, AdaptiveRidge
 AdaptiveLasso(fit::SCEFit; kwargs...)    # reuse an existing fit as pilot
 AdaptiveLasso(model::SCEModel; kwargs...) # reuse an existing model as pilot
+AdaptiveRidge(; lambda, epsilon, max_iter, tol)  # iterative L0 approximation
 
 # Data reading
 read_embset(path)                  # EMBSET -> Vector{SpinConfig}

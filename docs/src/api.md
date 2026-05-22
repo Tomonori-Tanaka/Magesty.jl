@@ -96,6 +96,7 @@ ElasticNet
 Lasso
 AdaptiveLasso
 PrecomputedPilot
+AdaptiveRidge
 ```
 
 ## Data loading

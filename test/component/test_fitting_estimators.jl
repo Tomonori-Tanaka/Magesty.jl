@@ -521,3 +521,126 @@ end
         @test !occursin("0.0, 0.0", est_repr)
     end
 end
+
+# Component tests for the iterative AdaptiveRidge estimator (Frommlet &
+# Nuel 2016). The expected values below are all derived analytically from
+# the weighted-ridge closed form, never tuned to observed output:
+#
+#   1. `lambda = 0` makes the penalty term vanish, so `solve_coefficients`
+#      short-circuits to the bare least-squares solve.
+#   2. With `epsilon` far above every `beta_j^2`, the weights collapse to
+#      `~1/epsilon` and the weighted ridge `(X'X + lambda*diag(w))`
+#      reduces to the uniform ridge `(X'X + (lambda/epsilon)*I)`, so the
+#      converged fit must match `Ridge(lambda/epsilon)`.
+#   3. AdaptiveRidge iteration zero is exactly the plain `Ridge(lambda)`
+#      solve; the reweighting raises the penalty on the small (near-zero)
+#      columns, so they end up strictly smaller than that initializer.
+#   4. A converged fixed-point iteration is insensitive to the `max_iter`
+#      cap once the cap is above the convergence step count.
+@testset "AdaptiveRidge estimator" begin
+    @testset "lambda = 0 reduces to OLS" begin
+        rng = MersenneTwister(20260701)
+        X, y = _centered_energy_system(rng, 60, 8)
+        b_ar = Magesty.Fitting.solve_coefficients(AdaptiveRidge(lambda = 0.0), X, y)
+        # The penalty term vanishes; the solve short-circuits to `X \ y`,
+        # so the result is bit-identical to the bare least-squares solve.
+        @test b_ar == X \ y
+    end
+
+    @testset "epsilon -> infinity collapses to plain Ridge(lambda/epsilon)" begin
+        rng = MersenneTwister(20260702)
+        X, y = _centered_energy_system(rng, 60, 8)
+        # With epsilon far above every beta_j^2, the weights
+        # w_j = 1/(beta_j^2 + epsilon) all collapse to ~1/epsilon, so the
+        # weighted ridge (X'X + lambda*diag(w)) reduces analytically to
+        # the uniform ridge (X'X + (lambda/epsilon)*I). The converged
+        # AdaptiveRidge fit must therefore match Ridge(lambda/epsilon).
+        lambda = 1.0
+        epsilon = 1e8
+        b_ar = Magesty.Fitting.solve_coefficients(
+            AdaptiveRidge(lambda = lambda, epsilon = epsilon), X, y,
+        )
+        b_ridge = Magesty.Fitting.solve_coefficients(
+            Ridge(lambda = lambda / epsilon), X, y,
+        )
+        rel = maximum(abs.(b_ar .- b_ridge)) / max(maximum(abs.(b_ridge)), eps())
+        # Residual is the O(beta^2/epsilon) ~ 1e-8 weight approximation
+        # plus the tol = 1e-6 convergence band; 1e-5 leaves headroom.
+        @test rel < 1e-5
+    end
+
+    @testset "reweighting shrinks small coefficients below the ridge initializer" begin
+        rng = MersenneTwister(20260703)
+        # Sparse ground truth: only columns 1, 4, 7 carry real weight.
+        n, p = 100, 10
+        support = [1, 4, 7]
+        offsupport = setdiff(1:p, support)
+        X_raw = randn(rng, n, p)
+        beta_true = zeros(p)
+        beta_true[1] = 1.0
+        beta_true[4] = -0.7
+        beta_true[7] = 0.4
+        y_raw = X_raw * beta_true .+ 0.05 .* randn(rng, n)
+        X = X_raw .- mean(X_raw, dims = 1)
+        y = y_raw .- mean(y_raw)
+
+        lambda = 1e-3
+        # epsilon = 1e-2 puts the selection threshold sqrt(epsilon) = 0.1
+        # between the off-support noise (~0.01-0.05) and the on-support
+        # magnitudes (0.4-1.0): off-support columns sit below it and are
+        # treated as negligible, on-support columns above it are kept.
+        epsilon = 1e-2
+        b_ar = Magesty.Fitting.solve_coefficients(
+            AdaptiveRidge(lambda = lambda, epsilon = epsilon), X, y,
+        )
+        # AdaptiveRidge iteration zero is exactly Ridge(lambda); the
+        # reweighting that follows raises the penalty on the small
+        # (off-support) columns, so they must end up strictly smaller
+        # than under the plain-ridge initializer.
+        b_ridge = Magesty.Fitting.solve_coefficients(Ridge(lambda = lambda), X, y)
+        @test all(isfinite, b_ar)
+        @test maximum(abs.(b_ar[offsupport])) < maximum(abs.(b_ridge[offsupport]))
+    end
+
+    @testset "iteration converges before max_iter" begin
+        rng = MersenneTwister(20260704)
+        X, y = _centered_energy_system(rng, 60, 8)
+        # If the fixed-point iteration converges within 50 steps, raising
+        # the cap to 500 cannot change the result: the loop breaks at the
+        # same iterate either way.
+        b_50 = Magesty.Fitting.solve_coefficients(
+            AdaptiveRidge(lambda = 1e-3, max_iter = 50), X, y,
+        )
+        b_500 = Magesty.Fitting.solve_coefficients(
+            AdaptiveRidge(lambda = 1e-3, max_iter = 500), X, y,
+        )
+        @test all(isfinite, b_50)
+        @test b_50 == b_500
+    end
+
+    @testset "max_iter = 1 performs a single reweighting step" begin
+        rng = MersenneTwister(20260705)
+        X, y = _centered_energy_system(rng, 60, 8)
+        b = Magesty.Fitting.solve_coefficients(
+            AdaptiveRidge(lambda = 1e-3, max_iter = 1), X, y,
+        )
+        @test length(b) == size(X, 2)
+        @test all(isfinite, b)
+    end
+
+    @testset "constructor validates its arguments" begin
+        @test_throws ArgumentError AdaptiveRidge(lambda = -1.0)
+        @test_throws ArgumentError AdaptiveRidge(lambda = 1e-3, epsilon = 0.0)
+        @test_throws ArgumentError AdaptiveRidge(lambda = 1e-3, epsilon = -1e-8)
+        @test_throws ArgumentError AdaptiveRidge(lambda = 1e-3, max_iter = 0)
+        @test_throws ArgumentError AdaptiveRidge(lambda = 1e-3, tol = 0.0)
+        @test_throws ArgumentError AdaptiveRidge(lambda = 1e-3, tol = -1e-6)
+        # A valid construction round-trips its fields with the documented
+        # Float64 / Int conversions.
+        e = AdaptiveRidge(lambda = 1e-3, epsilon = 1e-7, max_iter = 25, tol = 1e-5)
+        @test e.lambda == 1e-3
+        @test e.epsilon == 1e-7
+        @test e.max_iter == 25
+        @test e.tol == 1e-5
+    end
+end
