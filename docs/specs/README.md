@@ -26,6 +26,7 @@ in the "Managing development units" section of
 | [260520-fitcheck-io-writers](260520-fitcheck-io-writers/) | complete (2026-05-20) | `write_energies` / `write_torques` text writers for the current API, feeding `FitCheck_*.py` visualization |
 | [260520-cli-foundation](260520-cli-foundation/) | complete (2026-05-21) | Comonicon-based `magesty` CLI foundation; VASP-to-extxyz promoted to API + `magesty vasp extxyz` subcommand |
 | [260521-cli-package-extraction](260521-cli-package-extraction/) | complete (2026-05-21) | Extract the Comonicon CLI into a `MagestyCLI` subdirectory package; de-Comonicon the core to restore JET coverage |
+| [260522-adaptive-ridge-iterative](260522-adaptive-ridge-iterative/) | complete (2026-05-22) | Iterative `AdaptiveRidge` estimator (Frommlet & Nuel 2016 L0 approximation) with an analytic weighted-ridge refit |
 
 This table and the `Status:` line in each `tasklist.md` are duplicated
 intentionally; update both when a spec lands. Reconcile in bulk when
