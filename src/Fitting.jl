@@ -282,6 +282,18 @@ struct PrecomputedPilot <: AbstractEstimator
 	PrecomputedPilot(b::AbstractVector{<:Real}) = new(Vector{Float64}(b))
 end
 
+# Compact display: the default struct printer dumps the whole `beta` vector
+# (hundreds--thousands of entries), which floods the fit summary. Summarize
+# by length instead. `AdaptiveLasso`'s default printer calls `show` on each
+# field, so a labeled form keeps the nested pilot readable too.
+Base.show(io::IO, p::PrecomputedPilot) =
+	print(io, "PrecomputedPilot(", length(p.beta), " coefficients)")
+
+Base.show(io::IO, e::AdaptiveLasso) =
+	print(io, "AdaptiveLasso(pilot=", e.pilot, ", lambda=", e.lambda,
+		", gamma=", e.gamma, ", epsilon=", e.epsilon,
+		", standardize=", e.standardize, ")")
+
 """
 	EnergyWorkspace
 

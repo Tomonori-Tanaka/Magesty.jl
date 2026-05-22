@@ -504,4 +504,20 @@ end
             pp_wrong, X, y,
         )
     end
+
+    @testset "show summarizes beta by length, not by dumping it" begin
+        # The fit summary prints the estimator; the default struct printer
+        # would dump the whole pilot coefficient vector. The compact form
+        # must report the length only.
+        pp = PrecomputedPilot(zeros(500))
+        pp_repr = repr(pp)
+        @test occursin("500 coefficients", pp_repr)
+        @test !occursin("0.0, 0.0", pp_repr)
+
+        # AdaptiveLasso's display nests the pilot; it must stay compact too.
+        est = AdaptiveLasso(pilot = pp, lambda = 1e-3)
+        est_repr = repr(est)
+        @test occursin("PrecomputedPilot(500 coefficients)", est_repr)
+        @test !occursin("0.0, 0.0", est_repr)
+    end
 end
