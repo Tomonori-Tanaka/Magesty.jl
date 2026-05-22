@@ -82,8 +82,11 @@ items that do not apply.
 - [x] `CHANGELOG.md` `[Unreleased]` updated.
 - [x] `Status:` line in this file and the table in
       `docs/specs/README.md` updated in sync.
-- [ ] Implementation commit hash appended below.
+- [x] Implementation commit hash appended below.
 
 ## Commit log
 
-- (appended as commits land)
+- `231207f` docs(specs): add iterative AdaptiveRidge spec
+- `b7469ee` feat(Fitting): add AdaptiveRidge estimator
+- `446089a` test(Fitting): add AdaptiveRidge component and integration tests
+- `7585307` docs: document AdaptiveRidge across api, theory, and changelog
