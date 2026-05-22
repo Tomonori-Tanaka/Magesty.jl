@@ -126,21 +126,24 @@ struct Cluster
 
 		start_time = time_ns()
 
-		cluster_dict::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}} =
-			generate_clusters(structure, symmetry, cutoff_radii, nbody)
-
-		irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}} =
-			irreducible_clusters(cluster_dict, symmetry)
-
-		cluster_orbits_dict::Dict{Int, Dict{Int, Vector{Vector{Int}}}} =
-			cluster_orbits(irreducible_cluster_dict, symmetry)
-
+		# Compute once; pass the same matrix into `generate_clusters` and
+		# store it on the struct so the previous duplicate `set_mindist_pairs`
+		# call inside `generate_clusters` is eliminated.
 		min_distance_pairs = set_mindist_pairs(
 			structure.supercell.num_atoms,
 			structure.x_image_cart,
 			structure.exist_image,
 			tol = symmetry.tol,
 		)
+
+		cluster_dict::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}} =
+			generate_clusters(structure, symmetry, cutoff_radii, nbody, min_distance_pairs)
+
+		irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}} =
+			irreducible_clusters(cluster_dict, symmetry)
+
+		cluster_orbits_dict::Dict{Int, Dict{Int, Vector{Vector{Int}}}} =
+			cluster_orbits(irreducible_cluster_dict, symmetry)
 
 
 		if verbosity
@@ -315,7 +318,7 @@ end
 
 
 """
-	generate_clusters(structure, symmetry, cutoff_radii, nbody) -> Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}
+	generate_clusters(structure, symmetry, cutoff_radii, nbody, min_distance_pairs) -> Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}
 
 Generates interaction clusters based on cutoff radii and structure information.
 
@@ -324,6 +327,11 @@ Generates interaction clusters based on cutoff radii and structure information.
 - `symmetry::Symmetry`: Symmetry operations
 - `cutoff_radii::AbstractArray{<:Real, 3}`: Cutoff radii for interactions
 - `nbody::Integer`: Number of interacting bodies
+- `min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}}`: Precomputed
+  minimum-distance pairs (output of `set_mindist_pairs`). The `Cluster`
+  constructor computes this once and threads it through both call sites,
+  so the matrix is taken as a positional argument here rather than being
+  recomputed internally.
 
 # Returns
 - `Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}`: Dictionary of clusters organized by body and primitive atom index
@@ -333,14 +341,9 @@ function generate_clusters(
 	symmetry::Symmetry,
 	cutoff_radii::AbstractArray{<:Real, 3},
 	nbody::Integer,
+	min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
 )::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}
 
-	min_distance_pairs = set_mindist_pairs(
-		structure.supercell.num_atoms,
-		structure.x_image_cart,
-		structure.exist_image,
-		tol = symmetry.tol,
-	)
 	interaction_cutoff_dict = Dict{Int, Dict{Int, Vector{AtomCell}}}()
 	for body = 2:nbody
 		interaction_cutoff_dict[body] = Dict{Int, Vector{AtomCell}}()

@@ -54,12 +54,15 @@ function parse_args(args::Vector{String})
             error("Unknown argument: $a")
         end
     end
-    # Default: both three-body fixtures shipped under bench/fixtures/.
+    # Default: all three-body fixtures shipped under bench/fixtures/,
+    # in increasing cost order.
     if isempty(cfg[:inputs])
         cfg[:inputs] = [
             joinpath(@__DIR__, "fixtures", "fege_2x2x2_3body_light",
                      "input.toml"),
             joinpath(@__DIR__, "fixtures", "fege_2x2x2_3body_fefe_open",
+                     "input.toml"),
+            joinpath(@__DIR__, "fixtures", "fege_2x2x2_3body_all_open",
                      "input.toml"),
         ]
     end
@@ -133,8 +136,19 @@ function run_bench(cfg::Dict{Symbol, Any}, input_path::AbstractString)
     # constructor, reproducing its execution path.
     println("\n=== Per-stage timing ===")
 
+    # `min_distance_pairs` is computed once and threaded into both
+    # `generate_clusters` and the `Cluster` constructor; the standalone
+    # measurement below reproduces that single call.
+    mdp = @timed Clusters.set_mindist_pairs(
+        structure.supercell.num_atoms,
+        structure.x_image_cart,
+        structure.exist_image;
+        tol = symmetry.tol,
+    )
+    min_distance_pairs = mdp.value
+
     gen = @timed Clusters.generate_clusters(
-        structure, symmetry, cutoff_radii, nbody,
+        structure, symmetry, cutoff_radii, nbody, min_distance_pairs,
     )
     cluster_dict = gen.value
 
@@ -143,13 +157,6 @@ function run_bench(cfg::Dict{Symbol, Any}, input_path::AbstractString)
 
     orb = @timed Clusters.cluster_orbits(irreducible_cluster_dict, symmetry)
     cluster_orbits_dict = orb.value
-
-    mdp = @timed Clusters.set_mindist_pairs(
-        structure.supercell.num_atoms,
-        structure.x_image_cart,
-        structure.exist_image;
-        tol = symmetry.tol,
-    )
 
     stages = [
         ("generate_clusters", gen.time, gen.bytes),
@@ -186,9 +193,9 @@ function run_bench(cfg::Dict{Symbol, Any}, input_path::AbstractString)
         )
     end
 
-    # `set_mindist_pairs` is computed twice in the real construction path
-    # (once inside `generate_clusters`, once in the `Cluster` constructor);
-    # the timing above reflects a single standalone call.
+    # `set_mindist_pairs` is computed once and reused by both
+    # `generate_clusters` and the `Cluster` constructor; the timing above
+    # reflects that single shared call.
     dominant = stages[argmax([s[2] for s in stages])]
     println("\n=== Conclusion ===")
     println(

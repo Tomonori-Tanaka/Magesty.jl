@@ -45,17 +45,22 @@ Includes:
 - Updated `bench/benchmark_cluster.jl` call site for the new
   `generate_clusters` signature, plus a before/after entry in
   `.claude/bench_log.md`.
+- New benchmark fixture
+  `bench/fixtures/fege_2x2x2_3body_all_open/input.toml` (all body-3
+  cutoffs at -1). With the optimization in place this case runs in
+  sub-second time and is cheap enough to ship as a regression-sized
+  benchmark, validating the win on the original 4000 s pain point.
 
 Excludes:
 
 - `cluster_orbits` algorithmic changes (it is BFS-bounded by orbit size,
-  not the N_clusters^2 scan; leave alone for now).
+  not the N_clusters^2 scan; leave alone for now). Becomes the dominant
+  stage after this spec lands; addressed in a separate follow-up if
+  needed.
 - `is_within_cutoff` allocation cleanup (`combinations` + `collect` inside
   the inner loop). Track as a follow-up if benchmarks show it surfaces.
 - Threading any stage. Single-threaded wins should already drop runtime
   below the user's pain threshold; threading is a separate spec if needed.
-- A regression test against the full-`cutoff = -1` fixture (still too
-  expensive to ship; benchmark covers it manually).
 
 ## Invariants
 
