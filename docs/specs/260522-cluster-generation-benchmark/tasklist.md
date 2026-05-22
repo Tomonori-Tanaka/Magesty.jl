@@ -59,8 +59,10 @@ items that do not apply.
       tracked in the changelog, consistent with other `bench-*` targets)
 - [x] `Status:` line in this file and the table in
       `docs/specs/README.md` updated in sync.
-- [ ] Implementation commit hash appended below.
+- [x] Implementation commit hash appended below.
 
 ## Implementation commits
 
-<!-- Appended once the implementation commit lands. -->
+- `0538918` — perf(bench): add cluster-generation benchmark with
+  stage-level timing (two three-body fixtures, `bench/benchmark_cluster.jl`,
+  `bench-cluster` Makefile target).
