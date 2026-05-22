@@ -30,6 +30,7 @@ module Magesty
 
 using Printf
 using TOML
+using LinearAlgebra: norm
 import AtomsBase
 import DataStructures
 import StatsAPI                          # for the StatsAPI.RegressionModel supertype
@@ -83,7 +84,11 @@ export AbstractEstimator, OLS, Ridge, ElasticNet, Lasso, AdaptiveLasso,
 	PrecomputedPilot, AdaptiveRidge
 export predict_energy, predict_torque
 export write_energies, write_torques
-export fit, coef, intercept, nobs, dof
+# `refit` is a Magesty-native verb (post-selection refit on the basis
+# support); it is not imported from `StatsAPI`, which currently does not
+# define `refit`. If `StatsAPI` ever adds it, revisit this export so the
+# two definitions do not collide silently.
+export fit, refit, coef, intercept, nobs, dof
 export r2_energy, r2_torque, rss_energy, rss_torque
 export residuals_energy, residuals_torque, rmse_energy, rmse_torque
 export SpinConfig, read_embset
@@ -673,6 +678,162 @@ function fit(
 		_print_fit_summary(f, elapsed_time)
 	end
 	return f
+end
+
+"""
+	refit(fit::SCEFit, estimator::AbstractEstimator = OLS();
+	      threshold::Real = 0.0, verbosity::Bool = true) -> SCEFit
+
+Post-selection refit on the basis support of `fit`.
+
+A basis index `j` enters the *support* iff
+`abs(coef(fit)[j]) * norm(X[:, j]) > threshold`, where `X` is the
+weighted, energy-centered design matrix used by `fit` (reassembled from
+`fit.dataset` with the input fit's `torque_weight`). The criterion is
+scale-equivariant: multiplying column `j` by any positive constant
+leaves the product invariant, because the OLS coefficient scales
+inversely while the column norm scales linearly. This cancels both the
+per-cluster `(4π)^(N/2)` factor and any other column-scale convention,
+so a single criterion serves both selector families: L1 estimators
+(`Lasso`, `AdaptiveLasso`) have exact-zero coefficients that fall out
+at the default `threshold = 0.0`, while `AdaptiveRidge` users pass a
+positive `threshold` to drop near-negligible bases.
+
+The support columns are resolved on the *same* weighted problem with
+`estimator`; dropped bases stay at `0.0`, so `jphi` keeps its full
+length and SALC ordering — a refit `SCEFit` round-trips through
+`SCEModel` and `Magesty.save` like any other fit. `j0` is recovered from
+the uncentered energy data via `extract_j0_jphi`, identical to `fit`.
+
+A `PrecomputedPilot`-backed `estimator` (including an `AdaptiveLasso`
+whose `pilot` is a `PrecomputedPilot`, such as `AdaptiveLasso(::SCEFit)`)
+is rejected upfront: the fixed pilot vector has the original column
+count, not the refit support length. A precomputed pilot is also
+meaningless once a support has been chosen.
+
+# Arguments
+- `fit::SCEFit`: The fitted model whose coefficient support is reused.
+  `fit.dataset` and `fit.torque_weight` are reused verbatim, so the
+  refit minimizes the same weighted objective as the original `fit`.
+- `estimator::AbstractEstimator = OLS()`: Estimator for the support
+  resolve. Defaults to `OLS()` — classic post-selection debiasing. Pass
+  `Ridge(lambda = small)` when the selected support is still
+  rank-deficient or near-collinear.
+- `threshold::Real = 0.0`: Scaled-magnitude cutoff. Bases with
+  `abs(coef(fit)[j]) * norm(X[:, j]) <= threshold` are dropped. Must be
+  `>= 0`. The cutoff is in the scale of the row-whitened augmented
+  residual block (energy rows scaled by `sqrt((1-torque_weight)/n_E)`,
+  torque rows by `sqrt(torque_weight/n_T)`) rather than raw eV, so pick
+  it relative to the largest scaled magnitude in the input fit, e.g.
+  `maximum(abs.(coef(fit)) .* [norm(@view X[:, j]) for j in axes(X, 2)])`.
+- `verbosity::Bool = true`: Whether to print the standard fit summary,
+  exactly as `fit` does.
+
+# Returns
+- `SCEFit`: A fresh fit; dropped bases carry coefficient `0.0`. The
+  returned `estimator` field is the *refit* estimator; the selection
+  estimator is not recorded.
+
+# Examples
+Both snippets assume `dataset::SCEDataset` is already in scope (built
+from an `SCEBasis` plus spin configurations).
+```julia
+# L1 selection + OLS debiasing. The default threshold = 0.0 keeps the
+# Lasso's exact-zero support verbatim.
+fit_lasso = fit(SCEFit, dataset, Lasso(lambda = 1e-3))
+fit_db    = refit(fit_lasso, OLS())
+
+# AdaptiveRidge fit: pass a positive threshold to drop near-zero bases,
+# then refit with Ridge against residual collinearity.
+fit_ar    = fit(SCEFit, dataset, AdaptiveRidge(lambda = 1e-2))
+fit_db    = refit(fit_ar, Ridge(lambda = 1e-6); threshold = 1e-4)
+```
+"""
+function refit(
+	fit::SCEFit,
+	estimator::AbstractEstimator = OLS();
+	threshold::Real = 0.0,
+	verbosity::Bool = true,
+)::SCEFit
+	threshold >= 0 || throw(ArgumentError(
+		"refit threshold must be non-negative; got $threshold"))
+	_reject_precomputed_pilot(estimator)
+
+	start_time = time_ns()
+	dataset = fit.dataset
+	torque_weight = fit.torque_weight
+	X, y = Fitting.assemble_weighted_problem(
+		dataset.X_E,
+		dataset.X_T,
+		dataset.y_E,
+		dataset.y_T,
+		torque_weight,
+	)
+
+	jphi_in = coef(fit)
+	num_salcs = length(jphi_in)
+	support = findall(
+		j -> abs(jphi_in[j]) * norm(@view X[:, j]) > threshold,
+		eachindex(jphi_in),
+	)
+
+	j_values = zeros(Float64, num_salcs)
+	if isempty(support)
+		# Short-circuit before `solve_coefficients` -- a GLMNet-backed
+		# estimator would error on a zero-column design matrix, and the
+		# resulting all-zero `jphi` is well-defined: `extract_j0_jphi`
+		# then recovers `j0 = mean(y_E)`. A degenerate but valid fit.
+		@warn "refit: empty support — every basis is at or below the " *
+			"scaled-magnitude threshold. Returning an all-zero `jphi`; " *
+			"`j0` falls back to `mean(y_E)`." threshold
+	else
+		# `view` avoids a sub-matrix allocation on the OLS / Ridge paths.
+		# GLMNet- and AdaptiveRidge-backed solvers materialise their input
+		# to a dense `Matrix{Float64}` internally either way, so the view
+		# costs nothing there.
+		j_sub = Fitting.solve_coefficients(estimator, view(X, :, support), y)
+		j_values[support] .= j_sub
+	end
+	j0, jphi = Fitting.extract_j0_jphi(j_values, dataset.X_E, dataset.y_E)
+	residuals::Vector{Float64} = y .- X * j_values
+	refit_fit = SCEFit(
+		dataset,
+		j0,
+		jphi,
+		estimator,
+		torque_weight,
+		residuals,
+	)
+	if verbosity
+		elapsed_time = (time_ns() - start_time) / 1e9
+		_print_fit_summary(refit_fit, elapsed_time)
+	end
+	return refit_fit
+end
+
+# A `PrecomputedPilot` returns a fixed coefficient vector whose length
+# was set against the original design matrix. `refit` solves on a
+# sub-matrix `X[:, support]`, so the column counts disagree and the
+# pilot would throw `DimensionMismatch` deep in `solve_coefficients`.
+# Reject upfront with a clear message — and also reject an
+# `AdaptiveLasso` whose pilot is a `PrecomputedPilot`, the form returned
+# by `AdaptiveLasso(::SCEFit)` / `AdaptiveLasso(::SCEModel)`.
+function _reject_precomputed_pilot(e::AbstractEstimator)
+	if e isa PrecomputedPilot
+		throw(ArgumentError(
+			"refit does not accept a PrecomputedPilot-backed estimator: " *
+			"the pilot's fixed coefficient vector has the original column " *
+			"count, not the refit support length. A precomputed pilot is " *
+			"also meaningless once a support has been chosen."))
+	elseif e isa AdaptiveLasso && e.pilot isa PrecomputedPilot
+		throw(ArgumentError(
+			"refit does not accept an AdaptiveLasso whose pilot is a " *
+			"PrecomputedPilot (e.g. AdaptiveLasso(::SCEFit; ...)): the " *
+			"pilot's fixed coefficient vector has the original column " *
+			"count, not the refit support length. Pass a fresh pilot " *
+			"such as OLS() instead."))
+	end
+	return nothing
 end
 
 # --- StatsAPI verbs (response-block independent) ------------------------
