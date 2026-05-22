@@ -595,6 +595,49 @@ print_cluster_stdout(
 	kd_int_list::AbstractVector{<:Integer},
 ) = print_cluster_stdout(stdout, min_distance_pairs, atoms_in_prim, kd_name, kd_int_list)
 
+"""
+Return the lex-minimum sorted atom-list reachable from `cluster` under
+any pure translation in `symmetry.symnum_translation` (or its inverse).
+
+Two clusters in the same translation orbit share this canonical form, so
+it serves as a `Dict` key for grouping translation-equivalent clusters in
+O(N_clusters) total instead of the O(N_clusters^2) pairwise scan that
+`is_translationally_equiv_cluster` would require.
+
+The result is always a sorted `Vector{Int}` of the same length as
+`cluster`. Including the inverse map mirrors the equivalence relation in
+`is_translationally_equiv_cluster` pointwise; for a closed translation
+group it is redundant, but kept for safety.
+"""
+function _translation_canonical_form(
+	cluster::AbstractVector{<:Integer},
+	symmetry::Symmetry,
+)::Vector{Int}
+	n = length(cluster)
+	best = sort!(Int[c for c in cluster])
+	buf = Vector{Int}(undef, n)
+	@inbounds for sym_tran in symmetry.symnum_translation
+		for i in 1:n
+			buf[i] = symmetry.map_sym[cluster[i], sym_tran]
+		end
+		sort!(buf)
+		if buf < best
+			best = copy(buf)
+		end
+		for i in 1:n
+			buf[i] = symmetry.map_sym_inv[cluster[i], sym_tran]
+		end
+		sort!(buf)
+		if buf < best
+			best = copy(buf)
+		end
+	end
+	return best
+end
+
+# Retained as the explicit predicate form. `irreducible_clusters` now
+# routes equivalence checks through `_translation_canonical_form`, but
+# unit tests still exercise the predicate directly.
 function is_translationally_equiv_cluster(
 	cluster_target::AbstractVector{<:Integer},
 	cluster_ref::AbstractVector{<:Integer},
