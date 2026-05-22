@@ -213,6 +213,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Internal
 
+- `Cluster` construction (`src/Clusters.jl`) is significantly faster on
+  three-body systems. `irreducible_clusters` switches from an
+  O(N_clusters^2) linear scan against accepted representatives to an
+  O(N_clusters) lookup against a `Set` keyed by the lex-minimum
+  translation image of each cluster (`_translation_canonical_form`). In
+  the same change, `set_mindist_pairs` is computed once in the `Cluster`
+  constructor and threaded into `generate_clusters` instead of being
+  recomputed inside it. On three-body benchmark fixtures the combined
+  effect lifts `make bench-cluster` runtime from minutes/hours down to
+  sub-second: `fege_2x2x2_3body_fefe_open` drops from 0.50 s to 0.065 s
+  (7.7x), and `fege_2x2x2_3body_all_open` — a configuration that used to
+  take roughly 4000 s to build — now completes in 0.34 s. Output data
+  structures (`cluster_dict`, `irreducible_cluster_dict`,
+  `cluster_orbits_dict`, `min_distance_pairs`) are bit-identical; the
+  full test suite including XML save/load round-trip and all integration
+  fixtures passes unchanged.
 - Removed the bias column from `SCEDataset.X_E` / the energy design
   matrix returned by `Fitting.build_design_matrix_energy`. The
   reference energy `j0` is now eliminated analytically before the

@@ -555,3 +555,75 @@ is unchanged by this commit and serves as a noise reference.
 Conclusion: performance-neutral. The refactor is shape-only on the
 hot path; the substantive change lives in `assemble_weighted_problem`
 (call-once-per-fit, not hot).
+
+## Cluster-generation perf (spec 260523) -- `Cluster` construction
+
+Two changes in `src/Clusters.jl`:
+
+1. `irreducible_clusters` switches from an O(N_clusters^2) linear scan
+   against accepted representatives (each scan-step calling
+   `is_translationally_equiv_cluster`, itself iterating over all
+   pure-translation symmetry ops) to a `Set{Vector{Int}}` keyed by the
+   lex-minimum translation image of each cluster (`_translation_canonical_form`).
+   Same equivalence relation, O(N_clusters * N_translations *
+   cluster_size) instead of O(N_clusters^2 * N_translations * cluster_size).
+   First-seen-wins representative is preserved, so
+   `irreducible_cluster_dict` keys / order are bit-identical.
+2. `set_mindist_pairs` is computed once in the `Cluster` constructor and
+   threaded into `generate_clusters` as the 5th positional argument,
+   eliminating a duplicated `O(N_atoms^2 * 27)` recompute.
+
+`make test-all` (23075 tests) passes including 14367 save/load
+round-trip assertions and all integration tests; numerical output is
+bit-identical.
+
+### Per-stage `Cluster` construction, `make bench-cluster` (`@timed`, sec)
+
+Before: `bb1af45` (`bench/cluster-generation-benchmark` tip, pre-perf).
+After: `da83dda` (M3 commit, all perf changes landed).
+
+`fege_2x2x2_3body_light` (body-2 + body-3 all at 3.0 Angstrom):
+
+| stage                  | before [s] | after [s] | speedup |
+|------------------------|-----------:|----------:|--------:|
+| `generate_clusters`*   |     0.0195 |    0.0028 |    7.0x |
+| `irreducible_clusters` |     0.0076 |    0.0004 |   19.0x |
+| `cluster_orbits`       |     0.0070 |    0.0070 |    1.0x |
+| `set_mindist_pairs`    |     0.0219 |    0.0153 |    1.4x |
+| **TOTAL**              | **0.0560** |**0.0237** |**2.4x** |
+
+`fege_2x2x2_3body_fefe_open` (body-3 Fe-Fe opened, others at 3.0):
+
+| stage                  | before [s] | after [s] | speedup  |
+|------------------------|-----------:|----------:|---------:|
+| `generate_clusters`*   |     0.0124 |    0.0028 |     4.4x |
+| `irreducible_clusters` |     0.4284 |    0.0004 | **~1070x** |
+| `cluster_orbits`       |     0.0438 |    0.0513 |     0.9x |
+| `set_mindist_pairs`    |     0.0180 |    0.0106 |     1.7x |
+| **TOTAL**              | **0.5027** |**0.0651** | **7.7x** |
+
+`fege_2x2x2_3body_all_open` (all body-3 cutoffs at -1, the original
+4000 s pain point reported by the user; before-figure is the user
+report, not re-measured this session):
+
+| stage                  | before [s]   | after [s] | speedup |
+|------------------------|-------------:|----------:|--------:|
+| `generate_clusters`*   |   (n/a)      |    0.0109 |       — |
+| `irreducible_clusters` |   (dominant) |    0.0018 |       — |
+| `cluster_orbits`       |   (n/a)      |    0.3042 |       — |
+| `set_mindist_pairs`    |   (n/a)      |    0.0251 |       — |
+| **TOTAL**              | **~4000**    |  **0.342**|**~12000x** |
+
+*`generate_clusters` "before" includes the now-removed internal
+`set_mindist_pairs` call; the post-M3 timing measures only the cluster
+generation work itself.
+
+### Bottleneck shift
+
+`irreducible_clusters` was 85% of `fefe_open` and presumably the same
+share of `all_open`. After this spec lands, `cluster_orbits` becomes
+the dominant stage (89% of `all_open`) because its BFS still allocates
+`sort`-fresh `Vector{Int}` per visited translation and uses a
+`Set{Vector{Int}}` membership test. Deferred as a follow-up; the
+remaining absolute time on `all_open` (~0.3 s) is well below the
+user's pain threshold so the follow-up is not gating.
