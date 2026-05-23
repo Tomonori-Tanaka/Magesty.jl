@@ -547,7 +547,7 @@ function print_info(args, total_files::Int)
 	@printf("Input file: %s\n", args["input"])
 	@printf("Variable: %s\n", args["variable"])
 	@printf(
-		"Sampling list: %.5f to %.5f with step %.5f\n",
+		"Sampling list: %.8f to %.8f with step %.8f\n",
 		args["start"],
 		args["end"],
 		args["step"]
