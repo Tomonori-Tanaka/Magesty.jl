@@ -627,3 +627,69 @@ the dominant stage (89% of `all_open`) because its BFS still allocates
 `Set{Vector{Int}}` membership test. Deferred as a follow-up; the
 remaining absolute time on `all_open` (~0.3 s) is well below the
 user's pain threshold so the follow-up is not gating.
+
+## 2026-05-23 (spec 260523-design-matrix-3body-perf)
+
+### `build_design_matrix_energy` / `build_design_matrix_torque`, FeGe B20 2x2x2
+
+Bench: `bench/bench_b1_3body_fege.jl --fixture light --ntrials 5`
+(64 atoms, 100 spinconfigs, `JULIA_NUM_THREADS=4`, median of 5).
+
+Before: baseline at branch tip of `main` (commit `c544b86`).
+After: this spec's changes (M2 `searched_pairs` `Set` → `Vector{UInt}`,
+M3 `SVector{3, Float64}` column-read hoist in both the inner
+`design_matrix_energy_element` / `calc_∇ₑu!` and the outer
+`build_design_matrix_torque` `dir_iatom_svec` construction).
+
+| metric                              |   before |    after | change |
+|-------------------------------------|---------:|---------:|-------:|
+| `build_design_matrix_energy` (s)    |     1.32 |     1.23 |   -7 % |
+| `build_design_matrix_torque` (s)    |    12.08 |    10.11 |  -16 % |
+| `build_design_matrix_energy` allocs |   7.02e6 |   7.02e6 |   ±0 % |
+| `build_design_matrix_torque` allocs |   3.36e8 |   3.36e8 |   ±0 % |
+
+Allocations are unchanged: the largest remaining alloc source is the
+dynamic-dispatch closure boxing on the abstract element type of
+`Vector{CoupledBasis_with_coefficient}` (`Profile.Allocs` attributes
+it to the captured `Symmetry` field), which this spec does not
+touch. The 16 % torque speedup is real wall-time, driven by:
+- M2 (`Set` → `Vector{UInt}`): ~9 % from removed hash-table overhead
+  (`push!` / `in` previously consumed ~24 % of torque samples).
+- M3 (`SVector` column-read hoist): ~7 % combined from removing
+  `@views spin_directions[:, atom]` SubArray creation in the inner
+  `Zₗₘ_unsafe` / `∂ᵢZlm_unsafe` loop (both element functions) and
+  in the outer `dir_iatom_svec` construction in
+  `build_design_matrix_torque`.
+
+### Investigations explored and discarded
+
+`Profile.Allocs` showed that the dominant remaining alloc source
+(~110 M of 336 M torque allocations) is the dynamic-dispatch closure
+boxing produced by `for cbc in key_group::Vector{CoupledBasis_with_coefficient}`,
+attributed by the profiler to the captured
+`Magesty.Symmetries.Symmetry` field. Removing this requires concretely
+parameterizing the SALC element type on `R` (or a runtime
+function-barrier dispatch); both are structural changes beyond this
+spec and are deferred to a follow-up.
+
+Three other rewrites were tried and rejected on this same workload:
+- **Scalar `Float64` gradient accumulators** in place of
+  `mf_grad_contribution` / `grad_result` `MVector{3, Float64}` and
+  the broadcast `.+=`. The change was numerically bit-identical
+  (per-component summation order preserved) but slightly negative
+  on torque time (10.11 → 10.46 s when added on top of M2 + M3).
+  The `MVector{3, Float64}` broadcast is already SROA'd into
+  registers by Julia's compiler; the scalar form just removed the
+  SIMD-friendly 3-wide IR pattern. Reverted.
+- **Rank-specialized `if R == 2 / 3 / 4` inline contractions** of
+  `coeff_tensor[idx_buf..., mf_idx]`. No measurable improvement; the
+  splat indexing of an `MVector{R-1, Int}` is already compiler-elided
+  to a static `getindex`.
+- **Generic `CartesianIndices(dims_t)` contraction with
+  workspace-backed `Vector{Int}` scratch** (no per-call `MVector`).
+  Allocs dropped 67 % but torque wall time regressed 8 % because the
+  gradient version had to recompute `sh_prod` `2*l_atom + 1` more
+  times than the original splat form. The remaining 112 M allocations
+  were all dispatch-boxing, not in our hot path. Reverted; the
+  simpler splat-based code in place after the revert is what produced
+  the 16 % speedup above.
