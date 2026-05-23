@@ -19,6 +19,7 @@ using ..Clusters
 using ..CoupledBases
 using ..SALCBases
 using ..SpinConfigs
+using ..ProgressReporting: with_progress, tick!
 
 export AbstractEstimator, OLS, Ridge, ElasticNet, Lasso, AdaptiveLasso, PrecomputedPilot,
 	AdaptiveRidge
@@ -538,7 +539,8 @@ end
 function build_design_matrix_energy(
 	salc_list::AbstractVector{Vector{CoupledBases.CoupledBasis_with_coefficient}},
 	spinconfig_list::AbstractVector{SpinConfig},
-	symmetry::Symmetry,
+	symmetry::Symmetry;
+	verbosity::Bool = true,
 )::Matrix{Float64}
 	num_salcs = length(salc_list)  # Number of key groups
 	num_spinconfigs = length(spinconfig_list)
@@ -552,25 +554,28 @@ function build_design_matrix_energy(
 	# Rank-erasing annotations on `key_group` / `cbc` are intentionally absent so
 	# that Julia specializes `design_matrix_energy_element` on each element's
 	# concrete `CoupledBasis_with_coefficient{R}` type via call-site dispatch.
-	@threads for i = 1:num_salcs
-		key_group = salc_list[i]
-		n_C = length(key_group[1].atoms)  # Number of sites in the cluster
-		scaling_factor = _cluster_scaling(n_C)
-		# One workspace per @threads iteration. The Set/Vector buffers grow on
-		# first use and are reused across all (j, cbc) calls in this column.
-		ws = EnergyWorkspace()
-		@inbounds for j = 1:num_spinconfigs
-			# Sum contributions from all CoupledBasis_with_coefficient in this key group
-			group_value = 0.0
-			for cbc in key_group
-				group_value += design_matrix_energy_element(
-					cbc,
-					spinconfig_list[j].spin_directions,
-					symmetry,
-					ws,
-				)
+	with_progress(num_salcs, "Building energy design matrix"; verbosity = verbosity) do prog
+		@threads for i = 1:num_salcs
+			key_group = salc_list[i]
+			n_C = length(key_group[1].atoms)  # Number of sites in the cluster
+			scaling_factor = _cluster_scaling(n_C)
+			# One workspace per @threads iteration. The Set/Vector buffers grow on
+			# first use and are reused across all (j, cbc) calls in this column.
+			ws = EnergyWorkspace()
+			@inbounds for j = 1:num_spinconfigs
+				# Sum contributions from all CoupledBasis_with_coefficient in this key group
+				group_value = 0.0
+				for cbc in key_group
+					group_value += design_matrix_energy_element(
+						cbc,
+						spinconfig_list[j].spin_directions,
+						symmetry,
+						ws,
+					)
+				end
+				design_matrix[j, i] = group_value * scaling_factor
 			end
-			design_matrix[j, i] = group_value * scaling_factor
+			tick!(prog)
 		end
 	end
 
@@ -711,6 +716,11 @@ Build the torque design matrix used for regression.
 - `num_atoms`: Number of atoms in the structure
 - `symmetry`: Symmetry information
 
+# Keyword arguments
+- `verbosity::Bool = true`: When `true`, show progress over spin
+  configurations (a live bar on TTY, a single "Done (X.XX sec)." line
+  on non-TTY).
+
 # Returns
 - `Matrix{Float64}`: Torque design matrix
 """
@@ -718,7 +728,8 @@ function build_design_matrix_torque(
 	salc_list::AbstractVector{Vector{CoupledBases.CoupledBasis_with_coefficient}},
 	spinconfig_list::AbstractVector{SpinConfig},
 	num_atoms::Integer,
-	symmetry::Symmetry,
+	symmetry::Symmetry;
+	verbosity::Bool = true,
 )::Matrix{Float64}
 	num_salcs = length(salc_list)  # Number of key groups
 	num_spinconfigs = length(spinconfig_list)
@@ -734,40 +745,43 @@ function build_design_matrix_torque(
 	block_size = 3 * num_atoms
 	design_matrix = Matrix{Float64}(undef, num_spinconfigs * block_size, num_salcs)
 
-	@threads for sc_idx = 1:num_spinconfigs
-		spinconfig = spinconfig_list[sc_idx]
-		row_offset = block_size * (sc_idx - 1)
-		grad_u_buf = MVector{3, Float64}(0.0, 0.0, 0.0)
-		# One workspace per @threads iteration; reused across all (iatom,
-		# salc_idx, cbc) calls in this row block.
-		ws = GradWorkspace()
-		@inbounds for iatom = 1:num_atoms
-			dir_iatom_svec = SVector{3, Float64}(
-				spinconfig.spin_directions[1, iatom],
-				spinconfig.spin_directions[2, iatom],
-				spinconfig.spin_directions[3, iatom],
-			)
-			@inbounds for (salc_idx, key_group) in enumerate(salc_list)
-				# Sum contributions from all CoupledBasis_with_coefficient in this key group
-				group_grad = MVector{3, Float64}(0.0, 0.0, 0.0)
-				for cbc in key_group
-					calc_∇ₑu!(
-						grad_u_buf,
-						cbc,
-						iatom,
-						spinconfig.spin_directions,
-						symmetry,
-						ws,
-					)
-					group_grad .+= grad_u_buf
+	with_progress(num_spinconfigs, "Building torque design matrix"; verbosity = verbosity) do prog
+		@threads for sc_idx = 1:num_spinconfigs
+			spinconfig = spinconfig_list[sc_idx]
+			row_offset = block_size * (sc_idx - 1)
+			grad_u_buf = MVector{3, Float64}(0.0, 0.0, 0.0)
+			# One workspace per @threads iteration; reused across all (iatom,
+			# salc_idx, cbc) calls in this row block.
+			ws = GradWorkspace()
+			@inbounds for iatom = 1:num_atoms
+				dir_iatom_svec = SVector{3, Float64}(
+					spinconfig.spin_directions[1, iatom],
+					spinconfig.spin_directions[2, iatom],
+					spinconfig.spin_directions[3, iatom],
+				)
+				@inbounds for (salc_idx, key_group) in enumerate(salc_list)
+					# Sum contributions from all CoupledBasis_with_coefficient in this key group
+					group_grad = MVector{3, Float64}(0.0, 0.0, 0.0)
+					for cbc in key_group
+						calc_∇ₑu!(
+							grad_u_buf,
+							cbc,
+							iatom,
+							spinconfig.spin_directions,
+							symmetry,
+							ws,
+						)
+						group_grad .+= grad_u_buf
+					end
+					scaling_factor = scaling_factors[salc_idx]
+					torque_vec = cross(dir_iatom_svec, SVector{3, Float64}(group_grad)) * scaling_factor
+					row_base = row_offset + 3 * (iatom - 1)
+					design_matrix[row_base + 1, salc_idx] = torque_vec[1]
+					design_matrix[row_base + 2, salc_idx] = torque_vec[2]
+					design_matrix[row_base + 3, salc_idx] = torque_vec[3]
 				end
-				scaling_factor = scaling_factors[salc_idx]
-				torque_vec = cross(dir_iatom_svec, SVector{3, Float64}(group_grad)) * scaling_factor
-				row_base = row_offset + 3 * (iatom - 1)
-				design_matrix[row_base + 1, salc_idx] = torque_vec[1]
-				design_matrix[row_base + 2, salc_idx] = torque_vec[2]
-				design_matrix[row_base + 3, salc_idx] = torque_vec[3]
 			end
+			tick!(prog)
 		end
 	end
 

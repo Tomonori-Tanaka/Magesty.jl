@@ -19,6 +19,7 @@ using ..Symmetries
 using ..Clusters
 using ..RotationMatrix
 using ..CoupledBases
+using ..ProgressReporting: with_progress, tick!
 
 export SALCBasis
 
@@ -306,9 +307,6 @@ function SALCBasis(
 		println(" Done.")
 	end
 
-	if verbosity
-		print("Constructing projection matrix...")
-	end
 	keys_list = sort(collect(keys(classified_coupled_basisdict)))
 	num_keys = length(keys_list)
 	coupled_basislists::Vector{SortedCounter{CoupledBases.CoupledBasis}} =
@@ -317,8 +315,11 @@ function SALCBasis(
 	# Each key can have multiple SALC groups (one per eigenvector)
 	salc_list_per_key = Vector{Vector{Vector{CoupledBases.CoupledBasis_with_coefficient}}}(undef, num_keys)
 
-	@threads for idx = 1:num_keys
-		salc_list_per_key[idx] = _compute_salc_groups(coupled_basislists[idx], symmetry)
+	with_progress(num_keys, "Constructing projection matrix"; verbosity = verbosity) do prog
+		@threads for idx = 1:num_keys
+			salc_list_per_key[idx] = _compute_salc_groups(coupled_basislists[idx], symmetry)
+			tick!(prog)
+		end
 	end
 
 	# Collect all SALC groups in order
@@ -327,9 +328,6 @@ function SALCBasis(
 		for salc_group in key_salc_groups
 			push!(salc_list, salc_group)
 		end
-	end
-	if verbosity
-		println(" Done.")
 	end
 	if verbosity
 		elapsed_time = (time_ns() - start_time) / 1e9  # Convert to seconds

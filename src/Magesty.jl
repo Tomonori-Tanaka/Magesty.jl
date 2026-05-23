@@ -57,6 +57,7 @@ using .AtomsBaseAdapter
 include("Structures.jl")
 include("Symmetries.jl")
 include("Clusters.jl")
+include("ProgressReporting.jl")
 include("SALCBases.jl")
 include("Fitting.jl")
 
@@ -376,17 +377,23 @@ an `AtomsBase.AbstractSystem` or a TOML file) and embed it in the
 dataset; for workflows that share one basis across several datasets,
 construct the `SCEBasis` explicitly and pass it to the base method.
 """
-function SCEDataset(basis::SCEBasis, spinconfigs::AbstractVector{SpinConfig})
+function SCEDataset(
+	basis::SCEBasis,
+	spinconfigs::AbstractVector{SpinConfig};
+	verbosity::Bool = true,
+)
 	X_E = Fitting.build_design_matrix_energy(
 		basis.salcbasis.salc_list,
 		spinconfigs,
-		basis.symmetry,
+		basis.symmetry;
+		verbosity = verbosity,
 	)
 	X_T = Fitting.build_design_matrix_torque(
 		basis.salcbasis.salc_list,
 		spinconfigs,
 		basis.structure.supercell.num_atoms,
-		basis.symmetry,
+		basis.symmetry;
+		verbosity = verbosity,
 	)
 	y_E::Vector{Float64} = [sc.energy for sc in spinconfigs]
 	y_T::Vector{Float64} =
@@ -395,8 +402,12 @@ function SCEDataset(basis::SCEBasis, spinconfigs::AbstractVector{SpinConfig})
 	return SCEDataset(basis, collect(SpinConfig, spinconfigs), X_E, X_T, y_E, y_T)
 end
 
-function SCEDataset(basis::SCEBasis, embset_path::AbstractString)
-	return SCEDataset(basis, SpinConfigs.read_embset(embset_path))
+function SCEDataset(
+	basis::SCEBasis,
+	embset_path::AbstractString;
+	verbosity::Bool = true,
+)
+	return SCEDataset(basis, SpinConfigs.read_embset(embset_path); verbosity = verbosity)
 end
 
 function SCEDataset(
@@ -416,7 +427,7 @@ function SCEDataset(
 		isotropy = isotropy,
 		verbosity = verbosity,
 	)
-	return SCEDataset(basis, spinconfigs)
+	return SCEDataset(basis, spinconfigs; verbosity = verbosity)
 end
 
 function SCEDataset(
@@ -424,7 +435,11 @@ function SCEDataset(
 	spinconfigs::AbstractVector{SpinConfig};
 	verbosity::Bool = true,
 )
-	return SCEDataset(SCEBasis(toml_path; verbosity = verbosity), spinconfigs)
+	return SCEDataset(
+		SCEBasis(toml_path; verbosity = verbosity),
+		spinconfigs;
+		verbosity = verbosity,
+	)
 end
 
 # --- SCEDataset slicing -------------------------------------------------
