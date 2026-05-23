@@ -30,6 +30,7 @@ in the "Managing development units" section of
 | [260522-cluster-generation-benchmark](260522-cluster-generation-benchmark/) | complete (2026-05-22) | `bench-cluster` benchmark: per-stage timing of `Cluster` construction to locate the three-body bottleneck |
 | [260522-refit-estimator](260522-refit-estimator/) | complete (2026-05-23) | `refit` post-selection refit on the selected basis support, scaled-magnitude criterion |
 | [260523-cluster-generation-perf](260523-cluster-generation-perf/) | complete (2026-05-23) | Replace `irreducible_clusters` O(N^2) linear scan with canonical-form `Dict` lookup; remove duplicate `set_mindist_pairs` call in `generate_clusters` |
+| [260523-design-matrix-3body-perf](260523-design-matrix-3body-perf/) | complete (2026-05-23) | `Fitting.jl` hot-path rewrite for 3-body SALCs: replace `Set{UInt}` de-dup with `Vector{UInt}` linear scan, and replace `@views spin_directions[:, atom]` SubArrays with stack `SVector{3, Float64}` reads at three sites |
 
 This table and the `Status:` line in each `tasklist.md` are duplicated
 intentionally; update both when a spec lands. Reconcile in bulk when

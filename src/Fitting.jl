@@ -386,14 +386,18 @@ workspace itself never leaves the threaded loop.
 
 # Fields
 
-- `searched_pairs::Set{UInt}` — de-duplication set keyed by
+- `searched_pairs::Vector{UInt}` — de-duplication buffer keyed by
   `_atoms_hash_key(atoms_sorted)`. Inside the
   `for itrans in symmetry.symnum_translation` loop, each translation
   produces a sorted-atom tuple; translations that yield the same sorted
   configuration would contribute identically, so we keep only one
-  representative per orbit. The Set is `empty!`'d at the start of every
-  element call but keeps its hash-table capacity, so the second-and-later
-  calls in the same workspace incur no rehashing.
+  representative per orbit. A contiguous `Vector{UInt}` with linear
+  membership scan is the right structure here because the number of
+  translations is small (O(ntran), typically a few tens) and the
+  linear scan is cheaper than `Set{UInt}` hash-table operations on
+  this size. The vector is `empty!`'d at the start of every element
+  call but keeps its capacity, so the second-and-later calls in the
+  same workspace are allocation-free.
 
 - `sh_values::Vector{Float64}` — flattened tesseral spherical-harmonic
   values for all sites in a cluster. The slice for site `i` is
@@ -419,13 +423,13 @@ workspace itself never leaves the threaded loop.
 Not exported. Construct with `EnergyWorkspace()`.
 """
 mutable struct EnergyWorkspace
-	searched_pairs::Set{UInt}
+	searched_pairs::Vector{UInt}
 	sh_values::Vector{Float64}
 	sh_offsets::Vector{Int}
 	legendre_buf::Vector{Float64}
 
 	EnergyWorkspace() = new(
-		Set{UInt}(),
+		Vector{UInt}(),
 		Vector{Float64}(),
 		Vector{Int}(),
 		Vector{Float64}(),
@@ -440,9 +444,10 @@ Internal scratch state reused across calls to `calc_∇ₑu!`. Each thread in
 
 # Fields
 
-- `searched_pairs::Set{UInt}` — same role as in
+- `searched_pairs::Vector{UInt}` — same role as in
   [`EnergyWorkspace`](@ref): de-duplicates symmetry translations that
-  yield identical sorted-atom configurations.
+  yield identical sorted-atom configurations. See `EnergyWorkspace` for
+  why a linear-scan vector beats `Set{UInt}` on this workload.
 
 - `sh_values::Vector{Float64}` — same flattened layout as in
   [`EnergyWorkspace`](@ref): the slice for site `i` is
@@ -471,14 +476,14 @@ Internal scratch state reused across calls to `calc_∇ₑu!`. Each thread in
 Not exported. Construct with `GradWorkspace()`.
 """
 mutable struct GradWorkspace
-	searched_pairs::Set{UInt}
+	searched_pairs::Vector{UInt}
 	sh_values::Vector{Float64}
 	sh_offsets::Vector{Int}
 	atom_grad_values::Vector{SVector{3, Float64}}
 	legendre_buf::Vector{Float64}
 
 	GradWorkspace() = new(
-		Set{UInt}(),
+		Vector{UInt}(),
 		Vector{Float64}(),
 		Vector{Int}(),
 		Vector{SVector{3, Float64}}(),
@@ -636,19 +641,26 @@ function design_matrix_energy_element(
 		end
 		push!(searched_pairs, atoms_key)
 
-
 		# Compute spherical harmonics for each site into the workspace buffer.
 		# `Zₗₘ_unsafe(l, m, uvec, legendre_buf)` reuses the Legendre cache
-		# rather than reallocating it on every (l, m, atom).
+		# rather than reallocating it on every (l, m, atom). The site's
+		# spin direction is read once per `(itrans, site)` into a stack
+		# `SVector{3, Float64}` and reused across the `2*l + 1` m-values;
+		# passing the column as an `@views` `SubArray` instead would
+		# allocate a heap object on every `(l, m, atom)`.
 		for site_idx = 1:(R - 1)
 			atom = translated_atoms[site_idx]
 			l = cbc.ls[site_idx]
 			base = sh_offsets[site_idx]
+			dir = SVector{3, Float64}(
+				spin_directions[1, atom],
+				spin_directions[2, atom],
+				spin_directions[3, atom],
+			)
 			for m_idx = 1:(2*l+1)
 				# Convert tesseral index to m value: m = m_idx - l - 1
 				m = m_idx - l - 1
-				sh_values[base + m_idx] =
-					@views Zₗₘ_unsafe(l, m, spin_directions[:, atom], legendre_buf)
+				sh_values[base + m_idx] = Zₗₘ_unsafe(l, m, dir, legendre_buf)
 			end
 		end
 
@@ -658,11 +670,8 @@ function design_matrix_energy_element(
 		# separately; `idx_buf::MVector{R-1, Int}` makes the splat indexing
 		# `coeff_tensor[idx_buf..., mf_idx]` statically resolvable.
 		tensor_result = 0.0
-
-		# Iterate over all Mf values
 		for mf_idx = 1:Mf_size
 			mf_contribution = 0.0
-
 			for other_tuple in other_site_indices
 				product_other = 1.0
 				for site_idx = 1:(R - 2)
@@ -677,7 +686,6 @@ function design_matrix_energy_element(
 						(product_other * sh_values[base_last + m_idx_last])
 				end
 			end
-
 			tensor_result += cbc.coefficient[mf_idx] * mf_contribution
 		end
 
@@ -734,8 +742,11 @@ function build_design_matrix_torque(
 		# salc_idx, cbc) calls in this row block.
 		ws = GradWorkspace()
 		@inbounds for iatom = 1:num_atoms
-			@views dir_iatom = spinconfig.spin_directions[:, iatom]
-			dir_iatom_svec = SVector{3, Float64}(dir_iatom)
+			dir_iatom_svec = SVector{3, Float64}(
+				spinconfig.spin_directions[1, iatom],
+				spinconfig.spin_directions[2, iatom],
+				spinconfig.spin_directions[3, iatom],
+			)
 			@inbounds for (salc_idx, key_group) in enumerate(salc_list)
 				# Sum contributions from all CoupledBasis_with_coefficient in this key group
 				group_grad = MVector{3, Float64}(0.0, 0.0, 0.0)
@@ -851,21 +862,26 @@ function calc_∇ₑu!(
 		# the `(l, m, z)` arguments, so the prior contents are not consulted.
 		# Calling `Zₗₘ_unsafe` and then `∂ᵢZlm_unsafe` against the same buffer
 		# (the `site_idx == atom_site_idx` case below) is therefore safe; the
-		# second call simply overwrites the first call's cache state.
+		# second call simply overwrites the first call's cache state. The
+		# `SVector{3, Float64}` column read serves the same allocation-
+		# avoidance role as in `design_matrix_energy_element`.
 		for site_idx = 1:(R - 1)
 			translated_atom = translated_atoms[site_idx]
 			l = cbc.ls[site_idx]
 			base = sh_offsets[site_idx]
+			dir = SVector{3, Float64}(
+				spin_directions[1, translated_atom],
+				spin_directions[2, translated_atom],
+				spin_directions[3, translated_atom],
+			)
 			for m_idx = 1:(2*l+1)
 				# Convert tesseral index to m value: m = m_idx - l - 1
 				m = m_idx - l - 1
 
-				sh_values[base + m_idx] =
-					@views Zₗₘ_unsafe(l, m, spin_directions[:, translated_atom], legendre_buf)
+				sh_values[base + m_idx] = Zₗₘ_unsafe(l, m, dir, legendre_buf)
 				if site_idx == atom_site_idx
 					# Keep gradients only for the differentiated site.
-					atom_grad_values[m_idx] =
-						@views ∂ᵢZlm_unsafe(l, m, spin_directions[:, translated_atom], legendre_buf)
+					atom_grad_values[m_idx] = ∂ᵢZlm_unsafe(l, m, dir, legendre_buf)
 				end
 			end
 		end
