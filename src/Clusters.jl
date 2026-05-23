@@ -760,6 +760,14 @@ function cluster_orbits(
 		orbit_index = 0
 		processed_clusters = Set{Vector{Int}}()
 
+		# Scratch buffers reused across the BFS for this body. Set entries
+		# (cluster_sets[body], visited_in_orbit, processed_clusters) are
+		# `Vector{Int}` with structural hashing, so membership tests on the
+		# in-place buffer hash identically to a fresh copy. A fresh copy is
+		# only allocated when a candidate is actually inserted.
+		buf_shifted = Vector{Int}(undef, body)
+		buf_translated = Vector{Int}(undef, body)
+
 		for cluster in irreducible_cluster_dict[body]
 			sorted_cluster = sort(cluster)
 
@@ -782,37 +790,42 @@ function cluster_orbits(
 				current_cluster = popfirst!(orbit_frontier)
 
 				# Apply all spatial symmetry operations
-				for (n, symop) in enumerate(symmetry.symdata)
-					# Apply symmetry operation to atoms
-					atoms_shifted = [symmetry.map_sym[atom, n] for atom in current_cluster]
+				for n in eachindex(symmetry.symdata)
+					# Apply symmetry operation to atoms (in-place into buf_shifted)
+					@inbounds for i = 1:body
+						buf_shifted[i] = symmetry.map_sym[current_cluster[i], n]
+					end
 
 					# Find translationally equivalent cluster in primitive cell
-					# Similar to find_translation_atoms logic
 					for sym_tran in symmetry.symnum_translation
-						atoms_shifted_translated =
-							[symmetry.map_sym[atom, sym_tran] for atom in atoms_shifted]
-						sorted_shifted = sort(atoms_shifted_translated)
+						# Forward translation
+						@inbounds for i = 1:body
+							buf_translated[i] = symmetry.map_sym[buf_shifted[i], sym_tran]
+						end
+						sort!(buf_translated)
 
-						# Check if this cluster exists in our set and hasn't been visited
-						if sorted_shifted in cluster_sets[body] &&
-						   !(sorted_shifted in visited_in_orbit)
-							push!(orbit, sorted_shifted)
-							push!(visited_in_orbit, sorted_shifted)
-							push!(processed_clusters, sorted_shifted)
-							push!(orbit_frontier, sorted_shifted)
+						if buf_translated in cluster_sets[body] &&
+						   !(buf_translated in visited_in_orbit)
+							key = copy(buf_translated)
+							push!(orbit, key)
+							push!(visited_in_orbit, key)
+							push!(processed_clusters, key)
+							push!(orbit_frontier, key)
 						end
 
-						# Also try inverse translation
-						atoms_shifted_translated_inv =
-							[symmetry.map_sym_inv[atom, sym_tran] for atom in atoms_shifted]
-						sorted_shifted_inv = sort(atoms_shifted_translated_inv)
+						# Inverse translation
+						@inbounds for i = 1:body
+							buf_translated[i] = symmetry.map_sym_inv[buf_shifted[i], sym_tran]
+						end
+						sort!(buf_translated)
 
-						if sorted_shifted_inv in cluster_sets[body] &&
-						   !(sorted_shifted_inv in visited_in_orbit)
-							push!(orbit, sorted_shifted_inv)
-							push!(visited_in_orbit, sorted_shifted_inv)
-							push!(processed_clusters, sorted_shifted_inv)
-							push!(orbit_frontier, sorted_shifted_inv)
+						if buf_translated in cluster_sets[body] &&
+						   !(buf_translated in visited_in_orbit)
+							key = copy(buf_translated)
+							push!(orbit, key)
+							push!(visited_in_orbit, key)
+							push!(processed_clusters, key)
+							push!(orbit_frontier, key)
 						end
 					end
 				end

@@ -693,3 +693,58 @@ Three other rewrites were tried and rejected on this same workload:
   were all dispatch-boxing, not in our hot path. Reverted; the
   simpler splat-based code in place after the revert is what produced
   the 16 % speedup above.
+
+## `cluster_orbits` BFS allocation cleanup -- 3x3x3 FeGe pain point
+
+The BFS inner body in `cluster_orbits` (`src/Clusters.jl`) used to
+allocate two fresh `Vector{Int}` per `(symop, sym_tran)` iteration (via
+list-comprehension), `sort` them, and run set-membership lookup. On a
+real 3x3x3 FeGe B20 (216 atoms, body-2 and body-3 cutoffs all `-1`) the
+stage allocated ~88 GiB and dominated `Cluster` construction at 98.7 %.
+Refactor: two scratch `Vector{Int}` buffers of size `body` are
+pre-allocated per outer body loop; the per-iteration shifts /
+translations / sorts run in-place; a `copy(buf)` is taken only when a
+candidate actually inserts. Algorithm and insertion order unchanged.
+
+Bench: `bench/benchmark_cluster.jl`, single thread, `@timed`, one warmup
+pass, one measured pass. Same machine session for before / after.
+
+`fege_2x2x2_3body_all_open` (64-atom, body-3 cutoffs all `-1`):
+
+| stage                  | before [s] | after [s] | alloc before [MiB] | alloc after [MiB] |
+|------------------------|-----------:|----------:|-------------------:|------------------:|
+| `set_mindist_pairs`    |     0.0251 |    0.0098 |               --   |              67.4 |
+| `generate_clusters`    |     0.0109 |    0.0106 |               --   |              57.4 |
+| `irreducible_clusters` |     0.0018 |    0.0018 |               --   |               4.1 |
+| `cluster_orbits`       |     0.3042 |    0.0744 |               --   |               1.6 |
+| **TOTAL**              | **0.342**  |**0.097**  |                    |                   |
+
+`fege_3x3x3` real workload (216-atom B20, body-2 and body-3 cutoffs
+all `-1`, the input that triggered the investigation):
+
+| stage                  | before [s] | after [s] | alloc before [MiB] | alloc after [MiB] | speedup |
+|------------------------|-----------:|----------:|-------------------:|------------------:|--------:|
+| `set_mindist_pairs`    |     0.233  |    0.265  |              766.8 |             766.8 |    0.9x |
+| `generate_clusters`    |     0.103  |    0.156  |              511.5 |             511.5 |    0.7x |
+| `irreducible_clusters` |     0.059  |    0.054  |               41.8 |              41.8 |    1.1x |
+| `cluster_orbits`       |    29.677  |   12.816  |          88 399.0  |              14.3 | **2.3x** |
+| **TOTAL**              |**30.07**   |**13.29**  |                    |                   | **2.3x** |
+
+Body-3 cluster counts on 3x3x3: raw 95832, irreducible 31944, orbits
+2678. `cluster_orbits` allocation count dropped 6190x.
+`set_mindist_pairs` / `generate_clusters` wall-times are unchanged
+within run-to-run noise (the refactor does not touch them; the
+small jitter above is single-pass `@timed` variance).
+
+`cluster_orbits` is still 96 % of the post-refactor 3x3x3 total
+(12.8 s absolute). The remaining cost is the BFS itself --
+inherently sequential per orbit (frontier dependency), with shared
+`processed_clusters` state across orbits. Parallel BFS (Tier 2)
+would need a thread-safe claim map and lex-min orbit re-numbering to
+preserve deterministic `orbit_index`. Deferred pending a dedicated
+spec.
+
+`make test-unit` (22136 passed), `make test-integration` (883
+passed), `make test-jet`, `make test-aqua` all pass; numerical
+output is bit-identical (same insertion order; only allocation
+shape changed).
