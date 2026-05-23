@@ -23,6 +23,7 @@ paths.
 | `make bench-salcbasis` | SALC construction in `SALCBases.jl` hot spots | Before / after SALC optimizations |
 | `make bench-spherical-harmonics` | `Zₗₘ` / `∂ᵢZlm` standalone (safe vs unsafe) | Standalone investigation of spherical-harmonic performance |
 | `make bench-threads` | Thread scaling of `build_design_matrix_energy` / `_torque` | Verify `@threads` parallel effect |
+| `make bench-cluster` | Per-stage timing of `Cluster` construction (`Clusters.jl`) | Locating the bottleneck in cluster generation, e.g. slow three-body cases |
 
 ### Direct script execution
 
@@ -32,6 +33,7 @@ paths.
 | `bench/benchmark_salcbasis_hotspots.jl` | SALC-construction hot spots |
 | `bench/benchmark_sphericart.jl` | Detailed `TesseralHarmonics` vs SpheriCart comparison (back-end of `bench-sphericart`) |
 | `bench/benchmark_threads_scaling.jl` | Design-matrix construction time at a single thread count (driven by `run_threads_scaling.sh`) |
+| `bench/benchmark_cluster.jl` | Per-stage timing + profile of `Cluster` construction (back-end of `bench-cluster`) |
 
 There is no dedicated benchmark for the Optimize hot path
 (`design_matrix_energy_element` / `calc_∇ₑu!` /

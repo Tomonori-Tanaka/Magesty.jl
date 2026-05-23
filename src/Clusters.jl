@@ -13,7 +13,9 @@ This module provides data structures and functions for managing and analyzing cl
 - `set_mindist_pairs(num_atoms, cartesian_coords, cell_exists)`: Computes minimum distance pairs
 - `is_within_cutoff(atomcell_list, kd_int_list, cutoff_radii, body, x_image_cart, min_distance_pairs)`: Checks cutoff conditions
 - `distance_atomcells(atomcell1, atomcell2, x_image_cart)`: Calculates distance between two atoms in different cells
-- `generate_clusters(structure, symmetry, cutoff_radii, nbody)`: Generates interaction clusters
+- `generate_clusters(structure, symmetry, cutoff_radii, nbody, min_distance_pairs)`: Generates interaction clusters
+- `irreducible_clusters(cluster_dict, symmetry)`: Selects one representative per translation orbit
+- `_translation_canonical_form(cluster, symmetry)`: Lex-minimum translation image of a cluster (private helper)
 - `print_cluster_stdout(min_distance_pairs, atoms_in_prim, kd_name, kd_int_list)`: Prints cluster information to stdout
 """
 
@@ -126,21 +128,24 @@ struct Cluster
 
 		start_time = time_ns()
 
-		cluster_dict::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}} =
-			generate_clusters(structure, symmetry, cutoff_radii, nbody)
-
-		irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}} =
-			irreducible_clusters(cluster_dict, symmetry)
-
-		cluster_orbits_dict::Dict{Int, Dict{Int, Vector{Vector{Int}}}} =
-			cluster_orbits(irreducible_cluster_dict, symmetry)
-
+		# Computed once here; the same matrix is threaded into
+		# `generate_clusters` and stored on the struct so both consumers
+		# share it.
 		min_distance_pairs = set_mindist_pairs(
 			structure.supercell.num_atoms,
 			structure.x_image_cart,
 			structure.exist_image,
 			tol = symmetry.tol,
 		)
+
+		cluster_dict::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}} =
+			generate_clusters(structure, symmetry, cutoff_radii, nbody, min_distance_pairs)
+
+		irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}} =
+			irreducible_clusters(cluster_dict, symmetry)
+
+		cluster_orbits_dict::Dict{Int, Dict{Int, Vector{Vector{Int}}}} =
+			cluster_orbits(irreducible_cluster_dict, symmetry)
 
 
 		if verbosity
@@ -315,7 +320,7 @@ end
 
 
 """
-	generate_clusters(structure, symmetry, cutoff_radii, nbody) -> Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}
+	generate_clusters(structure, symmetry, cutoff_radii, nbody, min_distance_pairs) -> Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}
 
 Generates interaction clusters based on cutoff radii and structure information.
 
@@ -324,6 +329,11 @@ Generates interaction clusters based on cutoff radii and structure information.
 - `symmetry::Symmetry`: Symmetry operations
 - `cutoff_radii::AbstractArray{<:Real, 3}`: Cutoff radii for interactions
 - `nbody::Integer`: Number of interacting bodies
+- `min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}}`: Precomputed
+  minimum-distance pairs (output of `set_mindist_pairs` called with
+  `structure.supercell.num_atoms`, `structure.x_image_cart`,
+  `structure.exist_image`, and `tol = symmetry.tol`). Passed in by the
+  caller; this function does not recompute it.
 
 # Returns
 - `Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}`: Dictionary of clusters organized by body and primitive atom index
@@ -333,14 +343,9 @@ function generate_clusters(
 	symmetry::Symmetry,
 	cutoff_radii::AbstractArray{<:Real, 3},
 	nbody::Integer,
+	min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
 )::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}
 
-	min_distance_pairs = set_mindist_pairs(
-		structure.supercell.num_atoms,
-		structure.x_image_cart,
-		structure.exist_image,
-		tol = symmetry.tol,
-	)
 	interaction_cutoff_dict = Dict{Int, Dict{Int, Vector{AtomCell}}}()
 	for body = 2:nbody
 		interaction_cutoff_dict[body] = Dict{Int, Vector{AtomCell}}()
@@ -586,8 +591,8 @@ function print_cluster_stdout(
 	end
 end
 
-# Convenience overload: default to stdout when the IO argument is omitted.
-# Keeps the original call sites and any external callers working unchanged.
+# Convenience overload that dispatches to the IO-taking form with stdout
+# as the default stream.
 print_cluster_stdout(
 	min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
 	atoms_in_prim::AbstractVector{<:Integer},
@@ -595,6 +600,67 @@ print_cluster_stdout(
 	kd_int_list::AbstractVector{<:Integer},
 ) = print_cluster_stdout(stdout, min_distance_pairs, atoms_in_prim, kd_name, kd_int_list)
 
+"""
+	_translation_canonical_form(cluster, symmetry) -> Vector{Int}
+
+Return the lex-minimum sorted atom-list reachable from `cluster` under
+any pure translation in `symmetry.symnum_translation` (or its inverse).
+
+Two clusters in the same translation orbit share this canonical form,
+which makes it usable as a `Dict` key for grouping translation-
+equivalent clusters in O(N_clusters) total instead of an
+O(N_clusters^2) pairwise scan.
+
+# Arguments
+- `cluster::AbstractVector{<:Integer}`: atom indices defining the
+  cluster (multiset; order is irrelevant — the function sorts a copy
+  internally).
+- `symmetry::Symmetry`: symmetry data carrying `map_sym`, `map_sym_inv`,
+  and `symnum_translation`.
+
+# Returns
+- `Vector{Int}`: sorted atom-list of the same length as `cluster`,
+  equal across every other element of the same translation orbit.
+
+Including both `map_sym` and `map_sym_inv` is redundant when the
+translation group is closed under inverse — which is the expected case
+for a supercell sublattice — but stays robust if the symmetry data is
+ever populated with only a generating subset.
+"""
+function _translation_canonical_form(
+	cluster::AbstractVector{<:Integer},
+	symmetry::Symmetry,
+)::Vector{Int}
+	n = length(cluster)
+	best = sort(Vector{Int}(cluster))
+	buf = Vector{Int}(undef, n)
+	@inbounds for sym_tran in symmetry.symnum_translation
+		for i = 1:n
+			buf[i] = symmetry.map_sym[cluster[i], sym_tran]
+		end
+		sort!(buf)
+		if buf < best
+			best = copy(buf)
+		end
+		for i = 1:n
+			buf[i] = symmetry.map_sym_inv[cluster[i], sym_tran]
+		end
+		sort!(buf)
+		if buf < best
+			best = copy(buf)
+		end
+	end
+	return best
+end
+
+"""
+	is_translationally_equiv_cluster(cluster_target, cluster_ref, symmetry) -> Bool
+
+Return `true` if `cluster_target` is reachable from `cluster_ref` by any
+pure translation in `symmetry.symnum_translation` (or its inverse).
+Internal predicate form of the translation-equivalence relation, retained
+for unit tests that exercise the relation directly.
+"""
 function is_translationally_equiv_cluster(
 	cluster_target::AbstractVector{<:Integer},
 	cluster_ref::AbstractVector{<:Integer},
@@ -624,27 +690,22 @@ function irreducible_clusters(
 	for body in sort(collect(keys(cluster_dict)))
 		result[body] = SortedCounter{Vector{Int}}()
 
+		# Translation orbit representatives are keyed by canonical form.
+		# The first cluster encountered in (prim_atom_sc, cluster_dict key)
+		# iteration order is the stored representative, so XML I/O and
+		# SALC ordering downstream see a deterministic atom-list.
+		seen_canonical = Set{Vector{Int}}()
+
 		for prim_atom_sc in symmetry.atoms_in_prim
 			for cluster::Vector{Int} in keys(cluster_dict[body][prim_atom_sc])
 				cluster_list = sort(cluster)
-				# Get the count from the original cluster_dict
-				original_count = cluster_dict[body][prim_atom_sc][cluster]
-
-				# Check if this cluster is translationally equivalent to any existing cluster in result[body]
-				found_equivalent = false
-				for cluster_ref::Vector{Int} in result[body]
-					if is_translationally_equiv_cluster(cluster_list, cluster_ref, symmetry)
-						# If equivalent, skip this cluster (continue)
-						found_equivalent = true
-						break
-					end
-				end
-
-				# If equivalent cluster found, skip this iteration
-				if found_equivalent
+				canonical = _translation_canonical_form(cluster_list, symmetry)
+				if canonical in seen_canonical
 					continue
 				end
+				push!(seen_canonical, canonical)
 
+				original_count = cluster_dict[body][prim_atom_sc][cluster]
 				push!(result[body], cluster_list, original_count)
 			end
 		end

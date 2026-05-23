@@ -201,6 +201,72 @@ const _SQUARE_INPUT = Dict(
 # Tests
 # ----------------------------------------------------------------------
 
+@testset "_translation_canonical_form" begin
+	@testset "Simple cubic 2x2x2" begin
+		_, symmetry, cluster = _build_test_cluster(_SC_INPUT)
+		reps = _irreducible_reps(cluster, 2)
+		canonical = _Clusters._translation_canonical_form
+
+		# (1) Sort-invariance: shuffling the input does not change the
+		# canonical form.
+		for c in reps
+			@test canonical(c, symmetry) == canonical(reverse(c), symmetry)
+		end
+
+		# (2) Orbit consistency: every translation (and inverse) of c
+		# shares the same canonical form as c.
+		for c in reps
+			base = canonical(c, symmetry)
+			for sym_tran in symmetry.symnum_translation
+				translated = [symmetry.map_sym[atom, sym_tran] for atom in c]
+				@test canonical(translated, symmetry) == base
+				translated_inv = [symmetry.map_sym_inv[atom, sym_tran] for atom in c]
+				@test canonical(translated_inv, symmetry) == base
+			end
+		end
+
+		# (3) Distinct irreducible representatives carry distinct
+		# canonical forms.
+		canonical_forms = [canonical(r, symmetry) for r in reps]
+		@test length(unique(canonical_forms)) == length(reps)
+
+		# (4) Cross-check against the predicate: equiv iff same canonical.
+		for i in eachindex(reps), j in eachindex(reps)
+			equiv = _Clusters.is_translationally_equiv_cluster(reps[i], reps[j], symmetry)
+			same_canonical = canonical(reps[i], symmetry) == canonical(reps[j], symmetry)
+			@test equiv == same_canonical
+		end
+	end
+
+	@testset "BCC conventional 2x2x2" begin
+		_, symmetry, cluster = _build_test_cluster(_BCC_INPUT)
+		reps = _irreducible_reps(cluster, 2)
+		canonical = _Clusters._translation_canonical_form
+
+		canonical_forms = [canonical(r, symmetry) for r in reps]
+		@test length(unique(canonical_forms)) == length(reps)
+
+		# Pure-translation subgroup of the supercell is closed under
+		# inverse, so the forward `map_sym` check covers `map_sym_inv`.
+		for c in reps
+			base = canonical(c, symmetry)
+			for sym_tran in symmetry.symnum_translation
+				translated = [symmetry.map_sym[atom, sym_tran] for atom in c]
+				@test canonical(translated, symmetry) == base
+			end
+		end
+	end
+
+	@testset "Square 4x4" begin
+		_, symmetry, cluster = _build_test_cluster(_SQUARE_INPUT)
+		reps = _irreducible_reps(cluster, 2)
+		canonical = _Clusters._translation_canonical_form
+
+		canonical_forms = [canonical(r, symmetry) for r in reps]
+		@test length(unique(canonical_forms)) == length(reps)
+	end
+end
+
 @testset "Clusters: symmetry reduction" begin
 	@testset "Simple cubic 2x2x2, 1NN only" begin
 		_, symmetry, cluster = _build_test_cluster(_SC_INPUT)

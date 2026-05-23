@@ -40,6 +40,14 @@ bench-sphericart:
 bench-salcbasis:
 	julia --project=bench bench/benchmark_salcbasis_hotspots.jl
 
+# Per-stage timing + profile of Cluster construction. With no arguments it
+# benchmarks all three shipped three-body fixtures in increasing cost
+# order (light -> body-3 Fe-Fe open -> body-3 all open); pass --input
+# (repeatable) to point at other systems (e.g. --input
+# test/integration/fege_2x2x2/input.toml).
+bench-cluster:
+	julia --project=bench bench/benchmark_cluster.jl
+
 bench-spherical-harmonics:
 	julia --project=bench bench/benchmark_spherical_harmonics.jl
 
