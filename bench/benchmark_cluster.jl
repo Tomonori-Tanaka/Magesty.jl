@@ -194,9 +194,6 @@ function run_bench(cfg::Dict{Symbol, Any}, input_path::AbstractString)
         )
     end
 
-    # `set_mindist_pairs` is computed once and reused by both
-    # `generate_clusters` and the `Cluster` constructor; the timing above
-    # reflects that single shared call.
     dominant = stages[argmax([s[2] for s in stages])]
     println("\n=== Conclusion ===")
     println(

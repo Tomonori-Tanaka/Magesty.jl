@@ -14,6 +14,8 @@ This module provides data structures and functions for managing and analyzing cl
 - `is_within_cutoff(atomcell_list, kd_int_list, cutoff_radii, body, x_image_cart, min_distance_pairs)`: Checks cutoff conditions
 - `distance_atomcells(atomcell1, atomcell2, x_image_cart)`: Calculates distance between two atoms in different cells
 - `generate_clusters(structure, symmetry, cutoff_radii, nbody, min_distance_pairs)`: Generates interaction clusters
+- `irreducible_clusters(cluster_dict, symmetry)`: Selects one representative per translation orbit
+- `_translation_canonical_form(cluster, symmetry)`: Lex-minimum translation image of a cluster (private helper)
 - `print_cluster_stdout(min_distance_pairs, atoms_in_prim, kd_name, kd_int_list)`: Prints cluster information to stdout
 """
 
@@ -328,8 +330,9 @@ Generates interaction clusters based on cutoff radii and structure information.
 - `cutoff_radii::AbstractArray{<:Real, 3}`: Cutoff radii for interactions
 - `nbody::Integer`: Number of interacting bodies
 - `min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}}`: Precomputed
-  minimum-distance pairs (output of `set_mindist_pairs(structure, ...)`
-  called with the same `structure` and `symmetry.tol`). Passed in by the
+  minimum-distance pairs (output of `set_mindist_pairs` called with
+  `structure.supercell.num_atoms`, `structure.x_image_cart`,
+  `structure.exist_image`, and `tol = symmetry.tol`). Passed in by the
   caller; this function does not recompute it.
 
 # Returns
@@ -588,8 +591,8 @@ function print_cluster_stdout(
 	end
 end
 
-# Convenience overload: default to stdout when the IO argument is omitted.
-# Keeps the original call sites and any external callers working unchanged.
+# Convenience overload that dispatches to the IO-taking form with stdout
+# as the default stream.
 print_cluster_stdout(
 	min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
 	atoms_in_prim::AbstractVector{<:Integer},
@@ -610,7 +613,8 @@ O(N_clusters^2) pairwise scan.
 
 # Arguments
 - `cluster::AbstractVector{<:Integer}`: atom indices defining the
-  cluster (multiset; order is irrelevant).
+  cluster (multiset; order is irrelevant — the function sorts a copy
+  internally).
 - `symmetry::Symmetry`: symmetry data carrying `map_sym`, `map_sym_inv`,
   and `symnum_translation`.
 
@@ -628,7 +632,7 @@ function _translation_canonical_form(
 	symmetry::Symmetry,
 )::Vector{Int}
 	n = length(cluster)
-	best = sort!(Vector{Int}(cluster))
+	best = sort(Vector{Int}(cluster))
 	buf = Vector{Int}(undef, n)
 	@inbounds for sym_tran in symmetry.symnum_translation
 		for i = 1:n
@@ -649,10 +653,14 @@ function _translation_canonical_form(
 	return best
 end
 
-# Explicit predicate form for translation equivalence. Used by unit
-# tests that exercise the equivalence relation directly;
-# `irreducible_clusters` uses `_translation_canonical_form` for O(1)
-# lookup against the same relation.
+"""
+	is_translationally_equiv_cluster(cluster_target, cluster_ref, symmetry) -> Bool
+
+Return `true` if `cluster_target` is reachable from `cluster_ref` by any
+pure translation in `symmetry.symnum_translation` (or its inverse).
+Internal predicate form of the translation-equivalence relation, retained
+for unit tests that exercise the relation directly.
+"""
 function is_translationally_equiv_cluster(
 	cluster_target::AbstractVector{<:Integer},
 	cluster_ref::AbstractVector{<:Integer},

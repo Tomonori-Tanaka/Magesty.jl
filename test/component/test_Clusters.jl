@@ -246,6 +246,8 @@ const _SQUARE_INPUT = Dict(
 		canonical_forms = [canonical(r, symmetry) for r in reps]
 		@test length(unique(canonical_forms)) == length(reps)
 
+		# Pure-translation subgroup of the supercell is closed under
+		# inverse, so the forward `map_sym` check covers `map_sym_inv`.
 		for c in reps
 			base = canonical(c, symmetry)
 			for sym_tran in symmetry.symnum_translation
