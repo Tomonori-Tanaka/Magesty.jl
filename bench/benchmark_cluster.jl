@@ -7,14 +7,15 @@ using Magesty
 """
 Per-stage benchmark and line-profile for `Cluster` construction.
 
-`Cluster` construction (`src/Clusters.jl`) is a fixed four-stage pipeline:
+`Cluster` construction (`src/Clusters.jl`) is a fixed four-stage pipeline
+(in execution order):
 
-    generate_clusters -> irreducible_clusters -> cluster_orbits -> set_mindist_pairs
+    set_mindist_pairs -> generate_clusters -> irreducible_clusters -> cluster_orbits
 
 This script times each stage individually with `@timed` and then runs a
 single `Profile`-sampled `Cluster(...)` call for a flat/tree breakdown, so
 the stage that dominates three-body cluster generation can be identified
-with numbers.
+with numbers. The printed stage table preserves the execution order.
 
 `@elapsed` / `@timed` is used instead of `BenchmarkTools.@benchmark`: the
 heavy three-body case takes thousands of seconds and cannot be sampled
@@ -159,10 +160,10 @@ function run_bench(cfg::Dict{Symbol, Any}, input_path::AbstractString)
     cluster_orbits_dict = orb.value
 
     stages = [
+        ("set_mindist_pairs", mdp.time, mdp.bytes),
         ("generate_clusters", gen.time, gen.bytes),
         ("irreducible_clusters", irr.time, irr.bytes),
         ("cluster_orbits", orb.time, orb.bytes),
-        ("set_mindist_pairs", mdp.time, mdp.bytes),
     ]
     total_time = sum(s[2] for s in stages)
 
