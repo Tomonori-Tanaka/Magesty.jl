@@ -28,6 +28,7 @@ in the "Managing development units" section of
 | [260521-cli-package-extraction](260521-cli-package-extraction/) | complete (2026-05-21) | Extract the Comonicon CLI into a `MagestyCLI` subdirectory package; de-Comonicon the core to restore JET coverage |
 | [260522-adaptive-ridge-iterative](260522-adaptive-ridge-iterative/) | complete (2026-05-22) | Iterative `AdaptiveRidge` estimator (Frommlet & Nuel 2016 L0 approximation) with an analytic weighted-ridge refit |
 | [260522-cluster-generation-benchmark](260522-cluster-generation-benchmark/) | complete (2026-05-22) | `bench-cluster` benchmark: per-stage timing of `Cluster` construction to locate the three-body bottleneck |
+| [260522-refit-estimator](260522-refit-estimator/) | complete (2026-05-23) | `refit` post-selection refit on the selected basis support, scaled-magnitude criterion |
 | [260523-cluster-generation-perf](260523-cluster-generation-perf/) | complete (2026-05-23) | Replace `irreducible_clusters` O(N^2) linear scan with canonical-form `Dict` lookup; remove duplicate `set_mindist_pairs` call in `generate_clusters` |
 
 This table and the `Status:` line in each `tasklist.md` are duplicated
