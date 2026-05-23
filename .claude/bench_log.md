@@ -748,3 +748,82 @@ spec.
 passed), `make test-jet`, `make test-aqua` all pass; numerical
 output is bit-identical (same insertion order; only allocation
 shape changed).
+
+## `cluster_orbits` parallel BFS via union-find -- 3x3x3 FeGe
+
+Building on the previous buffer-reuse cleanup. The per-orbit BFS was
+inherently sequential (frontier dependency, shared `processed_clusters`
+across orbits). Refactor: rewrite `cluster_orbits` (`src/Clusters.jl`)
+into three phases.
+
+- Phase 1 (parallel via `Threads.@threads`): per cluster, enumerate
+  the *set* of in-set neighbor indices reachable in one (spatial
+  symmetry op, translation) step. Each iteration reads `clusters_sorted`,
+  `cluster_to_idx`, and `symmetry.{symdata, symnum_translation, map_sym,
+  map_sym_inv}` -- all immutable in this phase -- and writes only its
+  own slot of `neighbors_per_cluster`. Thread-local
+  `buf_shifted` / `buf_translated` / `local_set`.
+- Phase 2 (serial): union-find merge of the edges discovered in
+  Phase 1. Path halving + union by size; negligible relative to Phase 1.
+- Phase 3 (serial): group cluster indices by root, sort each orbit's
+  members lex, sort orbits by lex-min member, assign `orbit_index` 1..N
+  in that order. Deterministic and independent of thread scheduling.
+
+**Output contract**: orbit *sets* (the partition) and the
+`orbit_index -> orbit set` mapping are bit-identical to the previous
+sequential BFS. The *order of cluster members within each orbit's
+`Vector{Vector{Int}}`* changed from BFS visit order to lex-sorted.
+No downstream consumer reads intra-orbit member order: `SALCBases.jl`
+sorts atom lists internally before comparing; tests assert counts and
+Set semantics. Verified via `make test-all` at 1 and 8 threads (23019
+passed each).
+
+Bench: `bench/benchmark_cluster.jl`, `@timed`, one warmup, one measured
+pass per stage. Same machine session.
+
+`fege_3x3x3` real workload (216-atom B20, body-2 and body-3 cutoffs
+all `-1`):
+
+| `cluster_orbits` [s] |  baseline | +Tier1 (buffer) | +Tier2 1T | +Tier2 4T | +Tier2 8T |
+|----------------------|----------:|----------------:|----------:|----------:|----------:|
+| time                 |     29.68 |          12.82  |     13.24 |      3.87 |      2.53 |
+| total `Cluster` [s]  |    30.07  |          13.29  |     13.71 |      4.28 |      2.92 |
+| alloc [MiB]          | 88 399.0  |           14.3  |      40.6 |      40.6 |      40.6 |
+| speedup vs baseline  |     1.0x  |           2.31x |     2.24x |     7.67x | **11.73x** |
+
+Parallel efficiency at 8 threads on the cluster_orbits stage:
+13.24 / 2.53 / 8 = 65 %. Phase 1 (`Dict.get` lookups on
+`cluster_to_idx`) is memory-bound and dominates the wall time;
+Phase 2 (union-find) and Phase 3 (sort + emit) are serial but
+small. Hoisting the per-iteration `Vector{Int}` / `Set{Int}`
+scratch to `threadid()`-indexed thread-local slots with `:static`
+scheduling was measured and rejected: it cut allocations from
+40 MiB to 13 MiB but regressed 8-thread wall time by 10-15 %
+(`empty!` plus the `bufs[tid]` indirection cost more than the
+saved allocator work; the GC is not the bottleneck at this
+allocation rate). The `Set{Int}` size hint
+(`sizehint!(local_set, symmetry.ntran)`) is the only retained
+allocation-side change -- it lets the Set skip a mid-loop rehash
+without restructuring the loop.
+
+`fege_2x2x2_3body_all_open` regression check (64-atom; small absolute
+times; orbits 5 + 268):
+
+| stage                  | +Tier2 8T [s] | alloc [MiB] |
+|------------------------|--------------:|------------:|
+| `set_mindist_pairs`    |        0.0107 |         67.4 |
+| `generate_clusters`    |        0.0196 |         57.4 |
+| `irreducible_clusters` |        0.0020 |          4.1 |
+| `cluster_orbits`       |        0.0172 |          4.7 |
+| **TOTAL**              |    **0.0495** |              |
+
+On the small case `generate_clusters` (sequential) is now the
+dominant stage; `cluster_orbits` has dropped to 35 % and is no longer
+gating. No regression on the regression fixture.
+
+`Cluster.cluster_orbits_dict` allocation under the new code is
+~48 MiB on 3x3x3 (independent of thread count): roughly the
+`Set{Int}` neighbor buffers + the `Dict{Vector{Int}, Int}` index map
++ the final orbit `Vector{Vector{Int}}` shells. This is 1840x lower
+than the original 88 GiB, with most of the residual coming from the
+`Set{Int}` per-thread neighbor accumulation in Phase 1.

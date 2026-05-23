@@ -16,6 +16,7 @@ This module provides data structures and functions for managing and analyzing cl
 - `generate_clusters(structure, symmetry, cutoff_radii, nbody, min_distance_pairs)`: Generates interaction clusters
 - `irreducible_clusters(cluster_dict, symmetry)`: Selects one representative per translation orbit
 - `_translation_canonical_form(cluster, symmetry)`: Lex-minimum translation image of a cluster (private helper)
+- `cluster_orbits(irreducible_cluster_dict, symmetry)`: Classifies irreducible clusters into spatial-symmetry orbits
 - `print_cluster_stdout(min_distance_pairs, atoms_in_prim, kd_name, kd_int_list)`: Prints cluster information to stdout
 """
 
@@ -726,18 +727,25 @@ An orbit is a set of clusters that can be transformed into each other by spatial
 the same projection matrix structure, making this classification useful for efficient projection
 operator construction.
 
+The neighbor-discovery phase uses `Threads.@threads`. Do not call this function from inside
+another `@threads` region; doing so over-subscribes the thread pool. Independent tasks on
+disjoint inputs may call it concurrently.
+
 # Arguments
 - `irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}}`: Dictionary of irreducible clusters organized by body
 - `symmetry::Symmetry`: Symmetry information containing spatial symmetry operations
 
 # Returns
-- `Dict{Int, Dict{Int, Vector{Vector{Int}}}}`: Dictionary organized as `[body][orbit_index] -> [clusters in orbit]`
-  where clusters are sorted atom lists
+- `Dict{Int, Dict{Int, Vector{Vector{Int}}}}`: Dictionary organized as
+  `[body][orbit_index] -> [clusters in orbit]`, where each cluster is a lex-sorted atom-index
+  list, the members within each orbit are in lex-ascending order, and orbits are numbered in
+  ascending order of their lex-minimum member.
 
 # Example
 ```julia
 orbits = cluster_orbits(cluster.irreducible_cluster_dict, symmetry)
-# orbits[2][1] contains all 2-body clusters in the first orbit
+# orbits[2][1] is the 2-body orbit whose lex-min cluster is globally smallest;
+# orbits[2][1][1] is that lex-min cluster itself.
 ```
 """
 function cluster_orbits(
@@ -746,97 +754,154 @@ function cluster_orbits(
 )::Dict{Int, Dict{Int, Vector{Vector{Int}}}}
 	result = Dict{Int, Dict{Int, Vector{Vector{Int}}}}()
 
-	# Collect all clusters for each body as a set for fast lookup
-	cluster_sets = Dict{Int, Set{Vector{Int}}}()
-	for body in keys(irreducible_cluster_dict)
-		cluster_sets[body] = Set{Vector{Int}}()
-		for cluster in irreducible_cluster_dict[body]
-			push!(cluster_sets[body], sort(cluster))
-		end
-	end
-
 	for body in sort(collect(keys(irreducible_cluster_dict)))
-		result[body] = Dict{Int, Vector{Vector{Int}}}()
-		orbit_index = 0
-		processed_clusters = Set{Vector{Int}}()
+		# Flatten the body's irreducible clusters into a lex-sorted Vector
+		# and a reverse-lookup index map. `SortedCounter` iterates in
+		# `isless` order and its keys are element-sorted at insertion, so
+		# each `c` is already sorted; `copy(c)` is enough to break aliasing
+		# with the SortedCounter's internal key object.
+		clusters_sorted = Vector{Vector{Int}}()
+		for c in irreducible_cluster_dict[body]
+			push!(clusters_sorted, copy(c))
+		end
+		n_clusters = length(clusters_sorted)
+		cluster_to_idx = Dict{Vector{Int}, Int}()
+		sizehint!(cluster_to_idx, n_clusters)
+		for i = 1:n_clusters
+			cluster_to_idx[clusters_sorted[i]] = i
+		end
 
-		# Scratch buffers reused across the BFS for this body. Set entries
-		# (cluster_sets[body], visited_in_orbit, processed_clusters) are
-		# `Vector{Int}` with structural hashing, so membership tests on the
-		# in-place buffer hash identically to a fresh copy. A fresh copy is
-		# only allocated when a candidate is actually inserted.
-		buf_shifted = Vector{Int}(undef, body)
-		buf_translated = Vector{Int}(undef, body)
-
-		for cluster in irreducible_cluster_dict[body]
-			sorted_cluster = sort(cluster)
-
-			# Skip if already processed (belongs to a previous orbit)
-			if sorted_cluster in processed_clusters
-				continue
-			end
-
-			# Start a new orbit
-			orbit_index += 1
-			orbit = Vector{Vector{Int}}()
-			push!(orbit, sorted_cluster)
-			push!(processed_clusters, sorted_cluster)
-
-			# Find all clusters in this orbit by applying symmetry operations
-			orbit_frontier = [sorted_cluster]
-			visited_in_orbit = Set{Vector{Int}}([sorted_cluster])
-
-			while !isempty(orbit_frontier)
-				current_cluster = popfirst!(orbit_frontier)
-
-				# Apply all spatial symmetry operations
-				for n in eachindex(symmetry.symdata)
-					# Apply symmetry operation to atoms (in-place into buf_shifted)
-					@inbounds for i = 1:body
-						buf_shifted[i] = symmetry.map_sym[current_cluster[i], n]
+		# Phase 1 (parallel): for each cluster, enumerate the set of
+		# in-set neighbor *indices* reachable in one (spatial symmetry
+		# operation, translation) step (forward and inverse). Each
+		# iteration is independent: it reads `clusters_sorted`,
+		# `cluster_to_idx`, and `symmetry.{symdata, symnum_translation,
+		# map_sym, map_sym_inv}` -- all immutable from this point on --
+		# and writes only to its own slot of `neighbors_per_cluster`.
+		#
+		# Scratch buffers (two `Vector{Int}` and one `Set{Int}`) are
+		# allocated per iteration. The orbit-neighbor count is at most
+		# `symmetry.ntran` (one per pure translation), which sets the
+		# `Set` size hint to avoid mid-loop rehashing. Empirically on
+		# the 3x3x3 FeGe pain point, hoisting these buffers to
+		# `threadid()`-indexed thread-local slots with `:static`
+		# scheduling reduced allocations by ~70 % but ran 10-15 % slower
+		# overall -- the allocator is not the bottleneck here and the
+		# indirection cost dominates.
+		neighbors_per_cluster = Vector{Vector{Int}}(undef, n_clusters)
+		Threads.@threads for i = 1:n_clusters
+			c = clusters_sorted[i]
+			local_set = Set{Int}()
+			sizehint!(local_set, symmetry.ntran)
+			buf_shifted = Vector{Int}(undef, body)
+			buf_translated = Vector{Int}(undef, body)
+			for n = eachindex(symmetry.symdata)
+				@inbounds for k = 1:body
+					buf_shifted[k] = symmetry.map_sym[c[k], n]
+				end
+				for sym_tran in symmetry.symnum_translation
+					@inbounds for k = 1:body
+						buf_translated[k] = symmetry.map_sym[buf_shifted[k], sym_tran]
+					end
+					sort!(buf_translated)
+					j = get(cluster_to_idx, buf_translated, 0)
+					if j > 0 && j != i
+						push!(local_set, j)
 					end
 
-					# Find translationally equivalent cluster in primitive cell
-					for sym_tran in symmetry.symnum_translation
-						# Forward translation
-						@inbounds for i = 1:body
-							buf_translated[i] = symmetry.map_sym[buf_shifted[i], sym_tran]
-						end
-						sort!(buf_translated)
-
-						if buf_translated in cluster_sets[body] &&
-						   !(buf_translated in visited_in_orbit)
-							key = copy(buf_translated)
-							push!(orbit, key)
-							push!(visited_in_orbit, key)
-							push!(processed_clusters, key)
-							push!(orbit_frontier, key)
-						end
-
-						# Inverse translation
-						@inbounds for i = 1:body
-							buf_translated[i] = symmetry.map_sym_inv[buf_shifted[i], sym_tran]
-						end
-						sort!(buf_translated)
-
-						if buf_translated in cluster_sets[body] &&
-						   !(buf_translated in visited_in_orbit)
-							key = copy(buf_translated)
-							push!(orbit, key)
-							push!(visited_in_orbit, key)
-							push!(processed_clusters, key)
-							push!(orbit_frontier, key)
-						end
+					@inbounds for k = 1:body
+						buf_translated[k] = symmetry.map_sym_inv[buf_shifted[k], sym_tran]
+					end
+					sort!(buf_translated)
+					j = get(cluster_to_idx, buf_translated, 0)
+					if j > 0 && j != i
+						push!(local_set, j)
 					end
 				end
 			end
+			neighbors_per_cluster[i] = collect(local_set)
+		end
 
-			# Store the orbit
+		# Phase 2 (serial): union-find merge. Each connected component
+		# is one orbit. The total edge count is bounded by
+		# `n_clusters * symmetry.ntran` and the inverse-Ackermann
+		# amortized cost per edge makes this phase negligible relative
+		# to Phase 1.
+		parent = collect(1:n_clusters)
+		sizes = ones(Int, n_clusters)
+		for i = 1:n_clusters
+			for j in neighbors_per_cluster[i]
+				_uf_union!(parent, sizes, i, j)
+			end
+		end
+
+		# Phase 3 (serial): group cluster indices by root; build each
+		# orbit's cluster-list lex-sorted; emit orbits in lex-min order.
+		# `sort!(orbit)` makes `first(orbit)` the lex-min member; the
+		# subsequent `sort!(orbits, by = first)` numbers orbits by their
+		# lex-min member, so `orbit_index` is independent of thread
+		# scheduling and matches the previous sequential implementation
+		# (which encountered orbits in the same lex-min order, since
+		# `SortedCounter` iteration is lex-sorted).
+		groups = Dict{Int, Vector{Int}}()
+		for i = 1:n_clusters
+			r = _uf_find!(parent, i)
+			push!(get!(groups, r, Int[]), i)
+		end
+
+		orbits = Vector{Vector{Vector{Int}}}()
+		sizehint!(orbits, length(groups))
+		for indices in values(groups)
+			orbit = Vector{Vector{Int}}(undef, length(indices))
+			@inbounds for (k, idx) in enumerate(indices)
+				orbit[k] = clusters_sorted[idx]
+			end
+			sort!(orbit)
+			push!(orbits, orbit)
+		end
+		sort!(orbits, by = first)
+
+		result[body] = Dict{Int, Vector{Vector{Int}}}()
+		for (orbit_index, orbit) in enumerate(orbits)
 			result[body][orbit_index] = orbit
 		end
 	end
 
 	return result
+end
+
+# --- Union-find primitives used by `cluster_orbits` ---
+#
+# Path halving (in `_uf_find!`) and union by size (in `_uf_union!`)
+# give inverse-Ackermann amortized cost per operation. The edge count
+# is bounded by `n_clusters * symmetry.ntran`, so this phase is
+# dwarfed by Phase 1's neighbor discovery.
+
+@inline function _uf_find!(parent::Vector{Int}, i::Int)::Int
+	@inbounds while parent[i] != i
+		parent[i] = parent[parent[i]]
+		i = parent[i]
+	end
+	return i
+end
+
+@inline function _uf_union!(
+	parent::Vector{Int},
+	sizes::Vector{Int},
+	i::Int,
+	j::Int,
+)
+	ri = _uf_find!(parent, i)
+	rj = _uf_find!(parent, j)
+	if ri == rj
+		return nothing
+	end
+	@inbounds if sizes[ri] < sizes[rj]
+		ri, rj = rj, ri
+	end
+	@inbounds parent[rj] = ri
+	@inbounds sizes[ri] += sizes[rj]
+	return nothing
 end
 
 
