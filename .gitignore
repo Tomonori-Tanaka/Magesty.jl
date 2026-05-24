@@ -1,6 +1,7 @@
 /Manifest.toml
 /bench/Manifest.toml
 /cli/Manifest.toml
+/cli/deps/build.log
 /coverage/Manifest.toml
 **/*.cov
 /coverage.lcov
