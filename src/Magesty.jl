@@ -169,6 +169,7 @@ SCEBasis(
 	SCEBasis(toml_path::AbstractString; verbosity = true) -> SCEBasis
 	SCEBasis(system::AtomsBase.AbstractSystem; interaction, name, tolerance_sym, isotropy, verbosity) -> SCEBasis
 	SCEBasis(; lattice, kd, kd_list, positions, periodicity, interaction, name, tolerance_sym, isotropy, verbosity) -> SCEBasis
+	SCEBasis(x::Union{SCEBasis, SCEModel, SCEDataset, SCEFit}) -> SCEBasis
 
 Construct an `SCEBasis` from one of four input paths: a parsed TOML
 dictionary, a TOML file, an `AtomsBase.AbstractSystem`, or raw Julia
@@ -179,6 +180,12 @@ same structure / symmetry / cluster / SALC construction.
 The `interaction` argument is a nested `NamedTuple` keyed `body1`,
 `body2`, ...; see the API documentation for the accepted format and
 the per-path Unitful requirements.
+
+The extractor form `SCEBasis(x)` returns the basis embedded in an
+`SCEModel`, `SCEDataset`, or `SCEFit` (and is the identity on an
+`SCEBasis`), so generic code can accept any of the four uniformly. The
+returned basis shares storage with the input — `SCEBasis` is treated as
+a value object and is not mutated by the public API.
 """
 function SCEBasis(
 	system_spec::SystemSpec,
@@ -565,6 +572,16 @@ SCEDataset(f::SCEFit, spinconfigs::AbstractVector{SpinConfig}) =
 	SCEDataset(f.dataset.basis, spinconfigs)
 SCEDataset(f::SCEFit, embset_path::AbstractString) =
 	SCEDataset(f.dataset.basis, embset_path)
+
+# `SCEBasis` extractors for objects that embed one. Defined here because
+# `SCEModel` / `SCEDataset` / `SCEFit` are declared after `SCEBasis`. The
+# embedded basis is returned by reference — the same sharing semantics as
+# accessing `.basis` directly. `SCEBasis` is treated as a value object
+# (no public API mutates its contents), so this is safe in practice.
+SCEBasis(basis::SCEBasis) = basis
+SCEBasis(model::SCEModel) = model.basis
+SCEBasis(dataset::SCEDataset) = dataset.basis
+SCEBasis(f::SCEFit) = f.dataset.basis
 
 """
 	fit(::Type{SCEFit}, dataset::SCEDataset, estimator::AbstractEstimator;
