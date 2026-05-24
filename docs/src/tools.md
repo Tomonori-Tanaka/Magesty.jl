@@ -62,7 +62,7 @@ magesty vasp toml POSCAR --output input.toml
 
 The same conversion is available programmatically as the exported `poscar_to_toml` function.
 
-The generated configuration fills `[general]`, `[symmetry]`, `[interaction]`, `[regression]`, and `[structure]` from the POSCAR. POSCAR direct and Cartesian coordinates are both accepted (Cartesian is converted to direct). The interaction settings are placeholders (`lmax = 0`, `cutoff = -1`) and should be edited before use.
+The generated configuration fills `[general]`, `[symmetry]`, `[interaction]`, and `[structure]` from the POSCAR. POSCAR direct and Cartesian coordinates are both accepted (Cartesian is converted to direct). The interaction settings are placeholders (`lmax = 0`, `cutoff = -1`) and should be edited before use.
 
 ## `magesty vasp embset`
 

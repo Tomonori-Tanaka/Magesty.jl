@@ -137,13 +137,6 @@ function _write_input_toml(io::IO, data::VaspIO.PoscarData)
 		end
 	end
 
-	# [regression]
-	regression = DataStructures.OrderedDict{String, Any}()
-	regression["datafile"] = "EMBSET"
-	regression["weight"]   = 1.0
-	regression["alpha"]    = 0
-	regression["lambda"]   = 0.0
-
 	# [structure] kd_list / position: expand species counts to per-atom rows
 	kd_list = Int[]
 	positions = Vector{Vector{Float64}}()
@@ -198,17 +191,6 @@ function _write_input_toml(io::IO, data::VaspIO.PoscarData)
 	end
 	write(io, "lsum = 2\n\n")
 
-	# [regression]
-	write(io, "[regression]\n")
-	for (key, value) in regression
-		if key == "datafile"
-			write(io, "$key = \"$value\"\n")
-		else
-			write(io, "$key = $value\n")
-		end
-	end
-	write(io, "\n")
-
 	# [structure]
 	write(io, "[structure]\n")
 	write(io, "lattice = [\n")
@@ -252,8 +234,8 @@ Convert a VASP POSCAR structure file to a Magesty input TOML configuration
 and return the TOML text.
 
 The generated configuration is a starting point for an SCE input file: it
-fills `[general]`, `[symmetry]`, `[interaction]`, `[regression]`, and
-`[structure]` from the POSCAR, with placeholder interaction settings
+fills `[general]`, `[symmetry]`, `[interaction]`, and `[structure]` from
+the POSCAR, with placeholder interaction settings
 (`lmax = 0`, `cutoff = -1`) meant to be edited before use.
 
 # Arguments

@@ -21,12 +21,6 @@ cutoff."Fe-Pt" = -1
 cutoff."Pt-Pt" = -1
 lsum = 2
 
-[regression]
-datafile = "EMBSET"
-weight = 1.0
-alpha = 0
-lambda = 0.0
-
 [structure]
 lattice = [
   [3.86, 0.0, 0.0],
