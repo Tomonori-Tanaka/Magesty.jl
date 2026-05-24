@@ -89,6 +89,16 @@ angular gradient of the energy,
 which is why the spherical-harmonic gradient ``\partial Z_{l,m}/\partial\hat{\boldsymbol{e}}``
 (`∂ᵢZlm`) is needed alongside the values.
 
+The torque kernel is *cluster-major*: a single sweep over each cluster
+image writes the gradient contribution to every site it contains, with
+the cross product against each atom's spin direction deferred to a
+final reduction. The per-atom kernel that the energy block naively
+suggests would scan ``N_\text{atoms} / N`` clusters that contribute
+nothing, which the cluster-major layout avoids. See
+[Cluster-major torque kernel](cluster_major_torque.md) for the
+derivation, the accumulation buffer's shape, and the cluster-distinctness
+invariant the chain rule relies on.
+
 The constant ``J_0`` is *not* a column of ``X_E``. The energy matrix is
 mean-centered instead, and ``J_0`` is recovered analytically after the
 solve by `extract_j0_jphi` as ``J_0 = \operatorname{mean}(y_E - X_E\,J)``,

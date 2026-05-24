@@ -38,6 +38,7 @@ makedocs(
 				"theory/orbit_clusters.md",
 				"theory/folded_tensor.md",
 				"theory/sh_cache.md",
+				"theory/cluster_major_torque.md",
 				"theory/design_matrix_and_fitting.md",
 				"technical_notes.md",
 			],

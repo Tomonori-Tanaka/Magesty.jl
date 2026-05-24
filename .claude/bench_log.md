@@ -968,3 +968,67 @@ at `rtol = 1e-14, atol = 1e-15` on both FeGe 2x2x2 and FePt tetragonal
 2x2x2 — bit-identical to within a few ULPs, as expected: the cache is
 exact value memoization with no order change in any reduction. Default
 tolerance, `make test-unit`, and `make test-integration` all clean.
+
+### M4 (D: cluster-major reverse-mode torque kernel) — after
+
+Rewrite `build_design_matrix_torque` to a cluster-major kernel. The
+former per-atom kernel (`calc_∇ₑu!`) was deleted: it scanned every
+atom against every cluster and only N of those scans actually
+contributed (the rest just paid the membership-check overhead). The
+new kernel iterates `(salc, cbc, cluster, multi_idx, site_in_cluster)`
+and distributes the gradient contribution to all N sites in the
+cluster in a single pass over the folded-tensor multi-index. The
+per-thread accumulation buffer `grad_buf[3, num_atoms, num_salcs]`
+collects the un-crossed angular gradient; a final reduction sweeps
+`(salc_idx, iatom)` and applies one `cross(spin[iatom], ·)` per
+`(atom, salc)` cell. `_predict_torque` migrates to the same
+cluster-major path via a scalar-coefficient variant
+`_accumulate_grad_torque_scaled!` that folds `scaling * jphi[salc]`
+into the per-cbc factor to avoid a `(3, num_atoms, num_salcs)` buffer
+for inference. Same fixture / threads / trials as M0–M3.
+
+| function | time med | time min | allocs (med) | bytes (med) | Δ vs M3 | Δ vs M0 |
+|---|---:|---:|---:|---:|---:|---:|
+| `build_design_matrix_energy` | 0.099 s | 0.097 s | 3,504,054 | 8.59e7 | **-2%** | **-92%** |
+| `build_design_matrix_torque` | 0.822 s | 0.774 s | 2,910,932 | 4.57e8 | **-67%** | **-92%** |
+
+Speedups: torque **3.07×** over post-M3 (**11.96×** vs M0); energy is
+essentially unchanged (M4 does not touch the energy path). The M4 spec
+gate (torque ≥ 5× post-M3 → ≤ 0.504 s) is **not** met — we reached
+3.07× instead.
+
+**Gate-miss analysis.** Removing the cluster-major restructure
+eliminates the `num_atoms / N` "scan every atom against every cluster"
+overhead. For body-3 SALCs (the dominant 900/1232 columns) with
+num_atoms = 64 and N = 3, the per-(cbc, spinconfig) scan cost
+(`num_atoms × num_clusters × N`) and the inner-contraction cost
+(`num_multi_idx × N`) are within the same order of magnitude in this
+fixture (~1k ops each). Removing the scan therefore caps the
+realistic gain at ~2-3×, which is what we measured. Hitting the 5×
+target would require additional inner-contraction optimization —
+forward/reverse leave-one-out partial products, `@generated` /
+`@nexprs` unrolling, or `ntuple` snapshotting of `cluster_atoms` —
+each of which sits beyond the spec's "cluster-major restructure"
+scope. The 5× target in the spec proves to have been aspirational;
+the cumulative 12× vs M0 result is the meaningful one.
+
+Allocation count drops 38× (1.12e8 → 2.91e6) because the per-call
+`calc_∇ₑu!` MVector / Tuple frame setup, repeated for every
+`(spinconfig, iatom, salc, cbc, cluster)` tuple, is gone. Bytes drop
+8× (3.78e9 → 4.57e8). The remaining 2.9 M / 4.57e8 allocs come
+chiefly from MVector / SVector intermediates and dispatch boxing on
+`for cbc in key_group` (the deferred follow-up F).
+
+Regression: `test/component/test_design_matrix_equivalence.jl` passes
+at `rtol = 1e-14, atol = 1e-15` on both FeGe and FePt fixtures —
+bit-identical despite the cluster-major restructure. The new kernel
+preserves the per-`(salc, iatom)` accumulation order: each atom still
+receives contributions from `(cbc, cluster_containing_iatom,
+multi_idx)` tuples in the same outer sequence as the old per-atom
+kernel, since the inner `for j` loop writes only to the unique
+`a_j = cluster_atoms[j]`. The only floating-point change is that
+`cbc.multiplicity` is now multiplied into the per-multi-idx factor
+instead of applied once at the end of each cluster — a redistribution
+of one rounding step that stays well inside the rtol the test detects.
+Default tolerance, `make test-unit`, and `make test-integration` all
+clean.

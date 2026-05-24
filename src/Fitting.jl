@@ -695,7 +695,7 @@ function build_design_matrix_torque(
 
 	# Threading is over spinconfigs already, so each thread builds and
 	# owns one `SHCache` for the spinconfig it is processing and reuses
-	# it across every (iatom, salc_idx, cbc) call in its row block.
+	# it across every (salc_idx, cbc, cluster) accumulation.
 	l_max = _compute_l_max(salc_list)
 
 	# Preallocate the full design matrix and let each thread write into its
@@ -708,23 +708,47 @@ function build_design_matrix_torque(
 		@threads for sc_idx = 1:num_spinconfigs
 			spinconfig = spinconfig_list[sc_idx]
 			row_offset = block_size * (sc_idx - 1)
-			grad_u_buf = MVector{3, Float64}(0.0, 0.0, 0.0)
 			sh_cache = build_sh_cache_torque(spinconfig.spin_directions, l_max)
-			@inbounds for iatom = 1:num_atoms
-				dir_iatom_svec = SVector{3, Float64}(
-					spinconfig.spin_directions[1, iatom],
-					spinconfig.spin_directions[2, iatom],
-					spinconfig.spin_directions[3, iatom],
-				)
-				@inbounds for (salc_idx, key_group) in enumerate(salc_list)
-					# Sum contributions from all CoupledBasis_with_coefficient in this key group
-					group_grad = MVector{3, Float64}(0.0, 0.0, 0.0)
-					for cbc in key_group
-						calc_∇ₑu!(grad_u_buf, cbc, iatom, sh_cache)
-						group_grad .+= grad_u_buf
-					end
-					scaling_factor = scaling_factors[salc_idx]
-					torque_vec = cross(dir_iatom_svec, SVector{3, Float64}(group_grad)) * scaling_factor
+
+			# Per-thread per-spinconfig accumulation buffer for the
+			# cluster-major kernel: `grad_buf[xyz, atom, salc_idx]`
+			# holds Σ_{cbc, cluster, site_in_cluster_with_atom}
+			#   mult · ∂Φ_cbc(cluster) / ∂spin[atom],
+			# i.e. the un-crossed angular gradient. Allocated here so
+			# every thread has its own copy; layout puts the xyz axis
+			# innermost so SVector loads from a single cache line.
+			grad_buf = zeros(Float64, 3, num_atoms, num_salcs)
+
+			# Cluster-major sweep: for each (salc, cbc, cluster), one pass
+			# over the folded-tensor multi-index distributes the gradient
+			# to all sites in the cluster simultaneously. Replaces the
+			# old per-atom kernel that scanned every atom against every
+			# cluster (the `num_atoms / N` excess factor).
+			@inbounds for (salc_idx, key_group) in enumerate(salc_list)
+				for cbc in key_group
+					_accumulate_grad_torque_cluster!(grad_buf, cbc, salc_idx, sh_cache)
+				end
+			end
+
+			# Reduction: for each (salc_idx, iatom) cell, take one
+			# `cross(spin[iatom], grad_buf[:, iatom, salc_idx])`, apply
+			# the per-cluster scaling, and write three contiguous design-
+			# matrix rows. Looping salc_idx outermost matches the
+			# column-major design-matrix layout (one column = one salc).
+			@inbounds for salc_idx = 1:num_salcs
+				scaling = scaling_factors[salc_idx]
+				for iatom = 1:num_atoms
+					dir_iatom_svec = SVector{3, Float64}(
+						spinconfig.spin_directions[1, iatom],
+						spinconfig.spin_directions[2, iatom],
+						spinconfig.spin_directions[3, iatom],
+					)
+					grad_vec = SVector{3, Float64}(
+						grad_buf[1, iatom, salc_idx],
+						grad_buf[2, iatom, salc_idx],
+						grad_buf[3, iatom, salc_idx],
+					)
+					torque_vec = cross(dir_iatom_svec, grad_vec) * scaling
 					row_base = row_offset + 3 * (iatom - 1)
 					design_matrix[row_base + 1, salc_idx] = torque_vec[1]
 					design_matrix[row_base + 2, salc_idx] = torque_vec[2]
@@ -740,124 +764,103 @@ end
 
 
 """
-	calc_∇ₑu!(result, cbc, atom, sh_cache) -> result
+	_accumulate_grad_torque_cluster!(grad_buf, cbc, salc_idx, sh_cache)
 
-Compute the gradient of the coupled-basis feature for a
-`CoupledBasis_with_coefficient` with respect to the spin direction of a
-specific atom, writing the result into `result` in place.
-
-# Description
-- Returns the 3-vector `(∂Φ/∂x, ∂Φ/∂y, ∂Φ/∂z)` summed over every cluster
-  in `cbc.clusters` that contains `atom`, weighted by `cbc.multiplicity`.
-- Tesseral SH values and their `∂ᵢZₗₘ` direction gradients are read from
-  the precomputed `sh_cache`; the kernel itself does no SH evaluation.
+Cluster-major reverse-mode gradient accumulator for the torque design
+matrix. For one `CoupledBasis_with_coefficient` and one SALC column,
+sweep every cluster image in `cbc.clusters` and every multi-index of the
+folded tensor, distributing the gradient contribution
+``\\partial \\Phi_\\nu / \\partial \\hat{\\boldsymbol{e}}_{a_j}`` to all
+``N`` sites ``a_j`` of the cluster in one pass. The per-(cbc, cluster)
+work is paid once instead of `num_atoms` times; what used to be a
+per-atom "does this cluster contain me?" scan is replaced by a direct
+write to `grad_buf[:, a_j, salc_idx]` for each site `j`.
 
 # Arguments
-- `result::MVector{3, Float64}`: Output buffer (cleared on entry).
-- `cbc::CoupledBases.CoupledBasis_with_coefficient`: the coupled basis with
-  its SALC coefficient and pre-enumerated cluster orbit.
-- `atom::Integer`: Target atom index (1-based).
+- `grad_buf::Array{Float64, 3}`: Accumulation buffer of shape
+  `(3, num_atoms, num_salcs)`. The `xyz` axis is innermost so reading a
+  single 3-vector costs one cache line. Caller zeros the buffer at the
+  start of each spinconfig.
+- `cbc::CoupledBases.CoupledBasis_with_coefficient`: the coupled basis,
+  with its folded tensor, SALC coefficient, multiplicity, and
+  pre-enumerated cluster orbit.
+- `salc_idx::Integer`: Column index into `grad_buf` (= SALC key-group index).
 - `sh_cache::SHCache`: per-spinconfig SH cache produced by
   [`build_sh_cache_torque`](@ref). Both `Z` and `∂Z` are read.
 
 # Returns
-- `result` (mutated in place).
+- `nothing` (mutates `grad_buf`).
+
+Not exported.
 """
-function calc_∇ₑu!(
-	result::MVector{3, Float64},
+function _accumulate_grad_torque_cluster!(
+	grad_buf::Array{Float64, 3},
 	cbc::CoupledBases.CoupledBasis_with_coefficient{R},
-	atom::Integer,
+	salc_idx::Integer,
 	sh_cache::SHCache,
 ) where {R}
 	# N = number of sites; R = tensor rank = N + 1 (compile-time constant).
-	# The orbit walk has been moved to SALC build time (see
-	# `CoupledBases.enumerate_orbit_clusters`); each translated cluster is
-	# read directly from `cbc.clusters`. Tesseral SH values and their
-	# direction gradients come from the per-spinconfig `sh_cache`.
-	result[1] = 0.0
-	result[2] = 0.0
-	result[3] = 0.0
 	dims_t = ntuple(i -> 2 * cbc.ls[i] + 1, Val(R - 1))
-
-	# Hoist scratch buffers out of the cluster loop. `other_sites_buf` and
-	# `other_dims_buf` get refilled per iteration based on `atom_site_idx`,
-	# but the storage is allocated once up front.
+	site_indices = CartesianIndices(dims_t)
 	idx_buf = MVector{R - 1, Int}(undef)
-	other_sites_buf = MVector{R - 2, Int}(undef)
-	other_dims_buf = MVector{R - 2, Int}(undef)
 
-	# `l_offsets[site_idx] = ls[site_idx]^2` is the flat-index base for the
-	# `Z[lm_idx, atom]` lookup. Depends only on `cbc.ls`, so hoist out of
-	# the cluster loop.
+	# `l_offsets[k] = ls[k]^2` is the flat-index base for the
+	# `Z[lm_idx, atom]` and `∂Z[lm_idx, atom]` lookups at site `k`. Depends
+	# only on `cbc.ls`, so hoist out of both the cluster and multi-index
+	# loops.
 	l_offsets = ntuple(i -> cbc.ls[i]^2, Val(R - 1))
 
 	Z = sh_cache.Z
 	∂Z = sh_cache.∂Z
+	mult::Float64 = cbc.multiplicity
 
 	@inbounds for cluster_atoms in cbc.clusters
-		# Identify whether (and at which site) the differentiated atom
-		# appears in this cluster. Cluster-atom indices are pairwise
-		# distinct by construction (`enumerate_orbit_clusters` preserves
-		# the distinctness of the seed `cbc.atoms` because pure translations
-		# are bijections of the supercell), so the first match is also the
-		# only match.
-		atom_site_idx = 0
-		for site_idx = 1:(R - 1)
-			if cluster_atoms[site_idx] == atom
-				atom_site_idx = site_idx
-				break
+		# Cluster atoms are pairwise distinct by construction
+		# (`enumerate_orbit_clusters` preserves the distinctness of the
+		# seed `cbc.atoms` because pure translations are bijections of the
+		# supercell). The cluster-major Jacobian needs this so that a
+		# single site `j` is responsible for the gradient on a unique atom
+		# `a_j = cluster_atoms[j]` — otherwise the per-site writes would
+		# alias and we would double-count the contribution. Guarded by
+		# `@boundscheck` so production builds with `@inbounds` elide the
+		# `allunique` scan.
+		@boundscheck @assert allunique(cluster_atoms) "cluster atoms must be distinct"
+
+		for multi_idx in site_indices
+			# Populate the folded-tensor indexer from the CartesianIndex.
+			# `idx_buf::MVector{R-1, Int}` makes `folded_tensor[idx_buf...]`
+			# statically resolvable.
+			for k = 1:(R - 1)
+				idx_buf[k] = multi_idx.I[k]
+			end
+			folded_x_mult = cbc.folded_tensor[idx_buf...] * mult
+
+			# For each site `j` in the cluster, the leave-one-out product
+			# `Π_{k ≠ j} Z[l_k, m_k][a_k]` weighted by the folded tensor
+			# is the chain-rule coefficient on `∂Z[l_j, m_j][a_j]`.
+			# Recomputing the product per `j` is O(N²) at fixed
+			# multi-index but `N ≤ 3` for the current basis, so the
+			# constant-factor cost is dominated by the indirect loads
+			# rather than the multiplications.
+			for j = 1:(R - 1)
+				m_j = multi_idx.I[j]
+				a_j = cluster_atoms[j]
+				product_other = 1.0
+				for k = 1:(R - 1)
+					if k != j
+						product_other *=
+							Z[l_offsets[k] + multi_idx.I[k], cluster_atoms[k]]
+					end
+				end
+				grad_jm = ∂Z[l_offsets[j] + m_j, a_j]
+				coeff = folded_x_mult * product_other
+				grad_buf[1, a_j, salc_idx] += coeff * grad_jm[1]
+				grad_buf[2, a_j, salc_idx] += coeff * grad_jm[2]
+				grad_buf[3, a_j, salc_idx] += coeff * grad_jm[3]
 			end
 		end
-
-		if atom_site_idx == 0
-			continue
-		end
-
-		l_atom = cbc.ls[atom_site_idx]
-		base_atom = l_offsets[atom_site_idx]
-
-		# Contract folded_tensor with cached spherical harmonics and
-		# gradients. folded_tensor[m₁,…,m_N] = Σ_Mf coefficient[Mf] ·
-		# coeff_tensor[…, Mf] is precomputed at SALC-build time, so the
-		# Mf axis is already collapsed; we only iterate the site m-indices
-		# here.
-		grad_result = MVector{3, Float64}(0.0, 0.0, 0.0)
-		# Refill the other_sites/other_dims buffers for this `atom_site_idx`.
-		ki = 0
-		for s = 1:(R - 1)
-			if s != atom_site_idx
-				ki += 1
-				other_sites_buf[ki] = s
-				other_dims_buf[ki] = dims_t[s]
-			end
-		end
-		# `Tuple(::MVector{R-2,Int})` is `NTuple{R-2,Int}`, so the
-		# resulting CartesianIndices has statically known rank.
-		other_site_indices = CartesianIndices(Tuple(other_dims_buf))
-
-		# Reuse product over non-differentiated sites for each m on target site.
-		for other_tuple in other_site_indices
-			product_other = 1.0
-			for k = 1:(R - 2)
-				site_idx = other_sites_buf[k]
-				m_idx_other = other_tuple.I[k]
-				idx_buf[site_idx] = m_idx_other
-				product_other *=
-					Z[l_offsets[site_idx] + m_idx_other, cluster_atoms[site_idx]]
-			end
-
-			for m_idx_atom = 1:(2*l_atom+1)
-				idx_buf[atom_site_idx] = m_idx_atom
-				grad_atom = ∂Z[base_atom + m_idx_atom, atom]
-				folded_val = cbc.folded_tensor[idx_buf...]
-				grad_result .+= folded_val * product_other .* grad_atom
-			end
-		end
-
-		result .+= grad_result .* cbc.multiplicity
 	end
-
-	return result
+	return nothing
 end
 
 
@@ -918,29 +921,88 @@ function _predict_torque(
 		throw(ArgumentError("spin_directions must be a 3xN matrix"))
 	end
 	num_atoms = size(spin_directions, 2)
-	torque = zeros(Float64, 3, num_atoms)
-	grad_u_buf = MVector{3, Float64}(0.0, 0.0, 0.0)
-	# Single-threaded inference path; build one cache and reuse across atoms / SALCs.
+	# Single-threaded inference path; build one cache and reuse across
+	# all (salc, cbc, cluster) accumulations.
 	l_max = _compute_l_max(salc_list)
 	sh_cache = build_sh_cache_torque(spin_directions, l_max)
 
-	@inbounds for iatom = 1:num_atoms
-		dir_iatom = SVector{3, Float64}(@view spin_directions[:, iatom])
-		for (salc_idx, key_group) in enumerate(salc_list)
-			group_grad = MVector{3, Float64}(0.0, 0.0, 0.0)
-			for cbc in key_group
-				calc_∇ₑu!(grad_u_buf, cbc, iatom, sh_cache)
-				group_grad .+= grad_u_buf
-			end
-			n_C = length(key_group[1].atoms)
-			scaling_factor = _cluster_scaling(n_C)
-			torque[:, iatom] .+=
-				cross(dir_iatom, SVector{3, Float64}(group_grad)) .*
-				scaling_factor .* jphi[salc_idx]
+	# Accumulate the jphi-weighted angular gradient per atom in a single
+	# pass over the cluster orbit, then take the cross product with the
+	# atom's spin direction once at the end. Folding `scaling * jphi[salc]`
+	# into the per-cbc coefficient avoids carrying a `(3, num_atoms,
+	# num_salcs)` buffer just to weight by jphi afterwards.
+	grad_per_atom = zeros(Float64, 3, num_atoms)
+	@inbounds for (salc_idx, key_group) in enumerate(salc_list)
+		n_C = length(key_group[1].atoms)
+		coeff::Float64 = _cluster_scaling(n_C) * jphi[salc_idx]
+		for cbc in key_group
+			_accumulate_grad_torque_scaled!(grad_per_atom, cbc, coeff, sh_cache)
 		end
 	end
 
+	torque = Matrix{Float64}(undef, 3, num_atoms)
+	@inbounds for iatom = 1:num_atoms
+		dir_iatom = SVector{3, Float64}(@view spin_directions[:, iatom])
+		grad_vec = SVector{3, Float64}(
+			grad_per_atom[1, iatom],
+			grad_per_atom[2, iatom],
+			grad_per_atom[3, iatom],
+		)
+		t = cross(dir_iatom, grad_vec)
+		torque[1, iatom] = t[1]
+		torque[2, iatom] = t[2]
+		torque[3, iatom] = t[3]
+	end
+
 	return torque
+end
+
+# Cluster-major gradient accumulator with a scalar coefficient (used by
+# inference / `_predict_torque`). Shares the algorithm of
+# `_accumulate_grad_torque_cluster!` but writes into a `(3, num_atoms)`
+# buffer with `coeff` (typically `scaling * jphi[salc]`) baked into the
+# per-(cbc, multi-index) factor, so the prediction path does not need a
+# `(3, num_atoms, num_salcs)` buffer.
+function _accumulate_grad_torque_scaled!(
+	grad_per_atom::Matrix{Float64},
+	cbc::CoupledBases.CoupledBasis_with_coefficient{R},
+	coeff::Float64,
+	sh_cache::SHCache,
+) where {R}
+	dims_t = ntuple(i -> 2 * cbc.ls[i] + 1, Val(R - 1))
+	site_indices = CartesianIndices(dims_t)
+	idx_buf = MVector{R - 1, Int}(undef)
+	l_offsets = ntuple(i -> cbc.ls[i]^2, Val(R - 1))
+	Z = sh_cache.Z
+	∂Z = sh_cache.∂Z
+	mult_x_coeff::Float64 = cbc.multiplicity * coeff
+
+	@inbounds for cluster_atoms in cbc.clusters
+		@boundscheck @assert allunique(cluster_atoms) "cluster atoms must be distinct"
+		for multi_idx in site_indices
+			for k = 1:(R - 1)
+				idx_buf[k] = multi_idx.I[k]
+			end
+			folded_x_factor = cbc.folded_tensor[idx_buf...] * mult_x_coeff
+			for j = 1:(R - 1)
+				m_j = multi_idx.I[j]
+				a_j = cluster_atoms[j]
+				product_other = 1.0
+				for k = 1:(R - 1)
+					if k != j
+						product_other *=
+							Z[l_offsets[k] + multi_idx.I[k], cluster_atoms[k]]
+					end
+				end
+				grad_jm = ∂Z[l_offsets[j] + m_j, a_j]
+				c = folded_x_factor * product_other
+				grad_per_atom[1, a_j] += c * grad_jm[1]
+				grad_per_atom[2, a_j] += c * grad_jm[2]
+				grad_per_atom[3, a_j] += c * grad_jm[3]
+			end
+		end
+	end
+	return nothing
 end
 
 
