@@ -255,9 +255,10 @@
 		coeff_tensor = zeros(3, 3, 1)
 		coefficient = [0.5]
 		multiplicity = 2
+		clusters = [[10, 20]]
 
 		cbc = CoupledBasis_with_coefficient(
-			ls, Lf, Lseq, atoms, coeff_tensor, coefficient, multiplicity,
+			ls, Lf, Lseq, atoms, coeff_tensor, coefficient, multiplicity, clusters,
 		)
 		@test cbc.ls == ls
 		@test cbc.Lf == Lf
@@ -266,23 +267,28 @@
 		@test cbc.coeff_tensor == coeff_tensor
 		@test cbc.coefficient == coefficient
 		@test cbc.multiplicity == multiplicity
+		@test cbc.clusters == clusters
 
 		# Each ArgumentError site in the constructor body.
 		# (1) Lseq length must be max(0, N-2). For N=2 that's 0.
 		@test_throws ArgumentError CoupledBasis_with_coefficient(
-			ls, Lf, [5], atoms, coeff_tensor, coefficient, multiplicity,
+			ls, Lf, [5], atoms, coeff_tensor, coefficient, multiplicity, clusters,
 		)
 		# (2) atoms length must equal length(ls).
 		@test_throws ArgumentError CoupledBasis_with_coefficient(
-			ls, Lf, Lseq, [10, 20, 30], coeff_tensor, coefficient, multiplicity,
+			ls, Lf, Lseq, [10, 20, 30], coeff_tensor, coefficient, multiplicity, clusters,
 		)
 		# (3) ndims(coeff_tensor) must be length(ls) + 1.
 		@test_throws ArgumentError CoupledBasis_with_coefficient(
-			ls, Lf, Lseq, atoms, zeros(3, 3), coefficient, multiplicity,
+			ls, Lf, Lseq, atoms, zeros(3, 3), coefficient, multiplicity, clusters,
 		)
 		# (4) length(coefficient) must equal size(coeff_tensor, R).
 		@test_throws ArgumentError CoupledBasis_with_coefficient(
-			ls, Lf, Lseq, atoms, coeff_tensor, [0.5, 0.5], multiplicity,
+			ls, Lf, Lseq, atoms, coeff_tensor, [0.5, 0.5], multiplicity, clusters,
+		)
+		# (5) each clusters[i] must have length N.
+		@test_throws ArgumentError CoupledBasis_with_coefficient(
+			ls, Lf, Lseq, atoms, coeff_tensor, coefficient, multiplicity, [[10, 20, 30]],
 		)
 	end
 
@@ -291,10 +297,11 @@
 		Mf = size(cb.coeff_tensor, ndims(cb.coeff_tensor))
 		coefficient = collect(Float64, 1:Mf)
 		multiplicity = 7
+		clusters = [cb.atoms]
 
-		cbc = CoupledBasis_with_coefficient(cb, coefficient, multiplicity)
+		cbc = CoupledBasis_with_coefficient(cb, coefficient, multiplicity, clusters)
 
-		# Five fields are forwarded from `cb`; the last two are the
+		# Five fields are forwarded from `cb`; the last three are the
 		# explicit arguments.
 		@test cbc.ls == cb.ls
 		@test cbc.Lf == cb.Lf
@@ -303,12 +310,13 @@
 		@test cbc.coeff_tensor == cb.coeff_tensor
 		@test cbc.coefficient == coefficient
 		@test cbc.multiplicity == multiplicity
+		@test cbc.clusters == clusters
 	end
 
 	@testset "Base.show(::CoupledBasis_with_coefficient)" begin
 		cb = tesseral_coupled_bases_from_tesseral_bases([1, 1], [10, 20])[1]
 		Mf = size(cb.coeff_tensor, ndims(cb.coeff_tensor))
-		cbc = CoupledBasis_with_coefficient(cb, fill(0.25, Mf), 3)
+		cbc = CoupledBasis_with_coefficient(cb, fill(0.25, Mf), 3, [cb.atoms])
 		s = repr(cbc)
 
 		@test startswith(s, "CoupledBasis_with_coefficient(")
@@ -321,6 +329,7 @@
 		@test occursin(string(size(cbc.coeff_tensor)), s)
 		@test occursin("coefficient=", s)
 		@test occursin("multiplicity=3", s)
+		@test occursin("clusters=", s)
 	end
 
 	@testset "reorder_atoms(::CoupledBasis_with_coefficient, ...)" begin
@@ -328,12 +337,15 @@
 		# pinning the coefficient-and-multiplicity invariant from the
 		# function's docstring: those two fields ride the Mf dimension
 		# (last axis) which is never permuted, so they pass through
-		# unchanged.
+		# unchanged. The clusters list, by contrast, lives in the per-site
+		# axes and must be permuted by the same `p` that sorts the atoms.
 		cb = tesseral_coupled_bases_from_tesseral_bases([3, 1], [1, 2])[1]
 		Mf = size(cb.coeff_tensor, ndims(cb.coeff_tensor))
 		coefficient = collect(Float64, 1:Mf)
 		multiplicity = 11
-		cbc = CoupledBasis_with_coefficient(cb, coefficient, multiplicity)
+		# Two-cluster orbit so the per-site permutation is observable.
+		clusters = [[1, 2], [3, 4]]
+		cbc = CoupledBasis_with_coefficient(cb, coefficient, multiplicity, clusters)
 		orig_shape = size(cbc.coeff_tensor)
 
 		cbc_new = reorder_atoms(cbc, [4, 1])
@@ -350,6 +362,9 @@
 		# the reorder unchanged.
 		@test cbc_new.coefficient == coefficient
 		@test cbc_new.multiplicity == multiplicity
+		# Clusters live in the site axes: the permutation p = [2, 1]
+		# (sorting [4, 1] → [1, 4]) flips the two columns of every cluster.
+		@test cbc_new.clusters == [[2, 1], [4, 3]]
 
 		# Error path: length(new_atoms) != length(ls).
 		@test_throws ArgumentError reorder_atoms(cbc, [1, 2, 3])
@@ -359,7 +374,7 @@
 	@testset "convert_to_coupled_basis" begin
 		cb = tesseral_coupled_bases_from_tesseral_bases([1, 1], [10, 20])[1]
 		Mf = size(cb.coeff_tensor, ndims(cb.coeff_tensor))
-		cbc = CoupledBasis_with_coefficient(cb, fill(0.5, Mf), 4)
+		cbc = CoupledBasis_with_coefficient(cb, fill(0.5, Mf), 4, [cb.atoms])
 
 		cb_back = convert_to_coupled_basis(cbc)
 

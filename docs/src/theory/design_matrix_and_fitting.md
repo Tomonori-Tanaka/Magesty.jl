@@ -49,6 +49,34 @@ configuration ``c``. Each column entry is the sum of
 `design_matrix_energy_element` over the coupled bases of the group, times
 `_cluster_scaling`.
 
+In the kernel, the inner ``M_f`` sum over
+``c_\nu^{M_f}\, T^{(L_f, M_f)}`` is not iterated per element: the two
+factors are precontracted into a single rank-``(N)`` tensor at SALC build
+time, so `design_matrix_energy_element` and
+`_accumulate_grad_torque_cluster!` read that folded tensor directly. The math is the same — only the order of operations
+changes. See [Folded tensor](folded_tensor.md) for the derivation and
+storage layout.
+
+The outer sum over "clusters in the orbit" is treated the same way: the
+list of symmetry-equivalent clusters is enumerated once during SALC
+construction and cached on each `CoupledBasis_with_coefficient`, so the
+kernel iterates it directly instead of re-running the translation walk
+and the sorted-tuple dedup per matrix element. See
+[Orbit clusters](orbit_clusters.md) for the layout and the build-time
+invariants.
+
+The per-site tesseral harmonics
+``Z_{l, m}(\hat{\boldsymbol{e}}_a)``, which *do* depend on the spin
+configuration, are still constant across the SALCs, coupled bases, and
+cluster images that share an atom and an ``(l, m)``. They are
+precomputed once per spin configuration into an `SHCache` keyed by
+``(l^2 + l + m + 1,\, \text{atom})`` and read by the kernel in place
+of a per-call `Zₗₘ_unsafe` invocation. The torque path additionally
+caches the direction gradients
+``\partial_i Z_{l, m}(\hat{\boldsymbol{e}}_a)``. See
+[Spherical-harmonic cache](sh_cache.md) for the storage layout, the
+threading rationale, and the hot-path simplification it enables.
+
 DFT also provides per-atom torques, and these constrain the same
 coefficients. `build_design_matrix_torque` produces ``X_T`` with
 ``3 \times n_\text{atoms}`` rows per configuration. The torque is the
@@ -60,6 +88,16 @@ angular gradient of the energy,
 
 which is why the spherical-harmonic gradient ``\partial Z_{l,m}/\partial\hat{\boldsymbol{e}}``
 (`∂ᵢZlm`) is needed alongside the values.
+
+The torque kernel is *cluster-major*: a single sweep over each cluster
+image writes the gradient contribution to every site it contains, with
+the cross product against each atom's spin direction deferred to a
+final reduction. The per-atom kernel that the energy block naively
+suggests would scan ``N_\text{atoms} / N`` clusters that contribute
+nothing, which the cluster-major layout avoids. See
+[Cluster-major torque kernel](cluster_major_torque.md) for the
+derivation, the accumulation buffer's shape, and the cluster-distinctness
+invariant the chain rule relies on.
 
 The constant ``J_0`` is *not* a column of ``X_E``. The energy matrix is
 mean-centered instead, and ``J_0`` is recovered analytically after the

@@ -11,8 +11,6 @@ Operating rules: [`docs/design-notes/README.md`](docs/design-notes/README.md).
 | Topic | Status | Last update |
 |---|---|---|
 
-_No open design proposals._
-
 Completed proposals are folded into their corresponding spec under
 `docs/specs/` and removed from this index. The spec folder is the
 canonical history; the original design-note body is dropped (git history

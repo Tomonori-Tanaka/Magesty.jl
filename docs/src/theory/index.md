@@ -11,6 +11,10 @@ Pages = [
     "spherical_harmonics.md",
     "angular_momentum_coupling.md",
     "symmetry_adaptation.md",
+    "orbit_clusters.md",
+    "folded_tensor.md",
+    "sh_cache.md",
+    "cluster_major_torque.md",
     "design_matrix_and_fitting.md",
     "../technical_notes.md",
 ]

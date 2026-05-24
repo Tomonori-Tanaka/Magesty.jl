@@ -827,3 +827,238 @@ gating. No regression on the regression fixture.
 + the final orbit `Vector{Vector{Int}}` shells. This is 1840x lower
 than the original 88 GiB, with most of the residual coming from the
 `Set{Int}` per-thread neighbor accumulation in Phase 1.
+
+## Spec 260524-design-matrix-restructuring — baseline (M0)
+
+Reference point for the four staged restructurings (A → C → B → D).
+Captured on branch `refactor/design-matrix-restructuring` at commit
+`14607a1` (spec / design-note added; no `Fitting.jl` code change yet,
+so this matches the pre-spec main numbers within run-to-run noise).
+
+- Machine: Darwin 24.6.0 (arm64)
+- Julia: 1.12.6
+- `JULIA_NUM_THREADS=4`
+- Fixture: `bench/fixtures/fege_2x2x2_3body_light/input.toml`
+  (light 3-body FeGe 2x2x2, 64 atoms, 100 spinconfigs, 1232 SALC
+  groups — body distribution `[1 => 2, 2 => 330, 3 => 900]`)
+- Script: `bench/bench_b1_3body_fege.jl --ntrials 5 --no-profile`
+- 5-trial wall-time (post warm-up) reported as median / minimum.
+
+| function | time med | time min | allocs (med) | bytes (med) |
+|---|---:|---:|---:|---:|
+| `build_design_matrix_energy` | 1.218 s | 1.214 s | 7,019,149 | 3.38e8 |
+| `build_design_matrix_torque` | 9.833 s | 9.345 s | 336,328,132 | 1.99e10 |
+
+Per the spec's per-milestone gates:
+
+- M2 (C): torque median must improve by **≥ 1.15×** over this
+  baseline → ≤ 8.55 s.
+- M3 (B): energy median must improve by **≥ 2×** over the
+  post-M2 baseline.
+- M4 (D): torque median must improve by **≥ 5×** over the
+  post-M3 baseline.
+
+M1 (A — `Mf` folding) has no minimum speedup gate; it is a clean-up
+that doubles as a validation-harness warm-up.
+
+### M1 (A: `Mf` folding) — after
+
+Precompute `folded_tensor[m₁,…,m_N] = Σ_Mf coefficient[Mf] · coeff_tensor[…, Mf]`
+in the `CoupledBasis_with_coefficient` inner constructor, then read it
+directly from `design_matrix_energy_element` and `calc_∇ₑu!`, dropping
+the per-element `mf_idx` loop entirely. Same fixture / threads / trials
+as M0.
+
+| function | time med | time min | allocs (med) | bytes (med) | Δ med |
+|---|---:|---:|---:|---:|---:|
+| `build_design_matrix_energy` | 0.852 s | 0.836 s | 7,019,149 | 3.38e8 | **-30%** |
+| `build_design_matrix_torque` | 8.360 s | 7.928 s | 336,328,132 | 1.99e10 | **-15%** |
+
+Allocations and bytes are unchanged — the kernel structure (loops,
+buffer reuse) is identical except for replacing
+`for mf_idx = 1:Mf_size ... cbc.coeff_tensor[idx_buf..., mf_idx]` with
+a single `cbc.folded_tensor[idx_buf...]`. The wall-time win is the
+saved `Mf_size`-fold inner contraction work
+(`Mf_size ∈ {1, 3, 5}` mixed across the body-2 / body-3 SALCs).
+
+Regression: `test/component/test_design_matrix_equivalence.jl` passes
+at `rtol = 1e-14, atol = 1e-15` on both FeGe 2x2x2 and FePt tetragonal
+2x2x2 — i.e., within a few ULPs of bit-identical. The folded
+construction loop accumulates in the same `Mf` order the in-kernel
+loop used, so the only float-roundoff source is distributing the
+`coefficient[Mf]` multiplication outwards.
+
+Threads unaffected: `@threads` is still column-parallel for energy /
+spinconfig-parallel for torque.
+
+### M2 (C: orbit pre-enumeration) — after
+
+Promote the orbit cluster enumeration ("walk all translations of
+`cbc.atoms`, sort, hash, dedup") from the per-element design-matrix
+kernel to SALC build time. Each `CoupledBasis_with_coefficient` now
+carries its own `clusters::Vector{Vector{Int}}` (built once via
+`CoupledBases.enumerate_orbit_clusters` in `SALCBases._compute_salc_groups`
+and reused for every Mf channel of that orbit; XML load recomputes it
+the same way). The hot path replaces
+`for itrans in symmetry.symnum_translation` + dedup machinery with
+`for cluster_atoms in cbc.clusters`, dropping `searched_pairs` /
+`_atoms_hash_key` / sorted-buffer logic + the corresponding workspace
+fields. Same fixture / threads / trials as M0, M1.
+
+| function | time med | time min | allocs (med) | bytes (med) | Δ vs M1 | Δ vs M0 |
+|---|---:|---:|---:|---:|---:|---:|
+| `build_design_matrix_energy` | 0.754 s | 0.746 s | 3,512,053 | 2.26e8 | **-12%** | **-38%** |
+| `build_design_matrix_torque` | 6.228 s | 5.869 s | 112,110,232 | 1.27e10 | **-26%** | **-37%** |
+
+Both allocations and bytes drop substantially (energy allocs -50%,
+torque allocs -67% vs the M0/M1 baseline) because the per-element
+sort + linear-scan dedup is gone — the only remaining per-element
+allocations come from the dispatch boxing on `for cbc in key_group`
+(spec deferred follow-up F) and the SH-evaluation path.
+
+Speedup vs M0 baseline: energy **1.62×**, torque **1.58×**. The M2
+spec gate (torque ≥ 1.15× over M0 → ≤ 8.55 s) is met with a wide
+margin.
+
+Regression: `test/component/test_design_matrix_equivalence.jl` passes
+at `rtol = 1e-13, atol = 1e-14` on both FeGe 2x2x2 and FePt tetragonal
+2x2x2 (the spec's per-stage tolerance for "A + C": build-time orbit
+enumeration may pick clusters in a different order than the runtime
+translation walk, even though the unordered orbit set is identical).
+Default-tolerance test also passes; `make test-unit` and
+`make test-integration` clean.
+
+### M3 (B: per-spinconfig SH cache) — after
+
+Precompute every tesseral `Zₗₘ` (and, for torque, every `∂ᵢZₗₘ`) once
+per spinconfig per atom into an `SHCache` keyed by `(lm_idx, atom)` with
+`lm_idx = l^2 + l + m + 1`, then read the values directly from the
+cache inside the design-matrix kernels. Removes the
+`Zₗₘ_unsafe(l, m, dir, legendre_buf)` call that ran for every
+`(spinconfig, salc, cbc, cluster_image, site)` tuple — the SH values
+depend only on `(spin_direction, l, m)`, so the work was being repeated
+once per SALC × cluster image. Energy threading axis is unchanged
+(`@threads for i = 1:num_salcs`), and the caches for all spinconfigs
+are built upfront in a separate `@threads for j = 1:num_spinconfigs`
+loop so each thread can read them read-only thereafter. Torque
+threading is already over spinconfigs, so each thread builds and owns
+the cache for its own spinconfig. `EnergyWorkspace` / `GradWorkspace`
++ all SH scratch buffers (`sh_values` / `sh_offsets` / `legendre_buf` /
+`atom_grad_values`) are no longer needed and have been removed. Same
+fixture / threads / trials as M0–M2.
+
+| function | time med | time min | allocs (med) | bytes (med) | Δ vs M2 | Δ vs M0 |
+|---|---:|---:|---:|---:|---:|---:|
+| `build_design_matrix_energy` | 0.101 s | 0.101 s | 3,504,054 | 8.59e7 | **-87%** | **-92%** |
+| `build_design_matrix_torque` | 2.520 s | 2.418 s | 112,109,732 | 3.78e9 | **-60%** | **-74%** |
+
+Speedups: energy **7.47×** over post-M2 (**12.05×** vs M0), torque
+**2.47×** over post-M2 (**3.90×** vs M0). The M3 spec gate
+(energy ≥ 2× post-M2 → ≤ 0.377 s) is met with a wide margin.
+
+Allocation counts are essentially unchanged from M2 (the remaining
+counts come from SVector / MVector return values and dispatch boxing
+on `for cbc in key_group`), but allocated bytes drop sharply because
+the now-removed `legendre_buf` resizing and `atom_grad_values`
+per-call allocation were the dominant byte sources — energy bytes
+drop 62% vs M2 (-75% vs M0), torque bytes drop 70% vs M2 (-81% vs M0).
+
+Regression: `test/component/test_design_matrix_equivalence.jl` passes
+at `rtol = 1e-14, atol = 1e-15` on both FeGe 2x2x2 and FePt tetragonal
+2x2x2 — bit-identical to within a few ULPs, as expected: the cache is
+exact value memoization with no order change in any reduction. Default
+tolerance, `make test-unit`, and `make test-integration` all clean.
+
+### M4 (D: cluster-major reverse-mode torque kernel) — after
+
+Rewrite `build_design_matrix_torque` to a cluster-major kernel. The
+former per-atom kernel (`calc_∇ₑu!`) was deleted: it scanned every
+atom against every cluster and only N of those scans actually
+contributed (the rest just paid the membership-check overhead). The
+new kernel iterates `(salc, cbc, cluster, multi_idx, site_in_cluster)`
+and distributes the gradient contribution to all N sites in the
+cluster in a single pass over the folded-tensor multi-index. The
+per-thread accumulation buffer `grad_buf[3, num_atoms, num_salcs]`
+collects the un-crossed angular gradient; a final reduction sweeps
+`(salc_idx, iatom)` and applies one `cross(spin[iatom], ·)` per
+`(atom, salc)` cell. `_predict_torque` migrates to the same
+cluster-major path via a scalar-coefficient variant
+`_accumulate_grad_torque_scaled!` that folds `scaling * jphi[salc]`
+into the per-cbc factor to avoid a `(3, num_atoms, num_salcs)` buffer
+for inference. Same fixture / threads / trials as M0–M3.
+
+| function | time med | time min | allocs (med) | bytes (med) | Δ vs M3 | Δ vs M0 |
+|---|---:|---:|---:|---:|---:|---:|
+| `build_design_matrix_energy` | 0.099 s | 0.097 s | 3,504,054 | 8.59e7 | **-2%** | **-92%** |
+| `build_design_matrix_torque` | 0.822 s | 0.774 s | 2,910,932 | 4.57e8 | **-67%** | **-92%** |
+
+Speedups: torque **3.07×** over post-M3 (**11.96×** vs M0); energy is
+essentially unchanged (M4 does not touch the energy path). The M4 spec
+gate (torque ≥ 5× post-M3 → ≤ 0.504 s) is **not** met — we reached
+3.07× instead.
+
+**Gate-miss analysis.** Removing the cluster-major restructure
+eliminates the `num_atoms / N` "scan every atom against every cluster"
+overhead. For body-3 SALCs (the dominant 900/1232 columns) with
+num_atoms = 64 and N = 3, the per-(cbc, spinconfig) scan cost
+(`num_atoms × num_clusters × N`) and the inner-contraction cost
+(`num_multi_idx × N`) are within the same order of magnitude in this
+fixture (~1k ops each). Removing the scan therefore caps the
+realistic gain at ~2-3×, which is what we measured. Hitting the 5×
+target would require additional inner-contraction optimization —
+forward/reverse leave-one-out partial products, `@generated` /
+`@nexprs` unrolling, or `ntuple` snapshotting of `cluster_atoms` —
+each of which sits beyond the spec's "cluster-major restructure"
+scope. The 5× target in the spec proves to have been aspirational;
+the cumulative 12× vs M0 result is the meaningful one.
+
+Allocation count drops 38× (1.12e8 → 2.91e6) because the per-call
+`calc_∇ₑu!` MVector / Tuple frame setup, repeated for every
+`(spinconfig, iatom, salc, cbc, cluster)` tuple, is gone. Bytes drop
+8× (3.78e9 → 4.57e8). The remaining 2.9 M / 4.57e8 allocs come
+chiefly from MVector / SVector intermediates and dispatch boxing on
+`for cbc in key_group` (the deferred follow-up F).
+
+Regression: `test/component/test_design_matrix_equivalence.jl` passes
+at `rtol = 1e-14, atol = 1e-15` on both FeGe and FePt fixtures —
+bit-identical despite the cluster-major restructure. The new kernel
+preserves the per-`(salc, iatom)` accumulation order: each atom still
+receives contributions from `(cbc, cluster_containing_iatom,
+multi_idx)` tuples in the same outer sequence as the old per-atom
+kernel, since the inner `for j` loop writes only to the unique
+`a_j = cluster_atoms[j]`. The only floating-point change is that
+`cbc.multiplicity` is now multiplied into the per-multi-idx factor
+instead of applied once at the end of each cluster — a redistribution
+of one rounding step that stays well inside the rtol the test detects.
+Default tolerance, `make test-unit`, and `make test-integration` all
+clean.
+
+### M5 (Tier 2 panel fixes) — after
+
+Apply the four-axis Tier 2 review panel findings: numerical 3/3 minors
+(allunique-comment rewording, `@inline` on `_accumulate_grad_torque_*`,
+`@warn` on `read_salcbasis_from_xml` `symmetry === nothing` fallback),
+maintainability 3 majors (before/after framing in comments / docstrings,
+`for ... in 1:N` → `for ... = 1:N`), API 2 majors (3xN→3×N error message,
+silent-fallback warn), Performance 1 major + 1 minor (thread-local
+`grad_buf` pool replacing per-spinconfig allocation, `@inbounds` in the
+profiler), plus selected minors (docstring sections, stale
+`calc_∇ₑu!` refs in theory pages, `enumerate_orbit_clusters` Examples,
+`{R, N}` dispatch on `design_matrix_energy_element`). The dispatch-
+boxing fix (Performance Major P1) is intentionally deferred per the
+spec's "follow-up F". Same fixture / threads / trials as M0–M4.
+
+| function | time med | time min | allocs (med) | bytes (med) | Δ vs M4 | Δ vs M0 |
+|---|---:|---:|---:|---:|---:|---:|
+| `build_design_matrix_energy` | 0.101 s | 0.100 s | 3,504,054 | 8.59e7 | 0% | **-92%** |
+| `build_design_matrix_torque` | 0.833 s | 0.820 s | 2,910,658 | 2.82e8 | **+1%** / **-38% bytes** | **-92%** / **-99% bytes** |
+
+The torque time moves inside the trial-to-trial noise (~1%). The
+torque byte allocation drops 38 % vs M4 because the per-spinconfig
+`zeros(Float64, 3, num_atoms, num_salcs)` is replaced by a
+`Threads.maxthreadid()`-sized pool zeroed via `fill!`. The remaining
+~2.9 M / ~2.8e8 are dispatch-boxing allocations (deferred F).
+
+Regression: equivalence test still passes at `rtol = 1e-14, atol =
+1e-15` on both fixtures. `make test-unit` / `make test-integration`
+clean.
