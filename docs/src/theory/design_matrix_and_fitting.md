@@ -65,6 +65,18 @@ and the sorted-tuple dedup per matrix element. See
 [Orbit clusters](orbit_clusters.md) for the layout and the build-time
 invariants.
 
+The per-site tesseral harmonics
+``Z_{l, m}(\hat{\boldsymbol{e}}_a)``, which *do* depend on the spin
+configuration, are still constant across the SALCs, coupled bases, and
+cluster images that share an atom and an ``(l, m)``. They are
+precomputed once per spin configuration into an `SHCache` keyed by
+``(l^2 + l + m + 1,\, \text{atom})`` and read by the kernel in place
+of a per-call `Zₗₘ_unsafe` invocation. The torque path additionally
+caches the direction gradients
+``\partial_i Z_{l, m}(\hat{\boldsymbol{e}}_a)``. See
+[Spherical-harmonic cache](sh_cache.md) for the storage layout, the
+threading rationale, and the hot-path simplification it enables.
+
 DFT also provides per-atom torques, and these constrain the same
 coefficients. `build_design_matrix_torque` produces ``X_T`` with
 ``3 \times n_\text{atoms}`` rows per configuration. The torque is the

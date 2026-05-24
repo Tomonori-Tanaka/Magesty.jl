@@ -378,131 +378,137 @@ Base.show(io::IO, e::AdaptiveRidge) =
 		", max_iter=", e.max_iter, ", tol=", e.tol, ")")
 
 """
-	EnergyWorkspace
+	SHCache
 
-Internal scratch state reused across calls to `design_matrix_energy_element`.
-Pools the heap-allocated buffers that would otherwise be re-created on every
-call. Each thread in `build_design_matrix_energy` owns one workspace; the
-workspace itself never leaves the threaded loop.
+Per-spinconfig precomputed tesseral spherical-harmonic values (and, for the
+torque path, their direction gradients) for every atom in the structure.
+Built once per spinconfig and reused across every SALC, coupled basis, and
+cluster image during design-matrix construction.
 
-# Fields
+# Layout
 
-- `sh_values::Vector{Float64}` — flattened tesseral spherical-harmonic
-  values for all sites in a cluster. The slice for site `i` is
-  `sh_values[sh_offsets[i] + 1 : sh_offsets[i + 1]]` and has length
-  `2 * ls[i] + 1`; entry `sh_values[sh_offsets[i] + m_idx]` holds
-  `Zₗₘ_unsafe(ls[i], m, spin_direction)` for `m = m_idx - ls[i] - 1`.
-  A single contiguous `Vector{Float64}` removes the outer-vector pointer
-  indirection and keeps all sites' values cache-adjacent. Sized via
-  `_ensure_sh_buffer!`; the buffer only grows so capacity is preserved
-  across calls.
+Values are addressed by `(lm_idx, atom)` with the standard flat tesseral
+ordering
 
-- `sh_offsets::Vector{Int}` — cumulative offsets for `sh_values`. Length
-  `N + 1` after `_ensure_sh_buffer!`, with `sh_offsets[1] = 0` and
-  `sh_offsets[i + 1] = sh_offsets[i] + 2 * ls[i] + 1`. Built once per
-  element call from `cbc.ls`.
+```
+lm_idx(l, m) = l^2 + l + m + 1,    0 ≤ l ≤ l_max,   -l ≤ m ≤ l,
+```
 
-- `legendre_buf::Vector{Float64}` — Legendre-polynomial cache passed to
-  the buffered overload `Zₗₘ_unsafe(l, m, uvec, buf)`. Sized to
-  `max(ls) + 1` (the upper bound required by `_required_buf_size`).
-  Reusing this buffer instead of letting `Zₗₘ_unsafe` allocate one per
-  `(l, m)` call eliminates the dominant remaining allocation source.
-
-Not exported. Construct with `EnergyWorkspace()`.
-"""
-mutable struct EnergyWorkspace
-	sh_values::Vector{Float64}
-	sh_offsets::Vector{Int}
-	legendre_buf::Vector{Float64}
-
-	EnergyWorkspace() = new(
-		Vector{Float64}(),
-		Vector{Int}(),
-		Vector{Float64}(),
-	)
-end
-
-"""
-	GradWorkspace
-
-Internal scratch state reused across calls to `calc_∇ₑu!`. Each thread in
-`build_design_matrix_torque` owns one workspace.
+so the range `[l^2 + 1, (l + 1)^2]` covers all `2l + 1` m-values for a
+given `l`. Column-major storage keeps a single atom's values contiguous,
+matching the access pattern (inner loop varies `lm_idx`).
 
 # Fields
 
-- `sh_values::Vector{Float64}` — same flattened layout as in
-  [`EnergyWorkspace`](@ref): the slice for site `i` is
-  `sh_values[sh_offsets[i] + 1 : sh_offsets[i + 1]]` with length
-  `2 * ls[i] + 1`. Holds tesseral spherical-harmonic values for every
-  site (including the differentiated one — the gradient site uses
-  these for the product over non-differentiated sites).
+- `Z::Matrix{Float64}` — shape `((l_max + 1)^2, num_atoms)`. Entry
+  `Z[lm_idx(l, m), atom]` holds `Zₗₘ_unsafe(l, m, spin_directions[:, atom])`.
+- `∂Z::Matrix{SVector{3, Float64}}` — shape `((l_max + 1)^2, num_atoms)`
+  for the torque path, or `0×0` for the energy path. When populated, entry
+  `∂Z[lm_idx(l, m), atom]` holds `∂ᵢZlm_unsafe(l, m, spin_directions[:, atom])`.
+- `l_max::Int` — the maximum `l` value the cache covers.
 
-- `sh_offsets::Vector{Int}` — cumulative offsets for `sh_values`. See
-  [`EnergyWorkspace`](@ref) for the construction rule.
-
-- `atom_grad_values::Vector{SVector{3, Float64}}` — gradient values for
-  the differentiated site only. Length equals `2*l_atom + 1` where
-  `l_atom = cbc.ls[atom_site_idx]`. Each entry is the 3-component
-  vector `∂ᵢZlm_unsafe(l_atom, m, spin_direction)`. Stored as
-  `SVector{3, Float64}` (not `Vector{Float64}`) to match the producer's
-  return type and avoid a per-entry `convert`.
-
-- `legendre_buf::Vector{Float64}` — same role as in
-  [`EnergyWorkspace`](@ref): shared cache for the buffered
-  `Zₗₘ_unsafe(l, m, uvec, buf)` and `∂ᵢZlm_unsafe(l, m, uvec, buf)`
-  overloads. The two SH calls per site share this buffer because their
-  buffer-size requirements `(l - |m| + 1)` are bounded by the same
-  `max(ls) + 1`.
-
-Not exported. Construct with `GradWorkspace()`.
+Construct with [`build_sh_cache_energy`](@ref) (Z only) or
+[`build_sh_cache_torque`](@ref) (Z + ∂Z). Not exported.
 """
-mutable struct GradWorkspace
-	sh_values::Vector{Float64}
-	sh_offsets::Vector{Int}
-	atom_grad_values::Vector{SVector{3, Float64}}
-	legendre_buf::Vector{Float64}
-
-	GradWorkspace() = new(
-		Vector{Float64}(),
-		Vector{Int}(),
-		Vector{SVector{3, Float64}}(),
-		Vector{Float64}(),
-	)
+struct SHCache
+	Z::Matrix{Float64}
+	∂Z::Matrix{SVector{3, Float64}}
+	l_max::Int
 end
 
-# Ensure `legendre_buf` has at least `max(ls) + 1` entries — the upper bound
-# required by `Zₗₘ_unsafe` / `∂ᵢZlm_unsafe`'s buffered overloads
-# (`length(buf) >= l - |m| + 1`, bounded above by `max(ls) + 1`).
-@inline function _ensure_legendre_buf!(buf::Vector{Float64}, ls::Vector{Int})
-	needed = maximum(ls) + 1
-	if length(buf) < needed
-		resize!(buf, needed)
+# Largest `l` value appearing in any `cbc.ls` across the SALC list. The hot
+# path indexes the cache by `(l^2 + l + m + 1, atom)`, so the cache must
+# cover `0:l_max`.
+function _compute_l_max(
+	salc_list::AbstractVector{Vector{CoupledBases.CoupledBasis_with_coefficient}},
+)::Int
+	l_max = 0
+	for key_group in salc_list
+		for cbc in key_group
+			for l in cbc.ls
+				if l > l_max
+					l_max = l
+				end
+			end
+		end
 	end
-	return buf
+	return l_max
 end
 
-# Size a flattened SH-value buffer to match a coupled-basis `ls` vector.
-# After the call, `offsets` has length `N + 1` with `offsets[1] = 0` and
-# `offsets[i + 1] = offsets[i] + 2*ls[i] + 1`, so site `i`'s slice is
-# `buf[offsets[i] + 1 : offsets[i + 1]]`. `buf` is grown to at least the
-# total size `offsets[N + 1]` and never shrunk, so capacity is reused
-# across calls within the same workspace.
-function _ensure_sh_buffer!(
-	buf::Vector{Float64},
-	offsets::Vector{Int},
-	ls::Vector{Int},
-)
-	N = length(ls)
-	resize!(offsets, N + 1)
-	@inbounds offsets[1] = 0
-	@inbounds for i = 1:N
-		offsets[i + 1] = offsets[i] + 2 * ls[i] + 1
+"""
+	build_sh_cache_energy(spin_directions, l_max) -> SHCache
+
+Precompute the tesseral spherical harmonics `Zₗₘ(spin_directions[:, atom])`
+for every `(l, m, atom)` with `0 ≤ l ≤ l_max` and `-l ≤ m ≤ l`. The
+returned cache has `∂Z` left empty (`0×0`).
+
+Allocates one `legendre_buf` of length `l_max + 1`, the upper bound on
+`Zₗₘ_unsafe`'s `(l - |m| + 1)` requirement, and reuses it across every
+`(l, m, atom)` call.
+
+Not exported.
+"""
+function build_sh_cache_energy(
+	spin_directions::AbstractMatrix{<:Real},
+	l_max::Int,
+)::SHCache
+	num_atoms = size(spin_directions, 2)
+	nlm = (l_max + 1)^2
+	Z = Matrix{Float64}(undef, nlm, num_atoms)
+	legendre_buf = Vector{Float64}(undef, l_max + 1)
+	@inbounds for atom = 1:num_atoms
+		dir = SVector{3, Float64}(
+			spin_directions[1, atom],
+			spin_directions[2, atom],
+			spin_directions[3, atom],
+		)
+		for l = 0:l_max
+			base = l * l
+			for m_idx = 1:(2*l+1)
+				m = m_idx - l - 1
+				Z[base + m_idx, atom] = Zₗₘ_unsafe(l, m, dir, legendre_buf)
+			end
+		end
 	end
-	total = @inbounds offsets[N + 1]
-	if length(buf) < total
-		resize!(buf, total)
+	return SHCache(Z, Matrix{SVector{3, Float64}}(undef, 0, 0), l_max)
+end
+
+"""
+	build_sh_cache_torque(spin_directions, l_max) -> SHCache
+
+Precompute both `Zₗₘ` values and their `∂ᵢZₗₘ` direction gradients for
+every `(l, m, atom)` with `0 ≤ l ≤ l_max` and `-l ≤ m ≤ l`. The two
+buffered overloads share the same `legendre_buf` (write-only scratch:
+the Legendre cache is fully recomputed on every call from `(l, m, z)`,
+so the prior contents are not consulted).
+
+Not exported.
+"""
+function build_sh_cache_torque(
+	spin_directions::AbstractMatrix{<:Real},
+	l_max::Int,
+)::SHCache
+	num_atoms = size(spin_directions, 2)
+	nlm = (l_max + 1)^2
+	Z = Matrix{Float64}(undef, nlm, num_atoms)
+	∂Z = Matrix{SVector{3, Float64}}(undef, nlm, num_atoms)
+	legendre_buf = Vector{Float64}(undef, l_max + 1)
+	@inbounds for atom = 1:num_atoms
+		dir = SVector{3, Float64}(
+			spin_directions[1, atom],
+			spin_directions[2, atom],
+			spin_directions[3, atom],
+		)
+		for l = 0:l_max
+			base = l * l
+			for m_idx = 1:(2*l+1)
+				m = m_idx - l - 1
+				Z[base + m_idx, atom] = Zₗₘ_unsafe(l, m, dir, legendre_buf)
+				∂Z[base + m_idx, atom] = ∂ᵢZlm_unsafe(l, m, dir, legendre_buf)
+			end
+		end
 	end
-	return buf
+	return SHCache(Z, ∂Z, l_max)
 end
 
 function build_design_matrix_energy(
@@ -519,6 +525,23 @@ function build_design_matrix_energy(
 	# analytically after the solve by `extract_j0_jphi`.
 	design_matrix = zeros(Float64, num_spinconfigs, num_salcs)
 
+	# `symmetry` is accepted for API stability; the design-matrix kernel
+	# itself does not consume it (orbit images are precomputed on
+	# `cbc.clusters` at SALC-build time; SH values come from `sh_caches`).
+	_ = symmetry
+
+	# Precompute the per-spinconfig SH cache up front, in parallel. The
+	# energy kernel below threads over SALCs and reads every spinconfig
+	# inside that loop, so building one cache per `j` shared read-only
+	# across the SALC threads is strictly cheaper than rebuilding inside
+	# the inner loop. Memory is small: `num_spinconfigs * (l_max+1)^2 *
+	# num_atoms * 8 B` (FeGe 2×2×2 light: ~1.8 MB at l_max=5).
+	l_max = _compute_l_max(salc_list)
+	sh_caches = Vector{SHCache}(undef, num_spinconfigs)
+	@threads for j = 1:num_spinconfigs
+		sh_caches[j] = build_sh_cache_energy(spinconfig_list[j].spin_directions, l_max)
+	end
+
 	# Parallel over key-group columns; each thread writes to a disjoint column.
 	# Rank-erasing annotations on `key_group` / `cbc` are intentionally absent so
 	# that Julia specializes `design_matrix_energy_element` on each element's
@@ -528,19 +551,12 @@ function build_design_matrix_energy(
 			key_group = salc_list[i]
 			n_C = length(key_group[1].atoms)  # Number of sites in the cluster
 			scaling_factor = _cluster_scaling(n_C)
-			# One workspace per @threads iteration. The Set/Vector buffers grow on
-			# first use and are reused across all (j, cbc) calls in this column.
-			ws = EnergyWorkspace()
 			@inbounds for j = 1:num_spinconfigs
+				sh_cache = sh_caches[j]
 				# Sum contributions from all CoupledBasis_with_coefficient in this key group
 				group_value = 0.0
 				for cbc in key_group
-					group_value += design_matrix_energy_element(
-						cbc,
-						spinconfig_list[j].spin_directions,
-						symmetry,
-						ws,
-					)
+					group_value += design_matrix_energy_element(cbc, sh_cache)
 				end
 				design_matrix[j, i] = group_value * scaling_factor
 			end
@@ -553,77 +569,57 @@ end
 
 
 """
-	design_matrix_energy_element(cbc, spin_directions, symmetry, ws) -> Float64
+	design_matrix_energy_element(cbc, sh_cache) -> Float64
 
-Compute one energy-design feature for a given CoupledBasis_with_coefficient and spin directions.
+Compute one energy-design feature for a given `CoupledBasis_with_coefficient`
+and a precomputed [`SHCache`](@ref).
 
 # Description
-- Contracts coupled angular momentum basis tensor with spherical harmonics over atoms following symmetry translations.
-- Equivalent to one column entry (excluding bias) in the energy design matrix.
+- Contracts the precomputed folded tensor (Mf axis already collapsed) with
+  tesseral spherical-harmonic values read from `sh_cache`, summed over all
+  symmetry-equivalent clusters in `cbc.clusters` and weighted by
+  `cbc.multiplicity`.
+- Equivalent to one column entry (excluding bias) in the energy design
+  matrix, before the cluster scaling factor is applied by the caller.
 
 # Arguments
-- `cbc::CoupledBases.CoupledBasis_with_coefficient`: CoupledBasis_with_coefficient object
-- `spin_directions::AbstractMatrix{<:Real}`: Matrix of spin directions (3×N)
-- `symmetry::Symmetry`: Symmetry information of the structure
-- `ws::EnergyWorkspace`: Reusable scratch state (cleared on entry). Each
-  thread should own one; see `build_design_matrix_energy` for the
-  recommended allocation pattern.
+- `cbc::CoupledBases.CoupledBasis_with_coefficient`: the coupled basis with
+  its SALC coefficient and pre-enumerated cluster orbit.
+- `sh_cache::SHCache`: per-spinconfig SH cache produced by
+  [`build_sh_cache_energy`](@ref) (or `build_sh_cache_torque`). Only the
+  `Z` field is consulted here; `∂Z` may be empty.
 
 # Returns
-- `Float64`: Feature value for the CoupledBasis_with_coefficient
+- `Float64`: Feature value for the `CoupledBasis_with_coefficient`.
 """
 function design_matrix_energy_element(
 	cbc::CoupledBases.CoupledBasis_with_coefficient{R},
-	spin_directions::AbstractMatrix{<:Real},
-	symmetry::Symmetry,
-	ws::EnergyWorkspace,
+	sh_cache::SHCache,
 )::Float64 where {R}
 	# N = number of sites; R = tensor rank = N + 1 (compile-time constant).
-	# `symmetry` is unused — kept for API stability while the surrounding
-	# spec restructuring lands. The orbit walk has been moved to SALC build
-	# time (see `CoupledBases.enumerate_orbit_clusters`); each translated
-	# cluster is now read directly from `cbc.clusters`.
+	# The orbit walk has been moved to SALC build time (see
+	# `CoupledBases.enumerate_orbit_clusters`); each translated cluster is
+	# read directly from `cbc.clusters`. Tesseral SH values are read from
+	# the per-spinconfig `sh_cache` instead of being recomputed per call.
 	result::Float64 = 0.0
 	dims_t = ntuple(i -> 2 * cbc.ls[i] + 1, Val(R - 1))
-
-	_ensure_sh_buffer!(ws.sh_values, ws.sh_offsets, cbc.ls)
-	sh_values = ws.sh_values
-	sh_offsets = ws.sh_offsets
-	_ensure_legendre_buf!(ws.legendre_buf, cbc.ls)
-	legendre_buf = ws.legendre_buf
-
-	# These quantities depend only on cbc.ls (constant within the call), so hoist
-	# them out of the cluster loop instead of rebuilding per cluster.
 	other_dims_t = ntuple(i -> dims_t[i], Val(R - 2))
 	other_site_indices = CartesianIndices(other_dims_t)
 	idx_buf = MVector{R - 1, Int}(undef)
-	base_last = @inbounds sh_offsets[R - 1]
+
+	# `l_offsets[site_idx] = ls[site_idx]^2` is the flat-index base for the
+	# `Z[lm_idx, atom]` lookup at site `site_idx`. Depends only on `cbc.ls`,
+	# so hoist out of the cluster loop.
+	l_offsets = ntuple(i -> cbc.ls[i]^2, Val(R - 1))
+	base_last = l_offsets[R - 1]
+	dim_last = dims_t[R - 1]
+
+	Z = sh_cache.Z
 
 	@inbounds for cluster_atoms in cbc.clusters
-		# Compute spherical harmonics for each site into the workspace buffer.
-		# `Zₗₘ_unsafe(l, m, uvec, legendre_buf)` reuses the Legendre cache
-		# rather than reallocating it on every (l, m, atom). The site's
-		# spin direction is read once per `(cluster, site)` into a stack
-		# `SVector{3, Float64}` and reused across the `2*l + 1` m-values;
-		# passing the column as an `@views` `SubArray` instead would
-		# allocate a heap object on every `(l, m, atom)`.
-		for site_idx = 1:(R - 1)
-			atom = cluster_atoms[site_idx]
-			l = cbc.ls[site_idx]
-			base = sh_offsets[site_idx]
-			dir = SVector{3, Float64}(
-				spin_directions[1, atom],
-				spin_directions[2, atom],
-				spin_directions[3, atom],
-			)
-			for m_idx = 1:(2*l+1)
-				# Convert tesseral index to m value: m = m_idx - l - 1
-				m = m_idx - l - 1
-				sh_values[base + m_idx] = Zₗₘ_unsafe(l, m, dir, legendre_buf)
-			end
-		end
+		atom_last = cluster_atoms[R - 1]
 
-		# Contract folded_tensor with spherical harmonics.
+		# Contract folded_tensor with cached spherical harmonics.
 		# folded_tensor[m₁,…,m_N] = Σ_Mf coefficient[Mf] · coeff_tensor[…, Mf]
 		# is precomputed at SALC-build time, so the Mf axis is already
 		# collapsed; we only iterate the site m-indices here. Reuse the
@@ -636,13 +632,14 @@ function design_matrix_energy_element(
 			for site_idx = 1:(R - 2)
 				m_idx_other = other_tuple.I[site_idx]
 				idx_buf[site_idx] = m_idx_other
-				product_other *= sh_values[sh_offsets[site_idx] + m_idx_other]
+				product_other *=
+					Z[l_offsets[site_idx] + m_idx_other, cluster_atoms[site_idx]]
 			end
-			for m_idx_last = 1:dims_t[R - 1]
+			for m_idx_last = 1:dim_last
 				idx_buf[R - 1] = m_idx_last
 				tensor_result +=
 					cbc.folded_tensor[idx_buf...] *
-					(product_other * sh_values[base_last + m_idx_last])
+					(product_other * Z[base_last + m_idx_last, atom_last])
 			end
 		end
 
@@ -691,6 +688,16 @@ function build_design_matrix_torque(
 		scaling_factors[salc_idx] = _cluster_scaling(n_C)
 	end
 
+	# `symmetry` is accepted for API stability; the gradient kernel itself
+	# does not consume it (orbit images live on `cbc.clusters`; SH and its
+	# gradients come from the per-spinconfig `sh_cache`).
+	_ = symmetry
+
+	# Threading is over spinconfigs already, so each thread builds and
+	# owns one `SHCache` for the spinconfig it is processing and reuses
+	# it across every (iatom, salc_idx, cbc) call in its row block.
+	l_max = _compute_l_max(salc_list)
+
 	# Preallocate the full design matrix and let each thread write into its
 	# disjoint row block (sc_idx → rows [block_size*(sc_idx-1)+1 : block_size*sc_idx]).
 	# Avoids per-thread block allocation and the final vcat copy.
@@ -702,9 +709,7 @@ function build_design_matrix_torque(
 			spinconfig = spinconfig_list[sc_idx]
 			row_offset = block_size * (sc_idx - 1)
 			grad_u_buf = MVector{3, Float64}(0.0, 0.0, 0.0)
-			# One workspace per @threads iteration; reused across all (iatom,
-			# salc_idx, cbc) calls in this row block.
-			ws = GradWorkspace()
+			sh_cache = build_sh_cache_torque(spinconfig.spin_directions, l_max)
 			@inbounds for iatom = 1:num_atoms
 				dir_iatom_svec = SVector{3, Float64}(
 					spinconfig.spin_directions[1, iatom],
@@ -715,14 +720,7 @@ function build_design_matrix_torque(
 					# Sum contributions from all CoupledBasis_with_coefficient in this key group
 					group_grad = MVector{3, Float64}(0.0, 0.0, 0.0)
 					for cbc in key_group
-						calc_∇ₑu!(
-							grad_u_buf,
-							cbc,
-							iatom,
-							spinconfig.spin_directions,
-							symmetry,
-							ws,
-						)
+						calc_∇ₑu!(grad_u_buf, cbc, iatom, sh_cache)
 						group_grad .+= grad_u_buf
 					end
 					scaling_factor = scaling_factors[salc_idx]
@@ -742,54 +740,59 @@ end
 
 
 """
-	calc_∇ₑu(cbc, atom, spin_directions, symmetry) -> Vector{Float64}
+	calc_∇ₑu!(result, cbc, atom, sh_cache) -> result
 
-Compute the gradient of the coupled angular momentum basis for a CoupledBasis_with_coefficient
-with respect to the spin direction of a specific atom.
+Compute the gradient of the coupled-basis feature for a
+`CoupledBasis_with_coefficient` with respect to the spin direction of a
+specific atom, writing the result into `result` in place.
 
 # Description
-- Returns a 3-vector corresponding to (∂/∂x, ∂/∂y, ∂/∂z) components.
-- Applies symmetry translations before accumulation.
+- Returns the 3-vector `(∂Φ/∂x, ∂Φ/∂y, ∂Φ/∂z)` summed over every cluster
+  in `cbc.clusters` that contains `atom`, weighted by `cbc.multiplicity`.
+- Tesseral SH values and their `∂ᵢZₗₘ` direction gradients are read from
+  the precomputed `sh_cache`; the kernel itself does no SH evaluation.
 
 # Arguments
-- `cbc::CoupledBases.CoupledBasis_with_coefficient`: CoupledBasis_with_coefficient object
-- `atom::Integer`: Target atom index (1-based)
-- `spin_directions::AbstractMatrix{<:Real}`: 3×N spin directions
-- `symmetry::Symmetry`: Symmetry information
+- `result::MVector{3, Float64}`: Output buffer (cleared on entry).
+- `cbc::CoupledBases.CoupledBasis_with_coefficient`: the coupled basis with
+  its SALC coefficient and pre-enumerated cluster orbit.
+- `atom::Integer`: Target atom index (1-based).
+- `sh_cache::SHCache`: per-spinconfig SH cache produced by
+  [`build_sh_cache_torque`](@ref). Both `Z` and `∂Z` are read.
 
 # Returns
-- `Vector{Float64}`: Gradient vector (length 3)
+- `result` (mutated in place).
 """
 function calc_∇ₑu!(
 	result::MVector{3, Float64},
 	cbc::CoupledBases.CoupledBasis_with_coefficient{R},
 	atom::Integer,
-	spin_directions::AbstractMatrix{<:Real},
-	symmetry::Symmetry,
-	ws::GradWorkspace,
+	sh_cache::SHCache,
 ) where {R}
 	# N = number of sites; R = tensor rank = N + 1 (compile-time constant).
-	# `symmetry` is unused — kept for API stability while the surrounding
-	# spec restructuring lands. The orbit walk has been moved to SALC build
-	# time (see `CoupledBases.enumerate_orbit_clusters`); each translated
-	# cluster is now read directly from `cbc.clusters`.
+	# The orbit walk has been moved to SALC build time (see
+	# `CoupledBases.enumerate_orbit_clusters`); each translated cluster is
+	# read directly from `cbc.clusters`. Tesseral SH values and their
+	# direction gradients come from the per-spinconfig `sh_cache`.
 	result[1] = 0.0
 	result[2] = 0.0
 	result[3] = 0.0
 	dims_t = ntuple(i -> 2 * cbc.ls[i] + 1, Val(R - 1))
 
 	# Hoist scratch buffers out of the cluster loop. `other_sites_buf` and
-	# `other_dims_buf` get refilled per iteration based on `atom_site_idx`, but
-	# the storage is allocated once up front.
+	# `other_dims_buf` get refilled per iteration based on `atom_site_idx`,
+	# but the storage is allocated once up front.
 	idx_buf = MVector{R - 1, Int}(undef)
 	other_sites_buf = MVector{R - 2, Int}(undef)
 	other_dims_buf = MVector{R - 2, Int}(undef)
 
-	_ensure_sh_buffer!(ws.sh_values, ws.sh_offsets, cbc.ls)
-	sh_values = ws.sh_values
-	sh_offsets = ws.sh_offsets
-	_ensure_legendre_buf!(ws.legendre_buf, cbc.ls)
-	legendre_buf = ws.legendre_buf
+	# `l_offsets[site_idx] = ls[site_idx]^2` is the flat-index base for the
+	# `Z[lm_idx, atom]` lookup. Depends only on `cbc.ls`, so hoist out of
+	# the cluster loop.
+	l_offsets = ntuple(i -> cbc.ls[i]^2, Val(R - 1))
+
+	Z = sh_cache.Z
+	∂Z = sh_cache.∂Z
 
 	@inbounds for cluster_atoms in cbc.clusters
 		# Identify whether (and at which site) the differentiated atom
@@ -810,46 +813,14 @@ function calc_∇ₑu!(
 			continue
 		end
 
-		# Compute spherical harmonics and derivatives for the target site.
-		# `sh_values` is shared scratch; `atom_grad_values` is sized to the
-		# differentiated site's `2*l_atom+1` m-values.
 		l_atom = cbc.ls[atom_site_idx]
-		resize!(ws.atom_grad_values, 2 * l_atom + 1)
-		atom_grad_values = ws.atom_grad_values
+		base_atom = l_offsets[atom_site_idx]
 
-		# Both buffered overloads use `legendre_buf` as a write-only scratch:
-		# the Legendre cache they need is fully recomputed on every call from
-		# the `(l, m, z)` arguments, so the prior contents are not consulted.
-		# Calling `Zₗₘ_unsafe` and then `∂ᵢZlm_unsafe` against the same buffer
-		# (the `site_idx == atom_site_idx` case below) is therefore safe; the
-		# second call simply overwrites the first call's cache state. The
-		# `SVector{3, Float64}` column read serves the same allocation-
-		# avoidance role as in `design_matrix_energy_element`.
-		for site_idx = 1:(R - 1)
-			translated_atom = cluster_atoms[site_idx]
-			l = cbc.ls[site_idx]
-			base = sh_offsets[site_idx]
-			dir = SVector{3, Float64}(
-				spin_directions[1, translated_atom],
-				spin_directions[2, translated_atom],
-				spin_directions[3, translated_atom],
-			)
-			for m_idx = 1:(2*l+1)
-				# Convert tesseral index to m value: m = m_idx - l - 1
-				m = m_idx - l - 1
-
-				sh_values[base + m_idx] = Zₗₘ_unsafe(l, m, dir, legendre_buf)
-				if site_idx == atom_site_idx
-					# Keep gradients only for the differentiated site.
-					atom_grad_values[m_idx] = ∂ᵢZlm_unsafe(l, m, dir, legendre_buf)
-				end
-			end
-		end
-
-		# Contract folded_tensor with spherical harmonics and gradients.
-		# folded_tensor[m₁,…,m_N] = Σ_Mf coefficient[Mf] · coeff_tensor[…, Mf]
-		# is precomputed at SALC-build time, so the Mf axis is already
-		# collapsed; we only iterate the site m-indices here.
+		# Contract folded_tensor with cached spherical harmonics and
+		# gradients. folded_tensor[m₁,…,m_N] = Σ_Mf coefficient[Mf] ·
+		# coeff_tensor[…, Mf] is precomputed at SALC-build time, so the
+		# Mf axis is already collapsed; we only iterate the site m-indices
+		# here.
 		grad_result = MVector{3, Float64}(0.0, 0.0, 0.0)
 		# Refill the other_sites/other_dims buffers for this `atom_site_idx`.
 		ki = 0
@@ -871,12 +842,13 @@ function calc_∇ₑu!(
 				site_idx = other_sites_buf[k]
 				m_idx_other = other_tuple.I[k]
 				idx_buf[site_idx] = m_idx_other
-				product_other *= sh_values[sh_offsets[site_idx] + m_idx_other]
+				product_other *=
+					Z[l_offsets[site_idx] + m_idx_other, cluster_atoms[site_idx]]
 			end
 
 			for m_idx_atom = 1:(2*l_atom+1)
 				idx_buf[atom_site_idx] = m_idx_atom
-				grad_atom = atom_grad_values[m_idx_atom]
+				grad_atom = ∂Z[base_atom + m_idx_atom, atom]
 				folded_val = cbc.folded_tensor[idx_buf...]
 				grad_result .+= folded_val * product_other .* grad_atom
 			end
@@ -886,18 +858,6 @@ function calc_∇ₑu!(
 	end
 
 	return result
-end
-
-function calc_∇ₑu(
-	cbc::CoupledBases.CoupledBasis_with_coefficient,
-	atom::Integer,
-	spin_directions::AbstractMatrix{<:Real},
-	symmetry::Symmetry,
-)::Vector{Float64}
-	result = MVector{3, Float64}(0.0, 0.0, 0.0)
-	ws = GradWorkspace()
-	calc_∇ₑu!(result, cbc, atom, spin_directions, symmetry, ws)
-	return Vector{Float64}(result)
 end
 
 
@@ -915,10 +875,12 @@ function _predict_energy(
 	symmetry::Symmetry,
 	spin_directions::AbstractMatrix{<:Real},
 )::Float64
+	_ = symmetry  # accepted for API parity with `build_design_matrix_energy`
 	num_salcs = length(salc_list)
 	design_vector = Vector{Float64}(undef, num_salcs)
-	# Single-threaded inference path; allocate one workspace and reuse.
-	ws = EnergyWorkspace()
+	# Single-threaded inference path; build one cache and reuse across SALCs.
+	l_max = _compute_l_max(salc_list)
+	sh_cache = build_sh_cache_energy(spin_directions, l_max)
 
 	for i = 1:num_salcs
 		key_group = salc_list[i]
@@ -926,7 +888,7 @@ function _predict_energy(
 		scaling_factor = _cluster_scaling(n_C)
 		group_value = 0.0
 		for cbc in key_group
-			group_value += design_matrix_energy_element(cbc, spin_directions, symmetry, ws)
+			group_value += design_matrix_energy_element(cbc, sh_cache)
 		end
 		design_vector[i] = group_value * scaling_factor
 	end
@@ -951,21 +913,23 @@ function _predict_torque(
 	symmetry::Symmetry,
 	spin_directions::AbstractMatrix{<:Real},
 )::Matrix{Float64}
+	_ = symmetry  # accepted for API parity with `build_design_matrix_torque`
 	if size(spin_directions, 1) != 3
 		throw(ArgumentError("spin_directions must be a 3xN matrix"))
 	end
 	num_atoms = size(spin_directions, 2)
 	torque = zeros(Float64, 3, num_atoms)
 	grad_u_buf = MVector{3, Float64}(0.0, 0.0, 0.0)
-	# Single-threaded inference path; allocate one workspace and reuse.
-	ws = GradWorkspace()
+	# Single-threaded inference path; build one cache and reuse across atoms / SALCs.
+	l_max = _compute_l_max(salc_list)
+	sh_cache = build_sh_cache_torque(spin_directions, l_max)
 
 	@inbounds for iatom = 1:num_atoms
 		dir_iatom = SVector{3, Float64}(@view spin_directions[:, iatom])
 		for (salc_idx, key_group) in enumerate(salc_list)
 			group_grad = MVector{3, Float64}(0.0, 0.0, 0.0)
 			for cbc in key_group
-				calc_∇ₑu!(grad_u_buf, cbc, iatom, spin_directions, symmetry, ws)
+				calc_∇ₑu!(grad_u_buf, cbc, iatom, sh_cache)
 				group_grad .+= grad_u_buf
 			end
 			n_C = length(key_group[1].atoms)

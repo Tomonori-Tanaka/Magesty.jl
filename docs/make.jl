@@ -37,6 +37,7 @@ makedocs(
 				"theory/symmetry_adaptation.md",
 				"theory/orbit_clusters.md",
 				"theory/folded_tensor.md",
+				"theory/sh_cache.md",
 				"theory/design_matrix_and_fitting.md",
 				"technical_notes.md",
 			],

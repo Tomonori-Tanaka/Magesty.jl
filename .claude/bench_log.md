@@ -927,3 +927,44 @@ enumeration may pick clusters in a different order than the runtime
 translation walk, even though the unordered orbit set is identical).
 Default-tolerance test also passes; `make test-unit` and
 `make test-integration` clean.
+
+### M3 (B: per-spinconfig SH cache) — after
+
+Precompute every tesseral `Zₗₘ` (and, for torque, every `∂ᵢZₗₘ`) once
+per spinconfig per atom into an `SHCache` keyed by `(lm_idx, atom)` with
+`lm_idx = l^2 + l + m + 1`, then read the values directly from the
+cache inside the design-matrix kernels. Removes the
+`Zₗₘ_unsafe(l, m, dir, legendre_buf)` call that ran for every
+`(spinconfig, salc, cbc, cluster_image, site)` tuple — the SH values
+depend only on `(spin_direction, l, m)`, so the work was being repeated
+once per SALC × cluster image. Energy threading axis is unchanged
+(`@threads for i = 1:num_salcs`), and the caches for all spinconfigs
+are built upfront in a separate `@threads for j = 1:num_spinconfigs`
+loop so each thread can read them read-only thereafter. Torque
+threading is already over spinconfigs, so each thread builds and owns
+the cache for its own spinconfig. `EnergyWorkspace` / `GradWorkspace`
++ all SH scratch buffers (`sh_values` / `sh_offsets` / `legendre_buf` /
+`atom_grad_values`) are no longer needed and have been removed. Same
+fixture / threads / trials as M0–M2.
+
+| function | time med | time min | allocs (med) | bytes (med) | Δ vs M2 | Δ vs M0 |
+|---|---:|---:|---:|---:|---:|---:|
+| `build_design_matrix_energy` | 0.101 s | 0.101 s | 3,504,054 | 8.59e7 | **-87%** | **-92%** |
+| `build_design_matrix_torque` | 2.520 s | 2.418 s | 112,109,732 | 3.78e9 | **-60%** | **-74%** |
+
+Speedups: energy **7.47×** over post-M2 (**12.05×** vs M0), torque
+**2.47×** over post-M2 (**3.90×** vs M0). The M3 spec gate
+(energy ≥ 2× post-M2 → ≤ 0.377 s) is met with a wide margin.
+
+Allocation counts are essentially unchanged from M2 (the remaining
+counts come from SVector / MVector return values and dispatch boxing
+on `for cbc in key_group`), but allocated bytes drop sharply because
+the now-removed `legendre_buf` resizing and `atom_grad_values`
+per-call allocation were the dominant byte sources — energy bytes
+drop 62% vs M2 (-75% vs M0), torque bytes drop 70% vs M2 (-81% vs M0).
+
+Regression: `test/component/test_design_matrix_equivalence.jl` passes
+at `rtol = 1e-14, atol = 1e-15` on both FeGe 2x2x2 and FePt tetragonal
+2x2x2 — bit-identical to within a few ULPs, as expected: the cache is
+exact value memoization with no order change in any reduction. Default
+tolerance, `make test-unit`, and `make test-integration` all clean.

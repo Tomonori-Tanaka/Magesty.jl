@@ -13,6 +13,7 @@ Pages = [
     "symmetry_adaptation.md",
     "orbit_clusters.md",
     "folded_tensor.md",
+    "sh_cache.md",
     "design_matrix_and_fitting.md",
     "../technical_notes.md",
 ]
