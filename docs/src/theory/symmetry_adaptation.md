@@ -71,6 +71,7 @@ struct CoupledBasis_with_coefficient{R, N}
     coefficient::Vector{Float64}      # SALC coefficient, length 2·Lf + 1
     multiplicity::Int                 # translational-equivalence count
     folded_tensor::Array{Float64, N}  # see Folded tensor; N = R - 1
+    clusters::Vector{Vector{Int}}     # pre-enumerated symmetry orbit
 end
 ```
 
@@ -89,6 +90,16 @@ inner constructor and read by the design-matrix kernel in place of the
 [Folded tensor](folded_tensor.md) page explains the linearity argument and
 the kernel-side consequences; XML I/O persists only ``T`` and
 ``c_\nu^{M_f}`` so files round-trip unchanged.
+
+`clusters` is the full symmetry-orbit list — the distinct atom tuples
+produced by applying every pure translation to the seed `atoms` — built
+once via `enumerate_orbit_clusters` during basis construction (and
+recomputed lazily on XML load). The design-matrix kernel iterates this
+list directly instead of redoing the translation walk and the
+sorted-tuple dedup for each ``\Phi_\nu`` evaluation. The
+[Orbit clusters](orbit_clusters.md) page covers the enumeration,
+storage layout, and the cluster-distinctness invariant downstream
+kernels rely on.
 
 Constructing the SALC basis is the computationally expensive stage of the
 pipeline. The result is wrapped in `SCEBasis`, which can be persisted with

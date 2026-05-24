@@ -890,3 +890,40 @@ loop used, so the only float-roundoff source is distributing the
 
 Threads unaffected: `@threads` is still column-parallel for energy /
 spinconfig-parallel for torque.
+
+### M2 (C: orbit pre-enumeration) — after
+
+Promote the orbit cluster enumeration ("walk all translations of
+`cbc.atoms`, sort, hash, dedup") from the per-element design-matrix
+kernel to SALC build time. Each `CoupledBasis_with_coefficient` now
+carries its own `clusters::Vector{Vector{Int}}` (built once via
+`CoupledBases.enumerate_orbit_clusters` in `SALCBases._compute_salc_groups`
+and reused for every Mf channel of that orbit; XML load recomputes it
+the same way). The hot path replaces
+`for itrans in symmetry.symnum_translation` + dedup machinery with
+`for cluster_atoms in cbc.clusters`, dropping `searched_pairs` /
+`_atoms_hash_key` / sorted-buffer logic + the corresponding workspace
+fields. Same fixture / threads / trials as M0, M1.
+
+| function | time med | time min | allocs (med) | bytes (med) | Δ vs M1 | Δ vs M0 |
+|---|---:|---:|---:|---:|---:|---:|
+| `build_design_matrix_energy` | 0.754 s | 0.746 s | 3,512,053 | 2.26e8 | **-12%** | **-38%** |
+| `build_design_matrix_torque` | 6.228 s | 5.869 s | 112,110,232 | 1.27e10 | **-26%** | **-37%** |
+
+Both allocations and bytes drop substantially (energy allocs -50%,
+torque allocs -67% vs the M0/M1 baseline) because the per-element
+sort + linear-scan dedup is gone — the only remaining per-element
+allocations come from the dispatch boxing on `for cbc in key_group`
+(spec deferred follow-up F) and the SH-evaluation path.
+
+Speedup vs M0 baseline: energy **1.62×**, torque **1.58×**. The M2
+spec gate (torque ≥ 1.15× over M0 → ≤ 8.55 s) is met with a wide
+margin.
+
+Regression: `test/component/test_design_matrix_equivalence.jl` passes
+at `rtol = 1e-13, atol = 1e-14` on both FeGe 2x2x2 and FePt tetragonal
+2x2x2 (the spec's per-stage tolerance for "A + C": build-time orbit
+enumeration may pick clusters in a different order than the runtime
+translation walk, even though the unordered orbit set is identical).
+Default-tolerance test also passes; `make test-unit` and
+`make test-integration` clean.

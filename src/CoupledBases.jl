@@ -9,7 +9,8 @@ export CoupledBasis,
 	AngularMomentumCouplingResult,
 	reorder_atoms,
 	tesseral_coupled_bases_from_tesseral_bases,
-	convert_to_coupled_basis
+	convert_to_coupled_basis,
+	enumerate_orbit_clusters
 
 """
 	CoupledBasis{R}
@@ -276,6 +277,55 @@ end
 
 
 """
+	enumerate_orbit_clusters(atoms, map_sym, symnum_translation) -> Vector{Vector{Int}}
+
+Enumerate the distinct symmetry-equivalent clusters generated from a seed
+atom-tuple under the supercell's pure translations.
+
+Each entry of the returned vector is an `N`-element atom index list in the
+same site order as `atoms` (so it matches the orbital-angular-momentum
+order on the coupled-basis tensor). Two translations that map the seed
+to the same multiset of atoms are deduplicated by sorting and comparing,
+keeping the first occurrence.
+
+This is build-time (not hot-path) work: the result is cached on
+`CoupledBasis_with_coefficient.clusters` so the design-matrix kernels
+can iterate the orbit directly without re-running the translation /
+hash / dedup machinery per matrix element.
+
+# Arguments
+- `atoms::AbstractVector{<:Integer}`: seed atom indices (length `N`)
+- `map_sym::AbstractMatrix{<:Integer}`: `symmetry.map_sym`
+- `symnum_translation::AbstractVector{<:Integer}`: indices of pure-translation operations
+
+# Returns
+- `Vector{Vector{Int}}`: distinct translated clusters, each in site order
+"""
+function enumerate_orbit_clusters(
+	atoms::AbstractVector{<:Integer},
+	map_sym::AbstractMatrix{<:Integer},
+	symnum_translation::AbstractVector{<:Integer},
+)::Vector{Vector{Int}}
+	N = length(atoms)
+	seen_sorted = Set{Vector{Int}}()
+	clusters = Vector{Vector{Int}}()
+	for itrans in symnum_translation
+		translated = Vector{Int}(undef, N)
+		@inbounds for site_idx in 1:N
+			translated[site_idx] = Int(map_sym[atoms[site_idx], itrans])
+		end
+		sorted_key = sort(translated)
+		if sorted_key in seen_sorted
+			continue
+		end
+		push!(seen_sorted, sorted_key)
+		push!(clusters, translated)
+	end
+	return clusters
+end
+
+
+"""
 	CoupledBasis_with_coefficient{R, N}
 
 Container type for coupled angular momentum bases with Mf-dependent coefficients.
@@ -300,6 +350,12 @@ inside a struct field declaration.
                     precomputed at construction time. Hot-path consumers
                     (the design-matrix kernels) read this directly to avoid
                     iterating the Mf axis per element.
+- `clusters`      : distinct translated cluster atom-tuples in this orbit,
+                    each an `N`-element index list in the same site order as
+                    `atoms`. Built via [`enumerate_orbit_clusters`](@ref) at
+                    SALC construction (or XML load) time and read directly
+                    by the design-matrix kernels in place of the previous
+                    per-element translation / dedup loop.
 """
 struct CoupledBasis_with_coefficient{R, N}
 	ls::Vector{Int}
@@ -310,6 +366,7 @@ struct CoupledBasis_with_coefficient{R, N}
 	coefficient::Vector{Float64}
 	multiplicity::Int
 	folded_tensor::Array{Float64, N}
+	clusters::Vector{Vector{Int}}
 
 	function CoupledBasis_with_coefficient(
 		ls::AbstractVector{<:Integer},
@@ -319,6 +376,7 @@ struct CoupledBasis_with_coefficient{R, N}
 		coeff_tensor::AbstractArray{<:Number},
 		coefficient::AbstractVector{<:Number},
 		multiplicity::Int,
+		clusters::AbstractVector{<:AbstractVector{<:Integer}},
 	)
 		N = length(ls)
 		expected_Lseq_len = max(0, N - 2)
@@ -345,9 +403,17 @@ struct CoupledBasis_with_coefficient{R, N}
 			"got $(length(coefficient))",
 		))
 
+		for (i, c) in enumerate(clusters)
+			length(c) == N || throw(ArgumentError(
+				"clusters[$i] must have length N = $N (same as length(ls)); " *
+				"got $(length(c))",
+			))
+		end
+
 		tensor_concrete = convert(Array{Float64, R}, coeff_tensor)
 		coefficient_concrete = collect(Float64.(coefficient))
 		folded = _fold_mf(tensor_concrete, coefficient_concrete)
+		clusters_concrete = Vector{Int}[collect(Int, c) for c in clusters]
 
 		return new{R, R - 1}(
 			collect(Int.(ls)),
@@ -358,6 +424,7 @@ struct CoupledBasis_with_coefficient{R, N}
 			coefficient_concrete,
 			multiplicity,
 			folded,
+			clusters_concrete,
 		)
 	end
 end
@@ -389,6 +456,7 @@ function CoupledBasis_with_coefficient(
 	cb::CoupledBasis,
 	coefficient::AbstractVector{<:Number},
 	multiplicity::Int,
+	clusters::AbstractVector{<:AbstractVector{<:Integer}},
 )
 	return CoupledBasis_with_coefficient(
 		cb.ls,
@@ -398,6 +466,7 @@ function CoupledBasis_with_coefficient(
 		cb.coeff_tensor,
 		coefficient,
 		multiplicity,
+		clusters,
 	)
 end
 
@@ -410,7 +479,8 @@ function Base.show(io::IO, cbc::CoupledBasis_with_coefficient)
 	print(io, "coeff_tensor=$(size(cbc.coeff_tensor)), ")
 	print(io, "coefficient=$(cbc.coefficient), ")
 	print(io, "multiplicity=$(cbc.multiplicity), ")
-	print(io, "folded_tensor=$(size(cbc.folded_tensor))")
+	print(io, "folded_tensor=$(size(cbc.folded_tensor)), ")
+	print(io, "clusters=$(length(cbc.clusters))")
 	print(io, ")")
 end
 
@@ -465,7 +535,12 @@ function reorder_atoms(cbc::CoupledBasis_with_coefficient, new_atoms::AbstractVe
 	coeff_perm = permutedims(cbc.coeff_tensor, dims_perm)
 
 	# coefficient vector corresponds to the Mf dimension (last dimension),
-	# which is not permuted, so we keep it unchanged
+	# which is not permuted, so we keep it unchanged.
+	#
+	# Each cluster's atom indices are listed in the same site order as
+	# `cbc.atoms`, so permuting `atoms` by `p` requires permuting each
+	# cluster by the same `p`.
+	clusters_perm = Vector{Int}[c[p] for c in cbc.clusters]
 	return CoupledBasis_with_coefficient(
 		ls_sorted,
 		cbc.Lf,
@@ -474,6 +549,7 @@ function reorder_atoms(cbc::CoupledBasis_with_coefficient, new_atoms::AbstractVe
 		coeff_perm,
 		cbc.coefficient,  # unchanged - corresponds to Mf dimension
 		cbc.multiplicity,
+		clusters_perm,
 	)
 end
 

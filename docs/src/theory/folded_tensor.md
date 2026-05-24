@@ -74,6 +74,7 @@ struct CoupledBasis_with_coefficient{R, N}
     coefficient::Vector{Float64}       # c_ν^Mf;    kept for reference / introspection
     multiplicity::Int
     folded_tensor::Array{Float64, N}   # T̃; consumed by the hot path. N = R - 1.
+    clusters::Vector{Vector{Int}}      # pre-enumerated orbit; see Symmetry adaptation
 end
 ```
 

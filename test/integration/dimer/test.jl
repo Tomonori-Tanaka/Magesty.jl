@@ -83,6 +83,11 @@ input = TOML.parse(open(joinpath(@__DIR__, "input.toml"), "r"))
 		# l=1 × l=1 coupling — i.e. D = (0, -1, 0) in our convention.
 		original_salcbasis = dmi_basis.salcbasis
 		coeff_tensor = original_salcbasis.angular_momentum_couplings[2].coeff_tensor
+		clusters = Magesty.CoupledBases.enumerate_orbit_clusters(
+			[1, 2],
+			dmi_basis.symmetry.map_sym,
+			dmi_basis.symmetry.symnum_translation,
+		)
 		cbc = Magesty.CoupledBases.CoupledBasis_with_coefficient(
 			[1, 1],
 			1,
@@ -91,6 +96,7 @@ input = TOML.parse(open(joinpath(@__DIR__, "input.toml"), "r"))
 			coeff_tensor,
 			[0.0, 1.0, 0.0],
 			1,
+			clusters,
 		)
 		salc_list = [[cbc]]
 		modified_salcbasis = Magesty.SALCBasis(

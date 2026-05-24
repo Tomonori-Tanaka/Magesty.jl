@@ -57,6 +57,14 @@ tensor directly. The math is the same — only the order of operations
 changes. See [Folded tensor](folded_tensor.md) for the derivation and
 storage layout.
 
+The outer sum over "clusters in the orbit" is treated the same way: the
+list of symmetry-equivalent clusters is enumerated once during SALC
+construction and cached on each `CoupledBasis_with_coefficient`, so the
+kernel iterates it directly instead of re-running the translation walk
+and the sorted-tuple dedup per matrix element. See
+[Orbit clusters](orbit_clusters.md) for the layout and the build-time
+invariants.
+
 DFT also provides per-atom torques, and these constrain the same
 coefficients. `build_design_matrix_torque` produces ``X_T`` with
 ``3 \times n_\text{atoms}`` rows per configuration. The torque is the

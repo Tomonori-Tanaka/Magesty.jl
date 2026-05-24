@@ -236,6 +236,20 @@ function _compute_salc_groups(
 		return Vector{Vector{CoupledBases.CoupledBasis_with_coefficient}}()
 	canonical_basis = _canonicalize_eigenspace(eigenvecs[:, eigval1_indices])
 
+	# Precompute the symmetry-orbit cluster list once per coupled basis.
+	# The same `cb.atoms` reappears across every Mf channel of the projection
+	# (the outer `col` loop), so caching avoids redoing the translation /
+	# dedup work per channel. Multiple `CoupledBasis_with_coefficient`
+	# instances built from the same `cb` share the same cluster vector by
+	# reference, which is harmless since `clusters` is read-only after
+	# construction.
+	clusters_per_basis = Vector{Vector{Vector{Int}}}(undef, length(coupled_basislist))
+	for (idx_basis, cb) in enumerate(coupled_basislist)
+		clusters_per_basis[idx_basis] = CoupledBases.enumerate_orbit_clusters(
+			cb.atoms, symmetry.map_sym, symmetry.symnum_translation,
+		)
+	end
+
 	key_salc_groups = Vector{Vector{CoupledBases.CoupledBasis_with_coefficient}}()
 	for col in axes(canonical_basis, 2)
 		eigenvec = canonical_basis[:, col]
@@ -254,7 +268,9 @@ function _compute_salc_groups(
 				continue
 			end
 			multiplicity = coupled_basislist.counts[cb]
-			cbc = CoupledBases.CoupledBasis_with_coefficient(cb, coefficient, multiplicity)
+			cbc = CoupledBases.CoupledBasis_with_coefficient(
+				cb, coefficient, multiplicity, clusters_per_basis[idx_basis],
+			)
 			push!(salc_group, cbc)
 		end
 		if !isempty(salc_group)

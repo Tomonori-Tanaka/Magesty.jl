@@ -387,19 +387,6 @@ workspace itself never leaves the threaded loop.
 
 # Fields
 
-- `searched_pairs::Vector{UInt}` — de-duplication buffer keyed by
-  `_atoms_hash_key(atoms_sorted)`. Inside the
-  `for itrans in symmetry.symnum_translation` loop, each translation
-  produces a sorted-atom tuple; translations that yield the same sorted
-  configuration would contribute identically, so we keep only one
-  representative per orbit. A contiguous `Vector{UInt}` with linear
-  membership scan is the right structure here because the number of
-  translations is small (O(ntran), typically a few tens) and the
-  linear scan is cheaper than `Set{UInt}` hash-table operations on
-  this size. The vector is `empty!`'d at the start of every element
-  call but keeps its capacity, so the second-and-later calls in the
-  same workspace are allocation-free.
-
 - `sh_values::Vector{Float64}` — flattened tesseral spherical-harmonic
   values for all sites in a cluster. The slice for site `i` is
   `sh_values[sh_offsets[i] + 1 : sh_offsets[i + 1]]` and has length
@@ -424,13 +411,11 @@ workspace itself never leaves the threaded loop.
 Not exported. Construct with `EnergyWorkspace()`.
 """
 mutable struct EnergyWorkspace
-	searched_pairs::Vector{UInt}
 	sh_values::Vector{Float64}
 	sh_offsets::Vector{Int}
 	legendre_buf::Vector{Float64}
 
 	EnergyWorkspace() = new(
-		Vector{UInt}(),
 		Vector{Float64}(),
 		Vector{Int}(),
 		Vector{Float64}(),
@@ -444,11 +429,6 @@ Internal scratch state reused across calls to `calc_∇ₑu!`. Each thread in
 `build_design_matrix_torque` owns one workspace.
 
 # Fields
-
-- `searched_pairs::Vector{UInt}` — same role as in
-  [`EnergyWorkspace`](@ref): de-duplicates symmetry translations that
-  yield identical sorted-atom configurations. See `EnergyWorkspace` for
-  why a linear-scan vector beats `Set{UInt}` on this workload.
 
 - `sh_values::Vector{Float64}` — same flattened layout as in
   [`EnergyWorkspace`](@ref): the slice for site `i` is
@@ -477,14 +457,12 @@ Internal scratch state reused across calls to `calc_∇ₑu!`. Each thread in
 Not exported. Construct with `GradWorkspace()`.
 """
 mutable struct GradWorkspace
-	searched_pairs::Vector{UInt}
 	sh_values::Vector{Float64}
 	sh_offsets::Vector{Int}
 	atom_grad_values::Vector{SVector{3, Float64}}
 	legendre_buf::Vector{Float64}
 
 	GradWorkspace() = new(
-		Vector{UInt}(),
 		Vector{Float64}(),
 		Vector{Int}(),
 		Vector{SVector{3, Float64}}(),
@@ -525,15 +503,6 @@ function _ensure_sh_buffer!(
 		resize!(buf, total)
 	end
 	return buf
-end
-
-@inline function _atoms_hash_key(atoms_sorted::AbstractVector{Int})::UInt
-	h = UInt(0x9e3779b97f4a7c15)
-	@inbounds for a in atoms_sorted
-		x = reinterpret(UInt, Int64(a))
-		h ⊻= x + UInt(0x9e3779b97f4a7c15) + (h << 6) + (h >> 2)
-	end
-	return h ⊻ UInt(length(atoms_sorted))
 end
 
 function build_design_matrix_energy(
@@ -610,50 +579,36 @@ function design_matrix_energy_element(
 	ws::EnergyWorkspace,
 )::Float64 where {R}
 	# N = number of sites; R = tensor rank = N + 1 (compile-time constant).
+	# `symmetry` is unused — kept for API stability while the surrounding
+	# spec restructuring lands. The orbit walk has been moved to SALC build
+	# time (see `CoupledBases.enumerate_orbit_clusters`); each translated
+	# cluster is now read directly from `cbc.clusters`.
 	result::Float64 = 0.0
 	dims_t = ntuple(i -> 2 * cbc.ls[i] + 1, Val(R - 1))
 
-	# cbc.ls is fixed in this function, so de-dup by sorted translated atoms only.
-	empty!(ws.searched_pairs)
-	searched_pairs = ws.searched_pairs
 	_ensure_sh_buffer!(ws.sh_values, ws.sh_offsets, cbc.ls)
 	sh_values = ws.sh_values
 	sh_offsets = ws.sh_offsets
 	_ensure_legendre_buf!(ws.legendre_buf, cbc.ls)
 	legendre_buf = ws.legendre_buf
-	translated_atoms = MVector{R - 1, Int}(undef)
-	atoms_sorted_buf = MVector{R - 1, Int}(undef)
 
 	# These quantities depend only on cbc.ls (constant within the call), so hoist
-	# them out of the translation loop instead of rebuilding per `itrans`.
+	# them out of the cluster loop instead of rebuilding per cluster.
 	other_dims_t = ntuple(i -> dims_t[i], Val(R - 2))
 	other_site_indices = CartesianIndices(other_dims_t)
 	idx_buf = MVector{R - 1, Int}(undef)
 	base_last = @inbounds sh_offsets[R - 1]
 
-	@inbounds for itrans in symmetry.symnum_translation
-		# Translate atoms
-		for site_idx = 1:(R - 1)
-			translated_atoms[site_idx] = symmetry.map_sym[cbc.atoms[site_idx], itrans]
-		end
-		# Sort atoms for comparison, but keep ls in original order
-		copyto!(atoms_sorted_buf, translated_atoms)
-		sort!(atoms_sorted_buf)
-		atoms_key = _atoms_hash_key(atoms_sorted_buf)
-		if atoms_key in searched_pairs
-			continue
-		end
-		push!(searched_pairs, atoms_key)
-
+	@inbounds for cluster_atoms in cbc.clusters
 		# Compute spherical harmonics for each site into the workspace buffer.
 		# `Zₗₘ_unsafe(l, m, uvec, legendre_buf)` reuses the Legendre cache
 		# rather than reallocating it on every (l, m, atom). The site's
-		# spin direction is read once per `(itrans, site)` into a stack
+		# spin direction is read once per `(cluster, site)` into a stack
 		# `SVector{3, Float64}` and reused across the `2*l + 1` m-values;
 		# passing the column as an `@views` `SubArray` instead would
 		# allocate a heap object on every `(l, m, atom)`.
 		for site_idx = 1:(R - 1)
-			atom = translated_atoms[site_idx]
+			atom = cluster_atoms[site_idx]
 			l = cbc.ls[site_idx]
 			base = sh_offsets[site_idx]
 			dir = SVector{3, Float64}(
@@ -814,47 +769,42 @@ function calc_∇ₑu!(
 	ws::GradWorkspace,
 ) where {R}
 	# N = number of sites; R = tensor rank = N + 1 (compile-time constant).
+	# `symmetry` is unused — kept for API stability while the surrounding
+	# spec restructuring lands. The orbit walk has been moved to SALC build
+	# time (see `CoupledBases.enumerate_orbit_clusters`); each translated
+	# cluster is now read directly from `cbc.clusters`.
 	result[1] = 0.0
 	result[2] = 0.0
 	result[3] = 0.0
 	dims_t = ntuple(i -> 2 * cbc.ls[i] + 1, Val(R - 1))
-	translated_atoms = MVector{R - 1, Int}(undef)
-	atoms_sorted_buf = MVector{R - 1, Int}(undef)
 
-	# Hoist scratch buffers out of the translation loop. `other_sites_buf` and
+	# Hoist scratch buffers out of the cluster loop. `other_sites_buf` and
 	# `other_dims_buf` get refilled per iteration based on `atom_site_idx`, but
 	# the storage is allocated once up front.
 	idx_buf = MVector{R - 1, Int}(undef)
 	other_sites_buf = MVector{R - 2, Int}(undef)
 	other_dims_buf = MVector{R - 2, Int}(undef)
 
-	# cbc.ls is fixed in this function, so de-dup by sorted translated atoms only.
-	empty!(ws.searched_pairs)
-	searched_pairs = ws.searched_pairs
 	_ensure_sh_buffer!(ws.sh_values, ws.sh_offsets, cbc.ls)
 	sh_values = ws.sh_values
 	sh_offsets = ws.sh_offsets
 	_ensure_legendre_buf!(ws.legendre_buf, cbc.ls)
 	legendre_buf = ws.legendre_buf
 
-	@inbounds for itrans in symmetry.symnum_translation
-		# Translate atoms and identify the differentiated site index.
+	@inbounds for cluster_atoms in cbc.clusters
+		# Identify whether (and at which site) the differentiated atom
+		# appears in this cluster. Cluster-atom indices are pairwise
+		# distinct by construction (`enumerate_orbit_clusters` preserves
+		# the distinctness of the seed `cbc.atoms` because pure translations
+		# are bijections of the supercell), so the first match is also the
+		# only match.
 		atom_site_idx = 0
 		for site_idx = 1:(R - 1)
-			ta = symmetry.map_sym[cbc.atoms[site_idx], itrans]
-			translated_atoms[site_idx] = ta
-			if ta == atom
+			if cluster_atoms[site_idx] == atom
 				atom_site_idx = site_idx
+				break
 			end
 		end
-		# Sort buffer for de-dup, preserving translated_atoms order for computation.
-		copyto!(atoms_sorted_buf, translated_atoms)
-		sort!(atoms_sorted_buf)
-		atoms_key = _atoms_hash_key(atoms_sorted_buf)
-		if atoms_key in searched_pairs
-			continue
-		end
-		push!(searched_pairs, atoms_key)
 
 		if atom_site_idx == 0
 			continue
@@ -876,7 +826,7 @@ function calc_∇ₑu!(
 		# `SVector{3, Float64}` column read serves the same allocation-
 		# avoidance role as in `design_matrix_energy_element`.
 		for site_idx = 1:(R - 1)
-			translated_atom = translated_atoms[site_idx]
+			translated_atom = cluster_atoms[site_idx]
 			l = cbc.ls[site_idx]
 			base = sh_offsets[site_idx]
 			dir = SVector{3, Float64}(

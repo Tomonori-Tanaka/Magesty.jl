@@ -282,13 +282,24 @@ function write_model_xml(
 end
 
 """
-	read_salcbasis_from_xml(xml_file::AbstractString) -> SALCBasis
+	read_salcbasis_from_xml(xml_file::AbstractString; symmetry=nothing) -> SALCBasis
 
 Read SALCBasis from XML file. This reconstructs the basis set from saved SALC information,
 avoiding the expensive SALC computation.
 
 # Arguments
 - `xml_file::AbstractString`: Path to XML file containing basis set information
+
+# Keyword arguments
+- `symmetry::Union{Symmetry, Nothing} = nothing`: when supplied, each
+  `CoupledBasis_with_coefficient`'s `clusters` field is populated by
+  enumerating the orbit under `symmetry.map_sym` /
+  `symmetry.symnum_translation`. When `nothing`, the field falls back to a
+  single-cluster list containing only the seed atoms — sufficient for SALC
+  topology / round-trip inspection, but not for building correct design
+  matrices. The standard load path
+  ([`read_basis_components_from_xml`](@ref)) always passes the
+  recomputed symmetry.
 
 # Returns
 - `SALCBasis`: Reconstructed basis set from XML file
@@ -297,7 +308,8 @@ avoiding the expensive SALC computation.
 - `ErrorException` if the XML file format is invalid or missing required information
 """
 function read_salcbasis_from_xml(
-	xml_file::AbstractString,
+	xml_file::AbstractString;
+	symmetry::Union{Symmetry, Nothing} = nothing,
 )::SALCBasis
 	doc = readxml(xml_file)
 	system_node = findfirst("//" * TAG_SYSTEM, doc)
@@ -397,6 +409,20 @@ function read_salcbasis_from_xml(
 				end
 			end
 
+			# Reconstruct the orbit cluster list. When called via
+			# `read_basis_components_from_xml`, `symmetry` is supplied and
+			# the full orbit is reproduced. When called without (e.g. by
+			# legacy callers that only need the SALC topology), a single-
+			# cluster fallback keeps the load path total — but design-matrix
+			# results from such a basis will only count the seed cluster.
+			clusters = if symmetry === nothing
+				Vector{Int}[collect(Int, atoms)]
+			else
+				CoupledBases.enumerate_orbit_clusters(
+					atoms, symmetry.map_sym, symmetry.symnum_translation,
+				)
+			end
+
 			# Create CoupledBasis_with_coefficient
 			cbc = CoupledBases.CoupledBasis_with_coefficient(
 				ls,
@@ -406,6 +432,7 @@ function read_salcbasis_from_xml(
 				coeff_tensor,
 				coefficient,
 				multiplicity,
+				clusters,
 			)
 			push!(key_group, cbc)
 		end
@@ -494,7 +521,7 @@ function read_basis_components_from_xml(xml_file::AbstractString)
 	structure = Structure(xml_file; verbosity = false)
 	tolerance_sym = _read_tolerance_sym(xml_file)
 	symmetry = Symmetry(structure, tolerance_sym; verbosity = false)
-	salcbasis = read_salcbasis_from_xml(xml_file)
+	salcbasis = read_salcbasis_from_xml(xml_file; symmetry = symmetry)
 	isotropy = _read_isotropy(xml_file)
 	return structure, symmetry, salcbasis, isotropy
 end
