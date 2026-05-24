@@ -49,9 +49,9 @@ shorter per-cluster expression:
   \prod_{k=1}^{N} Z_{l_k, m_k}\bigl(\hat{\boldsymbol{e}}_k\bigr).
 ```
 
-In `design_matrix_energy_element` and `calc_∇ₑu!`, this collapses what
-used to be a nested ``M_f`` / site-``m`` contraction into a single
-site-``m`` contraction. For the FeGe B20 2x2x2 fixture (with
+In `design_matrix_energy_element` and `_accumulate_grad_torque_cluster!`,
+this collapses what would otherwise be a nested ``M_f`` / site-``m``
+contraction into a single site-``m`` contraction. For the FeGe B20 2x2x2 fixture (with
 ``L_f \in \{0, 1, 2\}`` mixed across the body-2 and body-3 SALCs), the
 measured wall-time improvement was about 30 % on
 `build_design_matrix_energy` and about 15 % on

@@ -446,6 +446,16 @@ Allocates one `legendre_buf` of length `l_max + 1`, the upper bound on
 `Zₗₘ_unsafe`'s `(l - |m| + 1)` requirement, and reuses it across every
 `(l, m, atom)` call.
 
+# Arguments
+- `spin_directions::AbstractMatrix{<:Real}`: `3 × num_atoms` matrix of
+  unit-vector spin directions (rows = x, y, z; columns = atoms).
+- `l_max::Int`: largest `l` value the cache must cover. Typically the
+  result of `_compute_l_max(salc_list)`.
+
+# Returns
+- `SHCache`: cache with populated `Z::Matrix{Float64}` of shape
+  `((l_max+1)^2, num_atoms)` and empty `∂Z`.
+
 Not exported.
 """
 function build_sh_cache_energy(
@@ -481,6 +491,17 @@ every `(l, m, atom)` with `0 ≤ l ≤ l_max` and `-l ≤ m ≤ l`. The two
 buffered overloads share the same `legendre_buf` (write-only scratch:
 the Legendre cache is fully recomputed on every call from `(l, m, z)`,
 so the prior contents are not consulted).
+
+# Arguments
+- `spin_directions::AbstractMatrix{<:Real}`: `3 × num_atoms` matrix of
+  unit-vector spin directions (rows = x, y, z; columns = atoms).
+- `l_max::Int`: largest `l` value the cache must cover. Typically the
+  result of `_compute_l_max(salc_list)`.
+
+# Returns
+- `SHCache`: cache with populated `Z::Matrix{Float64}` and
+  `∂Z::Matrix{SVector{3, Float64}}`, both of shape
+  `((l_max+1)^2, num_atoms)`.
 
 Not exported.
 """
@@ -525,10 +546,7 @@ function build_design_matrix_energy(
 	# analytically after the solve by `extract_j0_jphi`.
 	design_matrix = zeros(Float64, num_spinconfigs, num_salcs)
 
-	# `symmetry` is accepted for API stability; the design-matrix kernel
-	# itself does not consume it (orbit images are precomputed on
-	# `cbc.clusters` at SALC-build time; SH values come from `sh_caches`).
-	_ = symmetry
+	_ = symmetry  # accepted for API stability; orbit images live on cbc.clusters, SH values come from sh_caches
 
 	# Precompute the per-spinconfig SH cache up front, in parallel. The
 	# energy kernel below threads over SALCs and reads every spinconfig
@@ -593,14 +611,14 @@ and a precomputed [`SHCache`](@ref).
 - `Float64`: Feature value for the `CoupledBasis_with_coefficient`.
 """
 function design_matrix_energy_element(
-	cbc::CoupledBases.CoupledBasis_with_coefficient{R},
+	cbc::CoupledBases.CoupledBasis_with_coefficient{R, N},
 	sh_cache::SHCache,
-)::Float64 where {R}
-	# N = number of sites; R = tensor rank = N + 1 (compile-time constant).
-	# The orbit walk has been moved to SALC build time (see
-	# `CoupledBases.enumerate_orbit_clusters`); each translated cluster is
-	# read directly from `cbc.clusters`. Tesseral SH values are read from
-	# the per-spinconfig `sh_cache` instead of being recomputed per call.
+)::Float64 where {R, N}
+	# N = number of sites (also the folded_tensor rank); R = N + 1 is the
+	# coeff_tensor rank. Translated cluster images are read from
+	# `cbc.clusters` (precomputed by `CoupledBases.enumerate_orbit_clusters`
+	# at SALC-build time); tesseral SH values come from the per-spinconfig
+	# `sh_cache`.
 	result::Float64 = 0.0
 	dims_t = ntuple(i -> 2 * cbc.ls[i] + 1, Val(R - 1))
 	other_dims_t = ntuple(i -> dims_t[i], Val(R - 2))
@@ -688,10 +706,7 @@ function build_design_matrix_torque(
 		scaling_factors[salc_idx] = _cluster_scaling(n_C)
 	end
 
-	# `symmetry` is accepted for API stability; the gradient kernel itself
-	# does not consume it (orbit images live on `cbc.clusters`; SH and its
-	# gradients come from the per-spinconfig `sh_cache`).
-	_ = symmetry
+	_ = symmetry  # accepted for API stability; orbit images live on cbc.clusters, SH and gradients come from sh_cache
 
 	# Threading is over spinconfigs already, so each thread builds and
 	# owns one `SHCache` for the spinconfig it is processing and reuses
@@ -704,26 +719,32 @@ function build_design_matrix_torque(
 	block_size = 3 * num_atoms
 	design_matrix = Matrix{Float64}(undef, num_spinconfigs * block_size, num_salcs)
 
+	# Thread-local accumulation buffers, one per possible threadid, pre-
+	# allocated outside the `@threads` loop. Each spinconfig iteration
+	# zeros its buffer with `fill!` instead of going back to the
+	# allocator, which turns `num_spinconfigs` heap allocations of
+	# ~1.9 MB each into `maxthreadid()` upfront allocations and removes
+	# the corresponding GC pressure from the hot path. Sized by
+	# `Threads.maxthreadid()` because Julia 1.10+ exposes thread pools
+	# (default / interactive) whose ids can exceed `Threads.nthreads()`.
+	# Layout `(3, num_atoms, num_salcs)` puts the `xyz` axis innermost
+	# so SVector loads come off a single cache line.
+	grad_bufs = [zeros(Float64, 3, num_atoms, num_salcs) for _ in 1:Threads.maxthreadid()]
+
 	with_progress(num_spinconfigs, "Building torque design matrix"; verbosity = verbosity) do prog
 		@threads for sc_idx = 1:num_spinconfigs
 			spinconfig = spinconfig_list[sc_idx]
 			row_offset = block_size * (sc_idx - 1)
 			sh_cache = build_sh_cache_torque(spinconfig.spin_directions, l_max)
 
-			# Per-thread per-spinconfig accumulation buffer for the
-			# cluster-major kernel: `grad_buf[xyz, atom, salc_idx]`
-			# holds Σ_{cbc, cluster, site_in_cluster_with_atom}
-			#   mult · ∂Φ_cbc(cluster) / ∂spin[atom],
-			# i.e. the un-crossed angular gradient. Allocated here so
-			# every thread has its own copy; layout puts the xyz axis
-			# innermost so SVector loads from a single cache line.
-			grad_buf = zeros(Float64, 3, num_atoms, num_salcs)
+			grad_buf = grad_bufs[Threads.threadid()]
+			fill!(grad_buf, 0.0)
 
 			# Cluster-major sweep: for each (salc, cbc, cluster), one pass
 			# over the folded-tensor multi-index distributes the gradient
-			# to all sites in the cluster simultaneously. Replaces the
-			# old per-atom kernel that scanned every atom against every
-			# cluster (the `num_atoms / N` excess factor).
+			# to all N sites of the cluster simultaneously, so the
+			# per-(cbc, cluster) work scales with the orbit size rather
+			# than with `num_atoms`.
 			@inbounds for (salc_idx, key_group) in enumerate(salc_list)
 				for cbc in key_group
 					_accumulate_grad_torque_cluster!(grad_buf, cbc, salc_idx, sh_cache)
@@ -772,9 +793,9 @@ sweep every cluster image in `cbc.clusters` and every multi-index of the
 folded tensor, distributing the gradient contribution
 ``\\partial \\Phi_\\nu / \\partial \\hat{\\boldsymbol{e}}_{a_j}`` to all
 ``N`` sites ``a_j`` of the cluster in one pass. The per-(cbc, cluster)
-work is paid once instead of `num_atoms` times; what used to be a
-per-atom "does this cluster contain me?" scan is replaced by a direct
-write to `grad_buf[:, a_j, salc_idx]` for each site `j`.
+work therefore scales with the orbit size, not with `num_atoms`: each
+site `j` receives its gradient contribution directly via
+`grad_buf[:, a_j, salc_idx]`.
 
 # Arguments
 - `grad_buf::Array{Float64, 3}`: Accumulation buffer of shape
@@ -793,13 +814,13 @@ write to `grad_buf[:, a_j, salc_idx]` for each site `j`.
 
 Not exported.
 """
-function _accumulate_grad_torque_cluster!(
+@inline function _accumulate_grad_torque_cluster!(
 	grad_buf::Array{Float64, 3},
-	cbc::CoupledBases.CoupledBasis_with_coefficient{R},
+	cbc::CoupledBases.CoupledBasis_with_coefficient{R, N},
 	salc_idx::Integer,
 	sh_cache::SHCache,
-) where {R}
-	# N = number of sites; R = tensor rank = N + 1 (compile-time constant).
+) where {R, N}
+	# N = number of sites (folded_tensor rank); R = N + 1 = coeff_tensor rank.
 	dims_t = ntuple(i -> 2 * cbc.ls[i] + 1, Val(R - 1))
 	site_indices = CartesianIndices(dims_t)
 	idx_buf = MVector{R - 1, Int}(undef)
@@ -815,15 +836,15 @@ function _accumulate_grad_torque_cluster!(
 	mult::Float64 = cbc.multiplicity
 
 	@inbounds for cluster_atoms in cbc.clusters
-		# Cluster atoms are pairwise distinct by construction
-		# (`enumerate_orbit_clusters` preserves the distinctness of the
-		# seed `cbc.atoms` because pure translations are bijections of the
-		# supercell). The cluster-major Jacobian needs this so that a
-		# single site `j` is responsible for the gradient on a unique atom
-		# `a_j = cluster_atoms[j]` — otherwise the per-site writes would
-		# alias and we would double-count the contribution. Guarded by
-		# `@boundscheck` so production builds with `@inbounds` elide the
-		# `allunique` scan.
+		# Cluster atoms are pairwise distinct: `Clusters.jl` filters every
+		# seed cluster by `length(atom_list) == length(unique(atom_list))`,
+		# and pure translations are bijections of the supercell, so the
+		# distinctness propagates to every orbit image. The `+=`
+		# accumulation here is robust to repeated atoms too (their per-site
+		# contributions would sum to the correct gradient), but the
+		# upstream filter is the contract we assert. Guarded by
+		# `@boundscheck` so that production calls inside an `@inbounds`
+		# context (and `@inline`'d into this kernel) elide the scan.
 		@boundscheck @assert allunique(cluster_atoms) "cluster atoms must be distinct"
 
 		for multi_idx in site_indices
@@ -918,7 +939,9 @@ function _predict_torque(
 )::Matrix{Float64}
 	_ = symmetry  # accepted for API parity with `build_design_matrix_torque`
 	if size(spin_directions, 1) != 3
-		throw(ArgumentError("spin_directions must be a 3xN matrix"))
+		throw(ArgumentError(
+			"spin_directions must be a 3×N matrix (got $(size(spin_directions, 1)) rows)"
+		))
 	end
 	num_atoms = size(spin_directions, 2)
 	# Single-threaded inference path; build one cache and reuse across
@@ -963,12 +986,12 @@ end
 # buffer with `coeff` (typically `scaling * jphi[salc]`) baked into the
 # per-(cbc, multi-index) factor, so the prediction path does not need a
 # `(3, num_atoms, num_salcs)` buffer.
-function _accumulate_grad_torque_scaled!(
+@inline function _accumulate_grad_torque_scaled!(
 	grad_per_atom::Matrix{Float64},
-	cbc::CoupledBases.CoupledBasis_with_coefficient{R},
+	cbc::CoupledBases.CoupledBasis_with_coefficient{R, N},
 	coeff::Float64,
 	sh_cache::SHCache,
-) where {R}
+) where {R, N}
 	dims_t = ntuple(i -> 2 * cbc.ls[i] + 1, Val(R - 1))
 	site_indices = CartesianIndices(dims_t)
 	idx_buf = MVector{R - 1, Int}(undef)
@@ -978,6 +1001,8 @@ function _accumulate_grad_torque_scaled!(
 	mult_x_coeff::Float64 = cbc.multiplicity * coeff
 
 	@inbounds for cluster_atoms in cbc.clusters
+		# See `_accumulate_grad_torque_cluster!` for the upstream
+		# cluster-distinctness contract; same `@boundscheck` discipline.
 		@boundscheck @assert allunique(cluster_atoms) "cluster atoms must be distinct"
 		for multi_idx in site_indices
 			for k = 1:(R - 1)

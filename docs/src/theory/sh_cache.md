@@ -133,21 +133,21 @@ fully reconstructible from `spinconfig.spin_directions` and `l_max`.
 
 ## Hot-path simplification
 
-With the cache in place, `design_matrix_energy_element` and `calc_∇ₑu!`
-drop their `spin_directions`, `symmetry`, and per-thread workspace
-arguments altogether: the only spin-configuration-dependent input they
-need is the cache, and the only symmetry-dependent input
-(`cbc.clusters`) lives on the coupled basis. The signatures collapse to
+With the cache in place, the design-matrix kernels take only the
+coupled basis and the cache:
 
 ```julia
 design_matrix_energy_element(cbc, sh_cache)::Float64
-calc_∇ₑu!(result, cbc, atom, sh_cache)
+_accumulate_grad_torque_cluster!(grad_buf, cbc, salc_idx, sh_cache)
 ```
 
-and the per-call scratch buffers that used to live on `EnergyWorkspace`
-/ `GradWorkspace` (`sh_values` / `sh_offsets` / `legendre_buf` /
-`atom_grad_values`) are no longer needed and have been removed
-together with the workspace structs themselves.
+The energy kernel returns one design-matrix entry; the torque kernel is
+cluster-major and writes per-atom gradient contributions into
+`grad_buf[:, a_j, salc_idx]` for every site `a_j` of the cluster (see
+[Cluster-major torque kernel](cluster_major_torque.md)). All
+spin-configuration-dependent input now lives in `sh_cache`, and all
+symmetry-dependent input lives on `cbc.clusters`, so the kernels carry
+no per-thread scratch buffers of their own.
 
 ## Numerical note
 

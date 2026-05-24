@@ -52,8 +52,8 @@ configuration ``c``. Each column entry is the sum of
 In the kernel, the inner ``M_f`` sum over
 ``c_\nu^{M_f}\, T^{(L_f, M_f)}`` is not iterated per element: the two
 factors are precontracted into a single rank-``(N)`` tensor at SALC build
-time, so `design_matrix_energy_element` and `calc_∇ₑu!` read that folded
-tensor directly. The math is the same — only the order of operations
+time, so `design_matrix_energy_element` and
+`_accumulate_grad_torque_cluster!` read that folded tensor directly. The math is the same — only the order of operations
 changes. See [Folded tensor](folded_tensor.md) for the derivation and
 storage layout.
 

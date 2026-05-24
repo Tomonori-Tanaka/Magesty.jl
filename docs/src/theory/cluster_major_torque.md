@@ -142,9 +142,10 @@ instead of `(3, num_atoms, num_salcs)`: the SALC dimension is summed
 away as soon as it is encountered, since prediction does not need a
 per-column Jacobian.
 
-The previous per-atom `calc_∇ₑu!` API and its non-mutating wrapper
-`calc_∇ₑu` are removed: nothing outside the design-matrix and
-inference paths depended on them.
+The kernel that fills ``X_T`` is `_accumulate_grad_torque_cluster!`;
+its scalar-coefficient sibling `_accumulate_grad_torque_scaled!`
+serves the inference path. Both are internal — nothing outside the
+design-matrix and inference paths exposes a per-atom gradient API.
 
 ## Numerical note
 

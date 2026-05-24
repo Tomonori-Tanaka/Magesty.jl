@@ -300,6 +300,20 @@ hash / dedup machinery per matrix element.
 
 # Returns
 - `Vector{Vector{Int}}`: distinct translated clusters, each in site order
+
+# Examples
+```julia
+# Three atoms, three pure translations: identity (col 1) and two cyclic
+# shifts (cols 2, 3). `map_sym[a, t]` is the image of atom `a` under
+# translation `t`.
+map_sym = [1 2 3;
+           2 3 1;
+           3 1 2]
+symnum_translation = [1, 2, 3]
+enumerate_orbit_clusters([1, 2], map_sym, symnum_translation)
+# returns Vector{Int}[[1, 2], [2, 3], [3, 1]]
+# — three distinct pair clusters, each with the same site order as `atoms`.
+```
 """
 function enumerate_orbit_clusters(
 	atoms::AbstractVector{<:Integer},
@@ -311,7 +325,7 @@ function enumerate_orbit_clusters(
 	clusters = Vector{Vector{Int}}()
 	for itrans in symnum_translation
 		translated = Vector{Int}(undef, N)
-		@inbounds for site_idx in 1:N
+		@inbounds for site_idx = 1:N
 			translated[site_idx] = Int(map_sym[atoms[site_idx], itrans])
 		end
 		sorted_key = sort(translated)
@@ -442,7 +456,7 @@ function _fold_mf(
 	Mf_size = size(coeff_tensor, R)
 	out_size = ntuple(i -> size(coeff_tensor, i), Val(R - 1))
 	folded = zeros(Float64, out_size...)
-	for mf in 1:Mf_size
+	for mf = 1:Mf_size
 		c = coefficient[mf]
 		slice = selectdim(coeff_tensor, R, mf)
 		@inbounds for I in eachindex(folded, slice)

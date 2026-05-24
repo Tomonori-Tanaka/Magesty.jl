@@ -54,11 +54,15 @@ println("\n=== Per-call allocations for _accumulate_grad_torque_cluster! ===")
 grad_buf = zeros(Float64, 3, num_atoms, num_salcs)
 for (salc_idx, group) in enumerate(basis.salcbasis.salc_list[1:min(5, end)])
     for (cbc_idx, cbc) in enumerate(group)
-        for _ in 1:50  # warm
+        # `@inbounds` here matches the production call context inside
+        # `build_design_matrix_torque`, so the `@boundscheck @assert
+        # allunique(cluster_atoms)` inside the kernel is elided and the
+        # reported alloc count reflects production behavior.
+        @inbounds for _ in 1:50  # warm
             _accumulate_grad_torque_cluster!(grad_buf, cbc, salc_idx, sh_cache_t)
         end
         allocs = @allocations begin
-            for _ in 1:1000
+            @inbounds for _ in 1:1000
                 _accumulate_grad_torque_cluster!(grad_buf, cbc, salc_idx, sh_cache_t)
             end
         end

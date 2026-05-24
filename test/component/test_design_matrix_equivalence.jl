@@ -4,19 +4,19 @@ using Magesty.Fitting: build_design_matrix_energy, build_design_matrix_torque
 using Magesty.SpinConfigs: read_embset
 using DelimitedFiles
 
-# Regression harness for spec 260524-design-matrix-restructuring.
+# Regression harness for the design-matrix algorithmic restructuring.
 #
-# Each stage of the restructuring (A / C / B / D) relaxes the floating-
-# point reduction order differently. Reference matrices are captured into
-# `test/regression_fixtures/` by
-# `tools/personal/capture_design_matrix_fixtures.jl` and committed to the
-# repo. This testset compares the current `build_design_matrix_*` output
-# against those references at the staged tolerance.
+# Each restructuring stage relaxes the floating-point reduction order
+# differently. Reference matrices are captured into
+# `test/regression_fixtures/` and committed to the repo. This testset
+# compares the current `build_design_matrix_*` output against those
+# references at the configured tolerance.
 #
-# The tolerance defaults below match the post-D (full restructuring) targets
-# in `docs/specs/260524-design-matrix-restructuring/design.md`. Stages with
-# tighter requirements should override via `MAGESTY_REGRESSION_RTOL_*` env
-# vars (set in CI) or by editing the constants here before each stage.
+# The tolerance defaults below match the post-restructuring floating-
+# point budget documented in the cluster-major torque theory page at
+# `docs/src/theory/cluster_major_torque.md`. Callers needing a tighter
+# bound (e.g. before a refactor expected to be bit-identical) can
+# override via `MAGESTY_REGRESSION_RTOL_*` env vars.
 
 const FIXTURES_DIR = joinpath(@__DIR__, "..", "regression_fixtures")
 

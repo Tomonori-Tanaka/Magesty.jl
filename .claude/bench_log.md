@@ -1032,3 +1032,33 @@ instead of applied once at the end of each cluster — a redistribution
 of one rounding step that stays well inside the rtol the test detects.
 Default tolerance, `make test-unit`, and `make test-integration` all
 clean.
+
+### M5 (Tier 2 panel fixes) — after
+
+Apply the four-axis Tier 2 review panel findings: numerical 3/3 minors
+(allunique-comment rewording, `@inline` on `_accumulate_grad_torque_*`,
+`@warn` on `read_salcbasis_from_xml` `symmetry === nothing` fallback),
+maintainability 3 majors (before/after framing in comments / docstrings,
+`for ... in 1:N` → `for ... = 1:N`), API 2 majors (3xN→3×N error message,
+silent-fallback warn), Performance 1 major + 1 minor (thread-local
+`grad_buf` pool replacing per-spinconfig allocation, `@inbounds` in the
+profiler), plus selected minors (docstring sections, stale
+`calc_∇ₑu!` refs in theory pages, `enumerate_orbit_clusters` Examples,
+`{R, N}` dispatch on `design_matrix_energy_element`). The dispatch-
+boxing fix (Performance Major P1) is intentionally deferred per the
+spec's "follow-up F". Same fixture / threads / trials as M0–M4.
+
+| function | time med | time min | allocs (med) | bytes (med) | Δ vs M4 | Δ vs M0 |
+|---|---:|---:|---:|---:|---:|---:|
+| `build_design_matrix_energy` | 0.101 s | 0.100 s | 3,504,054 | 8.59e7 | 0% | **-92%** |
+| `build_design_matrix_torque` | 0.833 s | 0.820 s | 2,910,658 | 2.82e8 | **+1%** / **-38% bytes** | **-92%** / **-99% bytes** |
+
+The torque time moves inside the trial-to-trial noise (~1%). The
+torque byte allocation drops 38 % vs M4 because the per-spinconfig
+`zeros(Float64, 3, num_atoms, num_salcs)` is replaced by a
+`Threads.maxthreadid()`-sized pool zeroed via `fill!`. The remaining
+~2.9 M / ~2.8e8 are dispatch-boxing allocations (deferred F).
+
+Regression: equivalence test still passes at `rtol = 1e-14, atol =
+1e-15` on both fixtures. `make test-unit` / `make test-integration`
+clean.

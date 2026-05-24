@@ -1,6 +1,6 @@
 # Tasklist: Design-matrix algorithmic restructuring
 
-Status: draft (2026-05-24)
+Status: complete (2026-05-24)
 
 Branch: `refactor/design-matrix-restructuring`.
 

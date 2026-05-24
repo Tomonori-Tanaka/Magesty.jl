@@ -6,6 +6,32 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Design-matrix construction restructured for performance (spec
+  260524-design-matrix-restructuring). `build_design_matrix_energy`
+  and `build_design_matrix_torque` are about **12× faster** on the
+  FeGe B20 2×2×2 light fixture (energy 1.218 s → 0.101 s, torque
+  9.833 s → 0.833 s; 4 threads, 5-trial median). The improvements
+  come from four staged changes: (A) folding the SALC `M_f`
+  coefficient into the coupled tensor at SALC-build time
+  (`CoupledBasis_with_coefficient` gains a precomputed
+  `folded_tensor` field); (C) pre-enumerating each orbit's
+  translation images at SALC-build time (new `clusters` field);
+  (B) caching per-spinconfig tesseral spherical harmonics in an
+  internal `SHCache` so the hot path reads cached values instead
+  of recomputing per call; (D) rewriting the torque kernel as a
+  cluster-major reverse-mode Jacobian that distributes the per-
+  cluster gradient to all `N` sites in one pass. No public-API
+  signature changes. Internal `calc_∇ₑu!` / `calc_∇ₑu` and the
+  `EnergyWorkspace` / `GradWorkspace` scratch types are removed
+  (they are replaced by `SHCache` and the cluster-major
+  accumulator). XML round-trip preserves bit-identity: the new
+  `folded_tensor` / `clusters` fields are recomputed
+  deterministically on load. See the new theory pages
+  `docs/src/theory/{folded_tensor,orbit_clusters,sh_cache,cluster_major_torque}.md`
+  for the derivations.
+
 ### Added
 
 - `refit(fit::SCEFit, estimator = OLS(); threshold = 0.0, verbosity = true)`: post-selection

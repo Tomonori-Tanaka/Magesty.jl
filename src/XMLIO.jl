@@ -282,7 +282,8 @@ function write_model_xml(
 end
 
 """
-	read_salcbasis_from_xml(xml_file::AbstractString; symmetry=nothing) -> SALCBasis
+	read_salcbasis_from_xml(xml_file::AbstractString;
+	                        symmetry::Union{Symmetry, Nothing} = nothing) -> SALCBasis
 
 Read SALCBasis from XML file. This reconstructs the basis set from saved SALC information,
 avoiding the expensive SALC computation.
@@ -297,9 +298,9 @@ avoiding the expensive SALC computation.
   `symmetry.symnum_translation`. When `nothing`, the field falls back to a
   single-cluster list containing only the seed atoms — sufficient for SALC
   topology / round-trip inspection, but not for building correct design
-  matrices. The standard load path
-  ([`read_basis_components_from_xml`](@ref)) always passes the
-  recomputed symmetry.
+  matrices, and a `@warn` is emitted at load time to flag this. The
+  standard load path ([`read_basis_components_from_xml`](@ref)) always
+  passes the recomputed symmetry.
 
 # Returns
 - `SALCBasis`: Reconstructed basis set from XML file
@@ -311,6 +312,13 @@ function read_salcbasis_from_xml(
 	xml_file::AbstractString;
 	symmetry::Union{Symmetry, Nothing} = nothing,
 )::SALCBasis
+	if symmetry === nothing
+		@warn "read_salcbasis_from_xml: `symmetry` not supplied; " *
+			"`CoupledBasis_with_coefficient.clusters` will fall back to the " *
+			"seed cluster only. Design-matrix results built from this basis " *
+			"will undercount orbit contributions. Pass `symmetry` to " *
+			"enumerate the full orbit." xml_file
+	end
 	doc = readxml(xml_file)
 	system_node = findfirst("//" * TAG_SYSTEM, doc)
 	if isnothing(system_node)
