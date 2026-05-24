@@ -827,3 +827,36 @@ gating. No regression on the regression fixture.
 + the final orbit `Vector{Vector{Int}}` shells. This is 1840x lower
 than the original 88 GiB, with most of the residual coming from the
 `Set{Int}` per-thread neighbor accumulation in Phase 1.
+
+## Spec 260524-design-matrix-restructuring — baseline (M0)
+
+Reference point for the four staged restructurings (A → C → B → D).
+Captured on branch `refactor/design-matrix-restructuring` at commit
+`14607a1` (spec / design-note added; no `Fitting.jl` code change yet,
+so this matches the pre-spec main numbers within run-to-run noise).
+
+- Machine: Darwin 24.6.0 (arm64)
+- Julia: 1.12.6
+- `JULIA_NUM_THREADS=4`
+- Fixture: `bench/fixtures/fege_2x2x2_3body_light/input.toml`
+  (light 3-body FeGe 2x2x2, 64 atoms, 100 spinconfigs, 146 SALC
+  groups — body distribution per the bench script output)
+- Script: `bench/bench_b1_3body_fege.jl --ntrials 5 --no-profile`
+- 5-trial wall-time (post warm-up) reported as median / minimum.
+
+| function | time med | time min | allocs (med) | bytes (med) |
+|---|---:|---:|---:|---:|
+| `build_design_matrix_energy` | 1.218 s | 1.214 s | 7,019,149 | 3.38e8 |
+| `build_design_matrix_torque` | 9.833 s | 9.345 s | 336,328,132 | 1.99e10 |
+
+Per the spec's per-milestone gates:
+
+- M2 (C): torque median must improve by **≥ 1.15×** over this
+  baseline → ≤ 8.55 s.
+- M3 (B): energy median must improve by **≥ 2×** over the
+  post-M2 baseline.
+- M4 (D): torque median must improve by **≥ 5×** over the
+  post-M3 baseline.
+
+M1 (A — `Mf` folding) has no minimum speedup gate; it is a clean-up
+that doubles as a validation-harness warm-up.
