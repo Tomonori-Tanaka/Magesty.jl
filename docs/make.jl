@@ -35,6 +35,7 @@ makedocs(
 				"theory/spherical_harmonics.md",
 				"theory/angular_momentum_coupling.md",
 				"theory/symmetry_adaptation.md",
+				"theory/folded_tensor.md",
 				"theory/design_matrix_and_fitting.md",
 				"technical_notes.md",
 			],

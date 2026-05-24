@@ -612,7 +612,6 @@ function design_matrix_energy_element(
 	# N = number of sites; R = tensor rank = N + 1 (compile-time constant).
 	result::Float64 = 0.0
 	dims_t = ntuple(i -> 2 * cbc.ls[i] + 1, Val(R - 1))
-	Mf_size = size(cbc.coeff_tensor, R)
 
 	# cbc.ls is fixed in this function, so de-dup by sorted translated atoms only.
 	empty!(ws.searched_pairs)
@@ -669,29 +668,27 @@ function design_matrix_energy_element(
 			end
 		end
 
-		# Contract coeff_tensor with spherical harmonics
-		# coeff_tensor has shape (d1, d2, ..., dN, Mf_size) where di = 2*li + 1.
-		# Reuse product over first N-1 sites and iterate the last-site index
-		# separately; `idx_buf::MVector{R-1, Int}` makes the splat indexing
-		# `coeff_tensor[idx_buf..., mf_idx]` statically resolvable.
+		# Contract folded_tensor with spherical harmonics.
+		# folded_tensor[m₁,…,m_N] = Σ_Mf coefficient[Mf] · coeff_tensor[…, Mf]
+		# is precomputed at SALC-build time, so the Mf axis is already
+		# collapsed; we only iterate the site m-indices here. Reuse the
+		# product over the first N-1 sites for each last-site index;
+		# `idx_buf::MVector{R-1, Int}` makes the splat indexing
+		# `folded_tensor[idx_buf...]` statically resolvable.
 		tensor_result = 0.0
-		for mf_idx = 1:Mf_size
-			mf_contribution = 0.0
-			for other_tuple in other_site_indices
-				product_other = 1.0
-				for site_idx = 1:(R - 2)
-					m_idx_other = other_tuple.I[site_idx]
-					idx_buf[site_idx] = m_idx_other
-					product_other *= sh_values[sh_offsets[site_idx] + m_idx_other]
-				end
-				for m_idx_last = 1:dims_t[R - 1]
-					idx_buf[R - 1] = m_idx_last
-					mf_contribution +=
-						cbc.coeff_tensor[idx_buf..., mf_idx] *
-						(product_other * sh_values[base_last + m_idx_last])
-				end
+		for other_tuple in other_site_indices
+			product_other = 1.0
+			for site_idx = 1:(R - 2)
+				m_idx_other = other_tuple.I[site_idx]
+				idx_buf[site_idx] = m_idx_other
+				product_other *= sh_values[sh_offsets[site_idx] + m_idx_other]
 			end
-			tensor_result += cbc.coefficient[mf_idx] * mf_contribution
+			for m_idx_last = 1:dims_t[R - 1]
+				idx_buf[R - 1] = m_idx_last
+				tensor_result +=
+					cbc.folded_tensor[idx_buf...] *
+					(product_other * sh_values[base_last + m_idx_last])
+			end
 		end
 
 		result += tensor_result * cbc.multiplicity
@@ -821,7 +818,6 @@ function calc_∇ₑu!(
 	result[2] = 0.0
 	result[3] = 0.0
 	dims_t = ntuple(i -> 2 * cbc.ls[i] + 1, Val(R - 1))
-	Mf_size = size(cbc.coeff_tensor, R)
 	translated_atoms = MVector{R - 1, Int}(undef)
 	atoms_sorted_buf = MVector{R - 1, Int}(undef)
 
@@ -900,8 +896,10 @@ function calc_∇ₑu!(
 			end
 		end
 
-		# Contract coeff_tensor with spherical harmonics and gradients.
-		# coeff_tensor has shape (d1, d2, ..., dN, Mf_size) where di = 2*li + 1.
+		# Contract folded_tensor with spherical harmonics and gradients.
+		# folded_tensor[m₁,…,m_N] = Σ_Mf coefficient[Mf] · coeff_tensor[…, Mf]
+		# is precomputed at SALC-build time, so the Mf axis is already
+		# collapsed; we only iterate the site m-indices here.
 		grad_result = MVector{3, Float64}(0.0, 0.0, 0.0)
 		# Refill the other_sites/other_dims buffers for this `atom_site_idx`.
 		ki = 0
@@ -916,29 +914,22 @@ function calc_∇ₑu!(
 		# resulting CartesianIndices has statically known rank.
 		other_site_indices = CartesianIndices(Tuple(other_dims_buf))
 
-		# Iterate over all Mf values
-		for mf_idx = 1:Mf_size
-			mf_grad_contribution = MVector{3, Float64}(0.0, 0.0, 0.0)
-
-			# Reuse product over non-differentiated sites for each m on target site.
-			for other_tuple in other_site_indices
-				product_other = 1.0
-				for k = 1:(R - 2)
-					site_idx = other_sites_buf[k]
-					m_idx_other = other_tuple.I[k]
-					idx_buf[site_idx] = m_idx_other
-					product_other *= sh_values[sh_offsets[site_idx] + m_idx_other]
-				end
-
-				for m_idx_atom = 1:(2*l_atom+1)
-					idx_buf[atom_site_idx] = m_idx_atom
-					grad_atom = atom_grad_values[m_idx_atom]
-					coeff_val = cbc.coeff_tensor[idx_buf..., mf_idx]
-					mf_grad_contribution .+= coeff_val * product_other .* grad_atom
-				end
+		# Reuse product over non-differentiated sites for each m on target site.
+		for other_tuple in other_site_indices
+			product_other = 1.0
+			for k = 1:(R - 2)
+				site_idx = other_sites_buf[k]
+				m_idx_other = other_tuple.I[k]
+				idx_buf[site_idx] = m_idx_other
+				product_other *= sh_values[sh_offsets[site_idx] + m_idx_other]
 			end
 
-			grad_result .+= cbc.coefficient[mf_idx] .* mf_grad_contribution
+			for m_idx_atom = 1:(2*l_atom+1)
+				idx_buf[atom_site_idx] = m_idx_atom
+				grad_atom = atom_grad_values[m_idx_atom]
+				folded_val = cbc.folded_tensor[idx_buf...]
+				grad_result .+= folded_val * product_other .* grad_atom
+			end
 		end
 
 		result .+= grad_result .* cbc.multiplicity

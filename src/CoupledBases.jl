@@ -276,22 +276,32 @@ end
 
 
 """
-	CoupledBasis_with_coefficient{R}
+	CoupledBasis_with_coefficient{R, N}
 
 Container type for coupled angular momentum bases with Mf-dependent coefficients.
 
 The type parameter `R` is the tensor rank `ndims(coeff_tensor) = length(ls) + 1`.
+The second parameter `N = R - 1` is the rank of `folded_tensor`; it is a
+separate parameter because Julia does not allow arithmetic on a TypeVar
+inside a struct field declaration.
 
-- `ls`          : orbital angular momenta for each site (length N = R - 1)
-- `Lf`          : total angular momentum of the final multiplet
-- `Lseq`        : intermediate L values along a left-coupling tree
-                  (length `max(0, N-2)`: empty for N≤2, N-2 entries for N≥3,
-                  since `Lf` is stored separately)
-- `atoms`       : atom indices associated with each site (length N)
-- `coeff_tensor`: rank-`R` tensor of `Float64` over m₁,…,m_N and final M_f
-- `coefficient` : coefficients for each Mf value (length must match the last dimension of coeff_tensor)
+- `ls`            : orbital angular momenta for each site (length N = R - 1)
+- `Lf`            : total angular momentum of the final multiplet
+- `Lseq`          : intermediate L values along a left-coupling tree
+                    (length `max(0, N-2)`: empty for N≤2, N-2 entries for N≥3,
+                    since `Lf` is stored separately)
+- `atoms`         : atom indices associated with each site (length N)
+- `coeff_tensor`  : rank-`R` tensor of `Float64` over m₁,…,m_N and final M_f
+- `coefficient`   : coefficients for each Mf value (length must match the last dimension of coeff_tensor)
+- `multiplicity`  : symmetry-orbit multiplicity
+- `folded_tensor` : rank-`R-1` tensor obtained by contracting `coeff_tensor`
+                    against `coefficient` along the Mf axis,
+                    `folded_tensor[m₁,…,m_N] = Σ_Mf coefficient[Mf] · coeff_tensor[m₁,…,m_N, Mf]`,
+                    precomputed at construction time. Hot-path consumers
+                    (the design-matrix kernels) read this directly to avoid
+                    iterating the Mf axis per element.
 """
-struct CoupledBasis_with_coefficient{R}
+struct CoupledBasis_with_coefficient{R, N}
 	ls::Vector{Int}
 	Lf::Int
 	Lseq::Vector{Int}
@@ -299,6 +309,7 @@ struct CoupledBasis_with_coefficient{R}
 	coeff_tensor::Array{Float64, R}
 	coefficient::Vector{Float64}
 	multiplicity::Int
+	folded_tensor::Array{Float64, N}
 
 	function CoupledBasis_with_coefficient(
 		ls::AbstractVector{<:Integer},
@@ -335,17 +346,43 @@ struct CoupledBasis_with_coefficient{R}
 		))
 
 		tensor_concrete = convert(Array{Float64, R}, coeff_tensor)
+		coefficient_concrete = collect(Float64.(coefficient))
+		folded = _fold_mf(tensor_concrete, coefficient_concrete)
 
-		return new{R}(
+		return new{R, R - 1}(
 			collect(Int.(ls)),
 			Int(Lf),
 			collect(Int.(Lseq)),
 			collect(Int.(atoms)),
 			tensor_concrete,
-			collect(Float64.(coefficient)),
+			coefficient_concrete,
 			multiplicity,
+			folded,
 		)
 	end
+end
+
+# Contract `coeff_tensor` against `coefficient` along the trailing Mf axis,
+# producing the (R-1)-rank tensor consumed by the hot-path design-matrix
+# kernels. Accumulating in increasing Mf order matches the previous
+# in-kernel summation order, so the change in reduction order from
+# distributing the Mf weight inwards is the only source of floating-point
+# drift (always within a few ULPs in practice).
+function _fold_mf(
+	coeff_tensor::Array{Float64, R},
+	coefficient::Vector{Float64},
+) where {R}
+	Mf_size = size(coeff_tensor, R)
+	out_size = ntuple(i -> size(coeff_tensor, i), Val(R - 1))
+	folded = zeros(Float64, out_size...)
+	for mf in 1:Mf_size
+		c = coefficient[mf]
+		slice = selectdim(coeff_tensor, R, mf)
+		@inbounds for I in eachindex(folded, slice)
+			folded[I] += c * slice[I]
+		end
+	end
+	return folded
 end
 
 function CoupledBasis_with_coefficient(
@@ -373,6 +410,7 @@ function Base.show(io::IO, cbc::CoupledBasis_with_coefficient)
 	print(io, "coeff_tensor=$(size(cbc.coeff_tensor)), ")
 	print(io, "coefficient=$(cbc.coefficient), ")
 	print(io, "multiplicity=$(cbc.multiplicity), ")
+	print(io, "folded_tensor=$(size(cbc.folded_tensor))")
 	print(io, ")")
 end
 

@@ -96,4 +96,9 @@ end
 
 A `CoupledBasis` is still tied to specific atom indices but is not yet
 symmetry-adapted. The next stage — projecting onto crystal symmetry — is
-covered in [Symmetry adaptation](symmetry_adaptation.md).
+covered in [Symmetry adaptation](symmetry_adaptation.md). Once that
+projection produces the SALC coefficient vector ``c_\nu^{M_f}``, the
+combination ``\sum_{M_f} c_\nu^{M_f}\, T^{(L_f, M_f)}`` is precomputed
+once into a rank-``(R-1)`` tensor that the design-matrix kernel consumes
+directly; see [Folded tensor](folded_tensor.md) for the contraction and
+its purpose.

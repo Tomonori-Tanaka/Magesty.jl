@@ -124,12 +124,12 @@
   </System>
   <JPhi unit="eV">
     <ReferenceEnergy>-1.28662986618645476e+02</ReferenceEnergy>
-    <jphi salc_index="1">3.13620069919912396e-03</jphi>
-    <jphi salc_index="2">4.33227778765535396e-03</jphi>
-    <jphi salc_index="3">-4.45344979216771495e-04</jphi>
-    <jphi salc_index="4">7.58287424606515271e-04</jphi>
-    <jphi salc_index="5">-9.53533391943520072e-04</jphi>
+    <jphi salc_index="1">3.13620069919912439e-03</jphi>
+    <jphi salc_index="2">4.33227778765535830e-03</jphi>
+    <jphi salc_index="3">-4.45344979216766507e-04</jphi>
+    <jphi salc_index="4">7.58287424606516464e-04</jphi>
+    <jphi salc_index="5">-9.53533391943519964e-04</jphi>
     <jphi salc_index="6">-6.75355036058399305e-02</jphi>
-    <jphi salc_index="7">-2.53429698051956930e-03</jphi>
+    <jphi salc_index="7">-2.53429698051957971e-03</jphi>
   </JPhi>
 </Magesty>

@@ -839,8 +839,8 @@ so this matches the pre-spec main numbers within run-to-run noise).
 - Julia: 1.12.6
 - `JULIA_NUM_THREADS=4`
 - Fixture: `bench/fixtures/fege_2x2x2_3body_light/input.toml`
-  (light 3-body FeGe 2x2x2, 64 atoms, 100 spinconfigs, 146 SALC
-  groups — body distribution per the bench script output)
+  (light 3-body FeGe 2x2x2, 64 atoms, 100 spinconfigs, 1232 SALC
+  groups — body distribution `[1 => 2, 2 => 330, 3 => 900]`)
 - Script: `bench/bench_b1_3body_fege.jl --ntrials 5 --no-profile`
 - 5-trial wall-time (post warm-up) reported as median / minimum.
 
@@ -860,3 +860,33 @@ Per the spec's per-milestone gates:
 
 M1 (A — `Mf` folding) has no minimum speedup gate; it is a clean-up
 that doubles as a validation-harness warm-up.
+
+### M1 (A: `Mf` folding) — after
+
+Precompute `folded_tensor[m₁,…,m_N] = Σ_Mf coefficient[Mf] · coeff_tensor[…, Mf]`
+in the `CoupledBasis_with_coefficient` inner constructor, then read it
+directly from `design_matrix_energy_element` and `calc_∇ₑu!`, dropping
+the per-element `mf_idx` loop entirely. Same fixture / threads / trials
+as M0.
+
+| function | time med | time min | allocs (med) | bytes (med) | Δ med |
+|---|---:|---:|---:|---:|---:|
+| `build_design_matrix_energy` | 0.852 s | 0.836 s | 7,019,149 | 3.38e8 | **-30%** |
+| `build_design_matrix_torque` | 8.360 s | 7.928 s | 336,328,132 | 1.99e10 | **-15%** |
+
+Allocations and bytes are unchanged — the kernel structure (loops,
+buffer reuse) is identical except for replacing
+`for mf_idx = 1:Mf_size ... cbc.coeff_tensor[idx_buf..., mf_idx]` with
+a single `cbc.folded_tensor[idx_buf...]`. The wall-time win is the
+saved `Mf_size`-fold inner contraction work
+(`Mf_size ∈ {1, 3, 5}` mixed across the body-2 / body-3 SALCs).
+
+Regression: `test/component/test_design_matrix_equivalence.jl` passes
+at `rtol = 1e-14, atol = 1e-15` on both FeGe 2x2x2 and FePt tetragonal
+2x2x2 — i.e., within a few ULPs of bit-identical. The folded
+construction loop accumulates in the same `Mf` order the in-kernel
+loop used, so the only float-roundoff source is distributing the
+`coefficient[Mf]` multiplication outwards.
+
+Threads unaffected: `@threads` is still column-parallel for energy /
+spinconfig-parallel for torque.

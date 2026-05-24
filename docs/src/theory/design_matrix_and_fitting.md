@@ -49,6 +49,14 @@ configuration ``c``. Each column entry is the sum of
 `design_matrix_energy_element` over the coupled bases of the group, times
 `_cluster_scaling`.
 
+In the kernel, the inner ``M_f`` sum over
+``c_\nu^{M_f}\, T^{(L_f, M_f)}`` is not iterated per element: the two
+factors are precontracted into a single rank-``(N)`` tensor at SALC build
+time, so `design_matrix_energy_element` and `calc_∇ₑu!` read that folded
+tensor directly. The math is the same — only the order of operations
+changes. See [Folded tensor](folded_tensor.md) for the derivation and
+storage layout.
+
 DFT also provides per-atom torques, and these constrain the same
 coefficients. `build_design_matrix_torque` produces ``X_T`` with
 ``3 \times n_\text{atoms}`` rows per configuration. The torque is the
