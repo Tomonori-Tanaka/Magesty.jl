@@ -10,8 +10,7 @@ Operating rules: [`docs/design-notes/README.md`](docs/design-notes/README.md).
 
 | Topic | Status | Last update |
 |---|---|---|
-
-_No open design proposals._
+| [Design-matrix algorithmic restructuring](docs/specs/260524-design-matrix-restructuring/) — Mf folding, per-spinconfig SH cache, orbit pre-enumeration, torque as Jacobian (body still in `docs/design-notes/design-matrix-algorithmic-restructuring.md`) | in progress (spec) | 2026-05-24 |
 
 Completed proposals are folded into their corresponding spec under
 `docs/specs/` and removed from this index. The spec folder is the
