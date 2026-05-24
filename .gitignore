@@ -3,6 +3,7 @@
 /cli/Manifest.toml
 /cli/deps/build.log
 /coverage/Manifest.toml
+/docs/Manifest.toml
 **/*.cov
 /coverage.lcov
 .cursor/
