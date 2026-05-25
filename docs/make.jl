@@ -1,7 +1,7 @@
 import Pkg
 Pkg.activate(@__DIR__)
-Pkg.instantiate()
 Pkg.develop(Pkg.PackageSpec(path = joinpath(@__DIR__, "..")))
+Pkg.instantiate()
 using Magesty
 using Documenter
 
