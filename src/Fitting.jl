@@ -59,6 +59,13 @@ Ordinary least-squares estimator (no regularization). `OLS` is a
 zero-field singleton because the OLS solver has no hyperparameter to
 tune — there is no `lambda`-like knob, by design. Construct as `OLS()`;
 contrast with `Ridge(lambda = ...)`.
+
+The solve is non-pivoted QR (`qr(X) \\ y`), which assumes `X` has full
+column rank. For SCE designs that may be rank-deficient or near-collinear
+(e.g. `num_salcs >= num_spinconfigs` at `torque_weight = 0`), prefer
+`Ridge(lambda = small)` — the small ridge term restores well-posedness
+without changing the fitted coefficients meaningfully when `X` is in
+fact full rank.
 """
 struct OLS <: AbstractEstimator end
 
@@ -1200,7 +1207,21 @@ function solve_coefficients(
 	X::AbstractMatrix{<:Real},
 	y::AbstractVector{<:Real},
 )::Vector{Float64}
-	return X \ y
+	# Fast path: non-pivoted QR (blocked Householder, pure BLAS-3) is
+	# ~8x faster on many-core BLAS than the pivoted QR (`geqp3`) that
+	# `X \ y` would dispatch to. The two agree for full column-rank `X`.
+	# When `X` is rank-deficient, non-pivoted QR yields a near-singular
+	# `R` and either throws or returns wildly inflated coefficients; we
+	# detect that from the diagonal of `R` and fall back to pivoted QR,
+	# which returns a min-norm solution.
+	F = qr(X)
+	R_diag = abs.(diag(F.R))
+	rmax = maximum(R_diag)
+	rtol = eps(Float64) * rmax * length(R_diag)
+	if minimum(R_diag) <= rtol
+		return X \ y
+	end
+	return F \ y
 end
 
 """

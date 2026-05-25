@@ -1062,3 +1062,50 @@ torque byte allocation drops 38 % vs M4 because the per-spinconfig
 Regression: equivalence test still passes at `rtol = 1e-14, atol =
 1e-15` on both fixtures. `make test-unit` / `make test-integration`
 clean.
+
+---
+
+## OLS solver: pivoted QR → non-pivoted QR with fallback
+
+**修正対象**: `src/Fitting.jl` `solve_coefficients(::OLS, X, y)`
+
+**動機**: 120 スレッド環境で `OLS()` の wall time が `Ridge(lambda = 1e-8)` の
+約 8 倍 (1846 sec vs 225 sec) と判明。原因は `X \ y` が tall non-square で
+**列ピボット付き QR** (`geqp3`) にディスパッチされ、列ピボットがほぼ
+シーケンシャルかつ BLAS-2 寄りで多スレッドに乗らないため。
+
+**変更**: `qr(X) \ y` (非ピボット QR = `geqrf` + `ormqr`, blocked Householder,
+純 BLAS-3) を fast path に。`X` が rank-deficient な場合は `R` 対角の最小値
+で検出し pivoted QR にフォールバック (既存の min-norm 振る舞いを保存)。
+
+**ベンチ環境**: Darwin 24.6.0 (arm64) / Julia 1.12.6 / Julia threads = 4 /
+`BLAS.set_num_threads(8)` / `bench/bench_ols_solver.jl` (`@belapsed` samples=3
+on tall-skinny `randn` matrices).
+
+### Before (pivoted QR via `X \ y`)
+
+| (m, p) | OLS time | Ridge(λ=1e-8) time | OLS/Ridge |
+|---|---:|---:|---:|
+| (2000, 500)   | 0.038 s | 0.005 s | 8.30x |
+| (5000, 1000)  | 0.321 s | 0.038 s | 8.55x |
+| (10000, 1500) | 1.410 s | 0.152 s | 9.29x |
+
+### After (non-pivoted QR with rank-deficient fallback)
+
+| (m, p) | OLS time | Ridge(λ=1e-8) time | OLS/Ridge | Δ OLS |
+|---|---:|---:|---:|---:|
+| (2000, 500)   | 0.019 s | 0.005 s | 4.07x | **-50%** |
+| (5000, 1000)  | 0.124 s | 0.038 s | 3.26x | **-61%** |
+| (10000, 1500) | 0.525 s | 0.148 s | 3.56x | **-63%** |
+
+残る OLS/Ridge 比 3–4× は FLOP 差そのもの (QR は正規方程式+Cholesky の
+約 2 倍 FLOP) で、BLAS-3 並列効率はほぼ揃った。120 スレッドのプロダクション
+環境ではさらに比率が改善するはず。
+
+### Regression
+
+- `make test-unit` (22098 pass) / `make test-integration` (883 pass) clean.
+- rank-deficient な fixture (`test_SCEDataset.jl`, `test_SCEFit.jl`,
+  `test_refit.jl`, `test_fitcheck_io.jl`) は `R` 対角検査で pivoted QR
+  に落ちて従来挙動を維持。
+- 残差ノルムは Ridge(λ=1e-8) と桁レベルで一致 (3.908e+01 等)。
