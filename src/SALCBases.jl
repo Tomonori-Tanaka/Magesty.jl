@@ -331,6 +331,13 @@ function SALCBasis(
 	# Each key can have multiple SALC groups (one per eigenvector)
 	salc_list_per_key = Vector{Vector{Vector{CoupledBases.CoupledBasis_with_coefficient}}}(undef, num_keys)
 
+	if verbosity
+		println(@sprintf(
+			"Threading: %d key groups across %d thread(s).",
+			num_keys, nthreads(),
+		))
+	end
+
 	with_progress(num_keys, "Constructing projection matrix"; verbosity = verbosity) do prog
 		@threads for idx = 1:num_keys
 			salc_list_per_key[idx] = _compute_salc_groups(coupled_basislists[idx], symmetry)

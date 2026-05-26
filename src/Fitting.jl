@@ -571,6 +571,12 @@ function build_design_matrix_energy(
 	# Rank-erasing annotations on `key_group` / `cbc` are intentionally absent so
 	# that Julia specializes `design_matrix_energy_element` on each element's
 	# concrete `CoupledBasis_with_coefficient{R}` type via call-site dispatch.
+	if verbosity
+		println(@sprintf(
+			"Threading: %d SALC columns across %d thread(s).",
+			num_salcs, nthreads(),
+		))
+	end
 	with_progress(num_salcs, "Building energy design matrix"; verbosity = verbosity) do prog
 		@threads for i = 1:num_salcs
 			key_group = salc_list[i]
@@ -738,6 +744,12 @@ function build_design_matrix_torque(
 	# so SVector loads come off a single cache line.
 	grad_bufs = [zeros(Float64, 3, num_atoms, num_salcs) for _ in 1:Threads.maxthreadid()]
 
+	if verbosity
+		println(@sprintf(
+			"Threading: %d spin configurations across %d thread(s).",
+			num_spinconfigs, nthreads(),
+		))
+	end
 	with_progress(num_spinconfigs, "Building torque design matrix"; verbosity = verbosity) do prog
 		@threads for sc_idx = 1:num_spinconfigs
 			spinconfig = spinconfig_list[sc_idx]
