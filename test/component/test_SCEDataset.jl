@@ -125,7 +125,12 @@ end
 
     @testset "SCEModel / SCEFit reuse the embedded basis" begin
         d_ref = SCEDataset(basis, configs)
-        f = fit(SCEFit, d_ref, OLS(); verbosity = false)
+        # `Ridge(lambda = 1e-8)` rather than `OLS()` because the dimer
+        # FM / AFM configs have spins along z, which makes every torque
+        # zero by S × S = 0; at the default `torque_weight = 1.0` the
+        # design matrix is then entirely zero. The test only checks
+        # basis reuse, so the regularizer is incidental.
+        f = fit(SCEFit, d_ref, Ridge(lambda = 1e-8); verbosity = false)
         model = SCEModel(f)
 
         d_from_model = SCEDataset(model, configs)

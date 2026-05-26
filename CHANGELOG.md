@@ -8,6 +8,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Solver unification (spec 260526-solver-unification-and-memory-log).**
+  `OLS`, `Ridge`, and `AdaptiveRidge` now all route through
+  `cholesky(Symmetric(X'X + Λ)) \ (X'y)`, replacing the previous
+  non-pivoted-QR (OLS) and `Symmetric \ ` Bunch-Kaufman (Ridge,
+  AdaptiveRidge) paths. About **3× faster** on representative sizes
+  (e.g. 19300 × 146: 32 ms → 10 ms; 1470 × 31: 260 μs → 68 μs) with
+  numerical agreement to ~1e-16. **Behavioral change for OLS on
+  rank-deficient designs**: the previous QR + pivoted-QR fallback
+  silently returned a min-norm solution; the new Cholesky path catches
+  `PosDefException` and rethrows it as an `ArgumentError` whose
+  message directs the user to `Ridge(lambda = ε)`. This is by design:
+  an OLS fit on a rank-deficient design is not physically identifiable.
+  The `MultivariateStats` dependency is dropped from `Project.toml`
+  (it was only used for `MultivariateStats.ridge`, now replaced by
+  the explicit Cholesky path).
+- **Design-matrix memory log.** `build_design_matrix_energy` and
+  `build_design_matrix_torque` print a pre-construction memory
+  estimate (matrix bytes + Cholesky Gram bytes) and a post-construction
+  `Base.summarysize` line under the existing `verbosity = true` gate.
+  Helps size the problem before waiting through the build.
 - Design-matrix construction restructured for performance (spec
   260524-design-matrix-restructuring). `build_design_matrix_energy`
   and `build_design_matrix_torque` are about **12× faster** on the

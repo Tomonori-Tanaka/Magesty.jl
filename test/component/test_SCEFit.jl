@@ -51,7 +51,12 @@ end
     end
 
     @testset "default torque_weight" begin
-        f = fit(SCEFit, dataset, OLS(); verbosity = false)
+        # `Ridge(lambda = 1e-8)` rather than `OLS()` because the dimer
+        # FM / AFM configs have spins along z, which makes every torque
+        # zero by S × S = 0; at the default `torque_weight = 1.0` the
+        # design matrix is then entirely zero. The test only checks the
+        # default torque_weight value, so the regularizer is incidental.
+        f = fit(SCEFit, dataset, Ridge(lambda = 1e-8); verbosity = false)
         @test f.torque_weight == 1.0
     end
 
