@@ -129,18 +129,18 @@ _rand_dir(rng) = (v = randn(rng, 3); SVector{3, Float64}(v ./ norm(v)))
 		@test any(s -> occursin("ls=[2, 2]", s), terms.skipped)
 	end
 
-	@testset "primitive build + cleanliness guard" begin
-		# Multi-cell models that respect cutoff < L/2 unfold cleanly...
-		for f in (("dimer", "dimer.xml"), ("dimer", "dimer_dmi.xml"), ("chain", "chain.xml"))
+	@testset "primitive build unfolds every fixture" begin
+		# Magesty keeps only minimum-distance images (distant pairs = 0), so every
+		# fitted model maps cleanly onto the primitive cell — including the minimal
+		# 2×2×2 fixtures whose pairs have multiplicity > 1 (equal-distance
+		# degenerate bonds, placed as separate primitive bonds).
+		for f in (("dimer", "dimer.xml"), ("dimer", "dimer_dmi.xml"), ("chain", "chain.xml"),
+			("febcc_2x2x2_pm", "scecoeffs.xml"), ("fept_tetragonal_2x2x2", "scecoeffs.xml"),
+			("fege_2x2x2", "scecoeffs.xml"))
 			pm = Magesty._sunny_build_primitive(Magesty.load(Magesty.SCEModel, _fixture(f...)))
 			@test pm.clean
 			@test !isempty(pm.bonds)
 			@test isempty(pm.skipped)
-		end
-		# ...while the minimal 2×2×2 fixtures have interactions reaching beyond
-		# half the supercell (multiplicity*clusters != ntran) and are flagged.
-		for f in (("febcc_2x2x2_pm", "scecoeffs.xml"), ("fept_tetragonal_2x2x2", "scecoeffs.xml"))
-			@test !Magesty._sunny_build_primitive(Magesty.load(Magesty.SCEModel, _fixture(f...))).clean
 		end
 	end
 
@@ -157,18 +157,20 @@ _rand_dir(rng) = (v = randn(rng, 3); SVector{3, Float64}(v ./ norm(v)))
 		@test !occursin("lines(disp')", s)
 		@test occursin("for b in axes(disp, 1)", s)
 
-		# Aliased model auto-selects the exact (folded) explicit route; fept also
-		# exercises the single-ion path.
+		# fept (multiplicity > 1, with single-ion) now auto-selects the unfolded
+		# primitive route.
 		me = Magesty.load(Magesty.SCEModel, _fixture("fept_tetragonal_2x2x2", "scecoeffs.xml"))
-		s2 = sce_to_sunny(me)
-		@test occursin("Cell route: explicit", s2)
-		@test occursin("set_exchange_at!", s2)
-		@test occursin("set_onsite_coupling_at!", s2)
-		@test Meta.parseall(s2) isa Expr
+		sp = sce_to_sunny(me)
+		@test occursin("Cell route: primitive", sp)
+		@test occursin("set_onsite_coupling!(sys, S ->", sp)   # single-ion path
+		@test Meta.parseall(sp) isa Expr
 
-		# Forcing :primitive on an aliased model warns and falls back to explicit.
-		s3 = (@test_logs (:warn,) sce_to_sunny(me; placement = :primitive))
-		@test occursin("Cell route: explicit", s3)
+		# The explicit (folded supercell) route remains available on request.
+		se = sce_to_sunny(me; placement = :explicit)
+		@test occursin("Cell route: explicit", se)
+		@test occursin("set_exchange_at!", se)
+		@test occursin("set_onsite_coupling_at!", se)
+		@test Meta.parseall(se) isa Expr
 
 		# File output and argument validation.
 		mktempdir() do dir

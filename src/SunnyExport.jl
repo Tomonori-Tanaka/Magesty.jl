@@ -272,33 +272,54 @@ function _sunny_primitive(model::SCEModel)::_SunnyPrimitive
 	return _SunnyPrimitive(Lp, positions, types, reshape_matrix)
 end
 
+# Distinct primitive-cell offsets `n` such that sublattice `subl(b)` in cell `n`
+# sits at the minimum image distance from sublattice `subl(a)` in the home cell.
+# Replicates the equal-minimum-distance selection of `Clusters.set_mindist_pairs`
+# from the stored 27-image arrays, so every degenerate (equal-distance) lattice
+# vector connecting the pair is recovered — not only one minimum image. The
+# second return value is `true` when all offsets are integer to tolerance (the
+# pair maps cleanly onto the primitive cell).
+function _sunny_equal_distance_offsets(
+	struc, sym, prim::_SunnyPrimitive, Lpi, a::Int, b::Int,
+)::Tuple{Vector{NTuple{3, Int}}, Bool}
+	XC = struc.x_image_cart
+	exist = struc.exist_image
+	tol = sym.tol
+	ncell = size(XC, 3)
+	a0 = SVector{3, Float64}(XC[1, a, 1], XC[2, a, 1], XC[3, a, 1])
+	dfp = prim.positions[sym.map_s2p[b].atom] .- prim.positions[sym.map_s2p[a].atom]
+
+	mind = Inf
+	@inbounds for c = 1:ncell
+		exist[c] || continue
+		bc = SVector{3, Float64}(XC[1, b, c], XC[2, b, c], XC[3, b, c])
+		d = norm(bc - a0)
+		d < mind && (mind = d)
+	end
+
+	offs = NTuple{3, Int}[]
+	ok = true
+	@inbounds for c = 1:ncell
+		exist[c] || continue
+		bc = SVector{3, Float64}(XC[1, b, c], XC[2, b, c], XC[3, b, c])
+		disp = bc - a0
+		isapprox(norm(disp), mind; atol = tol) || continue
+		nf = Lpi * disp .- dfp
+		n = round.(Int, nf)
+		maximum(abs.(nf .- n)) < 1e-6 || (ok = false)
+		push!(offs, (n[1], n[2], n[3]))
+	end
+	return offs, ok
+end
+
 # Map the supercell interactions onto primitive-cell bonds and single-ion terms.
 function _sunny_build_primitive(model::SCEModel)::_SunnyPrimitiveModel
 	prim = _sunny_primitive(model)
 	struc = model.basis.structure
 	sym = model.basis.symmetry
-	L = SMatrix{3, 3, Float64}(struc.supercell.lattice_vectors)
 	Lpi = inv(prim.latvecs)
-	xf = struc.supercell.x_frac
-	isper = struc.is_periodic
 
 	subl(a) = sym.map_s2p[a].atom
-	# Minimum-image primitive bond (i, j, offset) for supercell atoms (a, b).
-	function primbond(a::Int, b::Int)
-		df = MVector{3, Float64}(xf[1, b] - xf[1, a], xf[2, b] - xf[2, a], xf[3, b] - xf[3, a])
-		for d = 1:3
-			isper[d] || continue
-			while df[d] > 0.5
-				df[d] -= 1.0
-			end
-			while df[d] <= -0.5
-				df[d] += 1.0
-			end
-		end
-		dcart = L * SVector{3, Float64}(df)
-		n = round.(Int, Lpi * dcart .- (prim.positions[subl(b)] .- prim.positions[subl(a)]))
-		return subl(a), subl(b), (n[1], n[2], n[3])
-	end
 
 	bonds = Dict{NTuple{5, Int}, SMatrix{3, 3, Float64, 9}}()
 	onsites = Dict{Int, SMatrix{3, 3, Float64, 9}}()
@@ -311,24 +332,32 @@ function _sunny_build_primitive(model::SCEModel)::_SunnyPrimitiveModel
 		ls = group[1].ls
 		if ls == [1, 1]
 			for cbc in group
-				cbc.multiplicity * length(cbc.clusters) == sym.ntran || (clean = false)
 				M0 = _sunny_l1_pair_matrix(cbc.folded_tensor)
-				# Per-bond coupling WITHOUT multiplicity; periodic replication of
-				# the primitive cell reproduces the orbit count. All clusters of
-				# one cbc are pure-translation copies → identical (i, j, n).
+				# Per-bond coupling WITHOUT multiplicity. Each equal-distance lattice
+				# vector of the pair is placed as its own primitive bond; together
+				# (after periodic replication) they reproduce the orbit's
+				# multiplicity. ± / translation duplicates collapse to one canonical
+				# bond and are placed once (dedup within the cbc).
 				W = model.jphi[ν] * Fitting._cluster_scaling(2) * M0
 				a, b = cbc.clusters[1][1], cbc.clusters[1][2]
-				i, j, n = primbond(a, b)
-				# Canonical orientation: lower sublattice first, ties broken by the
-				# lexicographically non-negative offset (Julia tuple `>=`).
-				if i < j || (i == j && n >= (0, 0, 0))
-					key = (i, j, n...)
-					val = W
-				else
-					key = (j, i, -n[1], -n[2], -n[3])
-					val = SMatrix{3, 3, Float64}(transpose(W))
+				i, j = subl(a), subl(b)
+				offs, ok = _sunny_equal_distance_offsets(struc, sym, prim, Lpi, a, b)
+				ok || (clean = false)
+				seen = Set{NTuple{5, Int}}()
+				for n in offs
+					# Canonical orientation: lower sublattice first, ties broken by
+					# the lexicographically non-negative offset (Julia tuple `>=`).
+					if i < j || (i == j && n >= (0, 0, 0))
+						key = (i, j, n...)
+						val = W
+					else
+						key = (j, i, -n[1], -n[2], -n[3])
+						val = SMatrix{3, 3, Float64}(transpose(W))
+					end
+					key in seen && continue   # ± / duplicate of this same cbc
+					push!(seen, key)
+					bonds[key] = get(bonds, key, Z3) + val
 				end
-				bonds[key] = get(bonds, key, Z3) + val
 			end
 		elseif ls == [2]
 			for cbc in group
