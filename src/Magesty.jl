@@ -30,7 +30,8 @@ module Magesty
 
 using Printf
 using TOML
-using LinearAlgebra: norm
+using LinearAlgebra: norm, dot
+using StaticArrays: SMatrix, SVector
 import AtomsBase
 import DataStructures
 import StatsAPI                          # for the StatsAPI.RegressionModel supertype
@@ -1586,6 +1587,10 @@ include("FitCheckIO.jl")
 
 # VASP-to-extxyz conversion API; depends on the VaspIO / ExtXYZ modules.
 include("VaspConvert.jl")
+
+# Sunny.jl LSWT script export; depends on the SCEModel / SALCBasis types and
+# the Fitting normalization. Emits text only (no Sunny.jl dependency).
+include("SunnyExport.jl")
 
 
 end # module Magesty

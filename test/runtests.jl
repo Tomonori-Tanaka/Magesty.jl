@@ -49,6 +49,7 @@ if TEST_MODE in ("unit", "all")
 		include("./component/test_vasp_to_extxyz.jl")
 		include("./component/test_poscar_to_toml.jl")
 		include("./component/test_outcar_to_embset.jl")
+		include("./component/test_sunny_export.jl")
 		include("./component/test_thread_safety.jl")
 	end
 end
