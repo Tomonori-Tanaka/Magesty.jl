@@ -6,8 +6,11 @@
 # English-only. Conversation with the user stays Japanese-capable.
 #
 # Exemptions:
-#   - tools/personal/      (personal scripts, not quality-assured)
-#   - .claude/bench_log.md (historical record kept as-is)
+#   - tools/personal/        (personal scripts, not quality-assured)
+#   - .claude/bench_log.md   (historical record kept as-is)
+#   - docs/specs/<slug>/...  (per-slug spec working files; Japanese allowed.
+#                             docs/specs/_template/ and docs/specs/README.md
+#                             stay English.)
 
 set -e
 
@@ -40,10 +43,15 @@ if command -v git >/dev/null 2>&1; then
   fi
 fi
 
-# Skip exempt subtrees and historical records
+# Skip exempt subtrees and historical records.
+# Note: the template and the index keep an empty body (no exit), so they fall
+# through to the English-only textual check below.
 case "$rel" in
   tools/personal/*) exit 0 ;;
   .claude/bench_log.md) exit 0 ;;
+  docs/specs/_template/*) ;;
+  docs/specs/README.md) ;;
+  docs/specs/*/*) exit 0 ;;
 esac
 
 hits=$(perl -CSD -ne 'print "  line $.: $_" if /[\x{3040}-\x{30FF}\x{4E00}-\x{9FFF}]/' "$file_path" || true)
