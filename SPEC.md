@@ -37,6 +37,7 @@ in `src/Magesty.jl` reflects the dependency order.
 | `ExtXYZ.jl` | Writer for the extended XYZ (extxyz) format |
 | `VaspIO.jl` | Parser for VASP files (`vasprun.xml`, `OSZICAR`, `POSCAR`, `OUTCAR`) |
 | `VaspConvert.jl` | VASP conversion APIs (`vasp_to_extxyz`, `poscar_to_toml`, `outcar_to_embset`) |
+| `SunnyExport.jl` | Sunny.jl LSWT script export (`sce_to_sunny`); text generation, no Sunny dependency |
 
 ## Main types (current API)
 
@@ -178,6 +179,9 @@ SpinConfig(energy, magmom_size, spin_directions, local_magfield)
 vasp_to_extxyz(vasprun; oszicar, output) -> String
 poscar_to_toml(poscar; output) -> String
 outcar_to_embset(outcars; saxis, energy_kind, mint, output) -> String
+
+# Sunny.jl export (also the `magesty sunny script` command-line subcommand)
+sce_to_sunny(model; output, placement, symprec) -> String
 ```
 
 ## Primary external libraries

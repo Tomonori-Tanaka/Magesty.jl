@@ -1,6 +1,6 @@
 # Tasklist: SCE → Sunny.jl LSWT エクスポータ
 
-Status: in progress (2026-05-29) — M1/M3 done; M2 spike + M4/M5/M6 remaining
+Status: in progress (2026-05-29) — M1–M6 done; Tier 2 review panel + merge remaining
 
 このファイルは commit 粒度の粗いマイルストーンを保持する。日々の作業は
 セッション内の `TaskCreate` で追う。
@@ -51,33 +51,44 @@ Status: in progress (2026-05-29) — M1/M3 done; M2 spike + M4/M5/M6 remaining
 
 ### M5 — テスト
 
-- [ ] `test/component/test_sunny_export.jl`（Sunny 非依存）。
-- [ ] Sunny をテスト環境のみに追加 + ゲート設定（`MAGESTY_TEST_SUNNY`）。
-- [ ] 往復検証テスト。既存レイアウトに合わせ fixture サブディレクトリ単位で配置
-      （例 `test/integration/fept_tetragonal_2x2x2/`、`dimer/`）。各 fixture で
-      `energy(sys) ≈ predict_energy - j0`。
+- [x] `test/component/test_sunny_export.jl`（Sunny 非依存、CI: 277 件）。
+- [x] Sunny を専用サブ環境 `test/sunny/`（独自 Project.toml）に隔離。`make test-all`
+      には含めず、`make test-sunny` ターゲットで実行（Sunny は重いため）。
+- [x] 往復検証 `test/sunny/runtests.jl`：生成スクリプトを eval し `energy(sys)` と
+      `predict_energy - j0` を突合。primitive（dimer/chain）・explicit（febcc/fept,
+      単イオン含む）両ルート。`make test-sunny` 緑（15 件）。
+- [ ] （任意・将来）3D のクリーン fixture（cutoff<L/2、複数ボンド）で primitive を
+      さらに強化。chain は擬1D・単一ボンドのため。
 
-### M6 — CLI・ドキュメント
+### M6 — CLI・ドキュメント（完了）
 
-- [ ] `cli/src/MagestyCLI.jl` に `@cast module Sunny`（`script`）＋ CLI テスト。
-- [ ] `docs/src/sunny_export.md`、`docs/make.jl` ナビ、CLI ドキュメント、
-      `docs/src/api.md`。
+- [x] `cli/src/MagestyCLI.jl` に `@cast module Sunny`（`script` サブコマンド）。
+      `cli/test/runtests.jl` にテスト追加、`make test-cli` 緑。
+- [x] ドキュメント：`docs/src/api.md`（`@docs sce_to_sunny` ＋ Sunny export 節）、
+      `docs/src/tools.md`（`magesty sunny script` の解説＋変換表＋セル方針）、
+      `SPEC.md`（モジュール表＋公開 API）、`CHANGELOG.md` [Unreleased] Added。
+      （既存の `tools.md` に統合したため新規 `sunny_export.md` は作らず、make.jl ナビ
+      変更も不要。）
+- [x] `.claude/agents/test-runner.md` に `make test-sunny` を追記。
+- [x] `make test-aqua`（10/10）・`make test-jet`（no issues）通過。
 
 ## Exit checklist
 
 実装着地時に一度全項目を確認。該当しない項目は ~~取り消し線~~。
 
-- [ ] `make test-all` passes.
-- [ ] `make test-aqua` / `make test-jet` clean (no new warnings).
-- [ ] If results changed: regression or validation test added.（往復テスト）
-- [ ] If public API changed: `SPEC.md` and `docs/src/api.md` updated.
-- [ ] ~~If a hot path was touched: before / after recorded in
+- [x] `make test-all` passes（unit 277 含む）。
+- [x] `make test-aqua`（10/10）/ `make test-jet`（no issues）clean。
+      ＋ `make test-sunny`（15、往復一致）。
+- [x] If results changed: regression or validation test added（往復テスト
+      `test/sunny/` ＋ component 再構成テスト）。
+- [x] If public API changed: `SPEC.md` and `docs/src/api.md` updated。
+- [x] ~~If a hot path was touched: before / after recorded in
       `.claude/bench_log.md`.~~（ホットパス非該当）
 - [ ] Tier 2 review panel run (numerical / maintainability / performance /
       API axes) and findings resolved.
-- [ ] If module names or Makefile targets changed:
-      `.claude/agents/` swept and updated.
-- [ ] `CHANGELOG.md` `[Unreleased]` updated.
+- [x] If module names or Makefile targets changed:
+      `.claude/agents/` swept and updated（test-runner に test-sunny 追記）。
+- [x] `CHANGELOG.md` `[Unreleased]` updated。
 - [ ] `Status:` line in this file and the table in
-      `docs/specs/README.md` updated in sync.
+      `docs/specs/README.md` updated in sync（README は complete 時に更新）。
 - [ ] Implementation commit hash appended below.

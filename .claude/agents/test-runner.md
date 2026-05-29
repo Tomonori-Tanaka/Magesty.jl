@@ -27,6 +27,7 @@ Makefile.
 | `make test-aqua` | — | Aqua.jl package-quality checks |
 | `make test-sphericart` | — | Numerical agreement with SpheriCart |
 | `make test-cli` | `cli/test/` | `MagestyCLI` package tests |
+| `make test-sunny` | `test/sunny/` | Sunny.jl round-trip for `sce_to_sunny` (own env; not in `test-all`) |
 
 Selection guide:
 - Bug fix or small change: `make test-unit`.
@@ -36,6 +37,8 @@ Selection guide:
   `make test-sphericart`.
 - Type-stability work: `make test-jet`.
 - `cli/` (the `MagestyCLI` package): `make test-cli`.
+- `sce_to_sunny` / `SunnyExport.jl`: `make test-unit` (Sunny-free logic) plus
+  `make test-sunny` (Sunny round-trip; requires Sunny in its own environment).
 
 ## Test coverage map
 

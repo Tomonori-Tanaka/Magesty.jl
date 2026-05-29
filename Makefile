@@ -18,6 +18,13 @@ test-aqua:
 test-cli:
 	julia --project=cli -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate(); Pkg.test()'
 
+# Sunny.jl round-trip validation for the sce_to_sunny exporter. Sunny is a heavy
+# dependency, so it lives in its own environment under test/sunny/ and is NOT part
+# of test-all. Develop the core into that environment (by path) before running.
+test-sunny:
+	julia --project=test/sunny -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
+	julia --project=test/sunny test/sunny/runtests.jl
+
 # Note: SpheriCart agreement tests are part of test-unit (no separate target).
 
 coverage-setup:

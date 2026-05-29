@@ -4,6 +4,7 @@
 /cli/deps/build.log
 /coverage/Manifest.toml
 /docs/Manifest.toml
+/test/sunny/Manifest.toml
 **/*.cov
 /coverage.lcov
 .cursor/

@@ -133,6 +133,49 @@ end
 end # module Vasp
 
 """
+Sunny.jl interface commands.
+"""
+Comonicon.@cast module Sunny
+
+import Comonicon
+import Magesty
+import Magesty: sce_to_sunny
+
+"""
+Export a fitted SCE model to a runnable Sunny.jl spin-wave script.
+
+# Introduction
+
+The lowest-order SALCs become a conventional spin Hamiltonian (bilinear
+exchange and single-ion anisotropy); higher-order terms are skipped with a
+warning. With `--placement=auto` (default) the script uses the chemical
+primitive cell when the model is cleanly unfoldable (unfolded dispersion),
+otherwise the training supercell (folded dispersion).
+
+# Args
+
+- `model`: path to a saved `SCEModel` XML file.
+
+# Options
+
+- `--placement=<auto|primitive|explicit>`: cell route (default: `auto`).
+- `-o, --output=<path>`: output file (`.jl` is appended if missing).
+  Without it, the script is printed to stdout.
+"""
+Comonicon.@cast function script(model::String; placement::String = "auto", output::String = "")
+	out = isempty(output) ? nothing : output
+	text = sce_to_sunny(
+		Magesty.load(Magesty.SCEModel, model);
+		placement = Symbol(placement),
+		output = out,
+	)
+	out === nothing && print(text)
+	return nothing
+end
+
+end # module Sunny
+
+"""
 Magesty command-line interface.
 
 Build general effective spin models from noncollinear spin DFT

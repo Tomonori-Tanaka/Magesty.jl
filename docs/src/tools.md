@@ -1,10 +1,11 @@
 # Tools
 
 Magesty.jl provides a `magesty` command-line interface for converting VASP
-output into the formats used by the spin-cluster expansion workflow. Install
-the `magesty` command as described in [Installation](installation.md). Each
-conversion is also available programmatically as an exported function (see
-the [API Reference](@ref)).
+output into the formats used by the spin-cluster expansion workflow, and for
+exporting a fitted model to other spin-dynamics packages. Install the `magesty`
+command as described in [Installation](installation.md). Each operation is also
+available programmatically as an exported function (see the
+[API Reference](@ref)).
 
 ## `magesty vasp extxyz`
 
@@ -89,3 +90,66 @@ magesty vasp embset OUTCAR1 OUTCAR2 --saxis "1 0 0" --output EMBSET
 - `--mint`: Extract the magnetic moment from the `M_int` columns instead of `MW_int`
 
 The same conversion is available programmatically as the exported `outcar_to_embset` function.
+
+## `magesty sunny script`
+
+Export a fitted SCE model (a saved `SCEModel` XML file) to a runnable
+[Sunny.jl](https://github.com/SunnySuite/Sunny.jl) script that computes a linear
+spin-wave-theory (LSWT) magnon dispersion. Magesty itself takes on no Sunny
+dependency — the command only emits text; you run the resulting script in an
+environment that has Sunny installed.
+
+**Usage:**
+```bash
+# Print the Sunny.jl script to stdout
+magesty sunny script model.xml
+
+# Write it to a file
+magesty sunny script model.xml --output lswt.jl
+```
+
+**Arguments:**
+- `model` (positional): Path to a saved `SCEModel` XML file (from `Magesty.save`)
+
+**Options:**
+- `--placement`: cell route, `auto` (default), `primitive`, or `explicit`
+- `--output`, `-o`: Output filename (appends `.jl` automatically if omitted; default: stdout)
+
+The same export is available programmatically as the exported `sce_to_sunny` function.
+
+### What is converted
+
+The lowest-order symmetry-adapted basis functions map onto a conventional spin
+Hamiltonian (see the
+[technical notes](technical_notes.md) for the exact coefficient correspondence):
+
+| SCE term | Spin-model interaction | Sunny call |
+|----------|------------------------|------------|
+| two-site, `l₁ = l₂ = 1` | bilinear exchange (Heisenberg + Dzyaloshinskii–Moriya + anisotropic symmetric Γ), as a 3×3 matrix | `set_exchange!` |
+| single-site, `l = 2` | single-ion anisotropy | `set_onsite_coupling!` |
+
+Higher-order terms (higher-`l` pairs, three-body and beyond) cannot be
+represented in Sunny's spin Hamiltonian and are skipped, with a warning listing
+what was dropped. Spins use the reduced convention `s = 1`, `g = 2`, so the
+dispersion is in the energy unit of the fit (typically eV). The reference energy
+`j0` and any spin-independent terms are dropped (Sunny carries no constant energy
+term); the dispersion is unaffected.
+
+### Cell route and the magnetic structure
+
+The interaction parameters are independent of the magnetic order, so the
+generated script builds the crystal and interactions and then leaves a clearly
+marked block for you to set up the magnetic unit cell / propagation vector before
+minimizing and computing the dispersion.
+
+- `--placement=primitive` maps the interactions onto the chemical primitive cell
+  for an **unfolded** dispersion. This is exact only when the fitted model
+  respects the assumption that the interaction range is below half the supercell.
+- `--placement=explicit` keeps the training supercell; it is exact for any model
+  but the dispersion is **folded** into the supercell Brillouin zone.
+- `--placement=auto` (default) chooses the primitive route when the model is
+  cleanly unfoldable and otherwise falls back to the explicit route with a
+  warning.
+
+The high-symmetry path (`qs`) in the generated script is a placeholder; edit it
+for your crystal.

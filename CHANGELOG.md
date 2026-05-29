@@ -6,6 +6,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Sunny.jl export (spec 260529-sce-sunny-export).** New exported
+  `sce_to_sunny(model; output, placement, symprec)` turns a fitted
+  `SCEModel` into a runnable [Sunny.jl](https://github.com/SunnySuite/Sunny.jl)
+  linear-spin-wave-theory script, also available from the command line as
+  `magesty sunny script`. Two-site `l₁ = l₂ = 1` SALCs map to 3×3 bilinear
+  exchange (Heisenberg + Dzyaloshinskii–Moriya + anisotropic symmetric) and
+  single-site `l = 2` SALCs to single-ion anisotropy; higher-order terms are
+  skipped with a warning. `placement = :auto` emits the chemical primitive cell
+  (unfolded dispersion) when the model is cleanly unfoldable (interaction range
+  below half the supercell) and otherwise falls back to the exact training
+  supercell (folded dispersion). Spins use the reduced `s = 1`, `g = 2`
+  convention. Magesty gains no Sunny dependency (text generation only); a
+  Sunny-backed round-trip energy check lives in `test/sunny/` and runs via the
+  new `make test-sunny` target.
+
 ### Changed
 
 - **Solver unification (spec 260526-solver-unification-and-memory-log).**
