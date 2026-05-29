@@ -419,8 +419,12 @@ function _sunny_emit_tail(io::IO; folded::Bool)::Nothing
 	println(io, "disp = dispersion(swt, path)")
 	println(io)
 	println(io, "# ---- Plot (requires a Makie backend) ----")
+	println(io, "# `disp` is a (bands × q) matrix; plot each band as its own line.")
 	println(io, "# using GLMakie")
-	println(io, "# fig = lines(disp'); fig")
+	println(io, "# fig = Figure()")
+	println(io, "# ax = Axis(fig[1, 1]; xlabel = \"q-path index\", ylabel = \"Energy\")")
+	println(io, "# for b in axes(disp, 1); lines!(ax, disp[b, :]); end")
+	println(io, "# fig")
 	return nothing
 end
 

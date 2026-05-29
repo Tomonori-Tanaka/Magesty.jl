@@ -153,6 +153,9 @@ _rand_dir(rng) = (v = randn(rng, 3); SVector{3, Float64}(v ./ norm(v)))
 		@test occursin("set_exchange!", s)
 		@test occursin("SpinWaveTheory", s)
 		@test occursin("q_space_path", s)
+		# Plotting snippet: per-band lines, not the broken matrix-as-vertices call.
+		@test !occursin("lines(disp')", s)
+		@test occursin("for b in axes(disp, 1)", s)
 
 		# Aliased model auto-selects the exact (folded) explicit route; fept also
 		# exercises the single-ion path.
