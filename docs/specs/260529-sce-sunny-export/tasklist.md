@@ -1,6 +1,6 @@
 # Tasklist: SCE → Sunny.jl LSWT エクスポータ
 
-Status: complete (2026-05-29) — pending merge of feature/sce-sunny-export
+Status: merged (2026-05-29, PR #31)
 
 このファイルは commit 粒度の粗いマイルストーンを保持する。日々の作業は
 セッション内の `TaskCreate` で追う。
