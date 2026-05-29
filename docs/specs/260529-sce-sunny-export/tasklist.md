@@ -1,6 +1,7 @@
 # Tasklist: SCE → Sunny.jl LSWT エクスポータ
 
-Status: merged (2026-05-29, PR #31)
+Status: merged (2026-05-29, PR #31); follow-up: primitive multiplicity>1 support
+(branch feature/sce-sunny-primitive-multiplicity, 2026-05-29)
 
 このファイルは commit 粒度の粗いマイルストーンを保持する。日々の作業は
 セッション内の `TaskCreate` で追う。

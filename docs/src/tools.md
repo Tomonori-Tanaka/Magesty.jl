@@ -143,13 +143,15 @@ marked block for you to set up the magnetic unit cell / propagation vector befor
 minimizing and computing the dispersion.
 
 - `--placement=primitive` maps the interactions onto the chemical primitive cell
-  for an **unfolded** dispersion. This is exact only when the fitted model
-  respects the assumption that the interaction range is below half the supercell.
-- `--placement=explicit` keeps the training supercell; it is exact for any model
-  but the dispersion is **folded** into the supercell Brillouin zone.
-- `--placement=auto` (default) chooses the primitive route when the model is
-  cleanly unfoldable and otherwise falls back to the explicit route with a
-  warning.
+  for an **unfolded** dispersion. Magesty keeps only minimum-distance images when
+  fitting (interactions beyond the representable range are zero), so every fitted
+  model unfolds exactly — pairs connected by several equal-distance lattice
+  vectors (multiplicity > 1) are placed as separate primitive bonds.
+- `--placement=explicit` keeps the training supercell; the dispersion is
+  **folded** into the supercell Brillouin zone. Equivalent physics, just a
+  larger magnetic cell.
+- `--placement=auto` (default) uses the primitive route (a rare unresolvable
+  geometry falls back to explicit with a warning).
 
 The high-symmetry path (`qs`) in the generated script is a placeholder; edit it
 for your crystal.

@@ -49,9 +49,20 @@ cutoff=L/2）で 1e-16）。
 **厳密成立の判定基準**: 全 pair で `multiplicity × #clusters == ntran`。
 - cutoff = L/2（共線 ±像の折り重なり）→ `mult=2, #clusters=ntran/2`,
   product = ntran → **クリーン**（問題なし）。
-- `product > ntran`（cutoff > L/2 で非共線の異方ボンドが同一原子対に重なる）→
-  異なる方向＝異なるテンソルの和になり分離不能 → **真に lossy**。この場合のみ
-  ガードで警告し、`:explicit`（折り畳み）へフォールバックする。
+- `product > ntran` → 後続作業で**常に展開可能**と判明（下記）。
+
+> **追補（後続作業, branch feature/sce-sunny-primitive-multiplicity）**:
+> `multiplicity` は「同一順序付き原子対を同一最小距離で結ぶ等距離格子ベクトルの
+> 本数」（`Clusters.set_mindist_pairs` は最小距離像のみ保持＝遠距離は 0）。よって
+> 異シェルの lump は起きず、`product > ntran` も**情報損失なし＝常に展開可能**。
+> 当初の「product==ntran だけクリーン」判定は保守的すぎた。`_sunny_build_primitive`
+> を「各ペアの等距離ベクトルを全列挙し、相異なる正準プリミティブボンドごとに
+> ボンド単位テンソル `M0` を配置（cbc 内は dedup、cbc 間は加算）」に拡張。
+> 新ヘルパ `_sunny_equal_distance_offsets`（保存済み27像 `x_image_cart` から
+> 等最小距離ベクトルを復元）。これで febcc/fept/fege（旧 product>ntran）も
+> primitive で `predict_energy − j0` を機械精度再現（`test/sunny` で検証、20件）。
+> fe_bcc 3x3x3（cutoff=-1, nat_prim=1）も単一バンドに展開・一致を確認。`:explicit`
+> はユーザ選択肢＆解決不能な幾何のフォールバックとして維持。
 
 **実装の要点（M2 で確定した正しい扱い）**:
 - プリミティブボンドの結合は `jphi · scaling · M0`（**multiplicity を掛けない**）。
