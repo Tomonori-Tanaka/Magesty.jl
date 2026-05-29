@@ -52,10 +52,16 @@ function _refit_basis()
     return SCEBasis(input; verbosity = false)
 end
 
-# Four spin configurations on the same 2-atom dimer (varied orientations
-# so the augmented design matrix has rank exceeding `num_salcs`).
+# Spin configurations on the same 2-atom dimer. The set is chosen with
+# enough orientational variety that the augmented design matrix is full
+# column rank (rank == num_salcs); the four high-symmetry configs above
+# alone leave rank deficient by ~3 against the (lmax=1, lsum=4,
+# isotropy=false) basis, so this set adds five generic off-axis
+# orientations to break the residual symmetry-induced dependencies.
 function _refit_configs()
     SC = Magesty.SpinConfigs.SpinConfig
+    # Helper: column-normalize a 3xN spin-direction matrix to unit length.
+    _col_normalize(v) = v ./ sqrt.(sum(abs2, v; dims = 1))
     cfgs = [
         SC(-1.0, [1.0, 1.0],
            [0.0 0.0; 0.0 0.0; 1.0 1.0],
@@ -69,6 +75,27 @@ function _refit_configs()
         SC(-0.2, [1.0, 1.0],
            [1.0/sqrt(3) 1.0/sqrt(3); 1.0/sqrt(3) -1.0/sqrt(3); 1.0/sqrt(3) 1.0/sqrt(3)],
            [0.05 -0.05; -0.05 0.05; 0.0 0.0]),
+        SC( 0.7, [1.0, 1.0],
+           _col_normalize([0.2 0.6; 0.7 -0.3; 0.5 0.4]),
+           [0.03 -0.01; -0.02 0.04; 0.01 -0.03]),
+        SC(-0.4, [1.0, 1.0],
+           _col_normalize([0.5 -0.4; -0.2 0.8; 0.6 -0.3]),
+           [-0.02 0.03; 0.04 -0.01; -0.03 0.02]),
+        SC( 0.1, [1.0, 1.0],
+           _col_normalize([0.3 0.5; -0.4 0.2; 0.7 -0.6]),
+           [0.04 -0.02; -0.01 0.03; 0.02 -0.04]),
+        SC(-0.6, [1.0, 1.0],
+           _col_normalize([-0.5 0.7; 0.6 -0.2; -0.3 0.4]),
+           [0.01 -0.04; 0.03 0.02; -0.02 0.01]),
+        SC( 0.5, [1.0, 1.0],
+           _col_normalize([0.4 -0.3; -0.5 0.6; 0.2 -0.7]),
+           [-0.03 0.01; 0.02 -0.04; 0.04 -0.02]),
+        SC(-0.1, [1.0, 1.0],
+           _col_normalize([0.6 -0.5; 0.3 0.4; -0.5 0.7]),
+           [0.02 -0.03; -0.04 0.01; 0.03 -0.02]),
+        SC( 0.4, [1.0, 1.0],
+           _col_normalize([-0.2 0.4; -0.7 -0.5; 0.6 0.3]),
+           [-0.01 0.04; 0.03 -0.02; -0.02 0.01]),
     ]
     return cfgs
 end

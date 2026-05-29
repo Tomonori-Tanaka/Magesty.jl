@@ -542,9 +542,10 @@ end
         rng = MersenneTwister(20260701)
         X, y = _centered_energy_system(rng, 60, 8)
         b_ar = Magesty.Fitting.solve_coefficients(AdaptiveRidge(lambda = 0.0), X, y)
-        # The penalty term vanishes; the solve short-circuits to `X \ y`,
-        # so the result is bit-identical to the bare least-squares solve.
-        @test b_ar == X \ y
+        # The penalty term vanishes; the solve short-circuits to the OLS
+        # Cholesky path. Compare against pivoted-QR `X \ y` modulo
+        # Cholesky-vs-QR rounding noise (well-conditioned design here).
+        @test maximum(abs.(b_ar .- X \ y)) < 1e-10
     end
 
     @testset "epsilon -> infinity collapses to plain Ridge(lambda/epsilon)" begin

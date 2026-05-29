@@ -8,7 +8,6 @@ module Fitting
 using Base.Threads
 using LinearAlgebra
 using Printf
-using MultivariateStats
 using GLMNet
 using Statistics
 using StaticArrays
@@ -42,6 +41,87 @@ internal; callers in this module invoke it directly as
 @inline _cluster_scaling(n_sites::Integer)::Float64 = (4π)^(n_sites / 2)
 
 """
+	_format_bytes(n::Integer) -> String
+
+Format a byte count as a short human-readable string ("12.3 MB", "4.7 GB").
+Uses base-1024 units up to TB and one decimal of precision; falls back to
+plain bytes below 1 KB. Internal helper for the design-matrix memory log.
+"""
+function _format_bytes(n::Integer)::String
+	# Negative input means upstream integer overflow on the byte-count
+	# multiplication; assert rather than silently print a negative size.
+	n >= 0 || throw(ArgumentError("_format_bytes expects a non-negative count; got $n"))
+	x = Float64(n)
+	x < 1024.0 && return @sprintf("%d B", n)
+	# Climb units until the value fits in the current unit, or we hit the
+	# TB cap (a value that exceeds 1024 TB is rendered in TB without an
+	# extra unit).
+	x /= 1024.0
+	x < 1024.0 && return @sprintf("%.1f KB", x)
+	x /= 1024.0
+	x < 1024.0 && return @sprintf("%.1f MB", x)
+	x /= 1024.0
+	x < 1024.0 && return @sprintf("%.1f GB", x)
+	x /= 1024.0
+	return @sprintf("%.1f TB", x)
+end
+
+"""
+	_log_design_matrix_memory_estimate(label, rows, num_salcs)
+
+Print the pre-construction memory estimate for a design matrix of size
+`rows × num_salcs` plus the `num_salcs × num_salcs` Cholesky Gram matrix.
+`label` distinguishes the energy and torque builders in the output.
+"""
+function _log_design_matrix_memory_estimate(
+	label::AbstractString,
+	rows::Integer,
+	num_salcs::Integer,
+)
+	bytes      = widen(rows) * num_salcs * sizeof(Float64)
+	gram_bytes = widen(num_salcs) * num_salcs * sizeof(Float64)
+	println(@sprintf(
+		"Memory estimate: %s design matrix %s (%d x %d Float64), Cholesky Gram %s (%d x %d). Total ~%s.",
+		label,
+		_format_bytes(bytes), rows, num_salcs,
+		_format_bytes(gram_bytes), num_salcs, num_salcs,
+		_format_bytes(bytes + gram_bytes),
+	))
+	return nothing
+end
+
+"""
+	_log_design_matrix_built(label, matrix)
+
+Print the post-construction actual size of a freshly built design matrix
+via `Base.summarysize`. Paired with `_log_design_matrix_memory_estimate`.
+"""
+function _log_design_matrix_built(label::AbstractString, matrix::AbstractMatrix)
+	println(@sprintf(
+		"%s design matrix built: %s actual.",
+		label,
+		_format_bytes(Base.summarysize(matrix)),
+	))
+	return nothing
+end
+
+"""
+	_normal_equations(X, y) -> (XtX::Matrix{Float64}, Xty::Vector{Float64})
+
+Build the symmetric Gram matrix `X'X` and the right-hand side `X'y` used
+by the Cholesky-based normal-equation solvers. Promotes `X` and `y` to
+`Float64` without copying when they already are.
+"""
+@inline function _normal_equations(
+	X::AbstractMatrix{<:Real},
+	y::AbstractVector{<:Real},
+)
+	Xf = X isa Matrix{Float64} ? X : Matrix{Float64}(X)
+	yf = y isa Vector{Float64} ? y : Vector{Float64}(y)
+	return Xf' * Xf, Xf' * yf
+end
+
+"""
 	AbstractEstimator
 
 Abstract type for SCE coefficient estimation methods. Concrete subtypes
@@ -60,12 +140,22 @@ zero-field singleton because the OLS solver has no hyperparameter to
 tune — there is no `lambda`-like knob, by design. Construct as `OLS()`;
 contrast with `Ridge(lambda = ...)`.
 
-The solve is non-pivoted QR (`qr(X) \\ y`), which assumes `X` has full
-column rank. For SCE designs that may be rank-deficient or near-collinear
-(e.g. `num_salcs >= num_spinconfigs` at `torque_weight = 0`), prefer
-`Ridge(lambda = small)` — the small ridge term restores well-posedness
-without changing the fitted coefficients meaningfully when `X` is in
-fact full rank.
+The solve goes through Cholesky on the normal equations:
+`cholesky(Symmetric(X'X)) \\ (X'y)`. Cholesky is the fastest stable
+factorization for symmetric positive-definite systems and keeps memory
+to the `num_salcs × num_salcs` Gram matrix.
+
+If the design matrix is rank-deficient or numerically near-collinear,
+`OLS` throws `ArgumentError` whose message explains the cause and
+recommends `Ridge(lambda = ε)`. An unregularized fit on such data is
+physically meaningless (the SCE coefficients are not identifiable), so
+the right answer is an explicit error rather than a silent fallback.
+
+# Examples
+```julia
+est = OLS()
+f   = fit(SCEFit, dataset, OLS(); torque_weight = 0.3)
+```
 """
 struct OLS <: AbstractEstimator end
 
@@ -76,6 +166,12 @@ L2-regularized least-squares (ridge) estimator. The penalty applies
 uniformly to every SCE coefficient; the bias term `j0` does not need to
 be excluded explicitly because it is eliminated analytically before the
 solve (see `assemble_weighted_problem` / `extract_j0_jphi`).
+
+The solve is `cholesky(Symmetric(X'X + lambda * I)) \\ (X'y)` — the same
+Cholesky-on-normal-equations route as `OLS`, with the `lambda * I` shift
+guaranteeing strict positive-definiteness for `lambda > 0` (so Cholesky
+cannot fail here). When `lambda ≈ 0`, the call delegates to the OLS
+solver and inherits its `PosDefException` → `ArgumentError` behavior.
 
 Unlike `OLS`, `Ridge` carries one hyperparameter, `lambda`, and is
 therefore a regular struct rather than a singleton. Constructing
@@ -92,7 +188,7 @@ extra type exists so that estimator sweeps can iterate over `OLS()` and
 # Default keyword form (lambda = 0.0 -> equivalent to OLS).
 est = Ridge()
 
-# Typical regularised fit.
+# Typical regularized fit.
 est = Ridge(lambda = 1e-4)
 ```
 """
@@ -100,7 +196,11 @@ struct Ridge <: AbstractEstimator
 	lambda::Float64
 end
 
-Ridge(; lambda::Real = 0.0) = Ridge(Float64(lambda))
+function Ridge(; lambda::Real = 0.0)
+	(isfinite(lambda) && lambda >= 0.0) ||
+		throw(ArgumentError("Ridge lambda must be finite and non-negative; got $lambda"))
+	return Ridge(Float64(lambda))
+end
 
 """
 	ElasticNet(; alpha::Real, lambda::Real, standardize::Bool = true)
@@ -539,6 +639,34 @@ function build_sh_cache_torque(
 	return SHCache(Z, ∂Z, l_max)
 end
 
+"""
+	build_design_matrix_energy(salc_list, spinconfig_list, symmetry;
+	                           verbosity = true) -> Matrix{Float64}
+
+Build the energy design matrix `X_E` used for regression. One row per
+spin configuration, one column per SALC key group; the bias term `j0` is
+not represented as a column — it is recovered analytically after the
+solve by `extract_j0_jphi`.
+
+# Arguments
+- `salc_list`: Vector of SALC key groups
+  (`Vector{Vector{CoupledBases.CoupledBasis_with_coefficient}}`).
+- `spinconfig_list`: Vector of spin configurations.
+- `symmetry`: Symmetry information (accepted for API stability; orbit
+  images are read from `cbc.clusters` and SH values from a per-config
+  cache, so this argument is currently unused inside the kernel).
+
+# Keyword arguments
+- `verbosity::Bool = true`: When `true`, prints a pre-construction
+  memory estimate (design matrix + Cholesky Gram), a thread-count line,
+  a progress bar over SALC columns (live bar on TTY, a single
+  "Done (X.XX sec)." line on non-TTY), and a post-construction actual
+  size via `Base.summarysize`.
+
+# Returns
+- `Matrix{Float64}`: Energy design matrix of shape
+  `(num_spinconfigs, num_salcs)`.
+"""
 function build_design_matrix_energy(
 	salc_list::AbstractVector{Vector{CoupledBases.CoupledBasis_with_coefficient}},
 	spinconfig_list::AbstractVector{SpinConfig},
@@ -547,6 +675,10 @@ function build_design_matrix_energy(
 )::Matrix{Float64}
 	num_salcs = length(salc_list)  # Number of key groups
 	num_spinconfigs = length(spinconfig_list)
+
+	if verbosity
+		_log_design_matrix_memory_estimate("energy", num_spinconfigs, num_salcs)
+	end
 
 	# Construct design matrix A in Ax = b. One column per SALC; the bias
 	# term `j0` is not represented as a column here — it is recovered
@@ -593,6 +725,10 @@ function build_design_matrix_energy(
 			end
 			tick!(prog)
 		end
+	end
+
+	if verbosity
+		_log_design_matrix_built("Energy", design_matrix)
 	end
 
 	return design_matrix
@@ -697,9 +833,11 @@ Build the torque design matrix used for regression.
 - `symmetry`: Symmetry information
 
 # Keyword arguments
-- `verbosity::Bool = true`: When `true`, show progress over spin
-  configurations (a live bar on TTY, a single "Done (X.XX sec)." line
-  on non-TTY).
+- `verbosity::Bool = true`: When `true`, prints a pre-construction
+  memory estimate (design matrix + Cholesky Gram), a thread-count line,
+  a progress bar over spin configurations (live bar on TTY, a single
+  "Done (X.XX sec)." line on non-TTY), and a post-construction actual
+  size via `Base.summarysize`.
 
 # Returns
 - `Matrix{Float64}`: Torque design matrix
@@ -730,6 +868,9 @@ function build_design_matrix_torque(
 	# disjoint row block (sc_idx → rows [block_size*(sc_idx-1)+1 : block_size*sc_idx]).
 	# Avoids per-thread block allocation and the final vcat copy.
 	block_size = 3 * num_atoms
+	if verbosity
+		_log_design_matrix_memory_estimate("torque", num_spinconfigs * block_size, num_salcs)
+	end
 	design_matrix = Matrix{Float64}(undef, num_spinconfigs * block_size, num_salcs)
 
 	# Thread-local accumulation buffers, one per possible threadid, pre-
@@ -797,6 +938,10 @@ function build_design_matrix_torque(
 			end
 			tick!(prog)
 		end
+	end
+
+	if verbosity
+		_log_design_matrix_built("Torque", design_matrix)
 	end
 
 	return design_matrix
@@ -1219,32 +1364,39 @@ function solve_coefficients(
 	X::AbstractMatrix{<:Real},
 	y::AbstractVector{<:Real},
 )::Vector{Float64}
-	# Fast path: non-pivoted QR (blocked Householder, pure BLAS-3) is
-	# ~8x faster on many-core BLAS than the pivoted QR (`geqp3`) that
-	# `X \ y` would dispatch to. The two agree for full column-rank `X`.
-	# When `X` is rank-deficient, non-pivoted QR yields a near-singular
-	# `R` and either throws or returns wildly inflated coefficients; we
-	# detect that from the diagonal of `R` and fall back to pivoted QR,
-	# which returns a min-norm solution.
-	F = qr(X)
-	R_diag = abs.(diag(F.R))
-	rmax = maximum(R_diag)
-	rtol = eps(Float64) * rmax * length(R_diag)
-	if minimum(R_diag) <= rtol
-		return X \ y
+	XtX, Xty = _normal_equations(X, y)
+	try
+		return cholesky(Symmetric(XtX)) \ Xty
+	catch e
+		e isa PosDefException || rethrow()
+		throw(ArgumentError(
+			"OLS solve failed: the normal-equation matrix X'X is not " *
+			"positive definite, which means the design matrix has " *
+			"linearly dependent or numerically ill-conditioned columns. " *
+			"Typical causes: (1) the basis size (number of SALCs) exceeds " *
+			"the number of spin configurations when `torque_weight = 0` " *
+			"(no torque rows to add rank); (2) the basis contains " *
+			"linearly dependent SALCs — this can fire even with " *
+			"`torque_weight > 0`; (3) the design is full-rank but " *
+			"numerically ill-conditioned (κ(X) > 1e8 ish), which Cholesky " *
+			"on X'X surfaces as a PosDef failure because the normal-" *
+			"equation route squares the condition number. " *
+			"Remedy: use `Ridge(lambda = 1e-6)` (or a similarly small " *
+			"value) to regularize, or reduce the basis size."
+		))
 	end
-	return F \ y
 end
 
 """
 	solve_coefficients(estimator::Ridge, X, y) -> Vector{Float64}
 
-L2-regularized solve. Uses `MultivariateStats.ridge` with the scalar
-`lambda` applied uniformly to every column — `X` contains only SCE
-coefficient columns; the bias has already been removed by centering in
-`assemble_weighted_problem`. When `estimator.lambda ≈ 0` falls back to
-`X \\ y` to avoid constructing the penalty vector for an effectively
-unregularized problem.
+L2-regularized solve `cholesky(Symmetric(X'X + lambda * I)) \\ (X'y)`.
+The scalar `lambda` applies uniformly to every column — `X` contains
+only SCE coefficient columns; the bias has already been removed by
+centering in `assemble_weighted_problem`. For `lambda > 0` the shifted
+Gram matrix is strictly positive definite, so Cholesky cannot fail.
+When `estimator.lambda ≈ 0`, delegates to the OLS solver to inherit its
+`PosDefException` → `ArgumentError` behavior.
 """
 function solve_coefficients(
 	e::Ridge,
@@ -1252,9 +1404,16 @@ function solve_coefficients(
 	y::AbstractVector{<:Real},
 )::Vector{Float64}
 	if e.lambda ≈ 0.0
-		return X \ y
+		return solve_coefficients(OLS(), X, y)
 	end
-	return ridge(X, y, e.lambda; bias = false)
+	XtX, Xty = _normal_equations(X, y)
+	# In-place diagonal shift `XtX[j,j] += lambda` avoids allocating a
+	# second `p × p` matrix (cf. `XtX + lambda * I`). With `lambda > 0`
+	# the shifted matrix is strictly SPD, so Cholesky cannot fail.
+	@inbounds for j in axes(XtX, 1)
+		XtX[j, j] += e.lambda
+	end
+	return cholesky(Symmetric(XtX)) \ Xty
 end
 
 """
@@ -1362,16 +1521,21 @@ function solve_coefficients(
 )::Vector{Float64}
 	if e.lambda ≈ 0.0
 		# The penalty term vanishes; the reweighting iteration is a no-op.
-		return X \ y
+		return solve_coefficients(OLS(), X, y)
 	end
-	Xf = Matrix{Float64}(X)
-	yf = Vector{Float64}(y)
-	XtX = Xf' * Xf
-	Xty = Xf' * yf
+	XtX, Xty = _normal_equations(X, y)
 	p = size(XtX, 1)
 	# Iteration zero: plain ridge with uniform weights, numerically the
 	# same fit as `Ridge(e.lambda)`. The reweighting steps start here.
-	beta = Symmetric(XtX + e.lambda * I) \ Xty
+	# `lambda > 0` makes the Gram matrix strictly positive definite, so
+	# Cholesky cannot fail. We later rebuild the diagonal in place via
+	# `copyto!(A, XtX)`; the iteration-zero shift below uses a temporary
+	# matrix because `XtX` itself must stay unmodified for the loop.
+	A0 = copy(XtX)
+	@inbounds for j in 1:p
+		A0[j, j] += e.lambda
+	end
+	beta = cholesky(Symmetric(A0)) \ Xty
 	w = Vector{Float64}(undef, p)
 	# Penalty-augmented Gram matrix. Only its diagonal changes between
 	# iterations, so it is rebuilt in place: `XtX` is copied back and the
@@ -1387,9 +1551,8 @@ function solve_coefficients(
 		end
 		# X'X is positive semidefinite and lambda * diag(w) is strictly
 		# positive (epsilon > 0 keeps every weight finite and positive),
-		# so A is symmetric positive definite -- no rank-deficiency
-		# handling is needed.
-		beta_new = Symmetric(A) \ Xty
+		# so A is symmetric positive definite -- Cholesky is safe here.
+		beta_new = cholesky(Symmetric(A)) \ Xty
 		delta = mapreduce((a, b) -> abs(a - b), max, beta_new, beta)
 		# The eps(Float64) floor only guards the 0/0 case where the whole
 		# coefficient vector is zero; it is not a convergence scale.

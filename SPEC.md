@@ -190,6 +190,5 @@ outcar_to_embset(outcars; saxis, energy_kind, mint, output) -> String
 | `StaticArrays` | Stack-allocated arrays (performance) |
 | `EzXML` | XML I/O |
 | `WignerD`, `WignerSymbols`, `LegendrePolynomials` | Angular-momentum coupling |
-| `LinearAlgebra`, `Statistics` | Linear algebra and statistics |
-| `MultivariateStats` | Ridge regression (`ridge`) |
+| `LinearAlgebra`, `Statistics` | Linear algebra and statistics (Cholesky for OLS / Ridge / AdaptiveRidge) |
 | `GLMNet` | Elastic-Net / Lasso regression (`glmnet`) |

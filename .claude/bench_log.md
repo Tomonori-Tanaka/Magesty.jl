@@ -1109,3 +1109,62 @@ on tall-skinny `randn` matrices).
   `test_refit.jl`, `test_fitcheck_io.jl`) は `R` 対角検査で pivoted QR
   に落ちて従来挙動を維持。
 - 残差ノルムは Ridge(λ=1e-8) と桁レベルで一致 (3.908e+01 等)。
+
+## Spec 260526-solver-unification-and-memory-log — Cholesky 化
+
+OLS / Ridge / AdaptiveRidge をすべて `cholesky(Symmetric(X'X + Λ)) \ X'y`
+に統一。OLS では `PosDefException` を `ArgumentError`(Ridge を案内する
+メッセージ)として rethrow し、ランク欠損 fixture には明示的にエラーを出す
+設計に変更。Ridge 経由で `MultivariateStats.ridge` を呼んでいた箇所も
+明示的 Cholesky に統一し、`MultivariateStats` を deps から外して test 限定。
+
+### Solver microbench (Apple M3, single core, OpenBLAS)
+
+ランダムガウス `X`、`y` で `b = X \ y` 相当を計測。
+
+| (m, p) | 旧 (`qr(X) \ y`) | 新 (Cholesky on `X'X`) | speedup | max \|Δb\| |
+|---|---:|---:|---:|---:|
+| (1470, 31)     | 260.1 μs | 67.7 μs  | **3.8x** | 1.2e-16 |
+| (19300, 146)   | 32.31 ms | 10.26 ms | **3.1x** | 9.4e-17 |
+| (50000, 200)   | 136.2 ms | 46.11 ms | **3.0x** | 1.6e-16 |
+
+代表サイズ(FePt / FeGe 統合テスト + 中規模)で 3–4×。係数は `1e-16` 級で
+一致(QR vs Cholesky の丸めノイズ範囲)。allocation はほぼ同じ
+(Symmetric/Cholesky のオーバーヘッドは無視できる)。
+
+### Memory log (副産物)
+
+`build_design_matrix_*` の構築前 (`num_*_rows × num_salcs × 8B` +
+Gram `num_salcs² × 8B`) と構築後 (`Base.summarysize`) を `verbosity = true`
+時に stdout 出力。例: FeGe B20 2x2x2 統合テスト出力
+
+```
+Memory estimate: torque design matrix 21.4 MB (19200 x 146 Float64), Cholesky Gram 166.5 KB (146 x 146). Total ~21.5 MB.
+...
+Torque design matrix built: 21.4 MB actual.
+```
+
+### Tier 2 review fixes (allocation)
+
+Performance reviewer の指摘で `_normal_equations(X, y)` ヘルパーを導入し、
+`X isa Matrix{Float64}` のときに不要な copy を skip。Ridge の `XtX + λI`
+materialization も `XtX[j,j] += λ` の in-place 化に変更。`n=50000, p=200`
+での Ridge 計測:
+
+| | time | allocs |
+|---|---:|---:|
+| 改修前 (`Matrix{Float64}(X)` always copy, `XtX + λI` 新規行列) | 46 ms | ~77 MB / 16 allocs |
+| 改修後 (`_normal_equations` + in-place diag add) | 41 ms | 643 KB / 10 allocs |
+
+OLS も同 `_normal_equations` 経由となり、Ridge と alloc 数・時間が一致
+(同サイズで両方 41 ms / 643 KB)。
+
+### Regression
+
+- `make test-unit` (22168 pass) / `make test-integration` (883 pass) / JET / Aqua clean.
+- ランク欠損 fixture (`test_refit.jl` の `_refit_configs`) は 4→11 configs に
+  拡充して rank(X) = 9 = num_salcs / cond(X) ≈ 8 に。
+- 構造的にしか OLS を要求しない fixture (`test_SCEDataset.jl`,
+  `test_SCEFit.jl`, `test_fitcheck_io.jl`) は `Ridge(lambda = 1e-8)` に
+  切り替え(dimer FM/AFM は z 軸 spin で torque ≡ 0 のため
+  `torque_weight = 1.0` で X が完全に零になる)。
