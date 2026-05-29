@@ -35,10 +35,19 @@ Status: in progress (2026-05-29) — M1/M3 done; M2 spike + M4/M5/M6 remaining
 - [x] component テスト（規約突合 + dimer/fept/fege 再構成を機械精度で検証、
       skip ロジック）。`make test-unit` 緑。
 
-### M4 — スクリプト生成・公開
+### M4 — スクリプト生成・公開（完了）
 
-- [ ] ボンドオフセット復元と文字列生成（フルパイプライン構成）。
-- [ ] `src/Magesty.jl` に include / using / export。
+- [x] プリミティブ構築（`_sunny_build_primitive`: spglib プリミティブ抽出＋素の
+      ボンド結合＋最小像オフセット＋`mult×#clusters==ntran` クリーン判定）。
+- [x] emitter（primitive/explicit 両ルート、フルパイプライン＋磁気構造ユーザ編集
+      セクション＋スキップ警告）。
+- [x] 公開 `sce_to_sunny(model; output, placement=:auto, symprec)`（自動ルート選択
+      ＋警告フォールバック、docstring 付き）、`src/Magesty.jl` で export。
+- [x] CI 単体テスト（クリーン判定・ルート選択・スクリプト parse・ファイル出力・
+      引数検証）。`make test-unit` 緑。
+- [x] **emitter end-to-end 検証**（生成スクリプトを eval して Sunny `energy(sys)` と
+      `predict_energy-j0` を突合）: dimer/chain(primitive) 機械精度、
+      febcc/fept(explicit, 単イオン含む) 〜1e-13。
 
 ### M5 — テスト
 

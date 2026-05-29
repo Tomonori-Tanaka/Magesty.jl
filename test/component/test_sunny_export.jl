@@ -128,4 +128,51 @@ _rand_dir(rng) = (v = randn(rng, 3); SVector{3, Float64}(v ./ norm(v)))
 		@test any(s -> occursin("n_body=3", s), terms.skipped)
 		@test any(s -> occursin("ls=[2, 2]", s), terms.skipped)
 	end
+
+	@testset "primitive build + cleanliness guard" begin
+		# Multi-cell models that respect cutoff < L/2 unfold cleanly...
+		for f in (("dimer", "dimer.xml"), ("dimer", "dimer_dmi.xml"), ("chain", "chain.xml"))
+			pm = Magesty._sunny_build_primitive(Magesty.load(Magesty.SCEModel, _fixture(f...)))
+			@test pm.clean
+			@test !isempty(pm.bonds)
+			@test isempty(pm.skipped)
+		end
+		# ...while the minimal 2×2×2 fixtures have interactions reaching beyond
+		# half the supercell (multiplicity*clusters != ntran) and are flagged.
+		for f in (("febcc_2x2x2_pm", "scecoeffs.xml"), ("fept_tetragonal_2x2x2", "scecoeffs.xml"))
+			@test !Magesty._sunny_build_primitive(Magesty.load(Magesty.SCEModel, _fixture(f...))).clean
+		end
+	end
+
+	@testset "sce_to_sunny script generation" begin
+		m = Magesty.load(Magesty.SCEModel, _fixture("dimer", "dimer_dmi.xml"))
+		s = sce_to_sunny(m)
+		@test Meta.parseall(s) isa Expr                       # syntactically valid
+		@test occursin("using Sunny", s)
+		@test occursin("Cell route: primitive", s)
+		@test occursin("set_exchange!", s)
+		@test occursin("SpinWaveTheory", s)
+		@test occursin("q_space_path", s)
+
+		# Aliased model auto-selects the exact (folded) explicit route; fept also
+		# exercises the single-ion path.
+		me = Magesty.load(Magesty.SCEModel, _fixture("fept_tetragonal_2x2x2", "scecoeffs.xml"))
+		s2 = sce_to_sunny(me)
+		@test occursin("Cell route: explicit", s2)
+		@test occursin("set_exchange_at!", s2)
+		@test occursin("set_onsite_coupling_at!", s2)
+		@test Meta.parseall(s2) isa Expr
+
+		# Forcing :primitive on an aliased model warns and falls back to explicit.
+		s3 = (@test_logs (:warn,) sce_to_sunny(me; placement = :primitive))
+		@test occursin("Cell route: explicit", s3)
+
+		# File output and argument validation.
+		mktempdir() do dir
+			p = joinpath(dir, "lswt")
+			sce_to_sunny(m; output = p)
+			@test isfile(p * ".jl")
+		end
+		@test_throws ArgumentError sce_to_sunny(m; placement = :nonsense)
+	end
 end
