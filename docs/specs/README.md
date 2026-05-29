@@ -33,7 +33,7 @@ in the "Managing development units" section of
 | [260523-design-matrix-3body-perf](260523-design-matrix-3body-perf/) | complete (2026-05-23) | `Fitting.jl` hot-path rewrite for 3-body SALCs: replace `Set{UInt}` de-dup with `Vector{UInt}` linear scan, and replace `@views spin_directions[:, atom]` SubArrays with stack `SVector{3, Float64}` reads at three sites |
 | [260524-design-matrix-restructuring](260524-design-matrix-restructuring/) | complete (2026-05-24) | Four-stage algorithmic restructuring of `build_design_matrix_*`: Mf folding, orbit pre-enumeration, per-spinconfig SH cache, torque as cluster-major reverse-mode Jacobian. ~12× speedup on FeGe 2x2x2 light. |
 | [260526-solver-unification-and-memory-log](260526-solver-unification-and-memory-log/) | complete (2026-05-26) | Unify OLS / Ridge / AdaptiveRidge around Cholesky on `X'X`, with `PosDefException` rethrown as a Ridge-pointing `ArgumentError`; add pre / post memory log to the design-matrix builders. ~3× faster solver. |
-| [260529-sce-sunny-export](260529-sce-sunny-export/) | draft (2026-05-29) | `sce_to_sunny` exporter: emit a runnable Sunny.jl LSWT script from a fitted `SCEModel` (bilinear pairs + single-ion anisotropy; round-trip energy gate). |
+| [260529-sce-sunny-export](260529-sce-sunny-export/) | complete (2026-05-29) | `sce_to_sunny` exporter: emit a runnable Sunny.jl LSWT script from a fitted `SCEModel` (bilinear pairs + single-ion anisotropy; round-trip energy gate). |
 
 This table and the `Status:` line in each `tasklist.md` are duplicated
 intentionally; update both when a spec lands. Reconcile in bulk when

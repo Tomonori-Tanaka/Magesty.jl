@@ -1,6 +1,6 @@
 # Tasklist: SCE → Sunny.jl LSWT エクスポータ
 
-Status: in progress (2026-05-29) — M1–M6 done; Tier 2 review panel + merge remaining
+Status: complete (2026-05-29) — pending merge of feature/sce-sunny-export
 
 このファイルは commit 粒度の粗いマイルストーンを保持する。日々の作業は
 セッション内の `TaskCreate` で追う。
@@ -93,6 +93,14 @@ Status: in progress (2026-05-29) — M1–M6 done; Tier 2 review panel + merge r
 - [x] If module names or Makefile targets changed:
       `.claude/agents/` swept and updated（test-runner に test-sunny 追記）。
 - [x] `CHANGELOG.md` `[Unreleased]` updated。
-- [ ] `Status:` line in this file and the table in
-      `docs/specs/README.md` updated in sync（README は complete 時に更新）。
-- [ ] Implementation commit hash appended below.
+- [x] `Status:` line in this file and the table in
+      `docs/specs/README.md` updated in sync。
+- [x] Implementation commits appended below.
+
+## Implementation commits (branch feature/sce-sunny-export)
+
+- `30db236` chore: allow Japanese in per-slug spec working files
+- `1aa145c` feat(tools): add SCE-to-Sunny exporter decomposition core
+- `de6cb6d` feat(tools): emit Sunny.jl LSWT scripts via sce_to_sunny
+- `7c86e2d` feat(cli): add 'magesty sunny script' and Sunny round-trip test
+- `330712d` refactor(tools): apply Tier 2 review fixes to sce_to_sunny
