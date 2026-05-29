@@ -163,6 +163,8 @@ otherwise the training supercell (folded dispersion).
   Without it, the script is printed to stdout.
 """
 Comonicon.@cast function script(model::String; placement::String = "auto", output::String = "")
+	placement in ("auto", "primitive", "explicit") ||
+		error("--placement must be auto, primitive, or explicit; got \"$placement\"")
 	out = isempty(output) ? nothing : output
 	text = sce_to_sunny(
 		Magesty.load(Magesty.SCEModel, model);

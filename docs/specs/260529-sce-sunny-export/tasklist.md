@@ -84,8 +84,12 @@ Status: in progress (2026-05-29) — M1–M6 done; Tier 2 review panel + merge r
 - [x] If public API changed: `SPEC.md` and `docs/src/api.md` updated。
 - [x] ~~If a hot path was touched: before / after recorded in
       `.claude/bench_log.md`.~~（ホットパス非該当）
-- [ ] Tier 2 review panel run (numerical / maintainability / performance /
-      API axes) and findings resolved.
+- [x] Tier 2 review panel run (numerical / maintainability / performance /
+      API axes) and findings resolved. Numerical: 0 blocker/major（変換式・スケーリング・
+      符号・単位・s=1 係数・DM フィルタ全て clean 確認）。適用: 実行時スキップ
+      `@warn`、未使用 `symprec` 削除、CLI placement 検証、死コード `cellof` 削除、
+      `:explicit` 時の二重 SALC 走査回避、s/係数の定数化、最小像 floor 丸め、型注釈・
+      行長・コメント整備。
 - [x] If module names or Makefile targets changed:
       `.claude/agents/` swept and updated（test-runner に test-sunny 追記）。
 - [x] `CHANGELOG.md` `[Unreleased]` updated。

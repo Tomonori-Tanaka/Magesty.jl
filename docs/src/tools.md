@@ -112,7 +112,7 @@ magesty sunny script model.xml --output lswt.jl
 - `model` (positional): Path to a saved `SCEModel` XML file (from `Magesty.save`)
 
 **Options:**
-- `--placement`: cell route, `auto` (default), `primitive`, or `explicit`
+- `--placement`: cell route, `auto` (default), `primitive`, or `explicit` (see below)
 - `--output`, `-o`: Output filename (appends `.jl` automatically if omitted; default: stdout)
 
 The same export is available programmatically as the exported `sce_to_sunny` function.
