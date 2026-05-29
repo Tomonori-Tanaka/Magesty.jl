@@ -76,6 +76,18 @@ poscar_to_toml
 outcar_to_embset
 ```
 
+## Sunny.jl export
+
+`sce_to_sunny` turns a fitted `SCEModel` into a runnable
+[Sunny.jl](https://github.com/SunnySuite/Sunny.jl) script that computes a
+linear spin-wave-theory magnon dispersion. It is also available from the
+command line as `magesty sunny script` (see [Tools](tools.md)). Magesty itself
+gains no Sunny dependency — the function only emits text.
+
+```@docs
+sce_to_sunny
+```
+
 ## Persistence
 
 `save` and `load` are not exported — call them as `Magesty.save` /

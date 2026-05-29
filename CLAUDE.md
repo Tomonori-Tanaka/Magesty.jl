@@ -41,6 +41,11 @@ see `STYLE_GUIDE.md`. **Always consult it when editing code.**
   STYLE_GUIDE.md, README, `docs/**`, `.claude/agents/*.md`, etc.), shell
   scripts, TOML, commit messages, PR titles and descriptions, and issue
   templates.
+  - **Exception — spec working files.** The per-slug spec documents under
+    `docs/specs/[YYMMDD]-[slug]/` (`requirements.md` / `design.md` /
+    `tasklist.md`) may be written in Japanese; they are internal working
+    documents. The spec template `docs/specs/_template/` and the index
+    `docs/specs/README.md` stay English.
 - **Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).**
   Format: `<type>(<scope>): <subject>` (scope optional).
   - Types in use: `feat` / `fix` / `docs` / `test` / `refactor` / `perf` /
@@ -53,8 +58,10 @@ see `STYLE_GUIDE.md`. **Always consult it when editing code.**
   (e.g., SpheriCart's `normalisation=:L2` keyword argument).
 - **Japanese in any committed file is auto-blocked by the PostToolUse hook
   (`.claude/hooks/no-japanese.sh`).** The hook covers the entire repository,
-  with two exemptions: `tools/personal/` (personal scripts) and
-  `.claude/bench_log.md` (historical record).
+  with these exemptions: `tools/personal/` (personal scripts),
+  `.claude/bench_log.md` (historical record), and per-slug spec working files
+  under `docs/specs/[YYMMDD]-[slug]/` (the template `docs/specs/_template/` and
+  the index `docs/specs/README.md` remain enforced as English).
 - **Do not reference Claude-internal scaffolding from source code.** In `.jl`
   comments and docstrings, never name `CLAUDE.md` / `DESIGN_NOTES.md` /
   `docs/design-notes/` / `.claude/` / `docs/specs/`. These are

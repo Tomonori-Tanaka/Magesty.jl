@@ -30,7 +30,8 @@ module Magesty
 
 using Printf
 using TOML
-using LinearAlgebra: norm
+using LinearAlgebra: norm, dot, det, cross, inv
+using StaticArrays: SMatrix, SVector, MVector
 import AtomsBase
 import DataStructures
 import StatsAPI                          # for the StatsAPI.RegressionModel supertype
@@ -94,6 +95,7 @@ export r2_energy, r2_torque, rss_energy, rss_torque
 export residuals_energy, residuals_torque, rmse_energy, rmse_torque
 export SpinConfig, read_embset
 export vasp_to_extxyz, poscar_to_toml, outcar_to_embset
+export sce_to_sunny
 
 # Shared skeleton for the SCEBasis input-driven constructors.
 # Returns the (structure, symmetry, cluster) triplet; callers append the
@@ -1586,6 +1588,10 @@ include("FitCheckIO.jl")
 
 # VASP-to-extxyz conversion API; depends on the VaspIO / ExtXYZ modules.
 include("VaspConvert.jl")
+
+# Sunny.jl LSWT script export; depends on the SCEModel / SALCBasis types and
+# the Fitting normalization. Emits text only (no Sunny.jl dependency).
+include("SunnyExport.jl")
 
 
 end # module Magesty

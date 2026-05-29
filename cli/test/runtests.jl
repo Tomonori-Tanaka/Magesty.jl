@@ -66,4 +66,24 @@ end
 	end
 end
 
+@testset "magesty sunny script" begin
+	model_path = joinpath(@__DIR__, "..", "..", "test", "integration", "dimer", "dimer_dmi.xml")
+
+	# CLI subcommand `magesty sunny script`: exits 0 and writes a parseable
+	# Sunny.jl script.
+	cli_outfile = tempname() * ".jl"
+	try
+		exit_code = MagestyCLI.command_main(
+			["sunny", "script", model_path, "--output", cli_outfile],
+		)
+		@test exit_code == 0
+		text = read(cli_outfile, String)
+		@test Meta.parseall(text) isa Expr
+		@test occursin("using Sunny", text)
+		@test occursin("SpinWaveTheory", text)
+	finally
+		isfile(cli_outfile) && rm(cli_outfile)
+	end
+end
+
 println("All MagestyCLI tests passed.")
