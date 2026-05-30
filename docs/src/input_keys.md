@@ -141,6 +141,32 @@ in full, regardless of how many other pairs fit. Setting a pair cutoff
 to `-1` disables the constraint for that pair only — the rule is still
 evaluated for every other pair in the cluster.
 
+### Supercell size and representable interaction range
+
+Pair distances are evaluated under the **minimum-image convention**: each
+pair is assigned to its shortest periodic image across the supercell. A
+displacement is represented uniquely only when it is the strictly shortest
+vector among its periodic images — that is, when it lies inside the
+**Wigner–Seitz cell of the supercell lattice**. An interaction whose range
+exceeds that region cannot be represented: its shortest image folds onto a
+closer lattice vector, so the model treats it as zero.
+
+A convenient, direction-independent guarantee is **range < L/2**, where `L`
+is the shortest supercell edge (the inscribed-sphere radius of the cell): any
+interaction shorter than this is always representable. The exact bound is
+anisotropic, though. For a cubic supercell of edge `L` the representable range
+reaches `L/2` along ⟨100⟩ but `√3·L/2` along ⟨111⟩ — e.g. in a bcc 2×2×2 cell
+(`L = 2a`) the origin–body-corner pair at distance `√3·a = √3·L/2` sits on the
+Wigner–Seitz corner and is still represented. Choose the supercell so that
+every interaction you intend to fit lies inside this region; taking
+`range < L/2` is the safe rule.
+
+A related subtlety affects pairs lying exactly on a Wigner–Seitz *face*: they
+lose their odd folded-angular-momentum (`Lf`) couplings, including the
+Dzyaloshinskii–Moriya term. See
+[Symmetry adaptation](theory/symmetry_adaptation.md) for the minimum-image
+geometry and this cancellation.
+
 ### `[structure]`
 
 | Key | Type | Required | Description |

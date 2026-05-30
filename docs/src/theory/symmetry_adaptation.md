@@ -14,6 +14,30 @@ atoms within distance cutoffs. `src/Clusters.jl` enumerates them, using
 per-body-order, per-species-pair cutoff radii (`bodyn_cutoff` in
 `InteractionSpec`); the body order `nbody` sets the largest cluster size.
 
+### Representable interaction range
+
+Cluster distances are measured under the **minimum-image convention**. From
+the 3×3×3 block of periodic images of the supercell (`calc_x_images` in
+`src/Structures.jl` — the home cell plus its 26 neighbors), `set_mindist_pairs`
+in `src/Clusters.jl` keeps, for each atom pair, the shortest image together
+with every image tied with it to within tolerance. A pair displacement is
+therefore represented uniquely only when it is the strictly shortest vector
+among its periodic images, i.e. when it lies **inside the Wigner–Seitz cell of
+the supercell lattice**. Beyond that region the shortest image folds onto a
+closer lattice vector, so longer shells collapse onto shorter ones and the
+model effectively treats interactions past the representable range as zero.
+
+This region is anisotropic. For a cubic supercell of edge ``L`` (Wigner–Seitz
+cell ``[-L/2,\,L/2]^3``) it reaches ``L/2`` along ``\langle 100\rangle`` but
+``\sqrt{3}\,L/2`` along ``\langle 111\rangle``; in a bcc 2×2×2 cell
+(``L = 2a``) the origin–body-corner pair at distance
+``\sqrt{3}\,a = \sqrt{3}\,L/2`` sits exactly on the Wigner–Seitz corner
+(eightfold degenerate) and is still kept. A convenient direction-independent
+guarantee is **range ``< L/2``** (the inscribed-sphere radius): any
+interaction shorter than this is always representable, which is the safe rule
+when choosing a supercell. Pairs sitting on the Wigner–Seitz boundary are the
+equal-distance degenerate case recorded by `multiplicity` (below).
+
 The space group, obtained from Spglib through `src/Symmetries.jl`, sorts
 these clusters into *orbits*: sets of clusters mapped onto one another by
 symmetry operations. Every cluster in an orbit must contribute with the
@@ -82,6 +106,29 @@ boundary — generate the identical coupled basis more than once; the basis
 is kept once, with the repeat count stored as `multiplicity`. The
 design-matrix construction weights each coupled basis by this count, so
 every translationally equivalent copy contributes to ``\Phi_\nu``.
+
+### Cell-boundary pairs: odd ``L_f`` SALCs vanish
+
+A symmetry cancellation is specific to those cell-boundary pairs. When a
+pair's two atoms are translationally equivalent (they fold to the same
+primitive atom) and the pair lies on a Wigner–Seitz *face*, both orderings
+``(a, b)`` and ``(b, a)`` appear in the orbit (``multiplicity > 1``): a pure
+supercell translation maps the ordered pair onto its own reverse. Under
+exchange of the two sites the coupled pair tensor of folded angular momentum
+``L_f`` picks up a factor ``(-1)^{L_f}`` (for equal site momenta; in general
+``(-1)^{l_1 + l_2 - L_f}``, see
+[Angular-momentum coupling](angular_momentum_coupling.md)). The projection
+symmetrizes over the group, which now contains this site-swapping translation,
+so for **odd ``L_f`` the tensor equals its own negative and is projected to
+zero**; even ``L_f`` survives.
+
+For an ``l_1 = l_2 = 1`` pair this removes the ``L_f = 1`` channel — the
+antisymmetric, Dzyaloshinskii–Moriya part — while ``L_f = 0`` (Heisenberg) and
+``L_f = 2`` (symmetric anisotropy) remain. It is the same mechanism that
+forbids a Dzyaloshinskii–Moriya vector on an inversion-symmetric bond.
+`SALCBases.filter_basisdict` drops these bases up front: a cluster is removed
+when all its atoms fold to one primitive atom, ``L_f`` is odd, and the
+multiplicity exceeds one. The FeGe 2×2×2 fixture exercises this.
 
 The trailing `folded_tensor` is the contraction
 ``\tilde T = \sum_{M_f} c_\nu^{M_f}\, T^{(L_f, M_f)}``, precomputed in the
