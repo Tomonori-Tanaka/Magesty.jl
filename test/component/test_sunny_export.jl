@@ -156,6 +156,11 @@ _rand_dir(rng) = (v = randn(rng, 3); SVector{3, Float64}(v ./ norm(v)))
 		# Plotting snippet: per-band lines, not the broken matrix-as-vertices call.
 		@test !occursin("lines(disp')", s)
 		@test occursin("for b in axes(disp, 1)", s)
+		# q-point labels on the x-axis, energy unit on the y-axis, and thin vlines
+		# at the interior high-symmetry path corners.
+		@test occursin("xticks = path.xticks", s)
+		@test occursin("ylabel = \"Energy (eV)\"", s)
+		@test occursin("vlines!(ax, path.xticks[1][2:end-1]", s)
 
 		# fept (multiplicity > 1, with single-ion) now auto-selects the unfolded
 		# primitive route.
