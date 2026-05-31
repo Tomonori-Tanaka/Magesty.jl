@@ -220,7 +220,7 @@ function _parse_pair_key(key::AbstractString, kd_name::AbstractVector{<:Abstract
         throw(ArgumentError("unknown species \"$b\" in pair key \"$key\""))
     end
     tier = Int(a_star) + Int(b_star)
-    return (a_idx = a_idx, b_idx = b_idx, tier = tier)
+    return (; a_idx, b_idx, tier)
 end
 
 # Canonical form for duplicate detection. Two distinct input keys collapse to

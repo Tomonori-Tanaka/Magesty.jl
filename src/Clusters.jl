@@ -39,7 +39,8 @@ import Base: isless, ==
 export Cluster
 
 # Constants
-const NUM_VIRTUAL_CELLS = 27  # Number of virtual cells in 3x3x3 supercell
+const VIRTUAL_CELL_GRID_SIZE = 3  # Linear size of the virtual-cell grid (3 cells per axis)
+const NUM_VIRTUAL_CELLS = VIRTUAL_CELL_GRID_SIZE^3  # Number of virtual cells in the 3x3x3 supercell
 const DEFAULT_TOLERANCE = 1e-5  # Default tolerance for floating-point comparisons
 
 """
@@ -281,7 +282,7 @@ function is_within_cutoff(
 		rc = cutoff_radii[body, kd_int_list[comb[1].atom], kd_int_list[comb[2].atom]]
 		distance = distance_atomcells(comb[1], comb[2], x_image_cart)
 		if rc < 0.0 || distance ≤ rc
-			if min_distance_pairs[comb[1].atom, comb[2].atom][1].distance + 0.00001 > distance
+			if min_distance_pairs[comb[1].atom, comb[2].atom][1].distance + DEFAULT_TOLERANCE > distance
 				continue
 			else
 				return false
