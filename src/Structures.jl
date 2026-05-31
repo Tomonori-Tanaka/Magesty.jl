@@ -68,7 +68,7 @@ function Cell(
 	kd_int_list::AbstractVector{<:Integer},
 	x_frac::AbstractMatrix{<:Real},
 )
-	validate_lattice_vectors(lattice_vectors)
+	_validate_lattice_vectors(lattice_vectors)
 
 	# Ensure concrete storage that matches the struct field types
 	lattice_matrix = SMatrix{3, 3, Float64}(lattice_vectors)
@@ -76,7 +76,7 @@ function Cell(
 	x_frac_matrix = Matrix{Float64}(x_frac)
 
 	return Cell(lattice_matrix,
-		calc_reciprocal_vectors(lattice_matrix),
+		_calc_reciprocal_vectors(lattice_matrix),
 		length(kd_vector),
 		length(Set(kd_vector)),
 		kd_vector,
@@ -93,7 +93,7 @@ function show(io::IO, cell::Cell)
 	println(io, "\tx_frac: ", cell.x_frac)
 end
 
-function validate_lattice_vectors(lattice_vectors::AbstractMatrix{<:Real})
+function _validate_lattice_vectors(lattice_vectors::AbstractMatrix{<:Real})
 	# Check linear independence and right-handed coordinate system
 	det_value = det(lattice_vectors)
 	if det_value ≈ 0
@@ -103,7 +103,7 @@ function validate_lattice_vectors(lattice_vectors::AbstractMatrix{<:Real})
 	end
 end
 
-function calc_reciprocal_vectors(lattice_vectors::AbstractMatrix{<:Real})
+function _calc_reciprocal_vectors(lattice_vectors::AbstractMatrix{<:Real})
 	return inv(lattice_vectors)
 end
 
@@ -158,12 +158,12 @@ struct Structure
 		supercell::Cell = Cell(lattice_vectors, kd_int_list, x_frac)
 		x_image_frac::Array{Float64, 3} = zeros(Float64, DIMENSIONS, size(x_frac, 2), NUM_CELLS)
 		x_image_cart::Array{Float64, 3} = zeros(Float64, DIMENSIONS, size(x_frac, 2), NUM_CELLS)
-		x_image_frac, x_image_cart = calc_x_images(lattice_vectors, x_frac)
-		exist_image::Vector{Bool} = calc_exist_image(is_periodic)
-		atomtype_group::Vector{Vector{Int}} = calc_atomtype_group(kd_int_list)
+		x_image_frac, x_image_cart = _calc_x_images(lattice_vectors, x_frac)
+		exist_image::Vector{Bool} = _calc_exist_image(is_periodic)
+		atomtype_group::Vector{Vector{Int}} = _calc_atomtype_group(kd_int_list)
 
 		if verbosity
-			print_structure_stdout(supercell, kd_name)
+			_print_structure_stdout(supercell, kd_name)
 			elapsed_time::Float64 = (time_ns() - start_time) / 1e9
 			println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
 			println("-------------------------------------------------------------------")
@@ -297,21 +297,21 @@ function Structure(input_xml::String; verbosity::Bool = true)::Structure
 end
 
 """
-	calc_atomtype_group(kd_int_list) -> Vector{Vector{Int}}
+	_calc_atomtype_group(kd_int_list) -> Vector{Vector{Int}}
 
 Group atom indices by their types.
 """
-function calc_atomtype_group(kd_int_list::AbstractVector{<:Integer})::Vector{Vector{Int}}
+function _calc_atomtype_group(kd_int_list::AbstractVector{<:Integer})::Vector{Vector{Int}}
 	unique_vals::Vector{Int} = sort(unique(kd_int_list))
 	return [findall(x -> x == val, kd_int_list) for val in unique_vals]
 end
 
 """
-	calc_x_images(lattice_vectors, x_frac) -> Tuple{Array{Float64, 3}, Array{Float64, 3}}
+	_calc_x_images(lattice_vectors, x_frac) -> Tuple{Array{Float64, 3}, Array{Float64, 3}}
 
 Calculate fractional and Cartesian coordinates of atoms in neighboring cells.
 """
-function calc_x_images(
+function _calc_x_images(
 	lattice_vectors::AbstractMatrix{<:Real},
 	x_frac::AbstractMatrix{<:Real},
 )::Tuple{Array{Float64, 3}, Array{Float64, 3}}
@@ -322,7 +322,7 @@ function calc_x_images(
 
 	# Set up the center cell
 	x_image_frac[:, :, 1] = x_frac
-	x_image_cart[:, :, 1] = frac2cart(lattice_vectors, x_frac)
+	x_image_cart[:, :, 1] = _frac2cart(lattice_vectors, x_frac)
 	x_image_check[:, :, 1] .= true
 
 	# Pre-allocate static vectors for better performance
@@ -347,7 +347,7 @@ function calc_x_images(
 					x_image_frac[:, iat, cell] = x_image_tmp
 					x_image_check[:, iat, cell] .= true
 				end
-				x_image_cart[:, :, cell] = frac2cart(lattice_vectors, @view(x_image_frac[:, :, cell]))
+				x_image_cart[:, :, cell] = _frac2cart(lattice_vectors, @view(x_image_frac[:, :, cell]))
 			end
 		end
 	end
@@ -356,7 +356,7 @@ function calc_x_images(
 	if false in x_image_check
 		indices::Vector{CartesianIndex{3}} = findall(x -> x == false, x_image_check)
 		error("""
-			Error in `calc_x_images`: Incomplete calculation detected.
+			Error in `_calc_x_images`: Incomplete calculation detected.
 			Missing coordinates at indices: $indices
 			Please check the calculation of neighboring cell coordinates.
 		""")
@@ -366,11 +366,11 @@ function calc_x_images(
 end
 
 """
-	frac2cart(lattice_vectors, x_frac) -> Matrix{Float64}
+	_frac2cart(lattice_vectors, x_frac) -> Matrix{Float64}
 
 Convert fractional coordinates to Cartesian coordinates.
 """
-function frac2cart(
+function _frac2cart(
 	lattice_vectors::AbstractMatrix{<:Real},
 	x_frac::AbstractMatrix{<:Real},
 )::Matrix{Float64}
@@ -380,11 +380,11 @@ function frac2cart(
 end
 
 """
-	calc_exist_image(is_periodic) -> Vector{Bool}
+	_calc_exist_image(is_periodic) -> Vector{Bool}
 
 Determine which neighboring cells exist based on periodicity.
 """
-function calc_exist_image(is_periodic::SVector{3, Bool})::Vector{Bool}
+function _calc_exist_image(is_periodic::SVector{3, Bool})::Vector{Bool}
 	exist_image::Vector{Bool} = fill(true, NUM_CELLS)
 	# Cell index 1 represents the central supercell
 	# Other indices (2-27) represent neighboring virtual cells
@@ -426,7 +426,7 @@ function show(io::IO, structure::Structure)
 end
 
 
-function print_structure_stdout(cell::Cell, kd_name::AbstractVector{<:AbstractString})
+function _print_structure_stdout(cell::Cell, kd_name::AbstractVector{<:AbstractString})
 	println("""
 
 	SYSTEM

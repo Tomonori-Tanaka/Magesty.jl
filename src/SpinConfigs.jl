@@ -18,7 +18,7 @@ import Base: show
 export SpinConfig, read_embset
 
 """
-	calc_local_magfield_vertical(spin_directions, local_magfield) -> Matrix{Float64}
+	_calc_local_magfield_vertical(spin_directions, local_magfield) -> Matrix{Float64}
 
 Calculate the component of the local magnetic field that is perpendicular to the magnetic moments.
 
@@ -32,7 +32,7 @@ Calculate the component of the local magnetic field that is perpendicular to the
 # Throws
 - `ArgumentError` if dimensions of input matrices do not match
 """
-function calc_local_magfield_vertical(
+function _calc_local_magfield_vertical(
 	spin_directions::Matrix{Float64},
 	local_magfield::Matrix{Float64},
 )::Matrix{Float64}
@@ -166,7 +166,7 @@ struct SpinConfig
 		end
 
 		# Calculate vertical component of local magnetic field
-		local_magfield_vertical = calc_local_magfield_vertical(spin_directions, local_magfield)
+		local_magfield_vertical = _calc_local_magfield_vertical(spin_directions, local_magfield)
 
 		new(
 			Float64(energy),
@@ -174,13 +174,13 @@ struct SpinConfig
 			Float64.(spin_directions),
 			Float64.(local_magfield),
 			local_magfield_vertical,
-			calc_torques(magmom_size, spin_directions, local_magfield),
+			_calc_torques(magmom_size, spin_directions, local_magfield),
 		)
 	end
 end
 
 """
-	calc_torques(magmom_size::AbstractVector{<:Real}, spin_directions::AbstractMatrix{<:Real}, local_magfield::AbstractMatrix{<:Real})::Matrix{Float64}
+	_calc_torques(magmom_size::AbstractVector{<:Real}, spin_directions::AbstractMatrix{<:Real}, local_magfield::AbstractMatrix{<:Real})::Matrix{Float64}
 
 Calculate the torques for each atom in the spin configuration.
 
@@ -192,7 +192,7 @@ Calculate the torques for each atom in the spin configuration.
 # Returns
 - `Matrix{Float64}`: Torques for each atom [3 × num_atoms]
 """
-function calc_torques(
+function _calc_torques(
 	magmom_size::AbstractVector{<:Real},
 	spin_directions::AbstractMatrix{<:Real},
 	local_magfield::AbstractMatrix{<:Real},
@@ -284,7 +284,7 @@ function read_embset(filepath::AbstractString)::Vector{SpinConfig}
 	end
 
 	# Detect number of atoms from file
-	num_atoms = detect_num_atoms(filepath)
+	num_atoms = _detect_num_atoms(filepath)
 
 	# Read and filter lines
 	filtered_lines = String[]
@@ -312,14 +312,14 @@ function read_embset(filepath::AbstractString)::Vector{SpinConfig}
 	configs = Vector{SpinConfig}(undef, num_configs)
 
 	for i = 1:num_configs
-		configs[i] = separate_embset(filtered_lines, num_atoms, i)
+		configs[i] = _separate_embset(filtered_lines, num_atoms, i)
 	end
 
 	return configs
 end
 
 """
-	detect_num_atoms(filepath::AbstractString) -> Integer
+	_detect_num_atoms(filepath::AbstractString) -> Integer
 
 Detect the number of atoms from an EMBSET file by counting the number of atom data lines in the first spin configuration.
 
@@ -332,7 +332,7 @@ Detect the number of atoms from an EMBSET file by counting the number of atom da
 # Throws
 - `ErrorException` if the file format is invalid
 """
-function detect_num_atoms(filepath::AbstractString)::Integer
+function _detect_num_atoms(filepath::AbstractString)::Integer
 	open(filepath, "r") do file
 		# Find first comment line (start of first config)
 		found_first_comment = false
@@ -380,7 +380,7 @@ function detect_num_atoms(filepath::AbstractString)::Integer
 end
 
 """
-	separate_embset(filtered_lines, num_atoms, data_index) -> SpinConfig
+	_separate_embset(filtered_lines, num_atoms, data_index) -> SpinConfig
 
 Extract a single spin configuration from filtered EMBSET lines.
 
@@ -395,7 +395,7 @@ Extract a single spin configuration from filtered EMBSET lines.
 # Throws
 - `ErrorException` if the file format is invalid
 """
-function separate_embset(
+function _separate_embset(
 	filtered_lines::AbstractVector{<:AbstractString},
 	num_atoms::Integer,
 	data_index::Integer,

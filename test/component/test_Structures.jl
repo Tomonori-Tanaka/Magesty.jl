@@ -107,7 +107,7 @@ using Magesty.Structures
     # ------------------------------------------------------------------
 
     @testset "Left-handed lattice rejected" begin
-        # validate_lattice_vectors rejects det < 0 (not just det ≈ 0).
+        # _validate_lattice_vectors rejects det < 0 (not just det ≈ 0).
         # Swapping two columns of the identity flips the orientation.
         left_handed = SMatrix{3,3,Float64}([
             0.0 1.0 0.0;
@@ -164,7 +164,7 @@ using Magesty.Structures
     end
 
     @testset "verbosity=true emits structure info" begin
-        # The verbose path calls print_structure_stdout + a "Time Elapsed"
+        # The verbose path calls _print_structure_stdout + a "Time Elapsed"
         # line. Capture via a Pipe — IOBuffer is not supported by
         # redirect_stdout on Julia 1.12 (needs a file descriptor).
         lattice_vectors = SMatrix{3,3,Float64}([

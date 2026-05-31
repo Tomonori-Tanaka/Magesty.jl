@@ -95,7 +95,7 @@ function plot_histogram(
 	end
 
 	# Detect number of atoms from the first file
-	n_atoms = Magesty.SpinConfigs.detect_num_atoms(inputs[1])
+	n_atoms = Magesty.SpinConfigs._detect_num_atoms(inputs[1])
 	if n_atoms <= 0
 		error("The total number of atoms must be positive: $n_atoms")
 	end

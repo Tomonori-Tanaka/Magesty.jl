@@ -155,21 +155,21 @@ struct Symmetry
 		end
 
 		# construct symnum_translation and ntran
-		symnum_translation = construct_symnum_translation(spglib_data, tol)
+		symnum_translation = _construct_symnum_translation(spglib_data, tol)
 		ntran = length(symnum_translation)
 
 		# construct symdata
-		symdata = construct_symdata(spglib_data, tol, symnum_translation, cell)
+		symdata = _construct_symdata(spglib_data, tol, symnum_translation, cell)
 
 		# construct mapping data
-		map_sym = construct_map_sym(spglib_data, tol, structure)
-		map_sym_inv = construct_map_sym_inv(map_sym)
+		map_sym = _construct_map_sym(spglib_data, tol, structure)
+		map_sym_inv = _construct_map_sym_inv(map_sym)
 		# generate map_p2s (primitive cell --> supercell)
-		map_p2s = construct_map_p2s(spglib_data, cell, map_sym, symnum_translation)
+		map_p2s = _construct_map_p2s(spglib_data, cell, map_sym, symnum_translation)
 
 		nat_prim = maximum(spglib_data.mapping_to_primitive)
 		# generate map_s2p (supercell -> primitive cell)
-		map_s2p = construct_map_s2p(cell, map_p2s, nat_prim, ntran)
+		map_s2p = _construct_map_s2p(cell, map_p2s, nat_prim, ntran)
 
 		# collect atom indices in primitive cell from map_p2s
 		atoms_in_prim = [map_p2s[i, 1] for i = 1:nat_prim]
@@ -209,7 +209,7 @@ function Symmetry(structure::Structure, options::SymmetryOptions; verbosity::Boo
 	return Symmetry(structure, options.tolerance_sym, verbosity = verbosity)
 end
 
-function construct_symnum_translation(spglib_data::Spglib.Dataset, tol::Real)::Vector{Int}
+function _construct_symnum_translation(spglib_data::Spglib.Dataset, tol::Real)::Vector{Int}
 	symnum_translation = Int[]
 	for i = 1:spglib_data.n_operations
 		if isapprox(spglib_data.rotations[i], I, atol = tol)
@@ -219,7 +219,7 @@ function construct_symnum_translation(spglib_data::Spglib.Dataset, tol::Real)::V
 	return symnum_translation
 end
 
-function construct_symdata(
+function _construct_symdata(
 	spglib_data::Spglib.Dataset,
 	tol::Real,
 	symnum_translation::Vector{Int},
@@ -246,7 +246,7 @@ function construct_symdata(
 	return symdata
 end
 
-function construct_map_sym(
+function _construct_map_sym(
 	spglib_data::Spglib.Dataset,
 	tol::Real,
 	structure::Structure,
@@ -310,7 +310,7 @@ function construct_map_sym(
 end
 
 """
-	construct_map_sym_inv(map_sym::Matrix{Int}) -> Matrix{Int}
+	_construct_map_sym_inv(map_sym::Matrix{Int}) -> Matrix{Int}
 
 Constructs the inverse mapping of `map_sym`.
 
@@ -328,7 +328,7 @@ For `map_sym[i, isym] = j` (atom `i` maps to atom `j` under symmetry operation `
 # Throws
 - `ErrorException` if the inverse mapping cannot be constructed properly (e.g., non-bijective mapping)
 """
-function construct_map_sym_inv(map_sym::AbstractMatrix{<:Integer})::Matrix{Int}
+function _construct_map_sym_inv(map_sym::AbstractMatrix{<:Integer})::Matrix{Int}
 	num_atoms, nsym = size(map_sym)
 	map_sym_inv = zeros(Int, num_atoms, nsym)
 
@@ -360,7 +360,7 @@ function construct_map_sym_inv(map_sym::AbstractMatrix{<:Integer})::Matrix{Int}
 end
 
 """
-	construct_map_p2s(spglib_data::Spglib.Dataset, cell::Structures.Cell, map_sym::Matrix{Int}, symnum_translation::Vector{Int}) -> Matrix{Int}
+	_construct_map_p2s(spglib_data::Spglib.Dataset, cell::Structures.Cell, map_sym::Matrix{Int}, symnum_translation::Vector{Int}) -> Matrix{Int}
 
 Constructs the mapping from primitive cell to supercell.
 
@@ -376,7 +376,7 @@ Constructs the mapping from primitive cell to supercell.
 # Throws
 - `ErrorException` if the mapping cannot be constructed properly
 """
-function construct_map_p2s(
+function _construct_map_p2s(
 	spglib_data::Spglib.Dataset,
 	cell::Structures.Cell,
 	map_sym::AbstractMatrix{<:Integer},
@@ -406,7 +406,7 @@ function construct_map_p2s(
 end
 
 """
-	construct_map_s2p(cell::Structures.Cell, map_p2s::Matrix{Int}, nat_prim::Int, ntran::Int) -> Vector{Maps}
+	_construct_map_s2p(cell::Structures.Cell, map_p2s::Matrix{Int}, nat_prim::Int, ntran::Int) -> Vector{Maps}
 
 Constructs the mapping from supercell to primitive cell.
 
@@ -422,7 +422,7 @@ Constructs the mapping from supercell to primitive cell.
 # Throws
 - `ErrorException` if the mapping cannot be constructed properly
 """
-function construct_map_s2p(
+function _construct_map_s2p(
 	cell::Structures.Cell,
 	map_p2s::AbstractMatrix{<:Integer},
 	nat_prim::Integer,
