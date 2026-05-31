@@ -185,6 +185,7 @@ end
 Calculate the torques for each atom in the spin configuration.
 
 # Arguments
+- `magmom_size::AbstractVector{<:Real}`: Magnetic-moment magnitude for each atom [num_atoms]
 - `spin_directions::AbstractMatrix{<:Real}`: Spin direction vectors [3 × num_atoms]
 - `local_magfield::AbstractMatrix{<:Real}`: Local magnetic field vectors [3 × num_atoms]
 

@@ -681,7 +681,23 @@ function zzₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::
 		   uvec[3] * ∂Zₗₘ_∂r̂z_unsafe(l, m, uvec)
 end
 
-# zz imply "small z"
+"""
+    zzₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+
+Radial directional derivative ``\\hat{r}\\cdot\\nabla Z_{\\ell m}`` of the real
+(tesseral) spherical harmonic, evaluated in the tangent frame.
+
+# Arguments
+- `l`: Angular momentum quantum number (≥ 0)
+- `m`: Magnetic quantum number (-l ≤ m ≤ l)
+- `uvec`: Normalized 3D direction vector [r̂x, r̂y, r̂z]
+
+# Returns
+- Value of ``\\hat{r}\\cdot\\nabla Z_{\\ell m}``
+
+# Notes
+- For hot paths, use [`zzₗₘ_unsafe`](@ref).
+"""
 function zzₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
 	validate_lm(l, m)
 	validate_uvec(uvec)
