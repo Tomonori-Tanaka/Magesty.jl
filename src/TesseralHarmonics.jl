@@ -13,6 +13,8 @@ This module provides functions to compute spherical harmonics ( Y_{l,m} ) and re
 - `Yₗₘ_unsafe(l, m, uvec)`: Same as `Yₗₘ` without validation (for hot paths).
 - `Zₗₘ(l, m, uvec)`: Compute the tesseral harmonic (validates inputs).
 - `Zₗₘ_unsafe(l, m, uvec)`: Same as `Zₗₘ` without validation (for hot paths).
+- `Zₗₘ_grad_unsafe(l, m, uvec, buf)`: Combined `(Zₗₘ, ∇Zₗₘ)` from one buffered
+  Legendre recursion (hot paths; bit-identical to the separate calls).
 - `∂Yₗₘ_∂r̂x`, `∂Yₗₘ_∂r̂y`, `∂Yₗₘ_∂r̂z`, `yₗₘ`, `dP̄ₗₘ`, `∂Zₗₘ_∂r̂x`, `∂Zₗₘ_∂r̂y`, `∂Zₗₘ_∂r̂z`, `zzₗₘ`, `∂Zₗₘ_∂x`, `∂Zₗₘ_∂y`, `∂Zₗₘ_∂z`, `∂ᵢZlm`: validate then compute; each has a `…_unsafe` twin for hot paths.
 
 # Buffer requirements (for buffered overloads)
@@ -22,7 +24,7 @@ Several `*_unsafe` functions expose a buffered overload that accepts a
 heap allocation can be eliminated in hot paths.
 
 For every buffered call (`P̄ₗₘ`, `dP̄ₗₘ_unsafe`, `Zₗₘ_unsafe`, `∂ᵢZlm_unsafe`,
-and the private `_legendre_pair_unsafe!`), `buf` must satisfy
+`Zₗₘ_grad_unsafe`, and the private `_legendre_pair_unsafe!`), `buf` must satisfy
 `length(buf) >= l - |m| + 1`. Over a workload with `l ≤ max_l` the maximum
 required size is therefore `max_l + 1`, so each thread should allocate
 `Vector{Float64}(undef, max_l + 1)` once and reuse it.
@@ -47,7 +49,8 @@ using StaticArrays
 export Zₗₘ, ∂ᵢZlm
 export dP̄ₗₘ_unsafe, Yₗₘ_unsafe, ∂Yₗₘ_∂r̂x_unsafe, ∂Yₗₘ_∂r̂y_unsafe, ∂Yₗₘ_∂r̂z_unsafe, yₗₘ_unsafe
 export Zₗₘ_unsafe, ∂Zₗₘ_∂r̂x_unsafe, ∂Zₗₘ_∂r̂y_unsafe, ∂Zₗₘ_∂r̂z_unsafe, zzₗₘ_unsafe
-export ∂Zₗₘ_∂x_unsafe, ∂Zₗₘ_∂y_unsafe, ∂Zₗₘ_∂z_unsafe, ∂ᵢZlm_unsafe, Zₗₘ_grad_unsafe
+export ∂Zₗₘ_∂x_unsafe, ∂Zₗₘ_∂y_unsafe, ∂Zₗₘ_∂z_unsafe, ∂ᵢZlm_unsafe
+export Zₗₘ_grad_unsafe
 
 # Fast integer parity: (-1)^n without float exponentiation
 @inline _parity(n::Integer) = isodd(n) ? -1 : 1
@@ -793,6 +796,9 @@ both the `P̄ₗₘ` and `dP̄ₗₘ_unsafe` computations through a single
 `_legendre_pair_unsafe!` call.
 
 See the module docstring's "Buffer requirements" section for `buf` sizing.
+When the value `Zₗₘ` is also needed at the same `(l, m, uvec)`, prefer
+[`Zₗₘ_grad_unsafe`](@ref), which returns both from one recursion (its gradient
+block mirrors this function — keep them in sync).
 """
 function ∂ᵢZlm_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real},
 		buf::AbstractVector{Float64})::SVector{3,Float64}
@@ -828,7 +834,7 @@ function ∂ᵢZlm_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real},
 end
 
 """
-	Zₗₘ_grad_unsafe(l, m, uvec, buf::AbstractVector{Float64}) -> Tuple{Float64, SVector{3,Float64}}
+	Zₗₘ_grad_unsafe(l, m, uvec, buf) -> Tuple{Float64, SVector{3,Float64}}
 
 Combined value and Cartesian gradient `(Zₗₘ, ∇Zₗₘ)` from a single
 `_legendre_pair_unsafe!` call. The result is bit-identical to calling
@@ -837,7 +843,16 @@ from the same `plm` the gradient uses, with the same expression
 `Zₗₘ_unsafe` evaluates). For the SH-cache hot path, where both are needed at
 every `(l, m, atom)`, this avoids rebuilding the Legendre recursion twice.
 
-See the module docstring's "Buffer requirements" section for `buf` sizing.
+# Arguments
+- `l`: Angular momentum quantum number (≥ 0)
+- `m`: Magnetic quantum number (-l ≤ m ≤ l)
+- `uvec`: Normalized 3D direction vector [r̂x, r̂y, r̂z]
+- `buf`: Legendre scratch buffer; see the module docstring's "Buffer
+  requirements" section for sizing.
+
+# Returns
+- `Tuple{Float64, SVector{3, Float64}}`: the tesseral harmonic `Zₗₘ` and its
+  Cartesian gradient `∇Zₗₘ` (equal to `∂ᵢZlm_unsafe(l, m, uvec, buf)`).
 """
 @inline function Zₗₘ_grad_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real},
 		buf::AbstractVector{Float64})::Tuple{Float64, SVector{3,Float64}}
