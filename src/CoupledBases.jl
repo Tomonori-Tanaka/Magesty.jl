@@ -218,6 +218,33 @@ const _angular_momentum_cache = Dict{
 }()
 
 """
+	cached_coupling_results(ls, isotropy::Bool)
+
+Look up previously-built angular-momentum coupling results for the per-site
+angular momenta `ls` (with the canonical `normalize = :none`) without
+triggering a build. Returns the `(bases_by_L, paths_by_L)` tuple if the
+combination has already been constructed, or `nothing` otherwise, where:
+- `bases_by_L`: coupled-tensor arrays keyed by the total angular momentum `Lf`.
+- `paths_by_L`: the corresponding coupling-path (`Lseq`) sequences, keyed by `Lf`.
+
+This lets callers collect coupling results for `ls` combinations they have
+already built (via [`tesseral_coupled_bases_from_tesseral_bases`](@ref))
+without depending on the internal cache representation. The build-or-fetch
+path remains internal to this module. Not exported; called across the module
+boundary by `SALCBases` via `CoupledBases.cached_coupling_results`.
+"""
+function cached_coupling_results(
+	ls::AbstractVector{<:Integer},
+	isotropy::Bool,
+)::Union{
+	Nothing,
+	Tuple{Dict{Int, Vector{Array{Float64}}}, Dict{Int, Vector{Vector{Int}}}},
+}
+	cache_key = (collect(Int.(ls)), :none, isotropy)
+	return get(_angular_momentum_cache, cache_key, nothing)
+end
+
+"""
 	tesseral_coupled_bases_from_tesseral_bases(ls, atoms; normalize=:none, isotropy::Bool=false)
 
 Construct a flat list of `CoupledBasis` objects from the output of

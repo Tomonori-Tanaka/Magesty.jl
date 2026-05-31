@@ -25,6 +25,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Internal `src/` cleanup (spec 260601-src-refactor).** Behavior-preserving
+  refactor and hot-path tuning surfaced by a review of `src/`. The
+  angular-momentum coupling cache is now reached through a
+  `CoupledBases.cached_coupling_results` accessor instead of `SALCBases`
+  indexing the cache dict directly. The torque spherical-harmonics cache builds
+  `Z` and `∇Z` from a single Legendre recursion (new `Zₗₘ_grad_unsafe`,
+  ~2.4× faster per-atom fill), and `projection_matrix_coupled_basis` plus the
+  SALC translational-equivalence check shed avoidable allocations. Results are
+  bit-identical to the previous implementation.
 - **Solver unification (spec 260526-solver-unification-and-memory-log).**
   `OLS`, `Ridge`, and `AdaptiveRidge` now all route through
   `cholesky(Symmetric(X'X + Λ)) \ (X'y)`, replacing the previous

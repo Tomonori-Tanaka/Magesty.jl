@@ -631,8 +631,9 @@ function build_sh_cache_torque(
 			base = l * l
 			for m_idx = 1:(2*l+1)
 				m = m_idx - l - 1
-				Z[base + m_idx, atom] = Zₗₘ_unsafe(l, m, dir, legendre_buf)
-				∂Z[base + m_idx, atom] = ∂ᵢZlm_unsafe(l, m, dir, legendre_buf)
+				z_val, grad_val = Zₗₘ_grad_unsafe(l, m, dir, legendre_buf)
+				Z[base + m_idx, atom] = z_val
+				∂Z[base + m_idx, atom] = grad_val
 			end
 		end
 	end
