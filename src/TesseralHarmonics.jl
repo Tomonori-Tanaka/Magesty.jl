@@ -47,7 +47,7 @@ using StaticArrays
 export Zₗₘ, ∂ᵢZlm
 export dP̄ₗₘ_unsafe, Yₗₘ_unsafe, ∂Yₗₘ_∂r̂x_unsafe, ∂Yₗₘ_∂r̂y_unsafe, ∂Yₗₘ_∂r̂z_unsafe, yₗₘ_unsafe
 export Zₗₘ_unsafe, ∂Zₗₘ_∂r̂x_unsafe, ∂Zₗₘ_∂r̂y_unsafe, ∂Zₗₘ_∂r̂z_unsafe, zzₗₘ_unsafe
-export ∂Zₗₘ_∂x_unsafe, ∂Zₗₘ_∂y_unsafe, ∂Zₗₘ_∂z_unsafe, ∂ᵢZlm_unsafe
+export ∂Zₗₘ_∂x_unsafe, ∂Zₗₘ_∂y_unsafe, ∂Zₗₘ_∂z_unsafe, ∂ᵢZlm_unsafe, Zₗₘ_grad_unsafe
 
 # Fast integer parity: (-1)^n without float exponentiation
 @inline _parity(n::Integer) = isodd(n) ? -1 : 1
@@ -825,6 +825,56 @@ function ∂ᵢZlm_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real},
 
 	zz = x * dZx + y * dZy + z * dZz
 	return SVector{3,Float64}(dZx - x * zz, dZy - y * zz, dZz - z * zz)
+end
+
+"""
+	Zₗₘ_grad_unsafe(l, m, uvec, buf::AbstractVector{Float64}) -> Tuple{Float64, SVector{3,Float64}}
+
+Combined value and Cartesian gradient `(Zₗₘ, ∇Zₗₘ)` from a single
+`_legendre_pair_unsafe!` call. The result is bit-identical to calling
+[`Zₗₘ_unsafe`](@ref) and [`∂ᵢZlm_unsafe`](@ref) separately (the value is built
+from the same `plm` the gradient uses, with the same expression
+`Zₗₘ_unsafe` evaluates). For the SH-cache hot path, where both are needed at
+every `(l, m, atom)`, this avoids rebuilding the Legendre recursion twice.
+
+See the module docstring's "Buffer requirements" section for `buf` sizing.
+"""
+@inline function Zₗₘ_grad_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real},
+		buf::AbstractVector{Float64})::Tuple{Float64, SVector{3,Float64}}
+	@boundscheck checkbounds(buf, _required_buf_size(l, m))
+	x, y, z = uvec[1], uvec[2], uvec[3]
+	n = abs(m)
+	# Single cache build covers both raw Legendre values, shared by Z and ∂Z.
+	plm_raw, dplm_raw = _legendre_pair_unsafe!(buf, z, l, n)
+	norm = _plm_norm(l, n)
+	plm  = _parity(n) * norm * plm_raw
+	dplm = _parity(n) * norm * dplm_raw
+
+	if m == 0
+		# Z = P̄ₗₘ(l, 0, z) = plm (parity(0) = 1); gradient as in ∂ᵢZlm_unsafe.
+		zz = z * dplm
+		return (plm, SVector{3,Float64}(-x * zz, -y * zz, dplm - z * zz))
+	end
+
+	c = _parity(n) * √2
+	z_xy     = ComplexF64(x, y)
+	z_pow_n  = z_xy^n
+	z_pow_n1 = z_xy^(n - 1)
+	rn  = real(z_pow_n);  in_  = imag(z_pow_n)
+	rn1 = real(z_pow_n1); in1  = imag(z_pow_n1)
+
+	# Z: identical expression to `Zₗₘ_unsafe` (cZ = _parity(n) * √2 * plm).
+	cZ = c * plm
+	Z = m > 0 ? cZ * rn : cZ * in_
+
+	dZx, dZy, dZz = if m > 0
+		(c * n * plm * rn1, -c * n * plm * in1, c * dplm * rn)
+	else
+		(c * n * plm * in1,  c * n * plm * rn1, c * dplm * in_)
+	end
+
+	zz = x * dZx + y * dZy + z * dZz
+	return (Z, SVector{3,Float64}(dZx - x * zz, dZy - y * zz, dZz - z * zz))
 end
 
 """

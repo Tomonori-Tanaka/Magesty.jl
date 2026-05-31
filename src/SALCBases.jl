@@ -830,7 +830,7 @@ function projection_matrix_coupled_basis(
 	# All cbs in this list share the same cluster size, so allocate once and refill.
 	N_atoms = length(coupled_basislist[1].atoms)
 	atoms_shifted_list = Vector{Int}(undef, N_atoms)
-	for (n, symop) in enumerate(symmetry.symdata), time_rev_sym in [false, true]
+	for (n, symop) in enumerate(symmetry.symdata), time_rev_sym in (false, true)
 		fill!(representation_mat, 0.0)
 		base_rot_mat = base_rot_mats[n]
 
@@ -841,7 +841,6 @@ function projection_matrix_coupled_basis(
 			primitive_atoms = find_translation_atoms(atoms_shifted_list, cluster_atoms, symmetry)
 			reordered_cb = reorder_atoms(cb1, primitive_atoms)
 			multiplier = time_rev_sym ? (-1)^sum(reordered_cb.ls) : 1
-			rot_mat = time_rev_sym ? multiplier * base_rot_mat : base_rot_mat
 			col_range = ((i-1)*submatrix_dim+1):(i*submatrix_dim)
 			for (j, cb2) in enumerate(coupled_basislist)
 				if is_obviously_zero_coupled_basis_product(reordered_cb, cb2)
@@ -849,7 +848,11 @@ function projection_matrix_coupled_basis(
 				end
 				phase = tensor_inner_product(cb2.coeff_tensor, reordered_cb.coeff_tensor) / (2*Lf+1)
 				row_range = ((j-1)*submatrix_dim+1):(j*submatrix_dim)
-				representation_mat[row_range, col_range] = rot_mat * phase
+				# Scale the base rotation by the phase and the time-reversal sign
+				# (`multiplier == 1` when `!time_rev_sym`) and write in place,
+				# avoiding a temporary matrix per (symop, basis pair).
+				factor = multiplier * phase
+				@views representation_mat[row_range, col_range] .= base_rot_mat .* factor
 			end
 		end
 
@@ -918,9 +921,9 @@ function is_translationally_equivalent_coupled_basis(
 	end
 
 	# Check if (atom, l) pairs match as multisets (required for physical equivalence)
-	atom_l_pairs1 = collect(zip(cb1.atoms, cb1.ls))
-	atom_l_pairs2 = collect(zip(cb2.atoms, cb2.ls))
-	if sort(atom_l_pairs1) != sort(atom_l_pairs2)
+	atom_l_pairs1 = sort!(collect(zip(cb1.atoms, cb1.ls)))
+	atom_l_pairs2 = sort!(collect(zip(cb2.atoms, cb2.ls)))
+	if atom_l_pairs1 != atom_l_pairs2
 		return false
 	end
 
@@ -947,21 +950,24 @@ function is_translationally_equivalent_coupled_basis(
 		return false
 	end
 
-	# Check translation operations
+	# Check translation operations. `atom_list2` is fixed across the loop, so
+	# sort it once; the shifted image of `atom_list1` is rebuilt in a reused
+	# buffer (atom lists are tiny) instead of allocating a fresh vector per
+	# itran. Both comparisons are multiset comparisons via sorted vectors.
+	sorted_list2 = sort(atom_list2)
+	shifted = Vector{Int}(undef, length(atom_list1))
 	for itran in symmetry.symnum_translation
-		# Method 1: Apply forward translation (map_sym) to atom_list1
-		atom_list1_shifted = [symmetry.map_sym[atom, itran] for atom in atom_list1]
-		# Sort both lists to compare as multisets (order doesn't matter)
-		if sort(atom_list1_shifted) == sort(atom_list2)
-			return true
+		# Method 1: forward translation (map_sym)
+		for k in eachindex(atom_list1)
+			shifted[k] = symmetry.map_sym[atom_list1[k], itran]
 		end
+		sort!(shifted) == sorted_list2 && return true
 
-		# Method 2: Apply inverse translation (map_sym_inv) to atom_list1
-		atom_list1_shifted = [symmetry.map_sym_inv[atom, itran] for atom in atom_list1]
-		# Sort both lists to compare as multisets (order doesn't matter)
-		if sort(atom_list1_shifted) == sort(atom_list2)
-			return true
+		# Method 2: inverse translation (map_sym_inv)
+		for k in eachindex(atom_list1)
+			shifted[k] = symmetry.map_sym_inv[atom_list1[k], itran]
 		end
+		sort!(shifted) == sorted_list2 && return true
 	end
 
 	return false

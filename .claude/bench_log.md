@@ -1168,3 +1168,57 @@ OLS も同 `_normal_equations` 経由となり、Ridge と alloc 数・時間が
   `test_SCEFit.jl`, `test_fitcheck_io.jl`) は `Ridge(lambda = 1e-8)` に
   切り替え(dimer FM/AFM は z 軸 spin で torque ≡ 0 のため
   `torque_weight = 1.0` で X が完全に零になる)。
+
+## 2026-06-01 (spec 260601-src-refactor) — SALC / SH-cache allocation cuts
+
+`src/` レビューパネルで挙がったホットパスのアロケーション削減 (C 項目)。
+すべて挙動不変 (数値結果ビット保存)。
+
+### C2–C5: SALCBases allocation cuts
+
+`bench-salcbasis` (`bench/benchmark_salcbasis_hotspots.jl`, FeGe 2x2x2,
+代表 coupled_basis 204 個)。allocs は決定的。
+
+| Function | | Time median | Memory | Allocs |
+|---|---|---:|---:|---:|
+| `projection_matrix_coupled_basis` | before | 54.98 ms | 66.58 MiB | 1,773,116 |
+| | after | 52.78 ms | 63.89 MiB | 1,694,588 (−78,528) |
+| `SALCBasis` constructor | before | 244.1 ms | 339.39 MiB | 8,274,691 |
+| | after | 242.2 ms | 316.93 MiB (−22.5 MiB) | 8,027,179 (−247,512) |
+
+変更点:
+- C5: `time_rev_sym in [false, true]` → タプル `(false, true)` (毎反復の
+  2 要素 Vector 割り当て除去)。
+- C2: `representation_mat[row_range, col_range] = rot_mat * phase` →
+  スカラー `factor = multiplier * phase` の
+  `@views ... .= base_rot_mat .* factor` in-place 書き込み (毎
+  (symop, basis pair) の一時行列除去)。±1 倍はビット保存。
+- C3: `is_translationally_equivalent_coupled_basis` の (atom,l) ペア比較を
+  `sort(collect(zip))` ×4 → `sort!(collect(zip))` ×2。
+- C4: 同関数の translation ループで shifted 配列を buffer 再利用 +
+  `sort(atom_list2)` をループ外ホイスト。
+
+控えめだが決定的なアロケーション削減。残る主因 (reorder_atoms, Δl) は
+C スコープ外。
+
+### C1: combined SH value+gradient entry point
+
+`build_sh_cache_torque` が同一 `(l,m,atom)` で `Zₗₘ_unsafe` と
+`∂ᵢZlm_unsafe` を別々に呼び、Legendre 再帰が 2 回走っていた。新規
+`TesseralHarmonics.Zₗₘ_grad_unsafe` で 1 回の `_legendre_pair_unsafe!` から
+`(Z, ∇Z)` を計算。
+
+per-atom SH cache fill (lmax=8, `@belapsed`):
+
+| | time |
+|---|---:|
+| separate (`Zₗₘ_unsafe` + `∂ᵢZlm_unsafe`) | 4839 ns |
+| combined (`Zₗₘ_grad_unsafe`) | 2028 ns |
+
+→ **2.39× 高速化**。Z は `Zₗₘ_unsafe` と同一式、∇Z は `∂ᵢZlm_unsafe` の本体
+を逐語使用。39,285 通りの (l,m,dir) で Z・勾配ともに**ビット不一致ゼロ**
+を直接検証。
+
+### Regression
+
+- `make test-all` (23346 pass) / `make test-jet` / `make test-aqua` clean。
