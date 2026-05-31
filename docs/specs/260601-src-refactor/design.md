@@ -15,28 +15,38 @@ regression; otherwise it is deferred (recorded as such) rather than forced.
 
 | Target | Change |
 |---|---|
-| `src/CoupledBases.jl` | Add a public-internal accessor that returns the angular-momentum coupling results for `(ls, isotropy)`, building and caching internally. Keep the cache `const` but stop exposing its key structure / `:none` symbol. |
+| `src/CoupledBases.jl` | Add a public-internal **peek** accessor that returns the already-built coupling results for `(ls, isotropy)` or `nothing`, without triggering a build. Keep the cache `const` but stop exposing its key structure / `:none` symbol. |
 | `src/SALCBases.jl` | Replace the `CoupledBases._angular_momentum_cache[(ls_vec, :none, isotropy)]` lookup (≈ lines 387–406) with a call to the new accessor. C items: `projection_matrix_coupled_basis` in-place matrix write; `is_translationally_equivalent_coupled_basis` / `find_translation_atoms` allocation removal; `(false, true)` literal. |
 | `src/Fitting.jl` | C1: `build_sh_cache_torque` reuses the `plm_raw` from one `_legendre_pair_unsafe!` call to fill both `Z` and `∂Z`, instead of rebuilding the Legendre recursion once for `Zₗₘ_unsafe` and again for `∂ᵢZlm_unsafe`. A2 (conditional): extract the shared folded-tensor contraction skeleton. |
 | `src/TesseralHarmonics.jl` | Possibly add a low-level combined value+gradient entry point to support C1 (only if needed; prefer reusing `_legendre_pair_unsafe!`). |
 
 ## API
 
-Internal API only (nothing exported, nothing in `docs/src/api.md`). Proposed
+Internal API only (nothing exported, nothing in `docs/src/api.md`).
 `CoupledBases` accessor:
 
 ```julia
-# Returns the per-Lf coupled-tensor bases and their coupling paths for the
-# given per-site angular momenta, building and caching on first use.
-function angular_momentum_coupling_results(
+# Returns the already-built per-Lf coupled-tensor bases and their coupling
+# paths for the given per-site angular momenta, or `nothing` if not yet built.
+# Does NOT trigger a build.
+function cached_coupling_results(
     ls::AbstractVector{<:Integer},
     isotropy::Bool,
-)::Tuple{Dict{Int, Vector{Array{Float64}}}, Dict{Int, Vector{Vector{Int}}}}
+)::Union{Nothing,
+         Tuple{Dict{Int, Vector{Array{Float64}}}, Dict{Int, Vector{Vector{Int}}}}}
 ```
 
-`SALCBases` consumes it as `bases_by_L, paths_by_L = CoupledBases.angular_momentum_coupling_results(ls_vec, isotropy)`,
-with the same `normalize = :none` semantics the call site relies on today
-(the accessor fixes `normalize = :none` internally, matching the existing key).
+`SALCBases` consumes it as
+`results = CoupledBases.cached_coupling_results(ls_vec, isotropy); results === nothing && continue`.
+
+A **peek** (non-building) accessor is required to preserve behavior exactly.
+The original loop guards with `haskey(...) || continue`: it only collects
+results for `ls` combinations that the earlier basis-construction loop already
+built and cached. A build-on-miss accessor would instead construct and process
+combinations that the original code skipped. In practice the entry always
+exists (every `cb.ls` in `result_basislist` was cached during construction),
+so the guard never fires today — but the peek form keeps that invariant
+faithful rather than silently changing it.
 
 The `:none` fix is safe: the only place that reads the cache by key is
 `SALCBases.jl:388`, and it always uses `:none`. Other `normalize` values reach

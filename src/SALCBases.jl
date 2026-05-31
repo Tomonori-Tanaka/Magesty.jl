@@ -385,9 +385,9 @@ function SALCBasis(
 	# the resulting `angular_momentum_couplings` is naturally restricted to
 	# the isotropic (scalar) sector.
 	for ls_vec in ls_combinations_set
-		cache_key = (ls_vec, :none, isotropy)
-		haskey(CoupledBases._angular_momentum_cache, cache_key) || continue
-		bases_by_L, paths_by_L = CoupledBases._angular_momentum_cache[cache_key]
+		results = CoupledBases.cached_coupling_results(ls_vec, isotropy)
+		results === nothing && continue
+		bases_by_L, paths_by_L = results
 		for Lf in sort(collect(keys(bases_by_L)))
 			tensors = bases_by_L[Lf]
 			Lseqs = paths_by_L[Lf]
