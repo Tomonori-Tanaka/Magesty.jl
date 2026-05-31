@@ -567,7 +567,7 @@ function _extract_energy_magmom(
 
             # End of a magnetic-moment block: a ":" keyword line (such as
             # "DAV:" / "RMM:") or a line that is not 7 columns wide.
-            if collecting && (occursin(":", line)) || (length(split(line)) ≠ 7)
+            if collecting && (occursin(":", line) || length(split(line)) ≠ 7)
                 collecting = false
                 magmom_listoflist = deepcopy(magmom_temp_listoflist)
             end
