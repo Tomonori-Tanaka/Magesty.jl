@@ -97,6 +97,32 @@ end
 _sunny_build_terms(model::SCEModel)::_SunnyTerms =
 	_sunny_decompose(model.basis.salcbasis.salc_list, model.jphi)
 
+# Classify a SALC by its per-site angular momenta into the interaction kind the
+# Sunny export supports. `ls` is the per-site `l` list, so `length(ls)` equals
+# the cluster's site count. Both export routes (supercell and primitive) share
+# this mapping.
+#   :spin_independent — all l = 0 (pure scalar; a constant)
+#   :pair_l1          — two sites with l = l = 1 (off-diagonal exchange matrix)
+#   :onsite_l2        — one site with l = 2 (single-ion anisotropy)
+#   :unsupported      — anything else (not representable in the Sunny model)
+function _classify_salc(ls::AbstractVector{<:Integer})::Symbol
+	if all(==(0), ls)
+		return :spin_independent
+	elseif ls == [1, 1]
+		return :pair_l1
+	elseif ls == [2]
+		return :onsite_l2
+	else
+		return :unsupported
+	end
+end
+
+# Shared message for a SALC whose interaction kind the Sunny export cannot
+# represent. `n_body` is the cluster's site count.
+_unsupported_salc_string(ν::Integer, n_body::Integer, ls, Lf)::String =
+	"SALC #$ν: n_body=$n_body ls=$ls Lf=$Lf " *
+	"(unsupported; only l=l=1 pairs and l=2 single-ion are exported)"
+
 # Core SALC walk. Split from `_sunny_build_terms` so it can be exercised with
 # synthetic key groups (skip-logic tests) without building a full `SCEModel`.
 function _sunny_decompose(
@@ -116,8 +142,9 @@ function _sunny_decompose(
 		n_C = length(group[1].atoms)
 		scaling = Fitting._cluster_scaling(n_C)
 		coeff = Float64(jphi[ν])
+		kind = _classify_salc(ls)
 
-		if all(==(0), ls)
+		if kind === :spin_independent
 			# Spin-independent SALC. The per-site Z_{0,0} = (4π)^(-1/2) factors
 			# exactly cancel the (4π)^(n_C/2) scaling, leaving a pure constant.
 			for cbc in group
@@ -127,7 +154,7 @@ function _sunny_decompose(
 			continue
 		end
 
-		if n_C == 2 && ls == [1, 1]
+		if kind === :pair_l1
 			for cbc in group
 				M0 = _sunny_l1_pair_matrix(cbc.folded_tensor)
 				w = coeff * scaling * cbc.multiplicity
@@ -145,7 +172,7 @@ function _sunny_decompose(
 					end
 				end
 			end
-		elseif n_C == 1 && ls == [2]
+		elseif kind === :onsite_l2
 			for cbc in group
 				A0 = _sunny_l2_onsite_matrix(cbc.folded_tensor)
 				w = coeff * scaling * cbc.multiplicity
@@ -155,9 +182,7 @@ function _sunny_decompose(
 				end
 			end
 		else
-			push!(skipped,
-				"SALC #$ν: n_body=$n_C ls=$ls Lf=$Lf " *
-				"(unsupported; only l=l=1 pairs and l=2 single-ion are exported)")
+			push!(skipped, _unsupported_salc_string(ν, n_C, ls, Lf))
 		end
 	end
 
@@ -330,7 +355,8 @@ function _sunny_build_primitive(model::SCEModel)::_SunnyPrimitiveModel
 	for (ν, group) in enumerate(model.basis.salcbasis.salc_list)
 		isempty(group) && continue
 		ls = group[1].ls
-		if ls == [1, 1]
+		kind = _classify_salc(ls)
+		if kind === :pair_l1
 			for cbc in group
 				M0 = _sunny_l1_pair_matrix(cbc.folded_tensor)
 				# Per-bond coupling WITHOUT multiplicity. Each equal-distance lattice
@@ -359,19 +385,17 @@ function _sunny_build_primitive(model::SCEModel)::_SunnyPrimitiveModel
 					bonds[key] = get(bonds, key, Z3) + val
 				end
 			end
-		elseif ls == [2]
+		elseif kind === :onsite_l2
 			for cbc in group
 				A0 = _sunny_l2_onsite_matrix(cbc.folded_tensor)
 				W = model.jphi[ν] * Fitting._cluster_scaling(1) * A0
 				i = sym.map_s2p[cbc.clusters[1][1]].atom
 				onsites[i] = get(onsites, i, Z3) + W
 			end
-		elseif all(==(0), ls)
+		elseif kind === :spin_independent
 			# spin-independent constant; dropped (Sunny carries no scalar term)
 		else
-			push!(skipped,
-				"SALC #$ν: n_body=$(length(ls)) ls=$ls Lf=$(group[1].Lf) " *
-				"(unsupported; only l=l=1 pairs and l=2 single-ion are exported)")
+			push!(skipped, _unsupported_salc_string(ν, length(ls), ls, group[1].Lf))
 		end
 	end
 
