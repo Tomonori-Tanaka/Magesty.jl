@@ -287,8 +287,8 @@ function SALCBasis(
 	body1_lmax::Vector{Int},
 	bodyn_lsum::OffsetArray{Int, 1},
 	nbody::Integer,
-	isotropy::Bool = false,
 	;
+	isotropy::Bool = false,
 	verbosity::Bool = true,
 )
 	# Start timing
@@ -424,7 +424,7 @@ function SALCBasis(
 		interaction.body1_lmax,
 		interaction.bodyn_lsum,
 		interaction.nbody,
-		options.isotropy,
+		isotropy = options.isotropy,
 		verbosity = verbosity,
 	)
 end
