@@ -1,6 +1,6 @@
 # Tasklist: src architecture and hot-path cleanup
 
-Status: complete (2026-06-01) — M1 + M2 landed; M3 (A2) deferred by decision
+Status: merged (2026-06-01, PR #33) — M1 + M2 landed; M3 (A2) deferred by decision
 
 This file holds coarse-grained, commit-sized milestones. Day-to-day
 tracking goes through `TaskCreate` in-session.
