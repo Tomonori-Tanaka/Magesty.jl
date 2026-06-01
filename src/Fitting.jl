@@ -1609,21 +1609,37 @@ function _glmnet_solve(
 	return vec(Matrix(path.betas))
 end
 
-function calc_rmse(list1::AbstractVector{<:Real}, list2::AbstractVector{<:Real})::Float64
-	# Calculate the Root Mean Square Error (RMSE) between two lists
-	if length(list1) != length(list2)
-		throw(ArgumentError("The lengths of the two lists must be equal."))
-	end
-	return sqrt(mean((list1 .- list2) .^ 2))
-end
+"""
+	_calc_rmse(observed_list, predicted_list) -> Float64
 
-function calc_r2score(
+Root-mean-square error between two equal-length vectors,
+`sqrt(mean((observed_list .- predicted_list) .^ 2))`. Internal helper behind the
+public `rmse_*` evaluation verbs.
+
+Throws `ArgumentError` if the lengths differ.
+"""
+function _calc_rmse(
 	observed_list::AbstractVector{<:Real},
 	predicted_list::AbstractVector{<:Real},
 )::Float64
-	# R² = 1 - (SS_res / SS_tot)
-	# SS_res = Σ(y_observed - y_predicted)²
-	# SS_tot = Σ(y_observed - y_mean)²
+	if length(observed_list) != length(predicted_list)
+		throw(ArgumentError("The lengths of the two lists must be equal."))
+	end
+	return sqrt(mean((observed_list .- predicted_list) .^ 2))
+end
+
+"""
+	_calc_r2score(observed_list, predicted_list) -> Float64
+
+Coefficient of determination ``R^2 = 1 - SS_{res}/SS_{tot}`` between observed
+and predicted values, with `SS_res = Σ(observed - predicted)²` and
+`SS_tot = Σ(observed - mean(observed))²`. Internal helper behind the public
+`r2_*` evaluation verbs.
+"""
+function _calc_r2score(
+	observed_list::AbstractVector{<:Real},
+	predicted_list::AbstractVector{<:Real},
+)::Float64
 	ss_res = sum((observed_list .- predicted_list) .^ 2)
 	ss_tot = sum((observed_list .- mean(observed_list)) .^ 2)
 	return 1 - ss_res / ss_tot

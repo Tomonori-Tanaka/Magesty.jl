@@ -1204,7 +1204,7 @@ different dataset — typically a held-out test set.
 """
 function r2_energy(predictor::Union{SCEModel, SCEFit}, data::SCEEvalData)::Float64
 	observed, predicted = _eval_energy(predictor, data)
-	return Fitting.calc_r2score(observed, predicted)
+	return Fitting._calc_r2score(observed, predicted)
 end
 r2_energy(f::SCEFit)::Float64 = r2_energy(f, f.dataset)
 
@@ -1232,7 +1232,7 @@ different dataset — typically a held-out test set.
 """
 function r2_torque(predictor::Union{SCEModel, SCEFit}, data::SCEEvalData)::Float64
 	observed, predicted = _eval_torque(predictor, data)
-	return Fitting.calc_r2score(observed, predicted)
+	return Fitting._calc_r2score(observed, predicted)
 end
 r2_torque(f::SCEFit)::Float64 = r2_torque(f, f.dataset)
 
@@ -1371,7 +1371,7 @@ different dataset — typically a held-out test set.
 """
 function rmse_energy(predictor::Union{SCEModel, SCEFit}, data::SCEEvalData)::Float64
 	observed, predicted = _eval_energy(predictor, data)
-	return Fitting.calc_rmse(observed, predicted)
+	return Fitting._calc_rmse(observed, predicted)
 end
 rmse_energy(f::SCEFit)::Float64 = rmse_energy(f, f.dataset)
 
@@ -1399,7 +1399,7 @@ different dataset — typically a held-out test set.
 """
 function rmse_torque(predictor::Union{SCEModel, SCEFit}, data::SCEEvalData)::Float64
 	observed, predicted = _eval_torque(predictor, data)
-	return Fitting.calc_rmse(observed, predicted)
+	return Fitting._calc_rmse(observed, predicted)
 end
 rmse_torque(f::SCEFit)::Float64 = rmse_torque(f, f.dataset)
 
@@ -1516,10 +1516,10 @@ function _print_fit_summary(f::SCEFit, elapsed_time::Real)
 	obs_T, pred_T = _eval_torque(f, f.dataset)
 	rss_E = sum(abs2, obs_E .- pred_E)
 	rss_T = sum(abs2, obs_T .- pred_T)
-	rmse_E = Fitting.calc_rmse(obs_E, pred_E)
-	rmse_T = Fitting.calc_rmse(obs_T, pred_T)
-	r2_E = Fitting.calc_r2score(obs_E, pred_E)
-	r2_T = Fitting.calc_r2score(obs_T, pred_T)
+	rmse_E = Fitting._calc_rmse(obs_E, pred_E)
+	rmse_T = Fitting._calc_rmse(obs_T, pred_T)
+	r2_E = Fitting._calc_r2score(obs_E, pred_E)
+	r2_T = Fitting._calc_r2score(obs_T, pred_T)
 	println(
 		"""
 
