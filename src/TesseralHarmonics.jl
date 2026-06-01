@@ -47,10 +47,12 @@ using StaticArrays
 
 # abstract type SphericalHarmonicsProduct end
 export Zₗₘ, ∂ᵢZlm
-export dP̄ₗₘ_unsafe, Yₗₘ_unsafe, ∂Yₗₘ_∂r̂x_unsafe, ∂Yₗₘ_∂r̂y_unsafe, ∂Yₗₘ_∂r̂z_unsafe, yₗₘ_unsafe
-export Zₗₘ_unsafe, ∂Zₗₘ_∂r̂x_unsafe, ∂Zₗₘ_∂r̂y_unsafe, ∂Zₗₘ_∂r̂z_unsafe, zzₗₘ_unsafe
-export ∂Zₗₘ_∂x_unsafe, ∂Zₗₘ_∂y_unsafe, ∂Zₗₘ_∂z_unsafe, ∂ᵢZlm_unsafe
-export Zₗₘ_grad_unsafe
+
+# The `*_unsafe` variants (no validation, hot-path internals) are intentionally
+# not exported: their `_unsafe` suffix marks them as non-public and they skip
+# input validation. Reach them by qualification (`TesseralHarmonics.name`
+# within the package, `Magesty.TesseralHarmonics.name` outside) or an explicit
+# `using ..TesseralHarmonics: name` import.
 
 # Fast integer parity: (-1)^n without float exponentiation
 @inline _parity(n::Integer) = isodd(n) ? -1 : 1

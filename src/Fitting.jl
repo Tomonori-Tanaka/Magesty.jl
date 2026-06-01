@@ -12,6 +12,9 @@ using GLMNet
 using Statistics
 using StaticArrays
 using ..TesseralHarmonics
+# Hot-path `*_unsafe` variants are not exported by TesseralHarmonics; import the
+# ones this module calls explicitly.
+using ..TesseralHarmonics: Zₗₘ_unsafe, ∂ᵢZlm_unsafe, Zₗₘ_grad_unsafe
 using ..Structures
 using ..Symmetries
 using ..Clusters
