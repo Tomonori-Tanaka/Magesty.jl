@@ -181,7 +181,7 @@ poscar_to_toml(poscar; output) -> String
 oszicar_to_embset(oszicars; saxis, energy_kind, mint, output) -> String
 
 # Sunny.jl export (also the `magesty sunny script` command-line subcommand)
-sce_to_sunny(model; output, placement, symprec) -> String
+sce_to_sunny(model; output, placement) -> String
 ```
 
 ## Primary external libraries

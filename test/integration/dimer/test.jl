@@ -79,8 +79,8 @@ input = TOML.parse(open(joinpath(@__DIR__, "input.toml"), "r"))
 		dmi_configs = [sc1, sc2]
 
 		# Replace the salc_list with a single hand-crafted Lf=1 SALC whose
-		# coefficient picks out only the y-component of the antisymmetric
-		# l=1 × l=1 coupling — i.e. D = (0, -1, 0) in our convention.
+		# coefficient picks out only the z-component of the antisymmetric
+		# l=1 × l=1 coupling — i.e. D = (0, 0, -1) in our convention.
 		original_salcbasis = dmi_basis.salcbasis
 		coeff_tensor = original_salcbasis.angular_momentum_couplings[2].coeff_tensor
 		clusters = Magesty.CoupledBases.enumerate_orbit_clusters(
