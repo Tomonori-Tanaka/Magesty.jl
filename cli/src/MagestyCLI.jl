@@ -26,6 +26,7 @@ VASP input/output conversion commands.
 Comonicon.@cast module Vasp
 
 import Comonicon
+import Magesty
 import Magesty: vasp_to_extxyz, poscar_to_toml, oszicar_to_embset
 
 """
@@ -127,6 +128,81 @@ Comonicon.@cast function embset(
 		output = out,
 	)
 	out === nothing && print(text)
+	return nothing
+end
+
+"""
+Sample thermally conditioned spin configurations from a VASP INCAR (MFA).
+
+# Introduction
+
+For each value in an evenly spaced sweep of the control variable, draws
+`--num-samples` spin configurations with the Mean-Field Approximation sampler
+(per-atom directions from a von Mises-Fisher distribution, magnitudes
+preserved) and writes each to its own `<outdir>/sample-NN.INCAR` file. The
+initial spins are read from `MAGMOM`, or `M_CONSTR` if `MAGMOM` is absent; each
+output sets both `MAGMOM` and `M_CONSTR` and copies all other input keys.
+
+# Args
+
+- `incar`: path to the input INCAR.
+- `variable`: control variable, given as the second positional argument
+  (immediately after `incar`) — `tau` (scaled temperature T/Tc, in `(0, 1]`)
+  or `m` (magnetization, in `[0, 1)`).
+
+# Options
+
+- `--start=<value>`: first sweep value (required).
+- `--stop=<value>`: last sweep value (required, `>= start`).
+- `--num-points=<n>`: number of evenly spaced sweep values (required, `>= 1`);
+  the values are `range(start, stop; length = num_points)`.
+- `--num-samples=<n>`: configurations drawn per sweep value (default: `1`).
+- `--fix=<spec>`: 1-based atom indices kept at their input directions
+  (rotated by the same global rotation when `--randomize`), e.g.
+  `"1-10,12,20-22"`.
+- `--uniform-atoms=<spec>`: 1-based atom indices drawn isotropically on the
+  sphere instead of from the vMF distribution (same index syntax).
+- `--outdir=<path>`: output directory (default: `.`, created if needed).
+
+# Flags
+
+- `--randomize`: apply a random global rotation (quantization-axis
+  randomization) to each drawn configuration.
+"""
+Comonicon.@cast function mfa(
+	incar::String,
+	variable::String;
+	start::Float64 = NaN,
+	stop::Float64 = NaN,
+	num_points::Int = 0,
+	num_samples::Int = 1,
+	randomize::Bool = false,
+	fix::String = "",
+	uniform_atoms::String = "",
+	outdir::String = ".",
+)
+	# `start`/`stop` default to NaN and `num_points` to 0 as "unset" sentinels:
+	# Comonicon options always carry a default, so required values are detected
+	# here and reported with their CLI flag names.
+	variable in ("tau", "m") || error("variable must be \"tau\" or \"m\"; got \"$variable\"")
+	isnan(start) && error("--start is required")
+	isnan(stop) && error("--stop is required")
+	num_points >= 1 || error("--num-points is required and must be >= 1")
+	num_samples >= 1 || error("--num-samples must be >= 1; got $num_samples")
+	start <= stop || error("--stop ($stop) must be >= --start ($start)")
+	paths = Magesty.sample_mfa_incar(
+		incar;
+		variable = variable,
+		start = start,
+		stop = stop,
+		num_points = num_points,
+		num_samples = num_samples,
+		randomize = randomize,
+		fix = fix,
+		uniform_atoms = uniform_atoms,
+		outdir = outdir,
+	)
+	println("Wrote $(length(paths)) INCAR file(s) to $(outdir).")
 	return nothing
 end
 

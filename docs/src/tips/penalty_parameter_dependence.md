@@ -14,11 +14,12 @@ $$P_i(\hat{\boldsymbol{e}}_i) = \frac{3\mathfrak{m}/\tau}{4\pi \sinh(3\mathfrak{
 
 where $\boldsymbol{\mathfrak{m}} = \mathfrak{m}\hat{\boldsymbol{e}}$ is the global normalized magnetization vector pointing along $\hat{\boldsymbol{e}}$, and $\hat{\boldsymbol{e}}_i$ is the unit spin direction of atom $i$.
 
-The configurations were generated using the sampling script `tools/sampling_mfa.jl`.
-The argument `tau` specifies the reduced temperature $\tau$:
+The configurations were generated with the `magesty vasp mfa` command (see
+[Tools](../tools.md)). The `tau` argument selects the reduced temperature
+$\tau$ as the control variable:
 
 ```
-julia sampling_mfa.jl INCAR tau -s 0.1 -e 0.1 -w 1 -n 100
+magesty vasp mfa INCAR tau --start 0.1 --stop 0.1 --num-points 1 --num-samples 100
 ```
 
 For each value of `LAMBDA`, a separate VASP calculation was performed on each of these 100 configurations.

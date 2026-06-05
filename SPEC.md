@@ -36,7 +36,10 @@ in `src/Magesty.jl` reflects the dependency order.
 | `SortedCounters.jl` | Internal counter that iterates by sorted key |
 | `ExtXYZ.jl` | Writer for the extended XYZ (extxyz) format |
 | `VaspIO.jl` | Parser for VASP files (`vasprun.xml`, `OSZICAR`, `POSCAR`) |
+| `IncarIO.jl` | Reader/writer for VASP `INCAR` text files (`parse_incar`, `write_incar`) |
+| `MfaSampling.jl` | Code-agnostic Mean-Field-Approximation spin sampler (von Mises-Fisher draws) |
 | `VaspConvert.jl` | VASP conversion APIs (`vasp_to_extxyz`, `poscar_to_toml`, `oszicar_to_embset`) |
+| `VaspSampling.jl` | MFA spin-sampling API for VASP INCAR (`sample_mfa_incar`) |
 | `SunnyExport.jl` | Sunny.jl LSWT script export (`sce_to_sunny`); text generation, no Sunny dependency |
 
 ## Main types (current API)
@@ -179,6 +182,10 @@ SpinConfig(energy, magmom_size, spin_directions, local_magfield)
 vasp_to_extxyz(vasprun; oszicar, output) -> String
 poscar_to_toml(poscar; output) -> String
 oszicar_to_embset(oszicars; saxis, energy_kind, mint, output) -> String
+
+# MFA spin sampling (also the `magesty vasp mfa` command-line subcommand)
+sample_mfa_incar(incar_path; variable, start, stop, num_points, num_samples,
+                 randomize, fix, uniform_atoms, outdir, prefix) -> Vector{String}
 
 # Sunny.jl export (also the `magesty sunny script` command-line subcommand)
 sce_to_sunny(model; output, placement) -> String

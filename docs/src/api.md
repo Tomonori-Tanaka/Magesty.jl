@@ -76,6 +76,17 @@ poscar_to_toml
 oszicar_to_embset
 ```
 
+## Spin sampling
+
+`sample_mfa_incar` draws thermally conditioned spin configurations from a VASP
+INCAR with the Mean-Field Approximation (von Mises-Fisher direction sampling)
+and writes one INCAR per configuration. It is also available from the command
+line as `magesty vasp mfa` (see [Tools](tools.md)).
+
+```@docs
+sample_mfa_incar
+```
+
 ## Sunny.jl export
 
 `sce_to_sunny` turns a fitted `SCEModel` into a runnable

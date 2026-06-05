@@ -8,6 +8,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **MFA spin sampling (spec 260605-mfa-sampling-cli).** New exported
+  `sample_mfa_incar(incar_path; variable, start, stop, num_points, num_samples,
+  randomize, fix, uniform_atoms, outdir, prefix)` draws thermally conditioned
+  spin configurations from a VASP INCAR with the Mean-Field Approximation and
+  writes one INCAR per configuration, also available from the command line as
+  `magesty vasp mfa`. Per-atom directions are sampled from a von Mises-Fisher
+  distribution whose concentration `κ = 3m/τ` follows from the MFA
+  self-consistency equation `m = coth(3m/τ) − τ/3m`; magnitudes are preserved
+  and both `MAGMOM` and `M_CONSTR` are written. The control variable is `tau`
+  (reduced temperature `T/Tc`) or `m` (magnetization); the sweep is specified by
+  point count (`num_points`, evenly spaced) rather than step width. The
+  code-agnostic sampler (`Magesty.MfaSampling`) and VASP INCAR reader/writer
+  (`Magesty.IncarIO`) are new internal modules; the von Mises-Fisher draw uses an
+  exact closed-form p=3 sampler, so the only new dependency is the lightweight
+  `Roots`. This promotes the former `tools/sampling_mfa.jl` script.
 - **Sunny.jl export (spec 260529-sce-sunny-export).** New exported
   `sce_to_sunny(model; output, placement, symprec)` turns a fitted
   `SCEModel` into a runnable [Sunny.jl](https://github.com/SunnySuite/Sunny.jl)
