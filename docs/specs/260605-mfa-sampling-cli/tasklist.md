@@ -58,4 +58,9 @@ items that do not apply.
 - [x] `CHANGELOG.md` `[Unreleased]` updated.
 - [x] `Status:` line in this file and the table in
       `docs/specs/README.md` updated in sync.
-- [ ] Implementation commit hash appended below.
+- [x] Implementation commit hash appended below.
+
+## Implementation
+
+- `38fb9d8` — feat(cli): promote MFA sampler to exported API and
+  `magesty vasp mfa` command (branch `feat/mfa-sampling-cli`).
