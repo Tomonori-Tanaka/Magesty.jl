@@ -67,19 +67,19 @@ The generated configuration fills `[general]`, `[symmetry]`, `[interaction]`, an
 
 ## `magesty vasp embset`
 
-Extract the energy, magnetic moments, and local magnetic field from one or more VASP `OUTCAR` files and write them in the EMBSET training-data format.
+Extract the energy, magnetic moments, and local magnetic field from one or more VASP `OSZICAR` files and write them in the EMBSET training-data format.
 
 **Usage:**
 ```bash
 # Print the EMBSET text to stdout
-magesty vasp embset OUTCAR1 OUTCAR2
+magesty vasp embset OSZICAR1 OSZICAR2
 
 # Write it to a file, with a non-default quantization axis
-magesty vasp embset OUTCAR1 OUTCAR2 --saxis "1 0 0" --output EMBSET
+magesty vasp embset OSZICAR1 OSZICAR2 --saxis "1 0 0" --output EMBSET
 ```
 
 **Arguments:**
-- `outcars` (positional): Paths to one or more `OUTCAR` files; each becomes one configuration block, numbered in the given order
+- `oszicars` (positional): Paths to one or more `OSZICAR` files; each becomes one configuration block, numbered in the given order
 
 **Options:**
 - `--saxis`: Quantization axis as three numbers in one quoted argument (default: `"0.0 0.0 1.0"`)
@@ -89,7 +89,7 @@ magesty vasp embset OUTCAR1 OUTCAR2 --saxis "1 0 0" --output EMBSET
 **Flags:**
 - `--mint`: Extract the magnetic moment from the `M_int` columns instead of `MW_int`
 
-The same conversion is available programmatically as the exported `outcar_to_embset` function.
+The same conversion is available programmatically as the exported `oszicar_to_embset` function.
 
 ## `magesty sunny script`
 

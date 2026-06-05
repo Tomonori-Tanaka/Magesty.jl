@@ -26,7 +26,7 @@ VASP input/output conversion commands.
 Comonicon.@cast module Vasp
 
 import Comonicon
-import Magesty: vasp_to_extxyz, poscar_to_toml, outcar_to_embset
+import Magesty: vasp_to_extxyz, poscar_to_toml, oszicar_to_embset
 
 """
 Convert a VASP run to extended XYZ (extxyz) format.
@@ -82,16 +82,16 @@ Comonicon.@cast function toml(poscar::String; output::String = "")
 end
 
 """
-Convert one or more VASP OUTCAR files to the EMBSET training-data format.
+Convert one or more VASP OSZICAR files to the EMBSET training-data format.
 
 # Introduction
 
-Each OUTCAR becomes one configuration block (energy, per-atom magnetic
+Each OSZICAR becomes one configuration block (energy, per-atom magnetic
 moments, per-atom constraining field), numbered in the given order.
 
 # Args
 
-- `outcars`: paths to one or more OUTCAR files.
+- `oszicars`: paths to one or more OSZICAR files.
 
 # Options
 
@@ -108,7 +108,7 @@ moments, per-atom constraining field), numbered in the given order.
   `MW_int`.
 """
 Comonicon.@cast function embset(
-	outcars::String...;
+	oszicars::String...;
 	saxis::String = "0.0 0.0 1.0",
 	energy_kind::String = "f",
 	mint::Bool = false,
@@ -117,10 +117,10 @@ Comonicon.@cast function embset(
 	saxis_vec = parse.(Float64, split(strip(saxis)))
 	length(saxis_vec) == 3 ||
 		error("--saxis must be three numbers, e.g. \"0 0 1\"")
-	isempty(outcars) && error("at least one OUTCAR file is required")
+	isempty(oszicars) && error("at least one OSZICAR file is required")
 	out = isempty(output) ? nothing : output
-	text = outcar_to_embset(
-		collect(outcars);
+	text = oszicar_to_embset(
+		collect(oszicars);
 		saxis = saxis_vec,
 		energy_kind = energy_kind,
 		mint = mint,

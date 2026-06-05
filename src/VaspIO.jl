@@ -9,8 +9,8 @@ module VaspIO
 using EzXML
 using Printf
 
-export VaspRunData, OszicarMagData, PoscarData, OutcarData
-export parse_vasprun, parse_oszicar_magdata, parse_poscar, parse_outcar
+export VaspRunData, OszicarMagData, PoscarData, OszicarData
+export parse_vasprun, parse_oszicar_magdata, parse_poscar, parse_oszicar
 
 # 1 kBar = 0.1 GPa; 1 eV/Å³ ≈ 1602.18 GPa  →  1 kBar ≈ 6.2415e-4 eV/Å³
 const KBAR_TO_EV_A3 = 1.0 / 1602.1766208
@@ -270,7 +270,7 @@ end
     parse_oszicar_magdata(filepath, m_constr, num_atoms) -> OszicarMagData
 
 Parse magnetic moment and constraint field from the *last* complete SCF step
-in an OSZICAR (or OUTCAR) file.
+in an OSZICAR file.
 
 The magnetic moment section is identified by a header line containing
 "ion", "MW_int", and "M_int", followed by rows of 7 columns:
@@ -525,10 +525,10 @@ function parse_poscar(filename::AbstractString)::PoscarData
     end
 end
 
-# ── OUTCAR ──────────────────────────────────────────────────────────────────
+# ── OSZICAR (embset) ──────────────────────────────────────────────────────────
 
 """
-Data extracted from a VASP OUTCAR file.
+Data extracted from a VASP OSZICAR file.
 
 Fields
 - `energy`   : final-step energy (eV); free energy or energy(sigma->0)
@@ -536,13 +536,13 @@ Fields
 - `magfield` : per-atom constraining field lambda*MW_perp, `n_atoms × 3`
                (eV / Bohr magneton)
 """
-struct OutcarData
+struct OszicarData
     energy::Float64
     magmom::Matrix{Float64}
     magfield::Matrix{Float64}
 end
 
-# Extract the final-step energy and per-atom magnetic moments from an OUTCAR.
+# Extract the final-step energy and per-atom magnetic moments from an OSZICAR.
 # `energy_kind` is "f" (free energy) or "e0" (energy(sigma->0)). When `mint`
 # is true the moment is read from the M_int columns, otherwise from MW_int.
 function _extract_energy_magmom(
@@ -610,7 +610,7 @@ function _extract_energy_magmom(
 end
 
 # Extract the per-atom constraining magnetic field (lambda*MW_perp) from an
-# OUTCAR. `num_atoms` rows are read from the first such block found.
+# OSZICAR. `num_atoms` rows are read from the first such block found.
 function _extract_magfield(file::AbstractString, num_atoms::Int)::Matrix{Float64}
     magfield_matrix = zeros(Float64, num_atoms, 3)
     open(file, "r") do f
@@ -639,13 +639,13 @@ function _extract_magfield(file::AbstractString, num_atoms::Int)::Matrix{Float64
 end
 
 """
-    parse_outcar(file; energy_kind="f", mint=false) -> OutcarData
+    parse_oszicar(file; energy_kind="f", mint=false) -> OszicarData
 
-Read a VASP OUTCAR file and return its final-step energy, per-atom magnetic
+Read a VASP OSZICAR file and return its final-step energy, per-atom magnetic
 moments, and per-atom constraining magnetic field.
 
 # Arguments
-- `file::AbstractString`: path to an OUTCAR file.
+- `file::AbstractString`: path to an OSZICAR file.
 
 # Keyword arguments
 - `energy_kind::AbstractString = "f"`: `"f"` for the free energy, `"e0"`
@@ -653,15 +653,15 @@ moments, and per-atom constraining magnetic field.
 - `mint::Bool = false`: when `true`, read the magnetic moment from the
   `M_int` columns; otherwise from `MW_int` (the usual choice).
 """
-function parse_outcar(
+function parse_oszicar(
     file::AbstractString;
     energy_kind::AbstractString = "f",
     mint::Bool = false,
-)::OutcarData
+)::OszicarData
     energy, magmom = _extract_energy_magmom(file, energy_kind, mint)
     num_atoms = size(magmom, 1)
     magfield = _extract_magfield(file, num_atoms)
-    return OutcarData(energy, magmom, magfield)
+    return OszicarData(energy, magmom, magfield)
 end
 
 end # module VaspIO

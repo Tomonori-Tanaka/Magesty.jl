@@ -272,7 +272,7 @@ function poscar_to_toml(
 	return text
 end
 
-# ── OUTCAR → EMBSET ─────────────────────────────────────────────────────────
+# ── OSZICAR → EMBSET ────────────────────────────────────────────────────────
 
 # Rotation built from the `saxis` quantization axis: `Rz(alpha) * Ry(beta)`,
 # where `(alpha, beta)` are the azimuthal and polar angles of `saxis`.
@@ -309,18 +309,18 @@ function _write_embset_config(
 end
 
 """
-	outcar_to_embset(outcars; saxis=[0.0, 0.0, 1.0], energy_kind="f", mint=false, output=nothing) -> String
+	oszicar_to_embset(oszicars; saxis=[0.0, 0.0, 1.0], energy_kind="f", mint=false, output=nothing) -> String
 
-Convert one or more VASP OUTCAR files to the EMBSET training-data format
+Convert one or more VASP OSZICAR files to the EMBSET training-data format
 and return the EMBSET text.
 
-Each OUTCAR contributes one configuration block: the final-step energy,
+Each OSZICAR contributes one configuration block: the final-step energy,
 the per-atom magnetic moments, and the per-atom constraining field. The
 magnetic moments and fields are rotated by the `saxis` quantization-axis
 rotation `Rz(alpha) * Ry(beta)`.
 
 # Arguments
-- `outcars::AbstractVector{<:AbstractString}`: paths to the OUTCAR files;
+- `oszicars::AbstractVector{<:AbstractString}`: paths to the OSZICAR files;
   each becomes one configuration, numbered in the given order.
 
 # Keyword arguments
@@ -337,12 +337,12 @@ rotation `Rz(alpha) * Ry(beta)`.
 
 # Examples
 ```julia
-text = outcar_to_embset(["run1/OUTCAR", "run2/OUTCAR"])
-outcar_to_embset(["OUTCAR"]; saxis = [1.0, 0.0, 0.0], output = "EMBSET")
+text = oszicar_to_embset(["run1/OSZICAR", "run2/OSZICAR"])
+oszicar_to_embset(["OSZICAR"]; saxis = [1.0, 0.0, 0.0], output = "EMBSET")
 ```
 """
-function outcar_to_embset(
-	outcars::AbstractVector{<:AbstractString};
+function oszicar_to_embset(
+	oszicars::AbstractVector{<:AbstractString};
 	saxis::AbstractVector{<:Real} = [0.0, 0.0, 1.0],
 	energy_kind::AbstractString = "f",
 	mint::Bool = false,
@@ -351,8 +351,8 @@ function outcar_to_embset(
 	R = _saxis_rotation(saxis)
 
 	buf = IOBuffer()
-	for (idx, file) in enumerate(outcars)
-		od = VaspIO.parse_outcar(file; energy_kind = energy_kind, mint = mint)
+	for (idx, file) in enumerate(oszicars)
+		od = VaspIO.parse_oszicar(file; energy_kind = energy_kind, mint = mint)
 		magmom   = (R * od.magmom')'    # n_atoms × 3
 		magfield = (R * od.magfield')'  # n_atoms × 3
 		concated = hcat(magmom, magfield)

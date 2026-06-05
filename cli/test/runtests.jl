@@ -49,15 +49,15 @@ end
 end
 
 @testset "magesty vasp embset" begin
-	dir         = joinpath(FIXTURE_DIR, "outcar")
-	outcar_path = joinpath(dir, "OUTCAR")
-	golden_text = read(joinpath(dir, "expected.embset"), String)
+	dir          = joinpath(FIXTURE_DIR, "oszicar")
+	oszicar_path = joinpath(dir, "OSZICAR")
+	golden_text  = read(joinpath(dir, "expected.embset"), String)
 
 	# CLI subcommand `magesty vasp embset`: exits 0 and writes the same bytes.
 	cli_outfile = tempname()
 	try
 		exit_code = MagestyCLI.command_main(
-			["vasp", "embset", outcar_path, "--output", cli_outfile],
+			["vasp", "embset", oszicar_path, "--output", cli_outfile],
 		)
 		@test exit_code == 0
 		@test read(cli_outfile, String) == golden_text

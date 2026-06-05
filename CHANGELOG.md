@@ -123,7 +123,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   analysis (JET) covers the whole core again. Subcommands:
   `magesty vasp extxyz` (convert a VASP run to extended XYZ),
   `magesty vasp toml` (convert a VASP POSCAR to a Magesty input TOML
-  configuration), `magesty vasp embset` (convert VASP OUTCAR files to the
+  configuration), `magesty vasp embset` (convert VASP OSZICAR files to the
   EMBSET training-data format), and `magesty version`.
 - `vasp_to_extxyz`: exported function that converts a VASP run
   (`vasprun.xml`, optionally `OSZICAR`) to extended XYZ and returns the
@@ -135,9 +135,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   TOML text; the `magesty vasp toml` subcommand is a thin wrapper over it.
   The generated configuration is a starting point with placeholder
   interaction settings (`lmax = 0`, `cutoff = -1`).
-- `outcar_to_embset`: exported function that extracts the energy, per-atom
+- `oszicar_to_embset`: exported function that extracts the energy, per-atom
   magnetic moments, and per-atom constraining field from one or more VASP
-  `OUTCAR` files and returns the result as EMBSET training-data text; the
+  `OSZICAR` files and returns the result as EMBSET training-data text; the
   `magesty vasp embset` subcommand is a thin wrapper over it. Magnetic
   moments and fields are rotated by the `saxis` quantization-axis rotation.
 - `write_energies` / `write_torques`: exported plain-text writers that dump
@@ -290,10 +290,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The standalone `tools/vasp/pos2toml.jl` script — its POSCAR-to-TOML
   conversion is now the `magesty vasp toml` command (and the
   `poscar_to_toml` API function).
-- The standalone `tools/extract.jl` script — its OUTCAR-to-EMBSET
+- The standalone `tools/extract.jl` script — its OSZICAR-to-EMBSET
   extraction is now the `magesty vasp embset` command (and the
-  `outcar_to_embset` API function). The old script's `--randomize` flag
-  is not carried forward; shuffle the input OUTCAR list before invoking
+  `oszicar_to_embset` API function). The old script's `--randomize` flag
+  is not carried forward; shuffle the input OSZICAR list before invoking
   the command if a randomized configuration order is needed.
 - The `tools/vasp/vasp2extxyz_recursive.jl` script (batch directory-tree
   conversion), removed as unused.

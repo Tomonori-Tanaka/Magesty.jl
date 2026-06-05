@@ -31,7 +31,7 @@ output into the formats used by the spin-cluster expansion workflow:
 
 - `magesty vasp extxyz` — convert a VASP run to extended XYZ
 - `magesty vasp toml` — convert a VASP POSCAR to a Magesty input TOML configuration
-- `magesty vasp embset` — convert VASP OUTCAR files to the EMBSET training-data format
+- `magesty vasp embset` — convert VASP OSZICAR files to the EMBSET training-data format
 
 See the [Tools](tools.md) page for details.
 

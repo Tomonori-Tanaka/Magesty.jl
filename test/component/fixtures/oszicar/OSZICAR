@@ -1,4 +1,4 @@
- synthetic OUTCAR fixture for VaspIO / outcar to embset tests
+ synthetic OSZICAR fixture for VaspIO / oszicar to embset tests
 
  magnetization summary  MW_int / M_int
        1     1.1000000     0.0000000     0.0000000     2.1000000     0.0000000     0.0000000

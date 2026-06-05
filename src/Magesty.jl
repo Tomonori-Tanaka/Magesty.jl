@@ -94,7 +94,7 @@ export fit, refit, coef, intercept, nobs, dof
 export r2_energy, r2_torque, rss_energy, rss_torque
 export residuals_energy, residuals_torque, rmse_energy, rmse_torque
 export SpinConfig, read_embset
-export vasp_to_extxyz, poscar_to_toml, outcar_to_embset
+export vasp_to_extxyz, poscar_to_toml, oszicar_to_embset
 export sce_to_sunny
 
 # Shared skeleton for the SCEBasis input-driven constructors.

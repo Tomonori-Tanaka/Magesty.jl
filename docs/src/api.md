@@ -64,7 +64,7 @@ write_torques
 
 ## VASP conversion
 
-The `vasp_to_extxyz`, `poscar_to_toml`, and `outcar_to_embset` functions
+The `vasp_to_extxyz`, `poscar_to_toml`, and `oszicar_to_embset` functions
 convert VASP output to, respectively, extended XYZ, a Magesty input TOML
 configuration, and the EMBSET training-data format. Each is also available
 from the command line under `magesty vasp` (see [Installation](@ref) and
@@ -73,7 +73,7 @@ from the command line under `magesty vasp` (see [Installation](@ref) and
 ```@docs
 vasp_to_extxyz
 poscar_to_toml
-outcar_to_embset
+oszicar_to_embset
 ```
 
 ## Sunny.jl export
