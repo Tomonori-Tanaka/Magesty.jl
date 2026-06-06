@@ -1,6 +1,6 @@
 # Tasklist: MFA spin-sampling CLI (`magesty vasp mfa`)
 
-Status: complete (2026-06-05)
+Status: merged (2026-06-06, PR #34)
 
 This file holds coarse-grained, commit-sized milestones. Day-to-day
 tracking goes through `TaskCreate` in-session.
