@@ -81,6 +81,12 @@ using .XMLIO
 include("ExtXYZ.jl")
 include("VaspIO.jl")
 
+# Code-agnostic MFA spin sampler and the VASP INCAR text reader/writer;
+# reached as `Magesty.MfaSampling` / `Magesty.IncarIO` and used by the
+# `sample_mfa_incar` API.
+include("MfaSampling.jl")
+include("IncarIO.jl")
+
 export SCEBasis, SCEDataset, SCEFit, SCEModel
 export AbstractEstimator, OLS, Ridge, ElasticNet, Lasso, AdaptiveLasso,
 	PrecomputedPilot, AdaptiveRidge
@@ -95,6 +101,7 @@ export r2_energy, r2_torque, rss_energy, rss_torque
 export residuals_energy, residuals_torque, rmse_energy, rmse_torque
 export SpinConfig, read_embset
 export vasp_to_extxyz, poscar_to_toml, oszicar_to_embset
+export sample_mfa_incar
 export sce_to_sunny
 
 # Shared skeleton for the SCEBasis input-driven constructors.
@@ -1588,6 +1595,9 @@ include("FitCheckIO.jl")
 
 # VASP-to-extxyz conversion API; depends on the VaspIO / ExtXYZ modules.
 include("VaspConvert.jl")
+
+# MFA spin-sampling API; depends on the IncarIO / MfaSampling modules.
+include("VaspSampling.jl")
 
 # Sunny.jl LSWT script export; depends on the SCEModel / SALCBasis types and
 # the Fitting normalization. Emits text only (no Sunny.jl dependency).

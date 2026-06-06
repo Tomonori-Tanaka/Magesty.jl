@@ -7,6 +7,7 @@ relative to the repository root.
 """
 
 using MagestyCLI
+using Magesty: IncarIO
 using Test
 
 const FIXTURE_DIR = joinpath(@__DIR__, "..", "..", "test", "component", "fixtures")
@@ -83,6 +84,35 @@ end
 		@test occursin("SpinWaveTheory", text)
 	finally
 		isfile(cli_outfile) && rm(cli_outfile)
+	end
+end
+
+@testset "magesty vasp mfa" begin
+	incar_path = joinpath(FIXTURE_DIR, "incar", "INCAR")
+
+	# CLI subcommand `magesty vasp mfa`: exits 0 and writes
+	# num_points * num_samples INCAR files. Sampling is stochastic, so we
+	# assert structural invariants (file count, naming, magnitude
+	# preservation, MAGMOM == M_CONSTR) rather than byte-exact output.
+	mktempdir() do dir
+		outdir = joinpath(dir, "out")
+		exit_code = MagestyCLI.command_main(
+			["vasp", "mfa", incar_path, "tau",
+				"--start", "0.1", "--stop", "0.3", "--num-points", "3",
+				"--num-samples", "2", "--outdir", outdir],
+		)
+		@test exit_code == 0
+		files = sort(readdir(outdir))
+		@test files == ["sample-$(i).INCAR" for i = 1:6]
+		for f in files
+			d = IncarIO.parse_incar(joinpath(outdir, f))
+			m = d[:MAGMOM]
+			@test d[:M_CONSTR] == m
+			for i = 1:4
+				mag = sqrt(sum(abs2, m[3i-2:3i]))
+				@test isapprox(mag, 3.0; atol = 1e-6)
+			end
+		end
 	end
 end
 

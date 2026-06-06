@@ -91,6 +91,46 @@ magesty vasp embset OSZICAR1 OSZICAR2 --saxis "1 0 0" --output EMBSET
 
 The same conversion is available programmatically as the exported `oszicar_to_embset` function.
 
+## `magesty vasp mfa`
+
+Sample thermally conditioned spin configurations from a VASP INCAR using the
+Mean-Field Approximation (MFA). The initial spins are read from `MAGMOM` (or
+`M_CONSTR` if `MAGMOM` is absent), and for each value in an evenly spaced sweep
+of the control variable, per-atom directions are drawn from a von Mises-Fisher
+distribution whose concentration follows from the MFA self-consistency
+equation. Each drawn configuration is written to its own INCAR file (with both
+`MAGMOM` and `M_CONSTR` set, all other input keys preserved).
+
+**Usage:**
+```bash
+# 9 temperatures from 0.1 to 0.9 (T/Tc), one configuration each
+magesty vasp mfa INCAR tau --start 0.1 --stop 0.9 --num-points 9
+
+# Sweep magnetization instead, 100 samples per value, into ./samples
+magesty vasp mfa INCAR m --start 0.2 --stop 0.8 --num-points 7 \
+    --num-samples 100 --outdir samples
+```
+
+**Arguments:**
+- `incar` (positional): Path to the input INCAR (required)
+- `variable` (positional): Control variable — `tau` (reduced temperature `T/Tc`) or `m` (magnetization) (required)
+
+**Options:**
+- `--start`: First sweep value (required)
+- `--stop`: Last sweep value (required, `≥ start`)
+- `--num-points`: Number of evenly spaced sweep values (required, `≥ 1`); the values are `range(start, stop; length = num_points)`
+- `--num-samples`: Configurations drawn per sweep value (default: `1`)
+- `--fix`: 1-based atom indices kept at their input directions (rotated by the same global rotation when `--randomize`), e.g. `"1-10,12,20-22"`
+- `--uniform-atoms`: 1-based atom indices drawn isotropically on the sphere instead of from the vMF distribution (same index syntax)
+- `--outdir`: Output directory (default: `.`, created if needed)
+
+**Flags:**
+- `--randomize`: Apply a random global rotation (quantization-axis randomization) to each drawn configuration
+
+Output files are `<outdir>/sample-NN.INCAR`, numbered `(point-1)·num_samples + sample` and zero-padded to the width of `num_points · num_samples`.
+
+The same sampling is available programmatically as the exported `sample_mfa_incar` function.
+
 ## `magesty sunny script`
 
 Export a fitted SCE model (a saved `SCEModel` XML file) to a runnable

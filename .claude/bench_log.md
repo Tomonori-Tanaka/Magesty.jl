@@ -1222,3 +1222,27 @@ per-atom SH cache fill (lmax=8, `@belapsed`):
 ### Regression
 
 - `make test-all` (23346 pass) / `make test-jet` / `make test-aqua` clean。
+
+## 2026-06-05 — MFA spin sampling (`MfaSampling.mfa_sweep`), spec 260605-mfa-sampling-cli
+
+New offline sampler. Performance-reviewer noted the MFA self-consistency Brent
+solve (`thermal_averaged_m`, ~0.35 µs) was being recomputed once per sample
+even though `τ`/`κ` are constant across the `num_samples` inner loop. Hoisted
+`τ`/`κ` to once per sweep value in `mfa_sweep`, and split the `randomize`
+branch so the rotation matrix stays a concrete `SMatrix` (removes a
+`Union{SMatrix,Nothing}` instability).
+
+Canonical benchmark (3×50 spins, `variable="tau"`, num_points=10,
+num_samples=100 → 1000 configs), `@benchmark` median:
+
+| | time |
+|---|---:|
+| after hoist | 1.349 ms |
+
+(No reliable "before" captured — the hoist landed with the initial review pass;
+the figure is the post-fix baseline for future regression checks.)
+
+### Regression
+
+- New `test/component/test_MfaSampling.jl` + `test_IncarIO.jl`: 135 pass.
+- `cli/test` `magesty vasp mfa`: 32 pass. `make test-all` green.
