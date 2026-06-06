@@ -129,7 +129,7 @@ magesty vasp mfa INCAR m --start 0.2 --stop 0.8 --num-points 7 \
 
 Output files are `<outdir>/sample-NN.INCAR`, numbered `(point-1)·num_samples + sample` and zero-padded to the width of `num_points · num_samples`.
 
-The same sampling is available programmatically as the exported `sample_mfa_incar` function.
+The same sampling is available programmatically as the exported `sample_mfa_incar` function. See [Mean-Field Sampling](tips/mfa_sampling.md) for the underlying theory (the von Mises-Fisher distribution and the MFA self-consistency equation).
 
 ## `magesty sunny script`
 

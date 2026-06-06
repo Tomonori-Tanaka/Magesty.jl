@@ -48,6 +48,7 @@ makedocs(
 			[
 				"tips/penalty_parameter_dependence.md",
 				"tips/rwigs_dependence.md",
+				"tips/mfa_sampling.md",
 				"tips/mfa_analysis.md",
 			],
 		),

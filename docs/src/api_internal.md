@@ -87,3 +87,17 @@ TesseralHarmonics.∂ᵢZlm_unsafe
 RotationMatrix.rotmat2euler
 RotationMatrix.Δl
 ```
+
+### MFA spin sampling
+
+Code-agnostic building blocks behind the exported [`sample_mfa_incar`](@ref);
+see [Mean-Field Sampling](tips/mfa_sampling.md) for the theory.
+
+```@docs
+MfaSampling.thermal_averaged_m
+MfaSampling.tau_from_magnetization
+MfaSampling.sample_vmf_direction
+MfaSampling.mfa_sample
+MfaSampling.mfa_sweep
+MfaSampling.parse_atom_index_spec
+```
