@@ -157,7 +157,10 @@ sweep of the control variable.
   at their input directions (rotated by the same global rotation when
   `randomize`), i.e. not sampled.
 - `uniform_indices::AbstractVector{<:Integer} = Int[]`: 1-based atom indices
-  drawn isotropically on the sphere instead of from the vMF distribution.
+  whose direction is redrawn uniformly on the sphere (the disordered `κ → 0`
+  limit) instead of from the vMF distribution, independently of the sweep value.
+  The isotropic draw is applied after sampling and overrides it; indices also in
+  `fixed_indices` are subsequently reset, so `fixed_indices` takes precedence.
 
 # Returns
 - `Vector{Matrix{Float64}}`: sampled configurations in `(value, sample)` order

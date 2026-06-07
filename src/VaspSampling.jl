@@ -33,8 +33,12 @@ both `MAGMOM` and `M_CONSTR` to the sampled configuration.
 - `fix::AbstractString = ""`: 1-based atom indices kept at their input
   directions (rotated by the same global rotation when `randomize`), e.g.
   `"1-10,12,20-22"`.
-- `uniform_atoms::AbstractString = ""`: 1-based atom indices drawn isotropically
-  on the sphere instead of from the vMF distribution (same index syntax).
+- `uniform_atoms::AbstractString = ""`: 1-based atom indices whose direction is
+  redrawn uniformly on the sphere instead of from the vMF distribution (same
+  index syntax). These carry no mean-field alignment — fully isotropic for every
+  sweep value, independent of `variable` (the disordered `κ → 0` limit), unlike a
+  default atom (partially aligned) or a `fix` atom (frozen). Magnitudes are
+  preserved; if an index is also in `fix`, `fix` takes precedence.
 - `outdir::AbstractString = "."`: directory for the output files (created if
   needed).
 - `prefix::AbstractString = "sample"`: output file-name prefix. The

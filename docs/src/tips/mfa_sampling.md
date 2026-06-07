@@ -183,9 +183,22 @@ global rotation:
 - **Fixed atoms** (`--fix`) keep their input directions instead of being
   sampled — e.g. to hold an impurity or a reference sublattice while the rest of
   the cell is thermalized.
-- **Uniform atoms** (`--uniform-atoms`) are drawn isotropically on the sphere
-  (the $\kappa \to 0$ limit) regardless of $\tau$, modeling sites with no
-  mean-field alignment.
+- **Uniform atoms** (`--uniform-atoms`) have their direction redrawn uniformly
+  on the sphere — the fully disordered, $\kappa \to 0$ (infinite-temperature)
+  single-site limit — *independently of the sweep value*. Whereas a default atom
+  partially aligns with $\boldsymbol{e}_0$ by an amount set by
+  $\kappa = 3m/\tau$, and a fixed atom stays perfectly aligned with its input,
+  a uniform atom carries no mean-field alignment at all: its direction is
+  isotropic for every $\tau$, including the low-temperature end of the sweep
+  where the rest of the cell is nearly ordered. This models sites that are not
+  part of the ordered network — e.g. a weakly coupled impurity, a sublattice you
+  want held fully paramagnetic as a control, or an antisite whose moment averages
+  to zero. The isotropic draw replaces the vMF draw for these columns (it is
+  applied after sampling and overrides it), so the sweep value affects only the
+  remaining atoms. If an index appears in both `--fix` and `--uniform-atoms`,
+  `--fix` takes precedence (it is reapplied last). Under `--randomize` the global
+  rotation is applied to uniform atoms as well, but since their distribution is
+  already isotropic this leaves it statistically unchanged.
 - **Quantization-axis randomization** (`--randomize`) applies a single random
   global rotation to each drawn configuration, so the reference axis
   $\boldsymbol{e}_0$ is not pinned to a fixed Cartesian direction across the

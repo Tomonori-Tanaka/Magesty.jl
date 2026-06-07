@@ -121,7 +121,7 @@ magesty vasp mfa INCAR m --start 0.2 --stop 0.8 --num-points 7 \
 - `--num-points`: Number of evenly spaced sweep values (required, `≥ 1`); the values are `range(start, stop; length = num_points)`
 - `--num-samples`: Configurations drawn per sweep value (default: `1`)
 - `--fix`: 1-based atom indices kept at their input directions (rotated by the same global rotation when `--randomize`), e.g. `"1-10,12,20-22"`
-- `--uniform-atoms`: 1-based atom indices drawn isotropically on the sphere instead of from the vMF distribution (same index syntax)
+- `--uniform-atoms`: 1-based atom indices whose direction is redrawn uniformly on the sphere instead of from the vMF distribution (same index syntax). These atoms carry no mean-field alignment: their direction is fully isotropic for every sweep value, independent of `tau`/`m` — in contrast to a default atom (partially aligned by `κ = 3m/τ`) and a `--fix` atom (frozen at its input). Use it for sites outside the ordered network, e.g. a weakly coupled impurity or a sublattice held paramagnetic as a control. Magnitudes are preserved and zero-moment sites are left untouched; if an index is also in `--fix`, `--fix` wins. See [Mean-Field Sampling](tips/mfa_sampling.md) for the underlying limit
 - `--outdir`: Output directory (default: `.`, created if needed)
 
 **Flags:**

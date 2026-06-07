@@ -162,8 +162,13 @@ so a sample set is reproducible from its log alone.
 - `--fix=<spec>`: 1-based atom indices kept at their input directions
   (rotated by the same global rotation when `--randomize`), e.g.
   `"1-10,12,20-22"`.
-- `--uniform-atoms=<spec>`: 1-based atom indices drawn isotropically on the
-  sphere instead of from the vMF distribution (same index syntax).
+- `--uniform-atoms=<spec>`: 1-based atom indices whose direction is redrawn
+  uniformly on the sphere instead of from the vMF distribution (same index
+  syntax). These carry no mean-field alignment — their direction is fully
+  isotropic for every sweep value, independent of `tau`/`m` (the disordered
+  `κ → 0` limit), unlike a default atom (partially aligned) or a `--fix` atom
+  (frozen). Magnitudes are preserved; if an index is also in `--fix`, `--fix`
+  wins.
 - `--outdir=<path>`: output directory (default: `.`, created if needed).
 
 # Flags
