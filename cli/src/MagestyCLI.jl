@@ -141,7 +141,9 @@ For each value in an evenly spaced sweep of the control variable, draws
 (per-atom directions from a von Mises-Fisher distribution, magnitudes
 preserved) and writes each to its own `<outdir>/sample-NN.INCAR` file. The
 initial spins are read from `MAGMOM`, or `M_CONSTR` if `MAGMOM` is absent; each
-output sets both `MAGMOM` and `M_CONSTR` and copies all other input keys.
+output sets both `MAGMOM` and `M_CONSTR` and copies all other input keys. The
+run conditions (input file, sweep, sample count, options) are echoed to stdout
+so a sample set is reproducible from its log alone.
 
 # Args
 
@@ -202,7 +204,19 @@ Comonicon.@cast function mfa(
 		uniform_atoms = uniform_atoms,
 		outdir = outdir,
 	)
-	println("Wrote $(length(paths)) INCAR file(s) to $(outdir).")
+	# Echo the run conditions so a sample set is self-documenting and
+	# reproducible from its log alone.
+	println("MFA spin sampling")
+	println("  Input INCAR:       ", incar)
+	println("  Variable:          ", variable)
+	println("  Sweep:             ", start, " to ", stop, ", ", num_points,
+		" point(s) [range(start, stop; length = num_points)]")
+	println("  Samples per point: ", num_samples)
+	println("  Randomize axis:    ", randomize ? "yes" : "no")
+	println("  Fixed atoms:       ", isempty(strip(fix)) ? "(none)" : fix)
+	println("  Uniform atoms:     ", isempty(strip(uniform_atoms)) ? "(none)" : uniform_atoms)
+	println("  Output directory:  ", outdir)
+	println("  Files written:     ", length(paths))
 	return nothing
 end
 
