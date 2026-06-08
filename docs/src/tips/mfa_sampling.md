@@ -114,6 +114,18 @@ $\langle \hat{\boldsymbol{e}}_i\cdot\hat{\boldsymbol{e}}_i \rangle = 1$. The (si
 spin-spin correlation between distinct sites is therefore simply $m^2$, which
 maps to a reduced temperature through the self-consistency of Section 2.
 
+!!! note "The mean-field $T_C$ is not the true $T_C$"
+    The mean-field Curie temperature $T_C^{\text{MFA}}$ differs from the true
+    $T_C$ (e.g. the one obtained from Monte Carlo). At $T_C^{\text{MFA}}$ the
+    mean-field description loses *both* long-range and short-range order at once:
+    $m \to 0$, so the distinct-site correlation $\langle \hat{\boldsymbol{e}}_i
+    \cdot \hat{\boldsymbol{e}}_j \rangle = m^2 \to 0$ as well, and the spins
+    become completely random and uncorrelated. The true $T_C$ instead destroys
+    only the long-range order while leaving short-range order intact above the
+    transition. This is why one does not set $\tau = 1$ to model the real
+    critical point, but tunes $\tau < 1$ so that the residual correlation $m^2$
+    matches a target degree of short-range order, as described next.
+
 This gives a practical recipe for choosing the sweep value: pick $\tau$ (or
 equivalently $m = \sqrt{\langle \hat{\boldsymbol{e}}_i\cdot\hat{\boldsymbol{e}}_j \rangle}$)
 so that $m^2$ reproduces a target nearest-neighbor correlation, e.g. one reported
