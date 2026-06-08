@@ -12,10 +12,10 @@ The classical spin model analyzed here is written in the ordered double-sum
 form
 
 ```math
-E = -\sum_{\boldsymbol{R},\boldsymbol{R}'}\sum_{\mu\nu} \boldsymbol{e}_{\boldsymbol{R}\mu}^{\top}\, \boldsymbol{\mathcal{J}}_{\mu\nu}(\boldsymbol{R}'-\boldsymbol{R})\, \boldsymbol{e}_{\boldsymbol{R}'\nu},
+E = -\sum_{\boldsymbol{R},\boldsymbol{R}'}\sum_{\mu\nu} \hat{\boldsymbol{e}}_{\boldsymbol{R}\mu}^{\top}\, \boldsymbol{\mathcal{J}}_{\mu\nu}(\boldsymbol{R}'-\boldsymbol{R})\, \hat{\boldsymbol{e}}_{\boldsymbol{R}'\nu},
 ```
 
-where $\boldsymbol{e}_{\boldsymbol{R}\mu}$ is the unit spin direction at
+where $\hat{\boldsymbol{e}}_{\boldsymbol{R}\mu}$ is the unit spin direction at
 sublattice $\mu$ in Bravais cell $\boldsymbol{R}$, and
 $\boldsymbol{\mathcal{J}}_{\mu\nu}(\boldsymbol{\Delta})$ is the $3\times 3$
 exchange-coupling tensor. The reality of $E$ enforces the symmetry condition
@@ -70,23 +70,23 @@ built below retains all three channels.
 Introduce the local order parameter
 
 ```math
-\boldsymbol{m}_{\boldsymbol{R}\mu} = \langle \boldsymbol{e}_{\boldsymbol{R}\mu} \rangle,
+\boldsymbol{m}_{\boldsymbol{R}\mu} = \langle \hat{\boldsymbol{e}}_{\boldsymbol{R}\mu} \rangle,
 ```
 
 and split the spin direction into mean value plus fluctuation,
-$\boldsymbol{e}_{\boldsymbol{R}\mu} = \boldsymbol{m}_{\boldsymbol{R}\mu} + \delta\boldsymbol{e}_{\boldsymbol{R}\mu}$.
+$\hat{\boldsymbol{e}}_{\boldsymbol{R}\mu} = \boldsymbol{m}_{\boldsymbol{R}\mu} + \delta\hat{\boldsymbol{e}}_{\boldsymbol{R}\mu}$.
 Substituting into a single pair term and dropping the fluctuation-fluctuation
 correlation gives the mean-field approximation
 
 ```math
-\boldsymbol{e}_{\boldsymbol{R}\mu}^{\top} \boldsymbol{\mathcal{J}}_{\mu\nu}(\boldsymbol{\Delta})\, \boldsymbol{e}_{\boldsymbol{R}'\nu} \simeq \boldsymbol{e}_{\boldsymbol{R}\mu}^{\top} \boldsymbol{\mathcal{J}}_{\mu\nu}(\boldsymbol{\Delta})\, \boldsymbol{m}_{\boldsymbol{R}'\nu} + \boldsymbol{m}_{\boldsymbol{R}\mu}^{\top} \boldsymbol{\mathcal{J}}_{\mu\nu}(\boldsymbol{\Delta})\, \boldsymbol{e}_{\boldsymbol{R}'\nu} - \boldsymbol{m}_{\boldsymbol{R}\mu}^{\top} \boldsymbol{\mathcal{J}}_{\mu\nu}(\boldsymbol{\Delta})\, \boldsymbol{m}_{\boldsymbol{R}'\nu}.
+\hat{\boldsymbol{e}}_{\boldsymbol{R}\mu}^{\top} \boldsymbol{\mathcal{J}}_{\mu\nu}(\boldsymbol{\Delta})\, \hat{\boldsymbol{e}}_{\boldsymbol{R}'\nu} \simeq \hat{\boldsymbol{e}}_{\boldsymbol{R}\mu}^{\top} \boldsymbol{\mathcal{J}}_{\mu\nu}(\boldsymbol{\Delta})\, \boldsymbol{m}_{\boldsymbol{R}'\nu} + \boldsymbol{m}_{\boldsymbol{R}\mu}^{\top} \boldsymbol{\mathcal{J}}_{\mu\nu}(\boldsymbol{\Delta})\, \hat{\boldsymbol{e}}_{\boldsymbol{R}'\nu} - \boldsymbol{m}_{\boldsymbol{R}\mu}^{\top} \boldsymbol{\mathcal{J}}_{\mu\nu}(\boldsymbol{\Delta})\, \boldsymbol{m}_{\boldsymbol{R}'\nu}.
 ```
 
 Summing over all ordered pairs and using the reality condition, the two
 linear terms give identical contributions. The mean-field energy becomes
 
 ```math
-E^{\text{MF}} = -2\sum_{\boldsymbol{R}\mu} \boldsymbol{h}^{\text{MF}}_{\boldsymbol{R}\mu} \cdot \boldsymbol{e}_{\boldsymbol{R}\mu} + \sum_{\boldsymbol{R},\boldsymbol{R}'}\sum_{\mu\nu} \boldsymbol{m}_{\boldsymbol{R}\mu}^{\top}\, \boldsymbol{\mathcal{J}}_{\mu\nu}(\boldsymbol{R}'-\boldsymbol{R})\, \boldsymbol{m}_{\boldsymbol{R}'\nu},
+E^{\text{MF}} = -2\sum_{\boldsymbol{R}\mu} \boldsymbol{h}^{\text{MF}}_{\boldsymbol{R}\mu} \cdot \hat{\boldsymbol{e}}_{\boldsymbol{R}\mu} + \sum_{\boldsymbol{R},\boldsymbol{R}'}\sum_{\mu\nu} \boldsymbol{m}_{\boldsymbol{R}\mu}^{\top}\, \boldsymbol{\mathcal{J}}_{\mu\nu}(\boldsymbol{R}'-\boldsymbol{R})\, \boldsymbol{m}_{\boldsymbol{R}'\nu},
 ```
 
 with the **mean-field effective field**
@@ -103,7 +103,7 @@ For classical (unit-vector) spins on the unit sphere, the single-site
 partition function in the effective field is
 
 ```math
-Z_{\boldsymbol{R}\mu} = \int \mathrm{d}\Omega_{\boldsymbol{R}\mu}\, \exp\!\left(2\beta\, \boldsymbol{h}^{\text{MF}}_{\boldsymbol{R}\mu} \cdot \boldsymbol{e}_{\boldsymbol{R}\mu}\right) = \frac{2\pi}{\beta h^{\text{MF}}_{\boldsymbol{R}\mu}}\, \sinh\!\bigl(2\beta h^{\text{MF}}_{\boldsymbol{R}\mu}\bigr).
+Z_{\boldsymbol{R}\mu} = \int \mathrm{d}\Omega_{\boldsymbol{R}\mu}\, \exp\!\left(2\beta\, \boldsymbol{h}^{\text{MF}}_{\boldsymbol{R}\mu} \cdot \hat{\boldsymbol{e}}_{\boldsymbol{R}\mu}\right) = \frac{2\pi}{\beta h^{\text{MF}}_{\boldsymbol{R}\mu}}\, \sinh\!\bigl(2\beta h^{\text{MF}}_{\boldsymbol{R}\mu}\bigr).
 ```
 
 The order parameter then satisfies the self-consistent equation

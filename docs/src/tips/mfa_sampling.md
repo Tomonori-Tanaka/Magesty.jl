@@ -13,17 +13,17 @@ the [ordering-wavevector analysis](mfa_analysis.md) is used throughout.
 ## 1. Single-Site Distribution on the Sphere
 
 In the mean-field approximation each classical (unit-vector) spin
-$\boldsymbol{e}_i$ at site $i$ feels the same site-independent effective field
-set by the average magnetization $\boldsymbol{m} = m\,\boldsymbol{e}_0$, where
-$m \in [0, 1]$ is the reduced magnetization and $\boldsymbol{e}_0$ is the common
+$\hat{\boldsymbol{e}}_i$ at site $i$ feels the same site-independent effective field
+set by the average magnetization $\boldsymbol{m} = m\,\hat{\boldsymbol{e}}_0$, where
+$m \in [0, 1]$ is the reduced magnetization and $\hat{\boldsymbol{e}}_0$ is the common
 reference direction. The single-site Boltzmann weight on the unit sphere is
-$\exp(2\beta\,\boldsymbol{h}^{\text{MF}}\!\cdot\boldsymbol{e}_i)$, with the
+$\exp(2\beta\,\boldsymbol{h}^{\text{MF}}\!\cdot\hat{\boldsymbol{e}}_i)$, with the
 mean-field field $\boldsymbol{h}^{\text{MF}}$ and inverse temperature
 $\beta = 1/k_B T$ defined as in the [analysis page](mfa_analysis.md).
 Normalizing on $S^2$ gives the von Mises-Fisher (vMF) distribution
 
 ```math
-P(\boldsymbol{e}_i) = \frac{3m/\tau}{4\pi\sinh(3m/\tau)}\, \exp\!\left(\frac{3m}{\tau}\, \boldsymbol{e}_0\cdot\boldsymbol{e}_i\right),
+P(\hat{\boldsymbol{e}}_i) = \frac{3m/\tau}{4\pi\sinh(3m/\tau)}\, \exp\!\left(\frac{3m}{\tau}\, \hat{\boldsymbol{e}}_0\cdot\hat{\boldsymbol{e}}_i\right),
 ```
 
 where the **reduced temperature** is
@@ -34,15 +34,23 @@ where the **reduced temperature** is
 
 and $T_C^{\text{MFA}}$ is the mean-field Curie temperature (the same quantity
 returned by the analysis page). The distribution is peaked along
-$\boldsymbol{e}_0$ for small $\tau$ and becomes uniform on the sphere as
+$\hat{\boldsymbol{e}}_0$ for small $\tau$ and becomes uniform on the sphere as
 $\tau \to T_C^{\text{MFA}}$ (the fully disordered limit).
 
-This is a vMF distribution with mean direction $\boldsymbol{e}_0$ and
+This is a vMF distribution with mean direction $\hat{\boldsymbol{e}}_0$ and
 **concentration parameter**
 
 ```math
 \kappa = \frac{3m}{\tau}.
 ```
+
+The two regimes are shown below, with $\hat{\boldsymbol{e}}_0 = +\hat{\boldsymbol{z}}$:
+at low reduced temperature ($\tau = 0.1$, $m = 0.965$, $\kappa = 28.96$) the
+density is sharply peaked into a cap around $\hat{\boldsymbol{e}}_0$ (nearly ordered),
+whereas near the Curie point ($\tau = 0.9$, $m = 0.397$, $\kappa = 1.32$) it is
+only weakly polarized and approaches a uniform sphere (disordered).
+
+![Fig. 1](../assets/mfa_sampling/vmf_sphere.png)
 
 $\kappa$ is exactly the single-site Boltzmann factor $2\beta h^{\text{MF}}$: for a
 homogeneous ferromagnet $h^{\text{MF}} = J_0\, m$ with
@@ -84,7 +92,7 @@ i.e. the *same* Langevin function. The expected projection of a sampled spin
 onto the reference axis is therefore
 
 ```math
-\langle \boldsymbol{e}_0\cdot\boldsymbol{e}_i \rangle = L(\kappa) = L\!\left(\frac{3m}{\tau}\right) = m,
+\langle \hat{\boldsymbol{e}}_0\cdot\hat{\boldsymbol{e}}_i \rangle = L(\kappa) = L\!\left(\frac{3m}{\tau}\right) = m,
 ```
 
 so the ensemble-average magnetization of the drawn configurations equals the
@@ -94,25 +102,25 @@ used to validate the sampler, rather than pinning it to any reference output.
 ### Spin-spin correlation and the choice of $\tau$
 
 In the mean-field approximation the spins are drawn independently from the same
-single-site distribution about $\boldsymbol{e}_0$, so the two-site correlation
+single-site distribution about $\hat{\boldsymbol{e}}_0$, so the two-site correlation
 factorizes. For distinct sites $i \neq j$,
 
 ```math
-\langle \boldsymbol{e}_i\cdot\boldsymbol{e}_j \rangle = \langle\boldsymbol{e}_i\rangle\cdot\langle\boldsymbol{e}_j\rangle = (m\,\boldsymbol{e}_0)\cdot(m\,\boldsymbol{e}_0) = m^2,
+\langle \hat{\boldsymbol{e}}_i\cdot\hat{\boldsymbol{e}}_j \rangle = \langle\hat{\boldsymbol{e}}_i\rangle\cdot\langle\hat{\boldsymbol{e}}_j\rangle = (m\,\hat{\boldsymbol{e}}_0)\cdot(m\,\hat{\boldsymbol{e}}_0) = m^2,
 ```
 
 while the same-site value is fixed by the unit-vector constraint,
-$\langle \boldsymbol{e}_i\cdot\boldsymbol{e}_i \rangle = 1$. The (site-independent)
+$\langle \hat{\boldsymbol{e}}_i\cdot\hat{\boldsymbol{e}}_i \rangle = 1$. The (site-independent)
 spin-spin correlation between distinct sites is therefore simply $m^2$, which
 maps to a reduced temperature through the self-consistency of Section 2.
 
 This gives a practical recipe for choosing the sweep value: pick $\tau$ (or
-equivalently $m = \sqrt{\langle \boldsymbol{e}_i\cdot\boldsymbol{e}_j \rangle}$)
+equivalently $m = \sqrt{\langle \hat{\boldsymbol{e}}_i\cdot\hat{\boldsymbol{e}}_j \rangle}$)
 so that $m^2$ reproduces a target nearest-neighbor correlation, e.g. one reported
 near $T_C$ by Monte Carlo or dynamic spin-fluctuation studies. The values used
 for the materials in arXiv:2410.11256 (2024) are
 
-| $\langle \boldsymbol{e}_i\cdot\boldsymbol{e}_j \rangle$ | $m = \sqrt{\langle \boldsymbol{e}_i\cdot\boldsymbol{e}_j \rangle}$ | $\tau$ |
+| $\langle \hat{\boldsymbol{e}}_i\cdot\hat{\boldsymbol{e}}_j \rangle$ | $m = \sqrt{\langle \hat{\boldsymbol{e}}_i\cdot\hat{\boldsymbol{e}}_j \rangle}$ | $\tau$ |
 |---|---|---|
 | $0.50$ (bcc Fe) | $0.7071$ | $0.6261$ |
 | $0.65$ (fcc Ni) | $0.8062$ | $0.4688$ |
@@ -134,7 +142,7 @@ configurations whose nearest-neighbor correlation matches the bcc-Fe target.
 
 Directions are drawn with the closed-form inverse-CDF construction for the
 three-dimensional ($p = 3$) vMF distribution (Ulrich 1984; Wood 1994), which is
-exact — no rejection step. The cosine $w = \boldsymbol{e}_0\cdot\boldsymbol{e}_i$
+exact — no rejection step. The cosine $w = \hat{\boldsymbol{e}}_0\cdot\hat{\boldsymbol{e}}_i$
 to the mean direction follows from a single uniform deviate $u \sim U(0, 1)$,
 
 ```math
@@ -142,14 +150,14 @@ w = 1 + \frac{1}{\kappa}\,\ln\!\bigl(u + (1 - u)\,e^{-2\kappa}\bigr),
 ```
 
 and the azimuth $\varphi \sim U(0, 2\pi)$ is uniform in the tangent plane. With
-$\{\boldsymbol{t}_1, \boldsymbol{t}_2\}$ an orthonormal basis of the plane
-orthogonal to $\boldsymbol{e}_0$, the sampled direction is
+$\{\hat{\boldsymbol{t}}_1, \hat{\boldsymbol{t}}_2\}$ an orthonormal basis of the plane
+orthogonal to $\hat{\boldsymbol{e}}_0$, the sampled direction is
 
 ```math
-\boldsymbol{e}_i = w\,\boldsymbol{e}_0 + \sqrt{1 - w^2}\,\bigl(\cos\varphi\,\boldsymbol{t}_1 + \sin\varphi\,\boldsymbol{t}_2\bigr).
+\hat{\boldsymbol{e}}_i = w\,\hat{\boldsymbol{e}}_0 + \sqrt{1 - w^2}\,\bigl(\cos\varphi\,\hat{\boldsymbol{t}}_1 + \sin\varphi\,\hat{\boldsymbol{t}}_2\bigr).
 ```
 
-As $\kappa \to \infty$ this concentrates onto $\boldsymbol{e}_0$
+As $\kappa \to \infty$ this concentrates onto $\hat{\boldsymbol{e}}_0$
 ($w \to 1$); as $\kappa \to 0$ it reduces to a uniform draw on the sphere
 ($w$ uniform on $[-1, 1]$). Per-atom magnitudes are reattached after the
 direction is drawn, so $\lVert\boldsymbol{S}_i\rVert$ is preserved exactly.
@@ -186,7 +194,7 @@ global rotation:
 - **Uniform atoms** (`--uniform-atoms`) have their direction redrawn uniformly
   on the sphere — the fully disordered, $\kappa \to 0$ (infinite-temperature)
   single-site limit — *independently of the sweep value*. Whereas a default atom
-  partially aligns with $\boldsymbol{e}_0$ by an amount set by
+  partially aligns with $\hat{\boldsymbol{e}}_0$ by an amount set by
   $\kappa = 3m/\tau$, and a fixed atom stays perfectly aligned with its input,
   a uniform atom carries no mean-field alignment at all: its direction is
   isotropic for every $\tau$, including the low-temperature end of the sweep
@@ -201,7 +209,7 @@ global rotation:
   already isotropic this leaves it statistically unchanged.
 - **Quantization-axis randomization** (`--randomize`) applies a single random
   global rotation to each drawn configuration, so the reference axis
-  $\boldsymbol{e}_0$ is not pinned to a fixed Cartesian direction across the
+  $\hat{\boldsymbol{e}}_0$ is not pinned to a fixed Cartesian direction across the
   sample set. Fixed atoms are rotated by the same global rotation, preserving
   their orientation relative to the sampled spins.
 
