@@ -33,6 +33,13 @@ and energies. Passing `oszicar` additionally writes per-atom magnetic
 moments (`magmom_smoothed`, `magmom_raw`) and the constraint field
 (`constr_field`).
 
+The header also records `soc` (spin-orbit coupling flag) and, when the
+electronic-convergence status can be determined, `converged` (`T`/`F` for
+the electronic SCF loop). A non-converged run is still written, with
+`converged=F` and a warning. The `converged` key is omitted when the status
+is indeterminate (no NELM, single-shot `NELM = 1`, `EDIFF <= 0`, or no SCF
+steps).
+
 # Arguments
 - `vasprun::AbstractString`: path to `vasprun.xml`.
 
@@ -77,6 +84,10 @@ function vasp_to_extxyz(
 		push!(extra_per_atom, "constr_field"    => md.constr_field)
 	end
 
+	if vd.electronic_converged === false
+		@warn "VASP electronic SCF did not converge (reached NELM electronic steps)" vasprun
+	end
+
 	frame = ExtXYZ.AtomFrame(
 		num_atoms      = vd.num_atoms,
 		lattice        = vd.lattice,
@@ -88,6 +99,7 @@ function vasp_to_extxyz(
 		energy_zero    = vd.energy_zero,
 		stress         = vd.stress,
 		soc            = vd.lsorbit,
+		converged      = vd.electronic_converged,
 		code           = "VASP",
 		version        = isempty(vd.version) ? nothing : vd.version,
 		extra_per_atom = extra_per_atom,

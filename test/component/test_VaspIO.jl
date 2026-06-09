@@ -62,6 +62,9 @@ const KBAR_TO_EV_A3 = 1.0 / 1602.1766208
     @test vd.energy_free ≈ -124.80455729 atol=1e-6
     @test vd.energy_zero ≈ -124.79753671 atol=1e-6
 
+    # Electronic SCF converged early (35 scsteps < NELM=100)
+    @test vd.electronic_converged === true
+
     # Stress (last calculation block); VASP output in kBar → eV/Å³
     @test vd.stress[1, 1] ≈ 33.25821644 * KBAR_TO_EV_A3 atol=1e-8
     @test vd.stress[3, 3] ≈ 33.42401004 * KBAR_TO_EV_A3 atol=1e-8
@@ -105,6 +108,9 @@ end
     # Energies
     @test vd.energy_free ≈ -36.71506424 atol=1e-6
     @test vd.energy_zero ≈ -36.71579408 atol=1e-6
+
+    # Electronic SCF converged early (29 scsteps < NELM=300)
+    @test vd.electronic_converged === true
 
     # M_CONSTR: last atom (Ir) is all-zero → unconstrained
     @test vd.m_constr !== nothing
@@ -174,6 +180,34 @@ end
 
     @test md.constr_field[1, 2] ≈  0.23545e-3 atol=1e-8
     @test md.constr_field[1, 3] ≈  0.15883e-4 atol=1e-8
+end
+
+# ── _electronic_converged decision logic ─────────────────────────────────────
+
+@testset "_electronic_converged decision table" begin
+    f = VaspIO._electronic_converged
+
+    # Loop exited before the NELM cap → converged
+    @test f(35, 100, 1e-4) === true
+    @test f(1, 100, 1e-4) === true
+
+    # Reached the NELM cap with a valid EDIFF → not converged
+    @test f(100, 100, 1e-4) === false
+    # count > NELM: NELMDL delay steps can inflate the node count past NELM.
+    # Reported non-converged — an accepted false negative for a late-converging
+    # run, matching pymatgen's count-based verdict.
+    @test f(120, 100, 1e-4) === false
+
+    # Indeterminate cases → nothing
+    @test f(35, nothing, 1e-4) === nothing   # no NELM
+    @test f(1, 1, 1e-4) === nothing          # single-shot / non-SCF run
+    @test f(50, 50, 0.0) === nothing         # EDIFF == 0: runs full NELM by design
+    @test f(50, 50, -1e-4) === nothing       # EDIFF < 0: same
+    @test f(0, 100, 1e-4) === nothing        # no SCF steps
+
+    # EDIFF absent but otherwise determinable → still decides on the count
+    @test f(35, 100, nothing) === true
+    @test f(100, 100, nothing) === false
 end
 
 println("All VaspIO tests passed.")

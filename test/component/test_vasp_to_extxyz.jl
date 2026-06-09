@@ -27,4 +27,24 @@ using Test
 	end
 end
 
+# A non-converged run (scstep count >= NELM) is still written, tagged
+# `converged=F`, and warns. We synthesize one by lowering NELM below the
+# fixture's scstep count, so the count rule reports non-convergence.
+@testset "vasp_to_extxyz: non-converged run warns and tags F" begin
+    src = read(joinpath(@__DIR__, "fixtures", "FeRh", "vasprun.xml"), String)
+    # FeRh runs 35 electronic steps; force the cap to 30 so 35 >= 30 → F.
+    edited = replace(src, "name=\"NELM\">   100" => "name=\"NELM\">    30")
+    @test edited != src   # guard: the substitution actually fired
+
+    tmp = tempname() * ".xml"
+    try
+        write(tmp, edited)
+        text = @test_logs (:warn, r"did not converge") vasp_to_extxyz(tmp)
+        header = split(text, "\n")[2]
+        @test occursin("converged=F", header)
+    finally
+        isfile(tmp) && rm(tmp)
+    end
+end
+
 println("All vasp_to_extxyz tests passed.")

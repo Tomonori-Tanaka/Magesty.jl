@@ -36,7 +36,10 @@ Convert a VASP run to extended XYZ (extxyz) format.
 
 When only `vasprun` is given, the extxyz carries structure, forces, stress,
 and energies. Passing `--oszicar` additionally writes per-atom magnetic
-moments and the constraint field.
+moments and the constraint field. The header also records `soc` (spin-orbit
+coupling flag) and `converged` (electronic SCF convergence, `T`/`F`) when
+available; a non-converged run is still written, with `converged=F` and a
+warning.
 
 # Args
 

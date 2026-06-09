@@ -25,12 +25,17 @@ Fields
 - `energy_zero`   : sigma→0 energy (eV), or `nothing`
 - `stress`        : 3×3 stress tensor (eV/Å³), or `nothing`
 - `soc`           : spin-orbit coupling flag (true/false), or `nothing`
+- `converged`     : electronic SCF convergence flag (true/false), or `nothing`
 - `code`          : DFT code name (e.g. "VASP", "QE"), or `nothing`
 - `version`       : DFT code version string, or `nothing`
 - `extra_per_atom`: ordered list of additional per-atom real properties as (name => matrix) pairs.
                     Each matrix is `ncols×N`; ncols=1 for scalars, ncols=3 for vectors.
                     The Properties descriptor becomes `name:R:ncols` automatically.
 - `comment`       : string placed in the `comment=` key of the extxyz header line
+
+`soc` and `converged` are code-level metadata flags admitted into this
+otherwise code-agnostic frame deliberately; the "generic writer" label means
+the format is generic, not that code-specific header keys are forbidden.
 """
 struct AtomFrame
     num_atoms::Int
@@ -43,6 +48,7 @@ struct AtomFrame
     energy_zero::Union{Float64, Nothing}
     stress::Union{Matrix{Float64}, Nothing}
     soc::Union{Bool, Nothing}
+    converged::Union{Bool, Nothing}
     code::Union{String, Nothing}
     version::Union{String, Nothing}
     extra_per_atom::Vector{Pair{String, Matrix{Float64}}}
@@ -60,6 +66,7 @@ function AtomFrame(;
     energy_zero::Union{Float64, Nothing} = nothing,
     stress::Union{Matrix{Float64}, Nothing} = nothing,
     soc::Union{Bool, Nothing} = nothing,
+    converged::Union{Bool, Nothing} = nothing,
     code::Union{String, Nothing} = nothing,
     version::Union{String, Nothing} = nothing,
     extra_per_atom::Vector{Pair{String, Matrix{Float64}}} = Pair{String, Matrix{Float64}}[],
@@ -67,7 +74,7 @@ function AtomFrame(;
 )
     return AtomFrame(
         num_atoms, lattice, pbc, species, positions,
-        forces, energy_free, energy_zero, stress, soc,
+        forces, energy_free, energy_zero, stress, soc, converged,
         code, version, extra_per_atom, comment,
     )
 end
@@ -135,6 +142,7 @@ function _header_line(frame::AtomFrame)::String
     frame.energy_free !== nothing && push!(parts, @sprintf("energy_free=%.10f", frame.energy_free))
     frame.energy_zero !== nothing && push!(parts, @sprintf("energy_zero=%.10f", frame.energy_zero))
     frame.soc !== nothing         && push!(parts, "soc=$(frame.soc ? "T" : "F")")
+    frame.converged !== nothing   && push!(parts, "converged=$(frame.converged ? "T" : "F")")
 
     if frame.stress !== nothing
         S = frame.stress

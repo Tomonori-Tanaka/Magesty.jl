@@ -42,7 +42,7 @@ The same conversion is available programmatically as the exported `vasp_to_extxy
 | `magmom_raw` | R:3 | Directly integrated magnetic moments `M_int` (μB); present with `--oszicar` |
 | `constr_field` | R:3 | Penalty constraint field λ·MW_perp (eV/μB); present with `--oszicar` |
 
-**Global header keys:** `energy_free` (eV), `energy_zero` (eV), `stress` (eV/Å³, Voigt notation), `comment` (VASP version, ENCUT, KPOINTS, ICONST, LAMBDA).
+**Global header keys:** `energy_free` (eV), `energy_zero` (eV), `stress` (eV/Å³, Voigt notation), `soc` (`T`/`F`, spin-orbit coupling flag), `converged` (`T`/`F`, electronic SCF convergence; omitted when the status is indeterminate, e.g. no `NELM`, single-shot `NELM = 1`, or `EDIFF <= 0`), `comment` (VASP version, ENCUT, KPOINTS, ICONST, LAMBDA). A non-converged run is still written, with `converged=F` and a warning.
 
 ## `magesty vasp toml`
 

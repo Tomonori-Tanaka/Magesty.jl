@@ -35,6 +35,10 @@ Fields
 - `stress`        : 3×3 stress tensor (eV/Å³)
 - `energy_free`   : free energy F (eV)
 - `energy_zero`   : energy sigma→0 (eV)
+- `electronic_converged` : electronic SCF convergence verdict; `true` if the
+  loop exited before NELM, `false` if it reached the NELM cap, or `nothing`
+  when the status is indeterminate (no NELM, single-shot `NELM == 1`,
+  `EDIFF <= 0`, or no SCF steps)
 - `num_atoms`     : N
 - `pbc`           : always [true, true, true] for VASP
 """
@@ -55,6 +59,7 @@ struct VaspRunData
     stress::Matrix{Float64}                    # 3×3 (eV/Å³)
     energy_free::Float64
     energy_zero::Float64
+    electronic_converged::Union{Bool, Nothing}
     num_atoms::Int
     pbc::Vector{Bool}
 end
@@ -114,6 +119,16 @@ function parse_vasprun(filepath::AbstractString)::VaspRunData
     stress  = _read_stress(calc)
     energy_free, energy_zero = _read_energies(calc)
 
+    # Electronic SCF convergence: VASP exits the electronic loop before NELM
+    # only on convergence, so the number of <scstep> nodes in the last
+    # <calculation> versus NELM is a reliable verdict.
+    n_scstep = length(findall("scstep", calc))
+    electronic_converged = _electronic_converged(
+        n_scstep,
+        _parameters_scalar(doc, "NELM", Int),
+        _parameters_scalar(doc, "EDIFF", Float64),
+    )
+
     m_constr = nothing
     if m_constr_flat !== nothing && length(m_constr_flat) == 3 * num_atoms
         m_constr = reshape(m_constr_flat, 3, num_atoms)
@@ -122,8 +137,45 @@ function parse_vasprun(filepath::AbstractString)::VaspRunData
     return VaspRunData(
         version, encut, kpoints_mesh, iconst, lambda, rwigs, lsorbit, m_constr,
         lattice, species, atomtype_per_atom, positions_frac, forces, stress,
-        energy_free, energy_zero, num_atoms, [true, true, true],
+        energy_free, energy_zero, electronic_converged, num_atoms, [true, true, true],
     )
+end
+
+"""
+    _electronic_converged(n_scstep, nelm, ediff) -> Union{Bool, Nothing}
+
+Decide the electronic SCF convergence verdict from the number of electronic
+steps `n_scstep`, the maximum `nelm` (NELM), and the energy tolerance `ediff`
+(EDIFF). Returns `nothing` when the status cannot be trusted.
+"""
+function _electronic_converged(
+    n_scstep::Int,
+    nelm::Union{Int, Nothing},
+    ediff::Union{Float64, Nothing},
+)::Union{Bool, Nothing}
+    nelm === nothing && return nothing                 # NELM not in vasprun.xml
+    nelm == 1 && return nothing                        # single-shot / non-SCF run
+    ediff !== nothing && ediff <= 0 && return nothing  # EDIFF <= 0 runs full NELM by design
+    n_scstep == 0 && return nothing                    # no SCF steps (e.g. response run)
+    # VASP exits the electronic loop before NELM only on convergence
+    return n_scstep < nelm
+end
+
+"""
+    _parameters_scalar(doc, name, T) -> Union{T, Nothing}
+
+Read a scalar tag from the `<parameters>` block of vasprun.xml, which holds
+VASP's effective values (INCAR plus defaults) — the authoritative source over
+the raw `<incar>` echo. Returns `nothing` on a missing tag or parse failure.
+"""
+function _parameters_scalar(doc, name::AbstractString, ::Type{T})::Union{T, Nothing} where {T}
+    node = findfirst("//parameters//i[@name='$(name)']", doc)
+    node === nothing && return nothing
+    try
+        return parse(T, strip(nodecontent(node)))
+    catch
+        return nothing
+    end
 end
 
 function _read_version(doc)::String

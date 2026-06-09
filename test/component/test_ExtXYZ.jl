@@ -162,6 +162,35 @@ end
     @test voigt[6] ≈ 0.1    # xy
 end
 
+# ── soc / converged boolean flags ─────────────────────────────────────────────
+
+@testset "soc and converged boolean flags ($label)" for (label, soc, converged, expect) in (
+    ("both true",  true,  true,  ("soc=T", "converged=T")),
+    ("both false", false, false, ("soc=F", "converged=F")),
+    ("converged omitted", true, nothing, ("soc=T", nothing)),
+)
+    lat = Matrix{Float64}(I, 3, 3) .* 3.0
+    frame = AtomFrame(
+        num_atoms = 1,
+        lattice   = lat,
+        species   = ["Fe"],
+        positions = zeros(3, 1),
+        soc       = soc,
+        converged = converged,
+    )
+
+    buf = IOBuffer()
+    write_extxyz(buf, frame)
+    hdr = split(String(take!(buf)), "\n")[2]
+
+    @test occursin(expect[1], hdr)
+    if expect[2] === nothing
+        @test !occursin("converged=", hdr)
+    else
+        @test occursin(expect[2], hdr)
+    end
+end
+
 # ── comment field ─────────────────────────────────────────────────────────────
 
 @testset "comment field in header" begin
