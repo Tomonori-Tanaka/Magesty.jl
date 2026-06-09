@@ -18,6 +18,14 @@ test-aqua:
 test-cli:
 	julia --project=cli -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate(); Pkg.test()'
 
+# Build and install the `magesty` launcher into ~/.julia/bin. MagestyCLI
+# depends on the core by path, so develop it into the cli/ environment first,
+# then run the Comonicon build step. Add ~/.julia/bin to PATH to use the
+# command.
+install-cli:
+	julia --project=cli -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
+	julia --project=cli cli/deps/build.jl
+
 # Sunny.jl round-trip validation for the sce_to_sunny exporter. Sunny is a heavy
 # dependency, so it lives in its own environment under test/sunny/ and is NOT part
 # of test-all. Develop the core into that environment (by path) before running.
