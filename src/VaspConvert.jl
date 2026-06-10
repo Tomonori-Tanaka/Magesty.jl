@@ -1,6 +1,37 @@
 # VASP-to-extxyz conversion. Orchestrates the `VaspIO` parser and the
 # `ExtXYZ` writer into the `vasp_to_extxyz` public API.
 
+"""
+    VaspParseError <: Exception
+
+Raised when a VASP input file cannot be parsed. Carries the offending file
+`path` (and the underlying `cause`) so a failed conversion points directly at
+the file to inspect — which matters when converting many runs in one batch.
+"""
+struct VaspParseError <: Exception
+	path::String
+	cause::Exception
+end
+
+function Base.showerror(io::IO, e::VaspParseError)
+	print(io, "failed to parse VASP file '", e.path, "'\n  caused by: ")
+	showerror(io, e.cause)
+	return nothing
+end
+
+# Run `parse` (which reads `path`) and, on any failure, rethrow as a
+# `VaspParseError` annotated with `path`, so the user can locate the offending
+# file. An already-annotated error is passed through unchanged.
+function _parse_vasp_file(parse::Function, path::AbstractString)
+	try
+		return parse()
+	catch e
+		e isa VaspParseError && rethrow()
+		cause = e isa Exception ? e : ErrorException(sprint(showerror, e))
+		throw(VaspParseError(String(path), cause))
+	end
+end
+
 # Expand per-species RWIGS to a 1×N per-atom matrix using atomtype indices.
 # atomtype_per_atom[i] is the 1-based species-type index for atom i, matching
 # the order of RWIGS values in the INCAR. This correctly handles cases where
@@ -53,6 +84,10 @@ steps).
 # Returns
 - `String`: the full extxyz text.
 
+# Throws
+- `VaspParseError`: if `vasprun` (or `oszicar`) cannot be parsed. The error
+  message names the offending file path.
+
 # Examples
 ```julia
 text = vasp_to_extxyz("vasprun.xml")
@@ -64,7 +99,9 @@ function vasp_to_extxyz(
 	oszicar::Union{AbstractString, Nothing} = nothing,
 	output::Union{AbstractString, Nothing} = nothing,
 )::String
-	vd = VaspIO.parse_vasprun(vasprun)
+	vd = _parse_vasp_file(vasprun) do
+		VaspIO.parse_vasprun(vasprun)
+	end
 
 	# Fractional → Cartesian positions (lattice columns = lattice vectors)
 	positions_cart = vd.lattice * vd.positions_frac  # 3×N
@@ -78,7 +115,9 @@ function vasp_to_extxyz(
 	end
 
 	if oszicar !== nothing
-		md = VaspIO.parse_oszicar_magdata(oszicar, vd.m_constr, vd.num_atoms)
+		md = _parse_vasp_file(oszicar) do
+			VaspIO.parse_oszicar_magdata(oszicar, vd.m_constr, vd.num_atoms)
+		end
 		push!(extra_per_atom, "magmom_smoothed" => md.magmom_smoothed)
 		push!(extra_per_atom, "magmom_raw"      => md.magmom_raw)
 		push!(extra_per_atom, "constr_field"    => md.constr_field)

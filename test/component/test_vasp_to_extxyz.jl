@@ -47,4 +47,50 @@ end
     end
 end
 
+# A parse failure must name the offending file path, so a batch conversion
+# points the user straight at the bad input.
+@testset "vasp_to_extxyz: parse error names the file path" begin
+    # Missing file: the path appears in the error message.
+    missing_path = joinpath(tempdir(), "does_not_exist_$(getpid()).xml")
+    @test !isfile(missing_path)   # guard
+    err = try
+        vasp_to_extxyz(missing_path)
+        nothing
+    catch e
+        e
+    end
+    @test err isa Magesty.VaspParseError
+    @test occursin(missing_path, sprint(showerror, err))
+
+    # Malformed XML mid-parse: still a VaspParseError carrying the path.
+    tmp = tempname() * ".xml"
+    try
+        write(tmp, "<modeling><not-valid-vasprun></modeling>")
+        err2 = try
+            vasp_to_extxyz(tmp)
+            nothing
+        catch e
+            e
+        end
+        @test err2 isa Magesty.VaspParseError
+        @test occursin(tmp, sprint(showerror, err2))
+    finally
+        isfile(tmp) && rm(tmp)
+    end
+
+    # The OSZICAR path is named when magnetic parsing fails. The vasprun is
+    # valid; the OSZICAR is missing, so the OSZICAR path must surface.
+    valid_vasprun = joinpath(@__DIR__, "fixtures", "FeRh", "vasprun.xml")
+    bad_oszicar   = joinpath(tempdir(), "no_such_OSZICAR_$(getpid())")
+    @test !isfile(bad_oszicar)   # guard
+    err3 = try
+        vasp_to_extxyz(valid_vasprun; oszicar = bad_oszicar)
+        nothing
+    catch e
+        e
+    end
+    @test err3 isa Magesty.VaspParseError
+    @test occursin(bad_oszicar, sprint(showerror, err3))
+end
+
 println("All vasp_to_extxyz tests passed.")
