@@ -161,6 +161,14 @@ write_torques(model_or_fit, data, path)
 #   The 3-arg form requires an explicit path so a string `data` (EMBSET
 #   path) cannot be mistaken for the output path.
 
+# Cross-validation diagnostics (linear estimators only: OLS/Ridge/AdaptiveRidge)
+gcv(f::SCEFit)                                        # combined energy+torque GCV
+gcv_lambda(dataset, lambdas; torque_weight = 1.0)    # -> GCVLambdaPath (ridge path)
+gcv_learning_curve(dataset, estimator = OLS();             # -> GCVSizeCurve (data sufficiency)
+    sizes, repeats = 5, seed = 0, torque_weight = 1.0)
+write_gcv_lambda(path::GCVLambdaPath, file = "gcv_lambda.txt")
+write_gcv_learning_curve(curve::GCVSizeCurve, file = "gcv_learning_curve.txt")
+
 # Persistence (XML) — not exported; call through the module to avoid
 # clashing with `save` / `load` from JLD2, FileIO, CSV.jl, etc.
 Magesty.save(basis_or_model, path) # path is .xml

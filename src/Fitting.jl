@@ -1621,6 +1621,226 @@ function _glmnet_solve(
 	return vec(Matrix(path.betas))
 end
 
+# --- GCV diagnostics: core numerics --------------------------------------
+#
+# Generalized cross-validation on the weighted, energy-mean-centered augmented
+# system `(X, y)` that `assemble_weighted_problem` produces (energy rows stacked
+# above torque rows). For a linear estimator the fitted values obey `ŷ = H y`
+# with hat matrix `H`, and
+#
+#     GCV = (‖r‖² / N) / (1 − tr(H)/N)²,
+#
+# where `r = y − ŷ` is the augmented weighted residual, `tr(H)` is the effective
+# degrees of freedom, and `N` is the number of *live* rows. A block whose
+# whitening scale is zero (energy at `torque_weight == 1`, torque at
+# `torque_weight == 0`) contributes only dead all-zero rows, which add nothing to
+# `r` or to `tr(H)`; they must not inflate `N`. The eliminated bias `j0` costs
+# one degree of freedom only when the energy block is live (`torque_weight < 1`).
+
+"""
+	_is_linear_estimator(estimator::AbstractEstimator) -> Bool
+
+Whether `estimator` is a linear smoother, i.e. produces fitted values
+`ŷ = H y` with a hat matrix `H` independent of `y` (`OLS`, `Ridge`,
+`AdaptiveRidge`). GCV is defined only for these. `ElasticNet` (and its `Lasso`
+alias, which constructs an `ElasticNet`) and `AdaptiveLasso` are non-linear and
+return `false`. The default method returns `false`, so any future estimator is
+treated as non-linear until it opts in explicitly.
+"""
+_is_linear_estimator(::AbstractEstimator)::Bool = false
+_is_linear_estimator(::OLS)::Bool = true
+_is_linear_estimator(::Ridge)::Bool = true
+_is_linear_estimator(::AdaptiveRidge)::Bool = true
+
+"""
+	_require_linear_estimator(estimator::AbstractEstimator) -> Nothing
+
+Throw an `ArgumentError` naming `estimator` unless it is a linear smoother
+(see `_is_linear_estimator`). Used as a guard by the GCV entry points.
+"""
+function _require_linear_estimator(estimator::AbstractEstimator)::Nothing
+	_is_linear_estimator(estimator) && return nothing
+	throw(ArgumentError(
+		"GCV requires a linear estimator (OLS, Ridge, or AdaptiveRidge); got " *
+		"$(typeof(estimator)). Non-linear estimators -- ElasticNet (including " *
+		"the Lasso alias) and AdaptiveLasso -- have no exact hat matrix, so " *
+		"the generalized cross-validation score is undefined for them."))
+end
+
+"""
+	_gcv_sample_count(n_energy, n_torque, torque_weight)
+	    -> (n_eff::Int, intercept_dof::Int)
+
+Live-row count `n_eff` and intercept degrees of freedom `intercept_dof` for the
+weighted GCV system. A block whose whitening scale is zero contributes only dead
+all-zero rows (`scale_e = 0` at `torque_weight == 1`; `scale_m = 0` at
+`torque_weight == 0`), so it is excluded from `n_eff`. The eliminated bias `j0`
+is identifiable, and costs one degree of freedom, only when the energy block is
+live (`torque_weight < 1`).
+"""
+function _gcv_sample_count(
+	n_energy::Integer,
+	n_torque::Integer,
+	torque_weight::Real,
+)::Tuple{Int, Int}
+	energy_live = torque_weight < 1.0
+	torque_live = torque_weight > 0.0
+	n_eff = (energy_live ? Int(n_energy) : 0) + (torque_live ? Int(n_torque) : 0)
+	intercept_dof = energy_live ? 1 : 0
+	return n_eff, intercept_dof
+end
+
+"""
+	_gcv_value(rss::Real, dof::Real, n_eff::Integer) -> Float64
+
+Assemble the GCV score `(rss / n_eff) / (1 - dof/n_eff)^2`. Returns `NaN` when
+the denominator factor `1 - dof/n_eff` is non-positive — i.e. the effective
+degrees of freedom meet or exceed the live-row count, so the model is
+(numerically) saturated and GCV is undefined. Callers surface the `NaN` rather
+than emit a spurious value.
+"""
+@inline function _gcv_value(rss::Real, dof::Real, n_eff::Integer)::Float64
+	denom = 1.0 - dof / n_eff
+	denom > 0.0 || return NaN
+	return (rss / n_eff) / denom^2
+end
+
+"""
+	_effective_dof(X, estimator, beta, intercept_dof) -> Float64
+
+Effective degrees of freedom `tr(H) = intercept_dof + tr(H_β)` of the linear
+smoother on the weighted, energy-mean-centered design `X`. `intercept_dof` is
+`1` when the eliminated bias `j0` is live (energy block present, i.e.
+`torque_weight < 1`) and `0` otherwise. `beta` is the fitted coefficient vector
+(`coef`), used only by `AdaptiveRidge`. Dead all-zero rows of `X` do not affect
+`rank(X)` or its nonzero singular values, so they leave `tr(H_β)` unchanged.
+
+- `OLS`: `intercept_dof + rank(X)`.
+- `Ridge`: `intercept_dof + Σ_k σ_k² / (σ_k² + λ)` over the singular values
+  `σ_k` of `X` (reduces to `OLS` when `λ ≈ 0`).
+- `AdaptiveRidge`: conditional dof `intercept_dof + tr((X'X + λ D)^{-1} X'X)`
+  with the converged diagonal reweighting
+  `D = Diagonal(1 ./ (beta.^2 .+ epsilon))`. Recovering `D` from `beta` is exact
+  at convergence (the iteration's fixed point sets the weights from the same
+  coefficients); only treating `D` as fixed in `H` is the conditional
+  approximation.
+"""
+function _effective_dof(
+	X::AbstractMatrix{<:Real},
+	::OLS,
+	::AbstractVector{<:Real},
+	intercept_dof::Integer,
+)::Float64
+	return intercept_dof + rank(X)
+end
+
+function _effective_dof(
+	X::AbstractMatrix{<:Real},
+	e::Ridge,
+	::AbstractVector{<:Real},
+	intercept_dof::Integer,
+)::Float64
+	e.lambda ≈ 0.0 && return intercept_dof + rank(X)
+	s2 = abs2.(svdvals(X))
+	return intercept_dof + sum(σ2 / (σ2 + e.lambda) for σ2 in s2)
+end
+
+function _effective_dof(
+	X::AbstractMatrix{<:Real},
+	e::AdaptiveRidge,
+	beta::AbstractVector{<:Real},
+	intercept_dof::Integer,
+)::Float64
+	e.lambda ≈ 0.0 && return intercept_dof + rank(X)
+	length(beta) == size(X, 2) || throw(DimensionMismatch(
+		"AdaptiveRidge dof: coefficient length $(length(beta)) does not match " *
+		"design-matrix column count $(size(X, 2))."))
+	w = inv.(abs2.(beta) .+ e.epsilon)
+	Xf = X isa Matrix{Float64} ? X : Matrix{Float64}(X)
+	XtX = Xf' * Xf
+	A = XtX + e.lambda * Diagonal(w)
+	# tr((X'X + λD)^{-1} X'X) via a single SPD solve; cyclic-trace identity
+	# tr(A^{-1} XtX) avoids forming the hat matrix.
+	return intercept_dof + tr(cholesky(Symmetric(A)) \ XtX)
+end
+
+"""
+	_gcv_single(X, y, residuals, estimator, beta, n_eff, intercept_dof)
+	    -> (gcv::Float64, dof::Float64)
+
+Combined energy+torque GCV score and effective dof for one fit on the
+weighted, energy-mean-centered augmented system `(X, y)`. `residuals` is the
+augmented weighted residual `y - X*beta` (stored on the fit); dead rows
+contribute zero to it. `n_eff` / `intercept_dof` come from `_gcv_sample_count`.
+Returns `NaN` for `gcv` when the model is numerically saturated (see
+`_gcv_value`).
+"""
+function _gcv_single(
+	X::AbstractMatrix{<:Real},
+	y::AbstractVector{<:Real},
+	residuals::AbstractVector{<:Real},
+	estimator::AbstractEstimator,
+	beta::AbstractVector{<:Real},
+	n_eff::Integer,
+	intercept_dof::Integer,
+)::Tuple{Float64, Float64}
+	_require_linear_estimator(estimator)
+	rss = sum(abs2, residuals)
+	dof = _effective_dof(X, estimator, beta, intercept_dof)
+	return _gcv_value(rss, dof, n_eff), dof
+end
+
+"""
+	_gcv_lambda_path(X, y, lambdas, n_eff, intercept_dof)
+	    -> (gcv::Vector{Float64}, dof::Vector{Float64})
+
+Ridge GCV for every `lambda` from a single economy SVD of `X`. With
+`X = U diag(σ) Vᵀ` and `a = Uᵀy`:
+
+- `dof(λ) = intercept_dof + Σ_k σ_k² / (σ_k² + λ)`
+- `RSS(λ) = ‖y_⊥‖² + Σ_k (λ / (σ_k² + λ))² a_k²`, where
+  `‖y_⊥‖² = ‖y‖² − Σ_k a_k²` is the part of `y` outside `col(X)`.
+
+`X` / `y` are the weighted, energy-mean-centered augmented system; dead rows
+(zero whitening scale) carry zeros in `y` and `U`, so they drop out of `‖y‖²`
+and `a`. `n_eff` / `intercept_dof` come from `_gcv_sample_count`. The caller is
+responsible for validating that `lambdas` are non-negative.
+"""
+function _gcv_lambda_path(
+	X::AbstractMatrix{<:Real},
+	y::AbstractVector{<:Real},
+	lambdas::AbstractVector{<:Real},
+	n_eff::Integer,
+	intercept_dof::Integer,
+)::Tuple{Vector{Float64}, Vector{Float64}}
+	svd_fac = svd(X)
+	s2 = svd_fac.S .^ 2
+	a = svd_fac.U' * y
+	y_perp_sq = max(sum(abs2, y) - sum(abs2, a), 0.0)
+	gcvs = Vector{Float64}(undef, length(lambdas))
+	dofs = Vector{Float64}(undef, length(lambdas))
+	@inbounds for (k, λ) in enumerate(lambdas)
+		rss = y_perp_sq
+		dof = Float64(intercept_dof)
+		for j = 1:length(s2)
+			denom = s2[j] + λ
+			if denom == 0.0
+				# σ = 0 and λ = 0: this direction is unfittable. It is fully
+				# residual (hat value 0) and adds nothing to the dof.
+				rss += a[j]^2
+			else
+				hat_k = s2[j] / denom            # σ²/(σ²+λ): hat value
+				resid_factor_k = λ / denom       # λ/(σ²+λ): 1 − hat value
+				rss += resid_factor_k^2 * a[j]^2
+				dof += hat_k
+			end
+		end
+		gcvs[k] = _gcv_value(rss, dof, n_eff)
+		dofs[k] = dof
+	end
+	return gcvs, dofs
+end
+
 """
 	_calc_rmse(observed_list, predicted_list) -> Float64
 

@@ -226,3 +226,115 @@ function write_torques(
 	element_names = _element_names(model)
 	return _write_torque_file(filename, observed, predicted, element_names)
 end
+
+# --- GCV diagnostic writers ---------------------------------------------
+
+"""
+	write_gcv_lambda(path::GCVLambdaPath,
+	                 filename::AbstractString = "gcv_lambda.txt")
+
+Write a ridge GCV penalty sweep ([`gcv_lambda`](@ref)) to a text file for
+inspection or plotting. The output is consumed by the `FitCheck_gcv_lambda.py`
+script under `tools/`.
+
+The file has a comment header followed by one row per penalty:
+`lambda  gcv  dof`. The GCV score is in the weighted-objective unit (not eV²),
+and `dof` is the effective degrees of freedom `tr(H)`. The selected
+`lambda_best` and the torque weight are recorded in the header.
+
+# Arguments
+- `path::GCVLambdaPath`: The sweep result.
+- `filename::AbstractString`: Output path. Defaults to `"gcv_lambda.txt"`.
+
+# Returns
+- `nothing`. The file at `filename` is created (overwritten if it exists). Any
+  filesystem error is logged and re-thrown.
+
+# Examples
+```julia
+path = gcv_lambda(dataset, 10.0 .^ (-6:0.5:0))
+write_gcv_lambda(path, "gcv_lambda.txt")
+```
+"""
+function write_gcv_lambda(
+	path::GCVLambdaPath,
+	filename::AbstractString = "gcv_lambda.txt",
+)::Nothing
+	n = length(path.lambdas)
+	row_fmt = Printf.Format(" % 15.10e    % 15.10e    % 15.10e\n")
+	try
+		open(filename, "w") do io
+			println(io, "# ridge GCV penalty sweep (gcv_lambda)")
+			println(io, "# torque_weight = ", path.torque_weight,
+				",  lambda_best = ", path.lambda_best)
+			println(io, "# GCV is in the weighted-objective unit (not eV^2)")
+			println(io, "# lambda,    GCV,    effective_dof")
+			for i = 1:n
+				Printf.format(io, row_fmt,
+					path.lambdas[i], path.gcv_scores[i], path.dof[i])
+			end
+		end
+	catch e
+		@error "Failed to write GCV lambda path to $filename" exception =
+			(e, catch_backtrace())
+		rethrow(e)
+	end
+	return nothing
+end
+
+"""
+	write_gcv_learning_curve(curve::GCVSizeCurve,
+	                         filename::AbstractString = "gcv_learning_curve.txt")
+
+Write a data-sufficiency GCV learning curve ([`gcv_learning_curve`](@ref)) to a
+text file for inspection or plotting. The output is consumed by the
+`FitCheck_gcv_learning_curve.py` script under `tools/`.
+
+The file has a comment header followed by one row per training-set size:
+`size  gcv_mean  gcv_std`, where the mean and standard deviation are taken over
+the random subset draws at that size. The GCV score is in the weighted-objective
+unit (not eV²). The estimator, torque weight, repeats, and seed are recorded in
+the header.
+
+# Arguments
+- `curve::GCVSizeCurve`: The sweep result.
+- `filename::AbstractString`: Output path. Defaults to
+  `"gcv_learning_curve.txt"`.
+
+# Returns
+- `nothing`. The file at `filename` is created (overwritten if it exists). Any
+  filesystem error is logged and re-thrown.
+
+# Examples
+```julia
+curve = gcv_learning_curve(dataset, Ridge(lambda = 1e-4); repeats = 8)
+write_gcv_learning_curve(curve, "gcv_learning_curve.txt")
+```
+"""
+function write_gcv_learning_curve(
+	curve::GCVSizeCurve,
+	filename::AbstractString = "gcv_learning_curve.txt",
+)::Nothing
+	n = length(curve.sizes)
+	size_width = max(maximum(ndigits, curve.sizes; init = 1), 4)
+	row_fmt = Printf.Format(" %$(size_width)d    % 15.10e    % 15.10e\n")
+	try
+		open(filename, "w") do io
+			println(io, "# data-sufficiency GCV learning curve (gcv_learning_curve)")
+			println(io, "# estimator = ", curve.estimator)
+			println(io, "# torque_weight = ", curve.torque_weight,
+				",  repeats = ", curve.repeats, ",  seed = ", curve.seed)
+			println(io, "# GCV is in the weighted-objective unit (not eV^2)")
+			println(io, "# size,    GCV_mean,    GCV_std")
+			for i = 1:n
+				Printf.format(io, row_fmt,
+					curve.sizes[i], curve.gcv_mean[i], curve.gcv_std[i])
+			end
+		end
+	catch e
+		@error "Failed to write GCV learning curve to $filename" exception =
+			(e, catch_backtrace())
+		rethrow(e)
+	end
+	return nothing
+end
