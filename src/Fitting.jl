@@ -210,9 +210,15 @@ end
 
 Elastic-Net estimator backed by GLMNet.jl. Covers Lasso (`alpha = 1`),
 GLMNet-style L2 (`alpha = 0`), and honest Elastic Net (mixed norm).
-`standardize = true` neutralizes the per-cluster `(4π)^(N/2)` column
-scale baked into the SCE design matrix, which would otherwise bias L1
-or mixed-norm selection against high-N clusters.
+`standardize = true` divides each column of `X` by its empirical
+standard deviation before the solve. The per-cluster `(4π)^(N/2)`
+basis normalization already puts the columns on an equal footing in
+the sphere-averaged (population) sense — that is what makes the fitted
+coefficients map onto conventional spin-model parameters — so
+standardization corrects only the *residual* per-column scale that
+finite, non-uniform sampling leaves behind. L1 and mixed-norm
+selection are sensitive to that residual scale (it shifts which
+clusters enter the active set), so the default is `true`.
 
 The bias term `j0` is eliminated analytically inside
 `assemble_weighted_problem` (the energy block of `X` is mean-centered
@@ -228,9 +234,11 @@ both energy and torque rows and bias `jphi`.
   variant), in between is Elastic Net.
 - `lambda::Float64`: Penalty strength, `λ ≥ 0`. `λ = 0` reduces to OLS
   up to GLMNet's coordinate-descent precision.
-- `standardize::Bool`: Forwarded to GLMNet. The default `true` matches
-  the SCE setting where columns carry the per-cluster `(4π)^(N/2)`
-  factor.
+- `standardize::Bool`: Forwarded to GLMNet, which divides each column
+  by its empirical standard deviation. Default `true`: it equalizes
+  the residual per-column scale left by finite sampling, to which
+  L1 / mixed-norm selection is sensitive. (The `(4π)^(N/2)` basis
+  factor already handles the population-level normalization.)
 
 # Examples
 ```julia
@@ -428,10 +436,14 @@ approximation.
 Each weighted ridge subproblem is solved analytically via the closed
 form `b = (X'X + lambda * Diagonal(w)) \\ (X'y)`, the same analytic
 family as `Ridge`. Unlike `ElasticNet` / `AdaptiveLasso` no GLMNet call
-is involved, so there is no `standardize` keyword: like `Ridge`,
-`AdaptiveRidge` does not standardize columns, and the per-cluster
-`(4π)^(N/2)` column scale therefore enters the weights. Rescale the
-design upstream if that bias matters.
+is involved, so there is no `standardize` keyword: the penalty acts
+directly on the coefficients, where the per-cluster `(4π)^(N/2)` basis
+normalization already places them on the conventional spin-model scale,
+so a single `epsilon` is a roughly uniform magnitude floor across
+clusters. Because the reweighting approximates L0 (it selects), residual
+per-column scale from finite, non-uniform sampling can still influence
+which coefficients survive; rescale the design upstream if that matters
+under strongly non-uniform sampling.
 
 The iteration stops when the relative infinity-norm change in the
 coefficient vector drops below `tol`, or after `max_iter` reweighting
