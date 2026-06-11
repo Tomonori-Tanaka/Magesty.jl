@@ -33,6 +33,15 @@ tracking goes through `TaskCreate` in-session.
 - [x] Example script (`examples/04_gcv_diagnostics.jl`); `docs/src` narrative
       diagnostics section + `api.md` `@docs` + `examples.md`.
 
+### M5 — Predictive R² normalization (follow-up)
+
+- [x] `_gcv_msy` / `_gcv_r2` helpers (`Fitting.jl`); `gcv_r2(f)` public verb.
+- [x] `gcv_r2` carried on `GCVLambdaPath` and `GCVSizeCurve`
+      (`gcv_r2_mean` / `gcv_r2_std`); writers + Python plotters gain the R²
+      columns / `--r2` flag.
+- [x] Tests extended (R² = 1 − GCV/MSY cross-checks, GCV-min == R²-max,
+      writer column counts); `make test-all` / `test-jet` / `test-aqua` green.
+
 ### M4 — Tests + review
 
 - [x] `test/component/test_gcv.jl` (analytic / cross-check suite, 108 tests).

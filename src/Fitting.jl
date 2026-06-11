@@ -1706,6 +1706,34 @@ than emit a spurious value.
 end
 
 """
+	_gcv_msy(y::AbstractVector{<:Real}, n_eff::Integer) -> Float64
+
+Null-model mean square `‖y‖² / n_eff` of the weighted, energy-mean-centered
+augmented target `y` — the prediction error of the `β = 0` baseline (energy
+predicted at its mean, torque predicted as zero). Dead all-zero rows carry no
+contribution to `‖y‖²`, so `n_eff` (live rows) is the correct divisor. It is the
+denominator of the GCV-based predictive R² (see `_gcv_r2`).
+"""
+@inline function _gcv_msy(y::AbstractVector{<:Real}, n_eff::Integer)::Float64
+	return sum(abs2, y) / n_eff
+end
+
+"""
+	_gcv_r2(gcv::Real, msy::Real) -> Float64
+
+GCV-based predictive R², `1 - gcv / msy`, normalizing the GCV score against the
+null-model mean square `msy` (see `_gcv_msy`). Both quantities are in the same
+weighted-objective unit, so the ratio is dimensionless: `1` is a perfect fit,
+`0` matches the null (mean-energy / zero-torque) model, and negative values mean
+the fit predicts worse than the null. Returns `NaN` when `gcv` is `NaN` (a
+saturated model) or `msy` is non-positive (a degenerate all-zero target).
+"""
+@inline function _gcv_r2(gcv::Real, msy::Real)::Float64
+	(isnan(gcv) || msy <= 0.0) && return NaN
+	return 1.0 - gcv / msy
+end
+
+"""
 	_effective_dof(X, estimator, beta, intercept_dof) -> Float64
 
 Effective degrees of freedom `tr(H) = intercept_dof + tr(H_β)` of the linear

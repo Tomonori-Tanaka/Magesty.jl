@@ -42,6 +42,26 @@ into `assemble_weighted_problem` anyway, so core is cleaner); k-fold CV
 (heavier, not requested); per-block (energy-only / torque-only) GCV (the fit
 minimizes the combined objective, so the combined GCV is the consistent target).
 
+### Predictive R² normalization (follow-up)
+
+The raw GCV score is in the weighted-objective unit, so a single value is not
+interpretable in isolation — only relative comparison (the λ minimizer, the
+learning-curve plateau) is meaningful. To give a fixed-scale reading, normalize
+against the **null-model mean square** `MSY = ‖y‖² / N` (the `β = 0` baseline:
+energy at its mean, torque at zero, on the centered/whitened system) and report
+the **GCV-based predictive R²**
+
+```
+R²_gcv = 1 − GCV / MSY
+```
+
+(`1` perfect, `0` matches the null model, `< 0` worse than null). Both terms
+share the weighted unit, so the ratio is dimensionless. `MSY` is fixed along a
+λ path, so the GCV minimizer is exactly the R² maximizer. Helpers `_gcv_msy`,
+`_gcv_r2` in `Fitting.jl`; `gcv_r2(f)` mirrors `gcv(f)`; the sweep results carry
+it per-point (`GCVLambdaPath.gcv_r2`, `GCVSizeCurve.gcv_r2_mean` / `gcv_r2_std`),
+written as extra table columns and plotted via the `--r2` flag.
+
 ## Module layout
 
 | Target | Change |

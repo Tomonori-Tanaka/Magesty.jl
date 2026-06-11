@@ -238,9 +238,11 @@ inspection or plotting. The output is consumed by the `FitCheck_gcv_lambda.py`
 script under `tools/`.
 
 The file has a comment header followed by one row per penalty:
-`lambda  gcv  dof`. The GCV score is in the weighted-objective unit (not eV²),
-and `dof` is the effective degrees of freedom `tr(H)`. The selected
-`lambda_best` and the torque weight are recorded in the header.
+`lambda  gcv  gcv_r2  dof`. The GCV score is in the weighted-objective unit (not
+eV²), `gcv_r2` is the GCV-based predictive R² (`1 - gcv / msy`; `1` perfect, `0`
+matches the null model) and reads on a fixed scale, and `dof` is the effective
+degrees of freedom `tr(H)`. The selected `lambda_best` and the torque weight are
+recorded in the header.
 
 # Arguments
 - `path::GCVLambdaPath`: The sweep result.
@@ -261,17 +263,18 @@ function write_gcv_lambda(
 	filename::AbstractString = "gcv_lambda.txt",
 )::Nothing
 	n = length(path.lambdas)
-	row_fmt = Printf.Format(" % 15.10e    % 15.10e    % 15.10e\n")
+	row_fmt = Printf.Format(" % 15.10e    % 15.10e    % 15.10e    % 15.10e\n")
 	try
 		open(filename, "w") do io
 			println(io, "# ridge GCV penalty sweep (gcv_lambda)")
 			println(io, "# torque_weight = ", path.torque_weight,
 				",  lambda_best = ", path.lambda_best)
-			println(io, "# GCV is in the weighted-objective unit (not eV^2)")
-			println(io, "# lambda,    GCV,    effective_dof")
+			println(io, "# GCV is in the weighted-objective unit (not eV^2);",
+				" GCV_R2 = 1 - GCV/MSY is on a fixed scale (1 perfect, 0 null)")
+			println(io, "# lambda,    GCV,    GCV_R2,    effective_dof")
 			for i = 1:n
 				Printf.format(io, row_fmt,
-					path.lambdas[i], path.gcv_scores[i], path.dof[i])
+					path.lambdas[i], path.gcv_scores[i], path.gcv_r2[i], path.dof[i])
 			end
 		end
 	catch e
@@ -291,10 +294,11 @@ text file for inspection or plotting. The output is consumed by the
 `FitCheck_gcv_learning_curve.py` script under `tools/`.
 
 The file has a comment header followed by one row per training-set size:
-`size  gcv_mean  gcv_std`, where the mean and standard deviation are taken over
-the random subset draws at that size. The GCV score is in the weighted-objective
-unit (not eV²). The estimator, torque weight, repeats, and seed are recorded in
-the header.
+`size  gcv_mean  gcv_std  gcv_r2_mean  gcv_r2_std`, where the means and standard
+deviations are taken over the random subset draws at that size. The GCV score is
+in the weighted-objective unit (not eV²); `gcv_r2` is the GCV-based predictive R²
+(`1 - gcv / msy`), which reads on a fixed scale (`1` perfect, `0` null). The
+estimator, torque weight, repeats, and seed are recorded in the header.
 
 # Arguments
 - `curve::GCVSizeCurve`: The sweep result.
@@ -317,18 +321,20 @@ function write_gcv_learning_curve(
 )::Nothing
 	n = length(curve.sizes)
 	size_width = max(maximum(ndigits, curve.sizes; init = 1), 4)
-	row_fmt = Printf.Format(" %$(size_width)d    % 15.10e    % 15.10e\n")
+	row_fmt = Printf.Format(" %$(size_width)d    % 15.10e    % 15.10e    % 15.10e    % 15.10e\n")
 	try
 		open(filename, "w") do io
 			println(io, "# data-sufficiency GCV learning curve (gcv_learning_curve)")
 			println(io, "# estimator = ", curve.estimator)
 			println(io, "# torque_weight = ", curve.torque_weight,
 				",  repeats = ", curve.repeats, ",  seed = ", curve.seed)
-			println(io, "# GCV is in the weighted-objective unit (not eV^2)")
-			println(io, "# size,    GCV_mean,    GCV_std")
+			println(io, "# GCV is in the weighted-objective unit (not eV^2);",
+				" GCV_R2 = 1 - GCV/MSY is on a fixed scale (1 perfect, 0 null)")
+			println(io, "# size,    GCV_mean,    GCV_std,    GCV_R2_mean,    GCV_R2_std")
 			for i = 1:n
 				Printf.format(io, row_fmt,
-					curve.sizes[i], curve.gcv_mean[i], curve.gcv_std[i])
+					curve.sizes[i], curve.gcv_mean[i], curve.gcv_std[i],
+					curve.gcv_r2_mean[i], curve.gcv_r2_std[i])
 			end
 		end
 	catch e

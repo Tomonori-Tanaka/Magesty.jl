@@ -163,6 +163,7 @@ write_torques(model_or_fit, data, path)
 
 # Cross-validation diagnostics (linear estimators only: OLS/Ridge/AdaptiveRidge)
 gcv(f::SCEFit)                                        # combined energy+torque GCV
+gcv_r2(f::SCEFit)                                     # predictive R² = 1 - GCV/MSY (fixed scale)
 gcv_lambda(dataset, lambdas; torque_weight = 1.0)    # -> GCVLambdaPath (ridge path)
 gcv_learning_curve(dataset, estimator = OLS();             # -> GCVSizeCurve (data sufficiency)
     sizes, repeats = 5, seed = 0, torque_weight = 1.0)

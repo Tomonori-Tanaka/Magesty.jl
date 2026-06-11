@@ -180,7 +180,11 @@ Generalized cross-validation scores the combined energy+torque objective
 from a single fit. Use `gcv_lambda` to pick a ridge penalty and
 `gcv_learning_curve` to check whether there is enough training data (a flattening
 curve). Both work only for the linear estimators (`OLS`, `Ridge`,
-`AdaptiveRidge`). See [Cross-validation diagnostics](@ref) for the formula.
+`AdaptiveRidge`). The raw GCV score is in the weighted-objective unit and only
+meaningful in relative comparison; `gcv_r2` (and the `gcv_r2` columns on the
+sweep results) gives the companion predictive R² on a fixed scale (`1` perfect,
+`0` matches the null model). See [Cross-validation diagnostics](@ref) for the
+formula.
 
 ```julia
 using Magesty
@@ -191,12 +195,12 @@ dataset = SCEDataset(SCEBasis("input.toml"), "EMBSET")
 path = gcv_lambda(dataset, 10.0 .^ (-6:0.5:0))
 println("lambda_best = ", path.lambda_best)
 f = fit(SCEFit, dataset, Ridge(lambda = path.lambda_best))
-println("GCV at lambda_best: ", gcv(f))
+println("GCV at lambda_best: ", gcv(f), "  (R2 = ", gcv_r2(f), ")")
 write_gcv_lambda(path, "gcv_lambda.txt")
-# python tools/FitCheck_gcv_lambda.py gcv_lambda.txt --dof
+# python tools/FitCheck_gcv_lambda.py gcv_lambda.txt --r2
 
 # Data sufficiency: average GCV over random subsets at each size.
 curve = gcv_learning_curve(dataset, Ridge(lambda = path.lambda_best); repeats = 8)
 write_gcv_learning_curve(curve, "gcv_learning_curve.txt")
-# python tools/FitCheck_gcv_learning_curve.py gcv_learning_curve.txt
+# python tools/FitCheck_gcv_learning_curve.py gcv_learning_curve.txt --r2
 ```

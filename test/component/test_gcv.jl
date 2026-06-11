@@ -98,6 +98,26 @@ _gcv_data_lines(text::AbstractString) =
             @test F._gcv_value(2.0, 5, 10) ≈ (2.0 / 10) / (1 - 5 / 10)^2
         end
 
+        @testset "_gcv_msy and _gcv_r2 normalization" begin
+            y = observed_centered
+            n_live = length(y)
+            @test F._gcv_msy(y, n_live) ≈ sum(abs2, y) / n_live
+            # R^2 = 1 - gcv/msy by construction.
+            msy = F._gcv_msy(y, n_live)
+            @test F._gcv_r2(0.0, msy) ≈ 1.0            # perfect fit
+            @test F._gcv_r2(msy, msy) ≈ 0.0            # matches the null model
+            @test F._gcv_r2(2 * msy, msy) ≈ -1.0       # worse than null
+            @test isnan(F._gcv_r2(NaN, msy))           # saturated -> NaN
+            @test isnan(F._gcv_r2(1.0, 0.0))           # degenerate target -> NaN
+
+            # OLS R^2 equals 1 - gcv/(‖y‖²/N) against the explicit-intercept GCV.
+            jphi = design_centered \ observed_centered
+            resid = observed_centered - design_centered * jphi
+            score, _ = F._gcv_single(
+                design_centered, observed_centered, resid, F.OLS(), jphi, n_live, 1)
+            @test F._gcv_r2(score, msy) ≈ 1 - score / (sum(abs2, y) / n_live)
+        end
+
         @testset "_gcv_sample_count excludes the zero-weight block" begin
             n_E, n_T = 30, 720
             # 0 < w < 1: both blocks live, intercept present.
@@ -134,9 +154,22 @@ _gcv_data_lines(text::AbstractString) =
             end
         end
 
-        @testset "gcv rejects a non-linear fit" begin
+        @testset "gcv_r2(f) equals 1 - gcv/msy" begin
+            for est in (OLS(), Ridge(lambda = 1e-3), AdaptiveRidge(lambda = 1e-3))
+                f = fit(SCEFit, dataset, est; verbosity = false)
+                X, y = Magesty.Fitting.assemble_weighted_problem(
+                    dataset.X_E, dataset.X_T, dataset.y_E, dataset.y_T, f.torque_weight)
+                n_eff, _ = Magesty.Fitting._gcv_sample_count(
+                    length(dataset.y_E), length(dataset.y_T), f.torque_weight)
+                @test gcv_r2(f) ≈ 1 - gcv(f) / (sum(abs2, y) / n_eff) rtol = 1e-9
+                @test gcv_r2(f) <= 1
+            end
+        end
+
+        @testset "gcv and gcv_r2 reject a non-linear fit" begin
             fl = fit(SCEFit, dataset, Lasso(lambda = 1e-3); verbosity = false)
             @test_throws ArgumentError gcv(fl)
+            @test_throws ArgumentError gcv_r2(fl)
         end
 
         @testset "gcv_lambda consistency with gcv(fit)" begin
@@ -144,13 +177,18 @@ _gcv_data_lines(text::AbstractString) =
             path = gcv_lambda(dataset, [lam])
             fr = fit(SCEFit, dataset, Ridge(lambda = lam); verbosity = false)
             @test path.gcv_scores[1] ≈ gcv(fr) rtol = 1e-8
+            @test path.gcv_r2[1] ≈ gcv_r2(fr) rtol = 1e-8
             @test path.torque_weight == 1.0
 
             lambdas = 10.0 .^ (-6:1.0:1)
             sweep = gcv_lambda(dataset, lambdas)
             @test length(sweep.gcv_scores) == length(lambdas)
+            @test length(sweep.gcv_r2) == length(lambdas)
             @test length(sweep.dof) == length(lambdas)
             @test sweep.lambda_best == lambdas[argmin(sweep.gcv_scores)]
+            # R^2 is a strictly decreasing affine map of GCV (msy fixed), so the
+            # GCV minimizer is the R^2 maximizer.
+            @test sweep.lambda_best == lambdas[argmax(sweep.gcv_r2)]
             # dof decreases monotonically with penalty.
             @test issorted(sweep.dof; rev = true)
         end
@@ -195,7 +233,12 @@ _gcv_data_lines(text::AbstractString) =
             @test c1.sizes == sizes
             @test c1.gcv_mean == c2.gcv_mean          # exact reproducibility under seed
             @test c1.gcv_std == c2.gcv_std
+            @test c1.gcv_r2_mean == c2.gcv_r2_mean
+            @test c1.gcv_r2_std == c2.gcv_r2_std
             @test all(isfinite, c1.gcv_mean)
+            @test all(isfinite, c1.gcv_r2_mean)
+            @test all(<=(1), c1.gcv_r2_mean)
+            @test length(c1.gcv_r2_mean) == length(sizes)
             @test c1.repeats == 4
             @test c1.seed == 7
             @test c1.estimator == Ridge(lambda = 1e-3)
@@ -219,12 +262,15 @@ _gcv_data_lines(text::AbstractString) =
             rng = Random.MersenneTwister(seed)
             for (i, n) in enumerate(sizes)
                 scores = Float64[]
+                r2_scores = Float64[]
                 for _ in 1:repeats
                     idx = Random.randperm(rng, n_total)[1:n]
                     f = fit(SCEFit, dataset[idx], Ridge(lambda = 1e-3); verbosity = false)
                     push!(scores, gcv(f))
+                    push!(r2_scores, gcv_r2(f))
                 end
                 @test curve.gcv_mean[i] ≈ sum(scores) / repeats rtol = 1e-9
+                @test curve.gcv_r2_mean[i] ≈ sum(r2_scores) / repeats rtol = 1e-9
             end
         end
 
@@ -252,10 +298,11 @@ _gcv_data_lines(text::AbstractString) =
                 @test length(rows) == length(path.lambdas)
                 for (i, row) in enumerate(rows)
                     cols = split(row)
-                    @test length(cols) == 3
+                    @test length(cols) == 4
                     @test parse(Float64, cols[1]) ≈ path.lambdas[i] rtol = 1e-9
                     @test parse(Float64, cols[2]) ≈ path.gcv_scores[i] rtol = 1e-7
-                    @test parse(Float64, cols[3]) ≈ path.dof[i] rtol = 1e-7
+                    @test parse(Float64, cols[3]) ≈ path.gcv_r2[i] rtol = 1e-7
+                    @test parse(Float64, cols[4]) ≈ path.dof[i] rtol = 1e-7
                 end
             end
 
@@ -268,10 +315,13 @@ _gcv_data_lines(text::AbstractString) =
                 @test length(rows) == length(curve.sizes)
                 for (i, row) in enumerate(rows)
                     cols = split(row)
-                    @test length(cols) == 3
+                    @test length(cols) == 5
                     @test parse(Int, cols[1]) == curve.sizes[i]
                     @test parse(Float64, cols[2]) ≈ curve.gcv_mean[i] rtol = 1e-7
                     @test isapprox(parse(Float64, cols[3]), curve.gcv_std[i];
+                        atol = 1e-12, rtol = 1e-7)
+                    @test parse(Float64, cols[4]) ≈ curve.gcv_r2_mean[i] rtol = 1e-7
+                    @test isapprox(parse(Float64, cols[5]), curve.gcv_r2_std[i];
                         atol = 1e-12, rtol = 1e-7)
                 end
             end

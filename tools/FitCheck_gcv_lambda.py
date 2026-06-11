@@ -4,11 +4,13 @@ Ridge GCV penalty-sweep plot for Magesty.jl.
 
 Plots the generalized cross-validation (GCV) score against the ridge penalty
 lambda (log-log), marks the GCV minimizer, and optionally overlays the
-effective degrees of freedom on a secondary axis.
+GCV-based predictive R^2 (--r2) or the effective degrees of freedom (--dof) on a
+secondary axis.
 
 Input: the whitespace-separated text written by `write_gcv_lambda`, with
-columns `lambda  GCV  effective_dof` (lines starting with # are comments).
-The GCV score is in the weighted-objective unit, not eV^2.
+columns `lambda  GCV  GCV_R2  effective_dof` (lines starting with # are
+comments). The GCV score is in the weighted-objective unit, not eV^2; GCV_R2 =
+1 - GCV/MSY reads on a fixed scale (1 perfect, 0 matches the null model).
 """
 from __future__ import annotations
 
@@ -19,9 +21,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def parse_file(path: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Parse columns lambda, gcv, dof, skipping # comments and blank lines."""
-    lam, gcv, dof = [], [], []
+def parse_file(
+    path: str,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Parse columns lambda, gcv, gcv_r2, dof, skipping # comments / blanks."""
+    lam, gcv, r2, dof = [], [], [], []
     with open(path) as f:
         for li, line in enumerate(f, 1):
             s = line.strip()
@@ -34,8 +38,9 @@ def parse_file(path: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
                 )
             lam.append(float(cols[0]))
             gcv.append(float(cols[1]))
-            dof.append(float(cols[2]) if len(cols) >= 3 else np.nan)
-    return np.array(lam), np.array(gcv), np.array(dof)
+            r2.append(float(cols[2]) if len(cols) >= 3 else np.nan)
+            dof.append(float(cols[3]) if len(cols) >= 4 else np.nan)
+    return np.array(lam), np.array(gcv), np.array(r2), np.array(dof)
 
 
 def plot_gcv_lambda(
@@ -43,6 +48,7 @@ def plot_gcv_lambda(
     *,
     output: str | None = None,
     show_dof: bool = False,
+    show_r2: bool = False,
 ) -> None:
     fig, ax = plt.subplots()
     ax.set_title("Ridge GCV penalty sweep")
@@ -52,12 +58,14 @@ def plot_gcv_lambda(
     ax.set_yscale("log")
     ax.tick_params(direction="in")
 
-    ax_dof = ax.twinx() if show_dof else None
-    if ax_dof is not None:
-        ax_dof.set_ylabel("effective dof  tr(H)")
+    ax2 = ax.twinx() if (show_dof or show_r2) else None
+    if ax2 is not None:
+        ax2.set_ylabel(
+            "predictive $R^2$" if show_r2 else "effective dof  tr(H)"
+        )
 
     for i, path in enumerate(files):
-        lam, gcv, dof = parse_file(path)
+        lam, gcv, r2, dof = parse_file(path)
         name = Path(path).name
         finite = np.isfinite(gcv)
         if finite.any():
@@ -65,7 +73,10 @@ def plot_gcv_lambda(
             best_lam, best_gcv = lam[j], gcv[j]
             print("-" * 30)
             print(f"File: {name}")
-            print(f"lambda_best = {best_lam:.6g}  (GCV = {best_gcv:.6g})")
+            print(
+                f"lambda_best = {best_lam:.6g}  "
+                f"(GCV = {best_gcv:.6g}, R^2 = {r2[j]:.6g})"
+            )
         else:
             best_lam = best_gcv = None
             print(f"File: {name}: no finite GCV values")
@@ -81,8 +92,9 @@ def plot_gcv_lambda(
                 linewidths=1.8,
                 zorder=6,
             )
-        if ax_dof is not None:
-            ax_dof.plot(lam, dof, ls="--", lw=1, color=line.get_color(), alpha=0.6)
+        if ax2 is not None:
+            overlay = r2 if show_r2 else dof
+            ax2.plot(lam, overlay, ls="--", lw=1, color=line.get_color(), alpha=0.6)
 
     ax.legend(loc="best")
     plt.tight_layout()
@@ -102,8 +114,16 @@ def main() -> None:
         action="store_true",
         help="Overlay effective dof on a secondary axis",
     )
+    parser.add_argument(
+        "-r",
+        "--r2",
+        action="store_true",
+        help="Overlay predictive R^2 on a secondary axis (takes precedence over --dof)",
+    )
     args = parser.parse_args()
-    plot_gcv_lambda(args.files, output=args.output, show_dof=args.dof)
+    plot_gcv_lambda(
+        args.files, output=args.output, show_dof=args.dof, show_r2=args.r2
+    )
 
 
 if __name__ == "__main__":

@@ -347,6 +347,24 @@ live** (``w < 1``). The score is in the weighted-objective unit, **not**
 ``\mathrm{eV}^2`` — it is meant for *comparing* configurations (across
 penalties or data sizes), not for reading an absolute error.
 
+To make a single value interpretable, normalize the GCV score against the
+**null-model mean square** ``\mathrm{MSY} = \lVert y\rVert^2 / N`` — the
+prediction error of the ``\beta = 0`` baseline on the centered, whitened system
+(energy predicted at its mean, torque predicted as zero). The **GCV-based
+predictive R²** is
+
+```math
+R^2_{\mathrm{gcv}} = 1 - \frac{\mathrm{GCV}}{\mathrm{MSY}},
+```
+
+which lives on a fixed scale: ``1`` is a perfect fit, ``0`` matches the null
+model, and a negative value means the fit predicts worse than the null
+(over-parameterized or too little data). Both terms share the weighted-objective
+unit, so the ratio is dimensionless. `gcv_r2` returns it for a fit; the sweep
+results carry it per-point (`GCVLambdaPath.gcv_r2`, `GCVSizeCurve.gcv_r2_mean`).
+Because ``\mathrm{MSY}`` is fixed along a ``\lambda`` path, the GCV minimizer is
+exactly the ``R^2_{\mathrm{gcv}}`` maximizer.
+
 The effective dof depends on the estimator (the ``+1`` below is the
 conditional intercept term, present only when the energy block is live):
 
@@ -372,7 +390,8 @@ returned as `lambda_best`. `gcv_learning_curve` sweeps the training-set size: at
 each size it draws several random subsets (reusing the prebuilt design
 matrix by row slicing, with a seeded RNG), fits each, and averages their
 GCV scores. A curve that flattens with size indicates that enough training
-data is present. `gcv` returns the single score for an existing fit.
+data is present. `gcv` returns the single score for an existing fit, and
+`gcv_r2` its predictive-R² companion.
 
 The sweep results carry to text via `write_gcv_lambda` /
 `write_gcv_learning_curve` for the `FitCheck_gcv_lambda.py` /
