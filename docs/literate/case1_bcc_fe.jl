@@ -62,20 +62,56 @@ write_torques(f, "torque_list.txt");
 #
 # ![Torque parity plot for bcc Fe](case1_inputs/torque_parity.png)
 
-# ## Physical interpretation
+# ## Exchange interactions
 #
-# (to be written)
+# The fitted couplings can be read back out as a conventional Heisenberg-style
+# exchange. Save the model, then plot the isotropic ``J_{ij}`` against pair
+# distance with the
+# [`plot_jij.jl`](https://github.com/Tomonori-Tanaka/Magesty.jl/blob/main/tools/plot_jij.jl)
+# script from the repository's `tools/` directory:
+
+Magesty.save(SCEModel(f), "model.xml");
+
+# ```bash
+# julia plot_jij.jl model.xml -i -H
+# ```
+#
+# The two flags adapt Magesty's conventions to the form of the Heisenberg model
+# most common in the literature,
+#
+# ```math
+# \mathcal{H} = -\sum_{i \neq j} J_{ij}\,\hat{\boldsymbol{e}}_i \cdot \hat{\boldsymbol{e}}_j,
+# ```
+#
+# where ``\hat{\boldsymbol{e}}_i`` is the unit vector along the spin on site
+# ``i`` and a positive ``J_{ij}`` favors ferromagnetic alignment:
+#
+# - `-i` inverts the sign. Magesty writes the pair energy as
+#   ``+J_{ij}\,\hat{\boldsymbol{e}}_i \cdot \hat{\boldsymbol{e}}_j``, whereas the
+#   Hamiltonian above carries an overall minus sign.
+# - `-H` halves the values. By default — and in the SCE coefficients
+#   themselves — every interaction term is counted **once** (each pair appears
+#   once, and likewise a three-body or higher cluster contributes a single term;
+#   no double counting). The sum over ``i \neq j`` above instead visits every
+#   pair twice, so the count-once ``J_{ij}`` must be divided by two to match it.
+#
+# See the [technical notes](../technical_notes.md) for the full mapping from SCE
+# coefficients to conventional spin-model parameters.
+#
+# ![Isotropic Jij versus pair distance for bcc Fe](case1_inputs/jij.png)
+#
+# The nearest-neighbor coupling dominates and the interaction decays, changing
+# sign, at larger distances — consistent with the ferromagnetic ground state of
+# bcc Fe.
 
 # ## Spin-wave dispersion with Sunny.jl
 #
 # The lowest-order fitted terms map onto a conventional spin Hamiltonian, which
 # lets us compute a linear spin-wave-theory (LSWT) magnon dispersion with
-# [Sunny.jl](https://github.com/SunnySuite/Sunny.jl). Save the fitted model,
-# then generate a runnable Sunny script from it with the `magesty sunny script`
-# command.
-
-Magesty.save(SCEModel(f), "model.xml");
-
+# [Sunny.jl](https://github.com/SunnySuite/Sunny.jl). Reusing the model XML saved
+# above, generate a runnable Sunny script from it with the `magesty sunny script`
+# command:
+#
 # ```bash
 # magesty sunny script model.xml -o sunny.jl
 # ```
