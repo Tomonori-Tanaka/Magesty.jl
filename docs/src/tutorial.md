@@ -131,5 +131,6 @@ println("Number of atoms: ", cell.num_atoms)
 println("Number of SALCs: ", length(basis.salcbasis.salc_list))
 ```
 
-For detailed function documentation see the [API Reference](@ref). More
-complex use cases live in [Examples](examples.md).
+For detailed function documentation see the [API Reference](@ref). Worked,
+system-specific walkthroughs live in [Examples](examples/index.md), and
+short feature-by-feature snippets in [API Examples](api_examples.md).

@@ -20,3 +20,8 @@ tools/personal/
 !/bench/results/.gitkeep
 docs/build/
 **/__pycache__/
+
+# Literate.jl-generated example pages (built from docs/literate/*.jl)
+docs/src/examples/case1_bcc_fe.md
+docs/src/examples/case1_bcc_fe.jl
+docs/src/examples/case1_bcc_fe.ipynb

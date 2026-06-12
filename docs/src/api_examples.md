@@ -1,4 +1,4 @@
-# Examples
+# API Examples
 
 This page demonstrates the SCE public API:
 `SCEBasis` → `SCEDataset` → `fit(SCEFit, ...)` → `SCEModel` →
