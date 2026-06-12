@@ -8,6 +8,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **GCV diagnostics (spec 260610-gcv-diagnostics).** New exported
+  generalized cross-validation diagnostics for SCE fitting, computed on the
+  combined energy+torque weighted objective the fit minimizes via the hat
+  matrix `H` (`GCV = (‖r‖²/N) / (1 − tr(H)/N)²`). `gcv(f::SCEFit)` returns the
+  score for a fit and `gcv_r2(f::SCEFit)` returns the companion predictive R²
+  (`1 − GCV/MSY`, with `MSY = ‖y‖²/N` the null-model mean square), which reads on
+  a fixed scale (`1` perfect, `0` matches the null model) where the raw GCV score
+  does not; `gcv_lambda(dataset, lambdas; torque_weight)` sweeps the
+  ridge penalty from a single SVD and reports the GCV minimizer
+  (`GCVLambdaPath`); `gcv_learning_curve(dataset, estimator; sizes, repeats, seed,
+  torque_weight)` sweeps the training-set size with random subsets to check
+  data sufficiency (`GCVSizeCurve`). Defined for the linear estimators `OLS`,
+  `Ridge`, and `AdaptiveRidge` (the last with a conditional effective-dof);
+  non-linear estimators raise `ArgumentError`. The predictive R² is also carried
+  per-point on the sweep results (`GCVLambdaPath.gcv_r2`,
+  `GCVSizeCurve.gcv_r2_mean` / `gcv_r2_std`). `write_gcv_lambda` /
+  `write_gcv_learning_curve` write the sweeps to text (including the R² columns)
+  for the new `tools/FitCheck_gcv_lambda.py` /
+  `tools/FitCheck_gcv_learning_curve.py` plotters (`--r2` plots the predictive
+  R²). No change to existing fit results.
 - **MFA spin sampling (spec 260605-mfa-sampling-cli).** New exported
   `sample_mfa_incar(incar_path; variable, start, stop, num_points, num_samples,
   randomize, fix, uniform_atoms, outdir, prefix)` draws thermally conditioned

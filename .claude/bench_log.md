@@ -1246,3 +1246,23 @@ the figure is the post-fix baseline for future regression checks.)
 
 - New `test/component/test_MfaSampling.jl` + `test_IncarIO.jl`: 135 pass.
 - `cli/test` `magesty vasp mfa`: 32 pass. `make test-all` green.
+
+## 2026-06-10 — GCV diagnostics, spec 260610-gcv-diagnostics
+
+New user-invoked diagnostic, not on the fit / SALC hot path; existing
+design-matrix and solver code is untouched. Recorded here only as a baseline
+for future regression checks, per the bench-bookkeeping practice. `gcv_lambda`
+takes a single `svd(X)` and an O(p) loop per λ; `gcv_learning_curve` re-solves
+per random subset draw (the heavy design-matrix build is reused via row
+slicing). `@btime` on the FePt L1_0 fixture (n = 30 configs, p = 31 SALCs):
+
+| call | time | allocs |
+|---|---:|---:|
+| `gcv(f)` (Ridge) | 274 µs | 1.15 MiB |
+| `gcv_lambda` (25 λ) | 548 µs | 1.55 MiB |
+| `gcv_learning_curve` (3 sizes × 5 repeats) | 4.35 ms | 16.2 MiB |
+
+The per-draw `randperm`/`dataset[idx]` allocations and the `gcv(f)`
+re-assembly + re-SVD (flagged by the performance review) are left as-is: for a
+single diagnostic call on realistic dataset sizes the cost is immaterial, and
+caching `X`/its factorization on `SCEFit` would bloat a core type.

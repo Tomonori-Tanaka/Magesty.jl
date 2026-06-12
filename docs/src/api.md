@@ -62,6 +62,33 @@ write_energies
 write_torques
 ```
 
+## Cross-validation diagnostics
+
+Generalized cross-validation (GCV) estimates out-of-sample prediction error
+from a single fit, on the same combined energy+torque weighted objective that
+`fit` minimizes. `gcv` returns the score for a fit and `gcv_r2` returns the
+companion predictive R² (`1 − GCV/MSY`), which reads on a fixed scale (`1`
+perfect, `0` matches the null model) where the raw GCV score does not;
+`gcv_lambda` sweeps the
+ridge penalty (one SVD serves the whole path) and reports the GCV minimizer;
+`gcv_learning_curve` sweeps the training-set size with random subsets to check data
+sufficiency. GCV is defined only for the linear estimators `OLS`, `Ridge`, and
+`AdaptiveRidge`. `write_gcv_lambda` / `write_gcv_learning_curve` write the sweep
+results to text for the `FitCheck_gcv_lambda.py` / `FitCheck_gcv_learning_curve.py`
+scripts under `tools/`. See [Cross-validation diagnostics](@ref) in the theory
+notes for the formula and conventions.
+
+```@docs
+gcv
+gcv_r2
+gcv_lambda
+gcv_learning_curve
+GCVLambdaPath
+GCVSizeCurve
+write_gcv_lambda
+write_gcv_learning_curve
+```
+
 ## VASP conversion
 
 The `vasp_to_extxyz`, `poscar_to_toml`, and `oszicar_to_embset` functions

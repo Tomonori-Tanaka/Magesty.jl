@@ -316,6 +316,87 @@ Heisenberg ``J``, the Dzyaloshinskii–Moriya vector ``\vec{D}``, and the
 anisotropic exchange tensor ``\boldsymbol{\Gamma}`` — is the subject of the
 [Technical Notes](../technical_notes.md).
 
+## Cross-validation diagnostics
+
+Generalized cross-validation (GCV) estimates the out-of-sample prediction
+error of a fit *from the fit itself*, without a held-out set. It is
+computed on the **same weighted, energy-centered augmented system** that
+the fit minimizes — energy rows stacked above torque rows, row-whitened by
+``\sqrt{(1-w)/n_E}`` and ``\sqrt{w/n_T}`` — so the score reflects the
+combined energy+torque objective and the chosen `torque_weight`.
+
+For a linear estimator the fitted values are a linear image of the
+observations, ``\hat{y} = H y`` with a *hat matrix* ``H`` independent of
+``y``, and
+
+```math
+\mathrm{GCV} = \frac{\lVert y - \hat{y}\rVert^2 / N}
+                    {\bigl(1 - \mathrm{tr}(H)/N\bigr)^2},
+```
+
+where ``\mathrm{tr}(H)`` is the *effective degrees of freedom* and ``N`` is
+the number of **live** rows. A block whose whitening scale is zero
+(``\text{torque\_weight} = 1`` zeroes the energy rows;
+``\text{torque\_weight} = 0`` zeroes the torque rows) contributes only dead
+all-zero rows, which add nothing to the residual or to ``\mathrm{tr}(H)``;
+they are excluded from ``N`` (so ``N = n_E + n_T`` for ``0 < w < 1``,
+``N = n_T`` for ``w = 1``, ``N = n_E`` for ``w = 0``). The reference energy
+``J_0`` was eliminated by the energy-block centering, so it contributes one
+degree of freedom to ``\mathrm{tr}(H)`` **only when the energy block is
+live** (``w < 1``). The score is in the weighted-objective unit, **not**
+``\mathrm{eV}^2`` — it is meant for *comparing* configurations (across
+penalties or data sizes), not for reading an absolute error.
+
+To make a single value interpretable, normalize the GCV score against the
+**null-model mean square** ``\mathrm{MSY} = \lVert y\rVert^2 / N`` — the
+prediction error of the ``\beta = 0`` baseline on the centered, whitened system
+(energy predicted at its mean, torque predicted as zero). The **GCV-based
+predictive R²** is
+
+```math
+R^2_{\mathrm{gcv}} = 1 - \frac{\mathrm{GCV}}{\mathrm{MSY}},
+```
+
+which lives on a fixed scale: ``1`` is a perfect fit, ``0`` matches the null
+model, and a negative value means the fit predicts worse than the null
+(over-parameterized or too little data). Both terms share the weighted-objective
+unit, so the ratio is dimensionless. `gcv_r2` returns it for a fit; the sweep
+results carry it per-point (`GCVLambdaPath.gcv_r2`, `GCVSizeCurve.gcv_r2_mean`).
+Because ``\mathrm{MSY}`` is fixed along a ``\lambda`` path, the GCV minimizer is
+exactly the ``R^2_{\mathrm{gcv}}`` maximizer.
+
+The effective dof depends on the estimator (the ``+1`` below is the
+conditional intercept term, present only when the energy block is live):
+
+- **`OLS`**: ``\mathrm{tr}(H) = 1 + \mathrm{rank}(X)``.
+- **`Ridge`** with penalty ``\lambda``: from the singular values
+  ``\sigma_k`` of ``X``,
+  ``\mathrm{tr}(H) = 1 + \sum_k \sigma_k^2/(\sigma_k^2 + \lambda)``.
+- **`AdaptiveRidge`**: conditional dof
+  ``1 + \mathrm{tr}\bigl((X^\top X + \lambda D)^{-1} X^\top X\bigr)`` with
+  the converged diagonal reweighting ``D``. The weights are recovered
+  exactly from the fitted coefficients
+  (``D_{\nu\nu} = 1/(J_\nu^2 + \varepsilon)``); only treating ``D`` as
+  fixed in ``H`` is an approximation.
+
+Non-linear estimators (`ElasticNet`, the `Lasso` alias, `AdaptiveLasso`)
+have no exact hat matrix, so GCV is undefined for them and the entry
+points raise an `ArgumentError`.
+
+Two uses share this machinery. `gcv_lambda` sweeps the ridge penalty: a
+single SVD of ``X`` yields ``\mathrm{tr}(H)`` and the residual norm for
+every ``\lambda`` from the closed forms above, and the GCV minimizer is
+returned as `lambda_best`. `gcv_learning_curve` sweeps the training-set size: at
+each size it draws several random subsets (reusing the prebuilt design
+matrix by row slicing, with a seeded RNG), fits each, and averages their
+GCV scores. A curve that flattens with size indicates that enough training
+data is present. `gcv` returns the single score for an existing fit, and
+`gcv_r2` its predictive-R² companion.
+
+The sweep results carry to text via `write_gcv_lambda` /
+`write_gcv_learning_curve` for the `FitCheck_gcv_lambda.py` /
+`FitCheck_gcv_learning_curve.py` plotters under `tools/`.
+
 ## References
 
 1. H. Zou, "The Adaptive Lasso and Its Oracle Properties",
@@ -324,3 +405,6 @@ anisotropic exchange tensor ``\boldsymbol{\Gamma}`` — is the subject of the
 2. F. Frommlet and G. Nuel, "An Adaptive Ridge Procedure for L0
    Regularization", *PLoS ONE* **11**, e0148620 (2016).
    DOI: [10.1371/journal.pone.0148620](https://doi.org/10.1371/journal.pone.0148620)
+3. G. H. Golub, M. Heath, and G. Wahba, "Generalized Cross-Validation as a
+   Method for Choosing a Good Ridge Parameter", *Technometrics* **21**, 215
+   (1979). DOI: [10.1080/00401706.1979.10489751](https://doi.org/10.1080/00401706.1979.10489751)
