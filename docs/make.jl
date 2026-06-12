@@ -84,6 +84,10 @@ makedocs(
 	warnonly = true,
 	checkdocs = :exports,
 	doctest = true,
+	# Run `@example` blocks (the executed worked-example workflow) from the
+	# directory that holds the example input files, so bare paths like
+	# `SCEBasis("input.toml")` resolve against the shipped assets.
+	workdir = joinpath(@__DIR__, "src", "examples", "case1_inputs"),
 )
 
 deploydocs(

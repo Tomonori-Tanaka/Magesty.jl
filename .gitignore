@@ -25,3 +25,9 @@ docs/build/
 docs/src/examples/case1_bcc_fe.md
 docs/src/examples/case1_bcc_fe.jl
 docs/src/examples/case1_bcc_fe.ipynb
+
+# Comparison lists written by the executed example (parity plots are committed)
+docs/src/examples/case1_inputs/energy_list.txt
+docs/src/examples/case1_inputs/torque_list.txt
+# Model XML written by the executed example (the Sunny script is committed)
+docs/src/examples/case1_inputs/model.xml
