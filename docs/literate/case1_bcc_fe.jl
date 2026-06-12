@@ -54,8 +54,8 @@ write_torques(f, "torque_list.txt");
 # package depot, so the links above are the easiest way to reach the scripts.)
 #
 # ```bash
-# python FitCheck_energy.py energy_list.txt -o energy_parity.png
-# python FitCheck_torque.py torque_list.txt -o torque_parity.png
+# python FitCheck_energy.py energy_list.txt --output energy_parity.png
+# python FitCheck_torque.py torque_list.txt --output torque_parity.png
 # ```
 #
 # ![Energy parity plot for bcc Fe](case1_inputs/energy_parity.png)
@@ -113,7 +113,7 @@ Magesty.save(SCEModel(f), "model.xml");
 # command:
 #
 # ```bash
-# magesty sunny script model.xml -o sunny.jl
+# magesty sunny script model.xml --output sunny.jl
 # ```
 #
 # The generated script builds the spin system from the fitted exchange constants

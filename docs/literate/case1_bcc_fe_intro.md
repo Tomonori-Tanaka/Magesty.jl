@@ -7,10 +7,6 @@ This worked example builds a spin-cluster expansion (SCE) model for
 body-centered cubic (bcc) iron and walks through the full workflow, from the
 noncollinear spin-DFT reference data to the fitted exchange interactions.
 
-!!! note
-    This page is a work in progress. The Magesty workflow sections below are
-    still being written.
-
 ## Overview
 
 The reference system is bcc Fe with conventional lattice constant
@@ -197,7 +193,7 @@ field. Convert the runs into a single `EMBSET` training-data file with
 - **Convert each run, then merge.** Convert one `OSZICAR` at a time,
 
   ```bash
-  magesty vasp embset OSZICAR -o EMBSET
+  magesty vasp embset OSZICAR --output EMBSET
   ```
 
   and combine the contents of all the resulting `EMBSET` files into one.
@@ -207,7 +203,7 @@ field. Convert the runs into a single `EMBSET` training-data file with
   Each file becomes one configuration block, numbered in the given order:
 
   ```bash
-  magesty vasp embset *.oszicar -o EMBSET
+  magesty vasp embset *.oszicar --output EMBSET
   ```
 
 !!! tip "Skip the DFT for this example"
@@ -220,7 +216,7 @@ field. Convert the runs into a single `EMBSET` training-data file with
 Build the Magesty input TOML from `POSCAR` with `magesty vasp toml`:
 
 ```bash
-magesty vasp toml POSCAR -o input.toml
+magesty vasp toml POSCAR --output input.toml
 ```
 
 This fills the `[general]`, `[symmetry]`, `[interaction]`, and `[structure]`
