@@ -224,10 +224,63 @@ magesty vasp toml POSCAR -o input.toml
 ```
 
 This fills the `[general]`, `[symmetry]`, `[interaction]`, and `[structure]`
-tables from the structure. The interaction settings are written as placeholders
-(`lmax = 0`, `cutoff = -1`), so **edit them** to the basis you want before
-fitting. See the [Tools](../tools.md) page for the full options of both
-converters.
+tables from the structure. The interaction settings are written as placeholders,
+so **edit them** to the basis you want before fitting. For this example the
+edited file is:
+
+```toml:input.toml
+[general]
+name = "Fe444"
+nat  = 128
+kd   = ["Fe"]
+periodicity = [true, true, true]
+
+[symmetry]
+tolerance = 1.0e-5
+isotropy  = true
+
+[interaction]
+nbody = 2
+
+[interaction.body1]
+lmax.Fe = 0
+
+[interaction.body2]
+cutoff."Fe-Fe" = -1
+lsum = 2
+
+[structure]
+lattice = [
+  [11.3192, 0.0,     0.0],
+  [0.0,     11.3192, 0.0],
+  [0.0,     0.0,     11.3192],
+]
+kd_list  = [1, 1, 1, 1, ...]       # 128 entries, element index per atom
+position = [
+  [0.000, 0.000, 0.000],
+  [0.125, 0.125, 0.125],
+  # ... (128 atoms, direct coordinates)
+]
+```
+
+- `[general]` — the system name, atom count (`nat = 128`), the element list
+  `kd` (a single species here), and periodicity in all three directions.
+- `[symmetry]` — `tolerance` for spacegroup detection and `isotropy = true`,
+  which restricts the basis to rotationally invariant (``L_f = 0``) terms, i.e.
+  isotropic exchange.
+- `[interaction]` — `nbody = 2` keeps up to pair terms. `body1`'s `lmax.Fe = 0`
+  is the on-site angular-momentum order; `body2`'s `lsum = 2` is the cutoff on
+  the summed angular momentum of a pair basis function, and
+  `cutoff."Fe-Fe"` is the Fe–Fe pair cutoff radius in Å (`-1` includes all pairs,
+  i.e. no distance cutoff). Together these define an isotropic two-body (pair)
+  model.
+- `[structure]` — the supercell `lattice` (the 11.3192 Å cube), `kd_list` (the
+  element index of each atom), and the 128 atomic `position`s in direct
+  coordinates, all taken straight from `POSCAR`.
+
+See [Input Keys](../input_keys.md) for the full key reference and the
+[Tools](../tools.md) page for the converter options. The edited
+[`input.toml`](case1_inputs/input.toml) is downloadable.
 
 With the input TOML and the combined `EMBSET` in hand, the remaining sections run
 the Magesty workflow itself.
