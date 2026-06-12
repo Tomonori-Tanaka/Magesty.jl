@@ -141,7 +141,41 @@ MAGMOM = 0 0 3.0   0 0 3.0   ...   (one triplet per atom, 128 in total)
     [Penalty Term Dependence](@ref) for how a too-small `LAMBDA` degrades the
     fitted model.
 
-### From VASP to Magesty
+## Sampling spin configurations
+
+!!! info
+    This step uses the `magesty` command-line tool; if it is not set up yet, see
+    [Installation](@ref "Command-Line Interface").
+
+With the template `INCAR` in hand, draw the spin configurations to compute. We
+sample from the mean-field-approximation (MFA) thermal distribution at the
+reduced temperature ``\tau = T / T_{\mathrm{C}}^{\mathrm{MFA}} = 0.05``. This is
+deep in the low-temperature regime, far below the mean-field Curie temperature,
+so the drawn configurations are small fluctuations about the ferromagnetic ground
+state. We draw **50 configurations**:
+
+```bash
+magesty vasp mfa INCAR tau --start 0.05 --stop 0.05 --num-points 1 --num-samples 50
+```
+
+This writes one INCAR per drawn configuration (`sample-NN.INCAR`), each with
+`MAGMOM` and `M_CONSTR` set to the sampled directions and all other keys copied
+from the template. The arguments control the sweep:
+
+- `--start`, `--stop`, and `--num-points` set the values of the control variable
+  (here ``\tau``); the sweep is `range(start, stop; length = num_points)`. With
+  `--start 0.05 --stop 0.05 --num-points 1` this collapses to the single
+  temperature ``\tau = 0.05``.
+- `--num-samples` is the number of configurations drawn **per** sweep value, so
+  `--num-samples 50` yields 50 configurations at ``\tau = 0.05`` (the total is
+  `num_points` × `num_samples`).
+
+Run VASP on each `sample-NN.INCAR` to obtain the energy and constraining torques
+for that configuration. See
+[Mean-Field Sampling](@ref "Mean-Field Sampling: Generating Thermal Spin Configurations")
+for the underlying distribution and the role of ``\tau``.
+
+## From VASP to Magesty
 
 The structure and the reference data feed the SCE workflow through two files:
 
@@ -150,7 +184,7 @@ The structure and the reference data feed the SCE workflow through two files:
 - the **`EMBSET`** file, which holds the sampled spin configurations together
   with their DFT energies and torques.
 
-See the [Tools](@ref) page for the `magesty vasp toml` and `magesty vasp embset`
-converters that produce these from the VASP outputs.
+See the [Tools](../tools.md) page for the `magesty vasp toml` and
+`magesty vasp embset` converters that produce these from the VASP outputs.
 
 The remaining sections run the Magesty workflow itself.
