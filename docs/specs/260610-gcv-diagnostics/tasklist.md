@@ -1,6 +1,6 @@
 # Tasklist: GCV diagnostics (hat-matrix generalized cross-validation)
 
-Status: implemented, pending commit (2026-06-10)
+Status: merged (2026-06-12, PR #36)
 
 This file holds coarse-grained, commit-sized milestones. Day-to-day
 tracking goes through `TaskCreate` in-session.
@@ -67,6 +67,9 @@ items that do not apply.
 - [x] ~~If module names or Makefile targets changed:
       `.claude/agents/` swept and updated.~~ (None changed.)
 - [x] `CHANGELOG.md` `[Unreleased]` updated.
-- [ ] `Status:` line in this file and the table in
-      `docs/specs/README.md` updated in sync. (Done on merge.)
-- [ ] Implementation commit hash appended below. (Added at commit time.)
+- [x] `Status:` line in this file and the table in
+      `docs/specs/README.md` updated in sync.
+- [x] Implementation commit hash appended below.
+
+Implementation: `4f1adaa` (GCV diagnostics) + `d4fbe79` (gcv_r2
+predictive-R2 follow-up); merged via `b0be612` (PR #36).
