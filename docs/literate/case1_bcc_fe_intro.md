@@ -170,21 +170,64 @@ from the template. The arguments control the sweep:
   `--num-samples 50` yields 50 configurations at ``\tau = 0.05`` (the total is
   `num_points` × `num_samples`).
 
-Run VASP on each `sample-NN.INCAR` to obtain the energy and constraining torques
-for that configuration. See
+See
 [Mean-Field Sampling](@ref "Mean-Field Sampling: Generating Thermal Spin Configurations")
 for the underlying distribution and the role of ``\tau``.
 
+## Running the DFT calculations
+
+Run VASP on each `sample-NN.INCAR` on your own compute resources (a supercomputer
+or cluster) to obtain the energy and the constraining torques for every
+configuration. As noted above, **do not forget to use a sufficiently large
+`LAMBDA`**: converge each run first with the small `LAMBDA = 1`, then restart with
+a large value (e.g. `LAMBDA = 50`, reading `CHGCAR` via `ICHARG = 1`) so that the
+torques are reliable.
+
 ## From VASP to Magesty
 
-The structure and the reference data feed the SCE workflow through two files:
+The reference data and the structure feed the SCE workflow as two files: the
+`EMBSET` training data and the input TOML.
 
-- the **input TOML**, which encodes the structure and the interaction settings
-  (built from `POSCAR`), and
-- the **`EMBSET`** file, which holds the sampled spin configurations together
-  with their DFT energies and torques.
+### Building the EMBSET
 
-See the [Tools](../tools.md) page for the `magesty vasp toml` and
-`magesty vasp embset` converters that produce these from the VASP outputs.
+Each calculation produces an `OSZICAR` holding the energy and the constraining
+field. Convert the runs into a single `EMBSET` training-data file with
+`magesty vasp embset`, in either of two ways.
 
-The remaining sections run the Magesty workflow itself.
+- **Convert each run, then merge.** Convert one `OSZICAR` at a time,
+
+  ```bash
+  magesty vasp embset OSZICAR -o EMBSET
+  ```
+
+  and combine the contents of all the resulting `EMBSET` files into one.
+
+- **Convert all at once.** Gather the `OSZICAR` files in one place, e.g. renamed
+  `01.oszicar`, `02.oszicar`, …, `50.oszicar`, and convert them in a single call.
+  Each file becomes one configuration block, numbered in the given order:
+
+  ```bash
+  magesty vasp embset *.oszicar -o EMBSET
+  ```
+
+!!! tip "Skip the DFT for this example"
+    The 50 constrained calculations are expensive. To follow along without
+    running them, download the precomputed [`EMBSET`](case1_inputs/EMBSET) for
+    this example and use it directly in the steps below.
+
+### Generating the input TOML
+
+Build the Magesty input TOML from `POSCAR` with `magesty vasp toml`:
+
+```bash
+magesty vasp toml POSCAR -o input.toml
+```
+
+This fills the `[general]`, `[symmetry]`, `[interaction]`, and `[structure]`
+tables from the structure. The interaction settings are written as placeholders
+(`lmax = 0`, `cutoff = -1`), so **edit them** to the basis you want before
+fitting. See the [Tools](../tools.md) page for the full options of both
+converters.
+
+With the input TOML and the combined `EMBSET` in hand, the remaining sections run
+the Magesty workflow itself.
