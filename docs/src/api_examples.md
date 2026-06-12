@@ -1,25 +1,72 @@
 # API Examples
 
-This page demonstrates the SCE public API:
+This page demonstrates the SCE public API, feature by feature:
 `SCEBasis` → `SCEDataset` → `fit(SCEFit, ...)` → `SCEModel` →
 `Magesty.save` / `Magesty.load`. Runnable scripts for several of these
-examples live in the `examples/` directory of the repository.
+examples live in the `examples/` directory of the repository. For an
+end-to-end walkthrough on a real system, see the
+[Tutorials](tutorials/index.md) instead.
 
 `save` and `load` are intentionally **not exported** to avoid clashing
 with the generic names from JLD2, FileIO, CSV.jl, etc.; call them as
 `Magesty.save(...)` / `Magesty.load(...)`.
 
+## Configuration file format
+
+Magesty reads structure and interaction settings from a TOML file.
+Fit parameters (estimator, regularization, torque weight) are passed in
+Julia at `fit` time and **do not** live in the TOML.
+
+```toml:input.toml
+[general]
+name = "bccfe"
+kd   = ["Fe"]           # list of element names
+nat  = 16               # total number of atoms in the supercell
+periodicity = [true, true, true]  # apply periodic boundary to all (x, y, z) directions
+
+[symmetry]
+tolerance = 1e-5        # symmetry detection tolerance
+isotropy = true         # restrict to Lf = 0 (isotropic exchange) terms
+
+[interaction]
+nbody = 2               # maximum interaction body order
+[interaction.body1]
+lmax.Fe = 0             # on-site (1-body) maximum angular momentum per element
+[interaction.body2]
+lsum = 2                # cutoff sum of l values for 2-body basis functions
+cutoff."Fe-Fe" = -1     # pairwise cutoff radius in Å (-1 = include all pairs)
+
+[structure]
+kd_list  = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]  # element index per atom
+lattice  = [
+  [5.66, 0.0, 0.0],
+  [0.0, 5.66, 0.0],
+  [0.0, 0.0, 5.66],
+]
+position = [
+  [0.00, 0.00, 0.00],
+  [0.25, 0.25, 0.25],
+  # ... (16 atoms total)
+]
+```
+
+For a full key reference see [Input Keys](input_keys.md).
+
 ## Example 1: Basic flow
 
 Load a TOML template, build the dataset, fit, and inspect in-sample
-metrics.
+metrics. `torque_weight ∈ [0, 1]` is the convex combination of the
+per-sample energy MSE and torque MSE the augmented least-squares problem
+minimizes; the default `1.0` is a torque-only fit. Set
+`torque_weight = 0.5` to weigh both equally, or `0.0` to fit on energies
+alone.
 
 ```julia
 using Magesty
 
 basis   = SCEBasis("input.toml")
 dataset = SCEDataset(basis, "EMBSET")
-f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
+f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 1.0)
 
 println("RMSE energy: ", rmse_energy(f) * 1000, " meV")
 println("R^2  energy: ", r2_energy(f))
@@ -92,7 +139,8 @@ println("out-sample RMSE energy: ", rmse_energy(f, test))
 ## Example 5: Cache the SALC basis
 
 Building an `SCEBasis` runs the heavy SALC construction. Persist it to
-XML and reload it later to skip that step.
+XML and reload it later to skip that step. The XML schema is shared with
+the Monte Carlo package `SpinClusterMC.jl`.
 
 ```julia
 using Magesty
@@ -183,8 +231,9 @@ curve). Both work only for the linear estimators (`OLS`, `Ridge`,
 `AdaptiveRidge`). The raw GCV score is in the weighted-objective unit and only
 meaningful in relative comparison; `gcv_r2` (and the `gcv_r2` columns on the
 sweep results) gives the companion predictive R² on a fixed scale (`1` perfect,
-`0` matches the null model). See [Cross-validation diagnostics](@ref) for the
-formula.
+`0` matches the null model). See
+[Cross-validation diagnostics](theory/design_matrix_and_fitting.md#Cross-validation-diagnostics)
+for the formula.
 
 ```julia
 using Magesty

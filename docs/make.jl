@@ -8,10 +8,10 @@ using Literate
 
 DocMeta.setdocmeta!(Magesty, :DocTestSetup, :(using Magesty); recursive = true)
 
-# Generate the worked-example pages (markdown for Documenter, plus a
-# downloadable script and notebook) from their Literate.jl sources.
+# Generate the tutorial pages (markdown for Documenter, plus a downloadable
+# script and notebook) from their Literate.jl sources.
 let literate_dir = joinpath(@__DIR__, "literate"),
-	examples_out = joinpath(@__DIR__, "src", "examples")
+	tutorials_out = joinpath(@__DIR__, "src", "tutorials")
 
 	for src in ("case1_bcc_fe.jl",)
 		path = joinpath(literate_dir, src)
@@ -22,12 +22,12 @@ let literate_dir = joinpath(@__DIR__, "literate"),
 		intro_path = joinpath(literate_dir, replace(src, ".jl" => "_intro.md"))
 		intro = isfile(intro_path) ? read(intro_path, String) : ""
 		Literate.markdown(
-			path, examples_out;
+			path, tutorials_out;
 			documenter = true,
 			postprocess = md -> intro * "\n\n" * md,
 		)
-		Literate.script(path, examples_out)
-		Literate.notebook(path, examples_out; execute = false)
+		Literate.script(path, tutorials_out)
+		Literate.notebook(path, tutorials_out; execute = false)
 	end
 end
 
@@ -46,15 +46,14 @@ makedocs(
 	pages = [
 		"Home" => "index.md",
 		"Installation" => "installation.md",
+		"Tutorials" => [
+			"tutorials/index.md",
+			"tutorials/case1_bcc_fe.md",
+		],
+		"API Examples" => "api_examples.md",
+		"Input Keys" => "input_keys.md",
 		"API Reference" => "api.md",
 		"Internal API" => "api_internal.md",
-		"API Examples" => "api_examples.md",
-		"Tutorial" => "tutorial.md",
-		"Input Keys" => "input_keys.md",
-		"Examples" => [
-			"examples/index.md",
-			"examples/case1_bcc_fe.md",
-		],
 		"Tools" => "tools.md",
 		hide(
 			"Theoretical Background" => "theory/index.md",
@@ -84,10 +83,10 @@ makedocs(
 	warnonly = true,
 	checkdocs = :exports,
 	doctest = true,
-	# Run `@example` blocks (the executed worked-example workflow) from the
-	# directory that holds the example input files, so bare paths like
+	# Run `@example` blocks (the executed tutorial workflow) from the directory
+	# that holds the tutorial input files, so bare paths like
 	# `SCEBasis("input.toml")` resolve against the shipped assets.
-	workdir = joinpath(@__DIR__, "src", "examples", "case1_inputs"),
+	workdir = joinpath(@__DIR__, "src", "tutorials", "case1_inputs"),
 )
 
 deploydocs(

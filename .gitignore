@@ -21,13 +21,13 @@ tools/personal/
 docs/build/
 **/__pycache__/
 
-# Literate.jl-generated example pages (built from docs/literate/*.jl)
-docs/src/examples/case1_bcc_fe.md
-docs/src/examples/case1_bcc_fe.jl
-docs/src/examples/case1_bcc_fe.ipynb
+# Literate.jl-generated tutorial pages (built from docs/literate/*.jl)
+docs/src/tutorials/case1_bcc_fe.md
+docs/src/tutorials/case1_bcc_fe.jl
+docs/src/tutorials/case1_bcc_fe.ipynb
 
-# Comparison lists written by the executed example (parity plots are committed)
-docs/src/examples/case1_inputs/energy_list.txt
-docs/src/examples/case1_inputs/torque_list.txt
-# Model XML written by the executed example (the Sunny script is committed)
-docs/src/examples/case1_inputs/model.xml
+# Comparison lists written by the executed tutorial (parity plots are committed)
+docs/src/tutorials/case1_inputs/energy_list.txt
+docs/src/tutorials/case1_inputs/torque_list.txt
+# Model XML written by the executed tutorial (the Sunny script is committed)
+docs/src/tutorials/case1_inputs/model.xml
