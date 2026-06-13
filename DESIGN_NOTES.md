@@ -18,6 +18,10 @@ preserves it).
 
 ## Investigations
 
+- [Whole-package review sweep — open findings backlog](docs/design-notes/investigations/package-review-backlog.md)
+  — four-axis panel over all of `src/`; lattice-transpose blocker and the
+  global coupling cache landed, remaining numerical / maintainability /
+  performance / API findings tracked for later (2026-06-13)
 - [`src/` refactoring review sweep](docs/design-notes/investigations/src-refactor-review.md)
   — multi-agent review retrospective; behavior-preserving cleanups landed,
   A2 kernel dedup and `kd_name` `<SpeciesOrder>` declined with reasoning

@@ -1,0 +1,163 @@
+# Whole-package review sweep — open findings backlog
+
+**Status**: in progress (2026-06-13)
+
+A four-axis review panel (numerical / maintainability / performance / API)
+was run over the whole `src/` tree (27 modules, ~14k lines). This note
+records the findings that have **not** yet been addressed, so they can be
+picked up later without re-running the review. Each entry has a
+`file:line`, the problem, a proposed fix, and any decision the change
+needs. Sever­ity follows the panel schema (blocker / major / minor).
+
+## Already landed
+
+- **Blocker (numerical)** — XML lattice round-trip transposed
+  `lattice_vectors` for low-symmetry cells. Fixed: writer now emits
+  columns; regression test added for an asymmetric lattice.
+  (commit `df5d941`)
+- **Major (maintainability + performance)** — hidden global coupling
+  cache. Replaced with a per-construction cache threaded through the
+  build; no lock needed (population is single-threaded, before the SALC
+  `@threads` loop). The performance reviewer's "concurrent write" race
+  claim was investigated and found **not** to occur in the current call
+  graph. (commit `f28a84d`)
+- **Major (maintainability) — internal `_` prefixes + GCV dedup + minors.**
+  Renamed 11 internal helpers in `SALCBases.jl` and 7 in `Clusters.jl` to
+  the leading-`_` convention (call sites in `src/`, `test/`, and
+  `tools/micromagnetics.jl` updated); removed dead `is_symmetric`, broke a
+  long line, expanded the `SALCBases` module docstring; extracted
+  `_gcv_core` to dedup the GCV setup; index loops `in`->`=` in `Fitting.jl`
+  / `ExtXYZ.jl`; `DEFAULT_PERIODICITY` made an immutable tuple. Full unit
+  suite green (22,772). **Still open below:** the OSZICAR parser dedup and
+  the package-wide indentation normalization.
+
+## Deferred (decision pending)
+
+- **OSZICAR parser dedup** (`VaspIO.jl`). A shared `_scan_oszicar_records`
+  scanner was prototyped and passed all tests byte-for-byte, but it added
+  ~68 net lines and a four-predicate injection because the two parsers
+  differ in header match, block-end rule, EOF handling, and column
+  selection. Reverted pending a decision on whether the consolidation of
+  the (genuinely triplicated) block-walking state machine is worth the
+  added indirection. The `in`->`=` index-loop minor in this file went back
+  with the revert and should ride along with whatever is decided.
+
+## Numerical
+
+- **Major — zero-moment atom division by zero.** `SpinConfigs.jl:421-422`:
+  `read_embset` computes `moment ./ norm(moment)`; a genuinely zero
+  magnetic moment (allowed by the `magmom_size >= 0` validation) yields
+  `0/0 = NaN`, which then trips the unit-norm check with a confusing
+  message and aborts the whole EMBSET read. `MfaSampling` already handles
+  zero-norm columns via `ZERO_NORM_ATOL`. **Decision needed:** should
+  non-magnetic sites be excluded upstream, or supported as fixed
+  zero-moment sites? Add a regression test with a zero-moment row.
+- **Minor — overloaded constant.** `MfaSampling.jl:62-63`: the
+  temperature guards `(MIN_TEMP, MAX_TEMP)` are reused as the bracket for
+  the magnetization root `m`. Correct today only because `m in (0,1)`
+  coincides with the guard interval. Introduce a named `(M_MIN, M_MAX)`
+  bracket to decouple the two roles.
+- **Minor — implicit unitarity assumption.**
+  `SphericalHarmonicsTransforms.jl:10-14`: `r2c_sph_harm_matrix` returns
+  `c2r_sph_harm_matrix(l)'`, which is the true inverse only because
+  `c2r` is unitary. Add a comment stating the assumption (or an `@assert`
+  in a test) so a future normalization change cannot silently break it.
+
+## Maintainability
+
+The internal `_`-prefix renames, GCV dedup, dead-code removal, long-line
+break, module-docstring expansion, index-loop style, and the immutable
+periodicity default are done (see "Already landed"). The OSZICAR parser
+dedup is under "Deferred". Remaining:
+
+- **Major — `ENV` lookup in a keyword default.** `SALCBases.jl` (the
+  `check_irrep_unitary` keyword):
+  `get(ENV, "MAGESTY_CHECK_IRREP_UNITARY", "0") == "1"` is a hidden,
+  per-call side channel. Read the env var once at load time into a module
+  constant, or make the knob an explicit, documented keyword.
+- **Minor — indentation inconsistency.** Tabs vs 4-space mixed across the
+  package (STYLE_GUIDE prescribes 4-space). Normalize in a single
+  mechanical commit (re-baseline benchmarks if it touches hot-path files).
+  Large and noisy; kept separate on purpose.
+- **Minor (spec-level) — main module size.** `Magesty.jl` (~2000 lines)
+  mixes type definitions, fitting, prediction, ~24 evaluation metrics,
+  GCV, and I/O. Extracting `Metrics.jl` and a GCV-public file would each
+  shed ~200 lines. Pursue via a spec if taken up.
+
+## Performance
+
+Hot-path items (high value):
+
+- **Major — type erasure in `salc_list`.** `SALCBases.jl:75,262`: the
+  containers hold `Vector{CoupledBasis_with_coefficient}` (the `{R,N}`
+  parameter is dropped), so the inner design-matrix kernels dispatch
+  dynamically per element instead of monomorphizing. Each key group is
+  homogeneous in body count; split or dispatch on `first(key_group)` to a
+  type-stable helper. **Needs numerical sign-off** (float summation order
+  may change) and a before/after `@btime` in the bench log.
+- **Major — intermediate matrices in `assemble_weighted_problem`.**
+  `Fitting.jl:1308`: centering / scaling / `vcat` allocate ~3x the
+  combined design-matrix size; an OOM risk on large inputs. Fuse into an
+  in-place pass writing directly to the output buffers (formula
+  unchanged).
+- **Major — unnecessary buffer in `_predict_energy`.** `Fitting.jl:1084`:
+  fills a `design_vector` then dots it with `jphi`; accumulate the dot
+  product directly.
+
+Setup-time items (lower value, but matter for large supercells):
+
+- **Major — O(n^2) translational-equivalence dedup.**
+  `SALCBases.jl:536-549`: linear scan over `orbit_basis_list`. Implement
+  `Base.hash(::CoupledBasis)` over the integer fields (exclude the float
+  tensor, matching `salc_fingerprint`) and dedup via a `Dict`.
+- **Major — defensive buffered SH derivative variants.**
+  `TesseralHarmonics.jl:549-`: the unbuffered `∂Zₗₘ_∂r̂{x,y,z}_unsafe` /
+  `zzₗₘ_unsafe` allocate a `dnPl` vector per call. Not on the current hot
+  path (the kernels use the buffered `∂ᵢZlm_unsafe`), but add buffered
+  overloads to guard against a future hot-path caller.
+- **Minor** — `√2` as a module constant
+  (`TesseralHarmonics.jl`, several sites); `zzₗₘ_unsafe` recomputing the
+  Legendre recursion three times (`TesseralHarmonics.jl:683-686`);
+  `_canonicalize_eigenspace` forming an explicit n×n projector
+  (`SALCBases.jl:188-206`) instead of `V * (V' * e_j)`.
+- **Profiler recommended** — measure SALC-construction throughput
+  (`construct_and_classify_coupled_basislist` /
+  `projection_matrix_coupled_basis`) on a representative large supercell
+  to confirm where the O(n^2) dedup and the projector dominate.
+
+## API / UX
+
+- **Major — `energy_kind` not validated upfront.** `VaspIO.jl:644`: an
+  invalid value silently skips every energy line, then fires a generic
+  "energy not found" file error. Guard `energy_kind in ("f","e0")` at the
+  entry point (`oszicar_to_embset`, `VaspConvert.jl:396`).
+- **Major — SPEC vs implementation argument-name mismatch.** `SPEC.md:170`
+  lists `write_gcv_lambda(path, file=...)` but the implementation
+  (`FitCheckIO.jl:233,261`) uses `filename`. Align SPEC to `filename`.
+- **Major — missing docstring sections on `Magesty.save` / `load`.**
+  `Magesty.jl:1823,1873`: no `# Returns` (and `load` no `# Examples`).
+  CLAUDE.md requires the full layout for public symbols.
+- **Major — inconsistent docstring section style.** `VaspConvert.jl`,
+  `VaspSampling.jl`, `SunnyExport.jl` split `# Arguments` /
+  `# Keyword arguments`, while the rest of the package uses a single
+  `# Arguments` section. Merge for consistency.
+- **Minor** — `SpinConfig` docstring lacks `# Examples`
+  (`SpinConfigs.jl:52`); `atol_unit_norm::Float64` should be `::Real` with
+  internal conversion (`SpinConfigs.jl:110`); `saxis` has no length / norm
+  validation, so `[0,0,0]` silently gives an identity rotation
+  (`VaspConvert.jl:397`); `intercept` / `nobs` / `dof` docstrings lack the
+  section layout (`Magesty.jl:935-949`); `AbstractEstimator` / `OLS` /
+  `Ridge` docstrings lack `# Arguments` (`Fitting.jl:138-197`); `Lasso` is
+  a factory function returning `ElasticNet`, not a type — worth a one-line
+  SPEC annotation (`Magesty.jl:93`).
+
+## Confirmed clean (for the record)
+
+Physics conventions (3 x n_atoms layout, unit spin vectors, real
+tesseral `Zₗₘ`, `Jφ` / `j0` separation), linked-site synchronization (the
+spherical-harmonics convention `Z = C·Y` verified to ~2e-16 across
+l = 0..4; SALC key-group ordering; jphi serialized in `salc_index`
+order), and numerical stability (Cholesky SPD guarantees, ridge
+conditioning, GCV denominator saturation, RotationMatrix gimbal-lock
+branch, MfaSampling kappa / zero-norm guards) were all verified consistent
+— the lattice transpose (now fixed) was the single synchronization break.
