@@ -46,6 +46,12 @@ needs. Sever­ity follows the panel schema (blocker / major / minor).
   modules), not three outliers — so instead of mass-editing, the split style
   was codified as canonical in `STYLE_GUIDE.md`. `Magesty.jl`'s unified
   docstrings may converge to it opportunistically; not blocking.
+- **Performance — `_predict_energy` buffer removal.** Fused the per-call
+  `design_vector` allocation plus `dot` into a single scalar accumulator in
+  the SALC loop. Each term is unchanged; only the summation runs sequentially
+  (ULP-level difference, `≈` tests unaffected). Per-config inference on the
+  fept baseline: -5.8% time, -2 allocations/config. Recorded in
+  `.claude/bench_log.md`; full unit suite green (22,780).
 
 ## Deferred (decision pending)
 
@@ -108,10 +114,6 @@ Hot-path items (high value):
   combined design-matrix size; an OOM risk on large inputs. Fuse into an
   in-place pass writing directly to the output buffers (formula
   unchanged).
-- **Major — unnecessary buffer in `_predict_energy`.** `Fitting.jl:1084`:
-  fills a `design_vector` then dots it with `jphi`; accumulate the dot
-  product directly.
-
 Setup-time items (lower value, but matter for large supercells):
 
 - **Major — O(n^2) translational-equivalence dedup.**
