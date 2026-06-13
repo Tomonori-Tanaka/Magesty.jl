@@ -306,6 +306,10 @@ function SALCBasis(
 	if verbosity
 		print("Constructing and classifying coupled basis list...")
 	end
+	# One cache per construction, threaded through the build below and read
+	# back when collecting `angular_momentum_couplings`. Keeping it local (not
+	# module state) means concurrent constructions never share it.
+	coupling_cache = CoupledBases.CouplingCache()
 	classified_coupled_basisdict::Dict{Int, SortedCounter{CoupledBases.CoupledBasis}} =
 		construct_and_classify_coupled_basislist(
 			structure,
@@ -315,6 +319,7 @@ function SALCBasis(
 			bodyn_lsum,
 			nbody,
 			isotropy = isotropy,
+			cache = coupling_cache,
 		)
 	classified_coupled_basisdict = filter_basisdict(classified_coupled_basisdict, symmetry)
 
@@ -385,7 +390,7 @@ function SALCBasis(
 	# the resulting `angular_momentum_couplings` is naturally restricted to
 	# the isotropic (scalar) sector.
 	for ls_vec in ls_combinations_set
-		results = CoupledBases.cached_coupling_results(ls_vec, isotropy)
+		results = CoupledBases.cached_coupling_results(coupling_cache, ls_vec, isotropy)
 		results === nothing && continue
 		bases_by_L, paths_by_L = results
 		for Lf in sort(collect(keys(bases_by_L)))
@@ -466,6 +471,7 @@ function construct_and_classify_coupled_basislist(
 	bodyn_lsum::OffsetArray{Int, 1},
 	nbody::Integer;
 	isotropy::Bool = false,
+	cache::CoupledBases.CouplingCache = CoupledBases.CouplingCache(),
 )::Dict{Int, SortedCounter{CoupledBases.CoupledBasis}}
 	# Result dictionary for classified basis functions
 	classified_dict = OrderedDict{Int, SortedCounter{CoupledBases.CoupledBasis}}()
@@ -489,6 +495,7 @@ function construct_and_classify_coupled_basislist(
 				[l],
 				[iat];
 				isotropy = isotropy,
+				cache = cache,
 			)
 			for cb::CoupledBases.CoupledBasis in cb_list
 				# Classify on-the-fly: key is (nbody, Lf, sum(ls), Tuple(sort(ls)...))
@@ -529,6 +536,7 @@ function construct_and_classify_coupled_basislist(
 						sorted_atom_list,
 						bodyn_lsum[body];
 						isotropy = isotropy,
+						cache = cache,
 					)
 
 					# Collect basis functions from this cluster
@@ -589,6 +597,8 @@ List up all coupled angular momentum basis functions for a given atom list and m
 - `atom_list::Vector{<:Integer}`: List of atom indices
 - `lsum::Integer`: Maximum sum of angular momentum values
 - `isotropy::Bool`: If `true`, only include isotropic terms (Lf=0), default: `false`
+- `cache::CoupledBases.CouplingCache`: Memoization cache for coupling results,
+  shared across calls within one basis construction; default: a fresh cache
 
 # Returns
 - `Vector{CoupledBases.CoupledBasis}`: List of coupled basis functions
@@ -601,6 +611,7 @@ function listup_coupled_basislist(
 	atom_list::Vector{<:Integer},
 	lsum::Integer;
 	isotropy::Bool = false,
+	cache::CoupledBases.CouplingCache = CoupledBases.CouplingCache(),
 )::Vector{CoupledBases.CoupledBasis}
 	result_basislist = Vector{CoupledBases.CoupledBasis}()
 	for l = 2:lsum
@@ -611,8 +622,9 @@ function listup_coupled_basislist(
 		end
 		l_list = Combinat.compositions(l, length(atom_list); min = 1)
 		for l_vec::Vector{Int} in l_list
-			cb_list =
-				tesseral_coupled_bases_from_tesseral_bases(l_vec, atom_list; isotropy = isotropy)
+			cb_list = tesseral_coupled_bases_from_tesseral_bases(
+				l_vec, atom_list; isotropy = isotropy, cache = cache,
+			)
 			append!(result_basislist, cb_list)
 		end
 	end

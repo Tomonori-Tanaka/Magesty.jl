@@ -209,43 +209,50 @@ struct AngularMomentumCouplingResult{R}
 	end
 end
 
-# Cache for angular momentum coupling results
-# Key: (ls::Vector{Int}, normalize::Symbol, isotropy::Bool)
+# Memoization of angular-momentum coupling results. Building the coupled
+# tensors for a given key is the expensive part of basis construction, and the
+# same key recurs across many atom tuples within one build, so a cache shared
+# across those calls avoids the rebuild. The value depends only on the key (the
+# computation is deterministic). A cache is created per basis construction and
+# threaded explicitly through the build, rather than held as module state, so
+# that concurrent constructions never share it.
+#
+# Key:   (ls::Vector{Int}, normalize::Symbol, isotropy::Bool)
 # Value: (bases_by_L, paths_by_L)
-const _angular_momentum_cache = Dict{
+const CouplingCache = Dict{
 	Tuple{Vector{Int}, Symbol, Bool},
-	Tuple{Dict{Int, Vector{Array{Float64}}}, Dict{Int, Vector{Vector{Int}}}}
-}()
+	Tuple{Dict{Int, Vector{Array{Float64}}}, Dict{Int, Vector{Vector{Int}}}},
+}
 
 """
-	cached_coupling_results(ls, isotropy::Bool)
+	cached_coupling_results(cache, ls, isotropy::Bool)
 
 Look up previously-built angular-momentum coupling results for the per-site
-angular momenta `ls` (with the canonical `normalize = :none`) without
-triggering a build. Returns the `(bases_by_L, paths_by_L)` tuple if the
-combination has already been constructed, or `nothing` otherwise, where:
+angular momenta `ls` (with the canonical `normalize = :none`) in `cache`,
+without triggering a build. Returns the `(bases_by_L, paths_by_L)` tuple if the
+combination is present, or `nothing` otherwise, where:
 - `bases_by_L`: coupled-tensor arrays keyed by the total angular momentum `Lf`.
 - `paths_by_L`: the corresponding coupling-path (`Lseq`) sequences, keyed by `Lf`.
 
-This lets callers collect coupling results for `ls` combinations they have
-already built (via [`tesseral_coupled_bases_from_tesseral_bases`](@ref))
-without depending on the internal cache representation. The build-or-fetch
-path remains internal to this module. Not exported; called across the module
-boundary by `SALCBases` via `CoupledBases.cached_coupling_results`.
+`cache` is the same object passed to
+[`tesseral_coupled_bases_from_tesseral_bases`](@ref) during the build, so this
+collects coupling results for `ls` combinations already built without depending
+on the internal cache representation. Not exported; called across the module
+boundary by `SALCBases`.
 """
 function cached_coupling_results(
+	cache::CouplingCache,
 	ls::AbstractVector{<:Integer},
 	isotropy::Bool,
 )::Union{
 	Nothing,
 	Tuple{Dict{Int, Vector{Array{Float64}}}, Dict{Int, Vector{Vector{Int}}}},
 }
-	cache_key = (collect(Int.(ls)), :none, isotropy)
-	return get(_angular_momentum_cache, cache_key, nothing)
+	return get(cache, (collect(Int.(ls)), :none, isotropy), nothing)
 end
 
 """
-	tesseral_coupled_bases_from_tesseral_bases(ls, atoms; normalize=:none, isotropy::Bool=false)
+	tesseral_coupled_bases_from_tesseral_bases(ls, atoms; normalize=:none, isotropy=false, cache=CouplingCache())
 
 Construct a flat list of `CoupledBasis` objects from the output of
 `AngularMomentumCoupling.build_all_real_bases`.
@@ -255,33 +262,22 @@ so no additional transformation is needed. Each coupled basis tensor (for a give
 and final `Lf`) is wrapped into a `CoupledBasis` with a single scalar coefficient `1.0` for
 each Mf tesseral index.
 
-This function caches the angular momentum coupling results (`bases_by_L` and `paths_by_L`)
-based on `ls`, `normalize`, and `isotropy` parameters, so that repeated calls with the same
-`ls` values but different `atoms` can reuse the cached results for better performance.
+The coupling results (`bases_by_L` and `paths_by_L`) are memoized in `cache`, keyed by
+`(ls, normalize, isotropy)`, so repeated calls with the same `ls` but different `atoms` reuse
+the build. Pass a shared `cache` across one basis construction to get that reuse; the default
+builds a fresh, single-use cache.
 """
 function tesseral_coupled_bases_from_tesseral_bases(
 	ls::AbstractVector{<:Integer},
 	atoms::AbstractVector{<:Integer};
 	normalize::Symbol = :none,
 	isotropy::Bool = false,
+	cache::CouplingCache = CouplingCache(),
 )
-	# Create cache key from ls (as Vector for hashing), normalize, and isotropy
-	# Note: ls order matters for angular momentum coupling, so we don't sort it
+	# ls order matters for angular momentum coupling, so it is not sorted.
 	ls_vec = collect(Int.(ls))
-	cache_key = (ls_vec, normalize, isotropy)
-	
-	# Check cache or compute
-	if haskey(_angular_momentum_cache, cache_key)
-		bases_by_L, paths_by_L = _angular_momentum_cache[cache_key]
-	else
-		bases_by_L, paths_by_L =
-			build_all_real_bases(
-				collect(Int.(ls));
-				normalize = normalize,
-				isotropy = isotropy,
-			)
-		# Cache the results
-		_angular_momentum_cache[cache_key] = (bases_by_L, paths_by_L)
+	bases_by_L, paths_by_L = get!(cache, (ls_vec, normalize, isotropy)) do
+		build_all_real_bases(ls_vec; normalize = normalize, isotropy = isotropy)
 	end
 
 	coupled_basis_list = CoupledBasis[]
