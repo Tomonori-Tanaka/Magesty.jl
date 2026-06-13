@@ -48,6 +48,18 @@ end
         @test d.y_T == vcat(vec(configs[1].torques), vec(configs[2].torques))
     end
 
+    @testset "rejects zero moment on a basis-referenced atom" begin
+        # The dimer's 2-body SALC references both atoms. A configuration that
+        # puts a zero moment on a referenced atom is ill-posed: its undefined
+        # spin direction would feed the energy basis and bias the fit, so the
+        # dataset constructor rejects it.
+        SC = Magesty.SpinConfigs.SpinConfig
+        sc = SC(-1.0, [0.0, 1.0],
+                [0.0 0.0; 0.0 0.0; 1.0 1.0],
+                [0.0 0.0; 0.0 0.0; 0.0 0.0])
+        @test_throws ArgumentError SCEDataset(basis, [sc])
+    end
+
     @testset "embset_path constructor matches explicit configs" begin
         # write a temp EMBSET mirroring the FM / AFM configs above
         embset = tempname()

@@ -89,4 +89,31 @@ using LinearAlgebra
 		) isa SpinConfig
 	end
 
+	@testset "zero-moment atom in EMBSET" begin
+		# A non-magnetic site reports a zero moment. `read_embset` must not
+		# normalize 0/0 (which would yield a NaN direction and abort the read);
+		# it stores a placeholder unit direction, and the zero magnitude makes
+		# the torque vanish.
+		embset = tempname()
+		open(embset, "w") do io
+			println(io, "# one config, atom 1 non-magnetic")
+			println(io, "-1.5")
+			println(io, "1  0.0 0.0 0.0   0.01 0.0 0.0")
+			println(io, "2  0.0 0.0 1.5   0.02 0.0 0.0")
+		end
+		configs = read_embset(embset)
+		rm(embset)
+
+		@test length(configs) == 1
+		sc = configs[1]
+		# Zero-moment atom: magnitude is zero, direction is a unit placeholder,
+		# torque is exactly zero.
+		@test sc.magmom_size[1] == 0.0
+		@test isapprox(norm(sc.spin_directions[:, 1]), 1.0; atol = 1e-12)
+		@test all(sc.torques[:, 1] .== 0.0)
+		# Magnetic atom is read normally.
+		@test isapprox(sc.magmom_size[2], 1.5; atol = 1e-10)
+		@test isapprox(sc.spin_directions[:, 2], [0.0, 0.0, 1.0]; atol = 1e-10)
+	end
+
 end

@@ -17,6 +17,14 @@ import Base: show
 
 export SpinConfig, read_embset
 
+# A magnetic moment whose magnitude is at or below this threshold is treated as
+# a non-magnetic site. Such a site has no defined spin direction, so a
+# placeholder unit vector is stored instead of normalizing 0/0, and its torque
+# falls out to zero. A non-magnetic site must stay out of the SALC basis (the
+# `SCEDataset` constructor enforces this); when it does, the placeholder
+# direction is never read.
+const ZERO_MOMENT_ATOL = 1.0e-10
+
 """
 	_calc_local_magfield_vertical(spin_directions, local_magfield) -> Matrix{Float64}
 
@@ -419,7 +427,15 @@ function _separate_embset(
 		end
 		moment = parse.(Float64, line_split[2:4])
 		magmom_size[i] = norm(moment)
-		spin_directions[:, i] = moment ./ magmom_size[i]
+		if magmom_size[i] ≤ ZERO_MOMENT_ATOL
+			# Non-magnetic site: the moment has no direction. Store a
+			# placeholder unit vector (never consumed unless the site enters
+			# the SALC basis, which `SCEDataset` rejects); the torque is zero
+			# because the magnitude is zero.
+			spin_directions[:, i] = [0.0, 0.0, 1.0]
+		else
+			spin_directions[:, i] = moment ./ magmom_size[i]
+		end
 		local_magfield[:, i] = parse.(Float64, line_split[5:7])
 	end
 

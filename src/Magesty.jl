@@ -402,6 +402,7 @@ function SCEDataset(
 	spinconfigs::AbstractVector{SpinConfig};
 	verbosity::Bool = true,
 )
+	_check_active_atoms_have_moment(basis, spinconfigs)
 	X_E = Fitting.build_design_matrix_energy(
 		basis.salcbasis.salc_list,
 		spinconfigs,
@@ -460,6 +461,50 @@ function SCEDataset(
 		spinconfigs;
 		verbosity = verbosity,
 	)
+end
+
+# Atoms that appear in any SALC carry spin degrees of freedom in the model.
+# A spin configuration that puts a (near-)zero moment on such an atom is
+# ill-posed: the energy basis still reads the atom's now-meaningless direction,
+# silently biasing the fit. Catching it here covers both a non-magnetic site
+# wrongly pulled into the basis (fix the interaction cutoffs / per-species
+# `lmax`) and a magnetic site that collapsed to zero moment in a configuration.
+# Non-magnetic atoms that stay out of the basis are not referenced and are
+# therefore allowed to carry zero moment.
+function _check_active_atoms_have_moment(
+	basis::SCEBasis,
+	spinconfigs::AbstractVector{SpinConfig},
+)::Nothing
+	referenced = Set{Int}()
+	for group in basis.salcbasis.salc_list, cbc in group
+		for a in cbc.atoms
+			push!(referenced, a)
+		end
+	end
+	isempty(referenced) && return nothing
+
+	num_atoms = basis.structure.supercell.num_atoms
+	for (config_index, sc) in enumerate(spinconfigs)
+		# A dimension mismatch is reported by the design-matrix build; skip
+		# the moment check rather than raising a cryptic bounds error here.
+		length(sc.magmom_size) == num_atoms || continue
+		for a in referenced
+			if sc.magmom_size[a] ≤ SpinConfigs.ZERO_MOMENT_ATOL
+				throw(
+					ArgumentError(
+						"atom $a in spin configuration $config_index has a " *
+						"(near-)zero magnetic moment (‖m‖ = $(sc.magmom_size[a])) " *
+						"but is referenced by the SALC basis, so its undefined " *
+						"spin direction would bias the fit. Exclude non-magnetic " *
+						"sites from the interaction cutoffs / per-species lmax, or " *
+						"drop configurations where a magnetic site collapses to " *
+						"zero moment.",
+					),
+				)
+			end
+		end
+	end
+	return nothing
 end
 
 # --- SCEDataset slicing -------------------------------------------------
