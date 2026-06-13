@@ -30,6 +30,13 @@ needs. Sever­ity follows the panel schema (blocker / major / minor).
   / `ExtXYZ.jl`; `DEFAULT_PERIODICITY` made an immutable tuple. Full unit
   suite green (22,772). **Still open below:** the OSZICAR parser dedup and
   the package-wide indentation normalization.
+- **Major (numerical) — zero-moment atom handling.** `read_embset` no longer
+  normalizes `0/0` for a non-magnetic site; it stores a placeholder unit
+  direction (never consumed unless the site enters the basis) and the zero
+  magnitude makes the torque vanish. The `SCEDataset` constructor now rejects
+  a configuration that puts a (near-)zero moment on a SALC-referenced atom,
+  catching both a non-magnetic site wrongly pulled into the basis and a
+  magnetic site that collapsed to zero. Regression tests added for both.
 
 ## Deferred (decision pending)
 
@@ -44,14 +51,6 @@ needs. Sever­ity follows the panel schema (blocker / major / minor).
 
 ## Numerical
 
-- **Major — zero-moment atom division by zero.** `SpinConfigs.jl:421-422`:
-  `read_embset` computes `moment ./ norm(moment)`; a genuinely zero
-  magnetic moment (allowed by the `magmom_size >= 0` validation) yields
-  `0/0 = NaN`, which then trips the unit-norm check with a confusing
-  message and aborts the whole EMBSET read. `MfaSampling` already handles
-  zero-norm columns via `ZERO_NORM_ATOL`. **Decision needed:** should
-  non-magnetic sites be excluded upstream, or supported as fixed
-  zero-moment sites? Add a regression test with a zero-moment row.
 - **Minor — overloaded constant.** `MfaSampling.jl:62-63`: the
   temperature guards `(MIN_TEMP, MAX_TEMP)` are reused as the bracket for
   the magnetization root `m`. Correct today only because `m in (0,1)`
