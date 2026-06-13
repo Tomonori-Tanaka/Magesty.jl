@@ -399,6 +399,14 @@ function oszicar_to_embset(
 	mint::Bool = false,
 	output::Union{AbstractString, Nothing} = nothing,
 )::String
+	# Validate up front: an unrecognized `energy_kind` otherwise matches no
+	# energy line and surfaces as a misleading "energy not found" file error.
+	energy_kind in ("f", "e0") || throw(
+		ArgumentError(
+			"energy_kind must be \"f\" (free energy) or \"e0\" (energy sigma->0); " *
+			"got \"$energy_kind\"",
+		),
+	)
 	R = _saxis_rotation(saxis)
 
 	buf = IOBuffer()

@@ -47,6 +47,10 @@ using Test
 	finally
 		isfile(no_magmom) && rm(no_magmom)
 	end
+
+	# An invalid energy_kind is rejected up front (before any file is read),
+	# rather than surfacing later as a misleading "energy not found" error.
+	@test_throws ArgumentError oszicar_to_embset([oszicar_path]; energy_kind = "0K")
 end
 
 println("All oszicar_to_embset tests passed.")
