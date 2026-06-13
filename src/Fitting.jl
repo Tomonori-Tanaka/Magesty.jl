@@ -1562,7 +1562,7 @@ function solve_coefficients(
 	for outer iters in 1:e.max_iter
 		@. w = 1.0 / (beta^2 + e.epsilon)
 		copyto!(A, XtX)
-		@inbounds for j in 1:p
+		@inbounds for j = 1:p
 			A[j, j] += e.lambda * w[j]
 		end
 		# X'X is positive semidefinite and lambda * diag(w) is strictly

@@ -88,13 +88,13 @@ Write one `AtomFrame` in extxyz format.
 function write_extxyz(io::IO, frame::AtomFrame)
     println(io, frame.num_atoms)
     println(io, _header_line(frame))
-    for i in 1:frame.num_atoms
+    for i = 1:frame.num_atoms
         cols = String[frame.species[i]]
-        for k in 1:3
+        for k = 1:3
             push!(cols, @sprintf("% .10f", frame.positions[k, i]))
         end
         if frame.forces !== nothing
-            for k in 1:3
+            for k = 1:3
                 push!(cols, @sprintf("% .10f", frame.forces[k, i]))
             end
         end
@@ -118,7 +118,7 @@ end
 function _header_line(frame::AtomFrame)::String
     # Lattice="a1x a1y a1z  a2x a2y a2z  a3x a3y a3z"
     # lattice[:,i] = i-th lattice vector, so iterate column-major for row-major output
-    lat = join([@sprintf("%.10f", frame.lattice[j, i]) for i in 1:3 for j in 1:3], " ")
+    lat = join([@sprintf("%.10f", frame.lattice[j, i]) for i = 1:3 for j = 1:3], " ")
 
     # Properties string: each descriptor is "name:type:ncols"
     # ncols is inferred from the first dimension of the per-atom matrix

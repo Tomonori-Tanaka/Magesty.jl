@@ -6,7 +6,7 @@ export SystemSpec, InteractionSpec, SymmetryOptions, parse_toml_inputs
 
 const DEFAULT_TOLERANCE_SYM = 1e-3
 const DEFAULT_ISOTROPY = false
-const DEFAULT_PERIODICITY = [true, true, true]
+const DEFAULT_PERIODICITY = (true, true, true)
 
 """
     SystemSpec
@@ -39,7 +39,7 @@ struct SystemSpec
         kd_int_list::AbstractVector{<:Integer},
         lattice_vectors::AbstractMatrix{<:Real},
         x_fractional::AbstractMatrix{<:Real},
-        is_periodic::AbstractVector{Bool} = DEFAULT_PERIODICITY,
+        is_periodic::AbstractVector{Bool} = collect(DEFAULT_PERIODICITY),
     )
         isempty(name) && throw(ArgumentError("Structure name cannot be empty"))
         num_atoms > 0 ||
@@ -428,7 +428,7 @@ function parse_toml_inputs(dict::AbstractDict)
     positions_raw = [Float64.(vec) for vec in str_["position"]]
     x_fractional = _parse_positions(positions_raw, nat)
     kd_int_list = Vector{Int}(str_["kd_list"])
-    is_periodic = Vector{Bool}(get(general, "periodicity", DEFAULT_PERIODICITY))
+    is_periodic = collect(Bool, get(general, "periodicity", DEFAULT_PERIODICITY))
 
     system = SystemSpec(
         name = String(general["name"]),
