@@ -1310,23 +1310,21 @@ function assemble_weighted_problem(
 	# `j0` does not enter it.
 	mean_X_E = mean(design_matrix_energy, dims = 1)
 	mean_y_E = mean(observed_energy_list)
-	centered_energy = design_matrix_energy .- mean_X_E
-	centered_observed_energy = observed_energy_list .- mean_y_E
 
-	# Row-whitening for the per-sample MSE normalization.
-	normalized_design_matrix_energy = centered_energy .* scale_e
-	normalized_design_matrix_torque = design_matrix_torque .* scale_m
-	normalized_observed_energy_list = centered_observed_energy .* scale_e
-	normalized_observed_torque_flattened = observed_torque_flattened .* scale_m
-
-	X = vcat(
-		normalized_design_matrix_energy,
-		normalized_design_matrix_torque,
-	)
-	y = vcat(
-		normalized_observed_energy_list,
-		normalized_observed_torque_flattened,
-	)
+	# Assemble the augmented `(X, y)` directly into the output buffers. The
+	# energy block is mean-centered and row-scaled; the torque block is only
+	# row-scaled (`j0` does not enter it). Each entry is computed as exactly
+	# `(centered) * scale` — the same two rounding steps as the un-fused form
+	# — so the result is bit-identical; only the intermediate centered /
+	# normalized / `vcat` copies (which peaked at ~3x the design-matrix size)
+	# are eliminated.
+	num_salcs = size(design_matrix_energy, 2)
+	X = Matrix{Float64}(undef, n_E + n_T, num_salcs)
+	y = Vector{Float64}(undef, n_E + n_T)
+	@views @. X[1:n_E, :] = (design_matrix_energy - mean_X_E) * scale_e
+	@views @. X[(n_E + 1):end, :] = design_matrix_torque * scale_m
+	@views @. y[1:n_E] = (observed_energy_list - mean_y_E) * scale_e
+	@views @. y[(n_E + 1):end] = observed_torque_flattened * scale_m
 
 	return X, y
 end

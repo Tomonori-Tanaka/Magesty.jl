@@ -1287,3 +1287,25 @@ Per-config inference, `fept_model.xml` baseline + fept EMBSET (30 configs),
 Modest but consistent: removes the design-vector and `dot` temporaries
 (2 allocs/config). `build_sh_cache_energy` and `design_matrix_energy_element`
 dominate runtime, so the time effect is small; the win is reduced GC pressure.
+
+## assemble_weighted_problem — in-place augmented (X, y) assembly (2026-06-13)
+
+`assemble_weighted_problem` (`src/Fitting.jl`) built six intermediate arrays
+(`centered_energy`, `centered_observed_energy`, four `normalized_*`) plus two
+`vcat`s before returning (X, y) — peaking at ~3x the design-matrix size. It now
+preallocates `X` / `y` and fills them with fused broadcast assignments
+(`@views @. X[1:n_E, :] = (design_matrix_energy - mean_X_E) * scale_e`, etc.).
+Each entry is the same `(centered) * scale` (two rounding steps; `@.` does not
+FMA-fuse), so the output is bit-identical — verified `X == X_old && y == y_old`
+(exact `==`) at weight = 0.5 and 1.0.
+
+`awp(0.5)`, fept fixture (30 configs, 31 SALCs, X_E 30x31, X_T 1440x31), 200 samples:
+
+| Metric | Before | After | delta |
+|---|---|---|---|
+| Time median | 81.2 us | 35.0 us | -57 % |
+| Memory | 776.9 KiB | 397.5 KiB | -49 % |
+| Allocs | 36 | 20 | -16 |
+
+Bit-identical, so all 22,780 unit tests pass unchanged. Mitigates the OOM risk
+on large torque-rich datasets (the ~3x transient peak is removed).
