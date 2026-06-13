@@ -52,6 +52,12 @@ needs. Sever­ity follows the panel schema (blocker / major / minor).
   (ULP-level difference, `≈` tests unaffected). Per-config inference on the
   fept baseline: -5.8% time, -2 allocations/config. Recorded in
   `.claude/bench_log.md`; full unit suite green (22,780).
+- **Performance — `assemble_weighted_problem` in-place assembly.** Replaced the
+  six intermediate arrays + two `vcat`s (peak ~3x the design-matrix size) with
+  fused broadcast writes into preallocated `X` / `y`. Output is bit-identical
+  (verified `X == X_old && y == y_old` at weight 0.5 and 1.0), so all tests pass
+  unchanged. fept fixture: -57% time, -49% peak memory; mitigates the OOM risk
+  on large torque-rich datasets. Recorded in `.claude/bench_log.md`.
 
 ## Deferred (decision pending)
 
@@ -109,11 +115,7 @@ Hot-path items (high value):
   homogeneous in body count; split or dispatch on `first(key_group)` to a
   type-stable helper. **Needs numerical sign-off** (float summation order
   may change) and a before/after `@btime` in the bench log.
-- **Major — intermediate matrices in `assemble_weighted_problem`.**
-  `Fitting.jl:1308`: centering / scaling / `vcat` allocate ~3x the
-  combined design-matrix size; an OOM risk on large inputs. Fuse into an
-  in-place pass writing directly to the output buffers (formula
-  unchanged).
+
 Setup-time items (lower value, but matter for large supercells):
 
 - **Major — O(n^2) translational-equivalence dedup.**
