@@ -1502,6 +1502,23 @@ function _check_gcv_torque_weight(caller::AbstractString, torque_weight::Real)
 	return nothing
 end
 
+# Shared GCV setup. Assemble the weighted, energy-centered augmented problem
+# `(X, y)` from `dataset` under `torque_weight`, and compute the effective live-row
+# count `n_eff` plus the intercept degree of freedom `intercept_dof` (the
+# eliminated `j0`, live only when the energy block survives). Every GCV entry
+# point — single-fit scoring, the penalty path, and the learning-curve subsets —
+# starts from exactly this state, so each caller is a thin wrapper over it.
+function _gcv_core(
+	dataset::SCEDataset,
+	torque_weight::Real,
+)::Tuple{Matrix{Float64}, Vector{Float64}, Int, Int}
+	X, y = Fitting.assemble_weighted_problem(
+		dataset.X_E, dataset.X_T, dataset.y_E, dataset.y_T, torque_weight)
+	n_eff, intercept_dof = Fitting._gcv_sample_count(
+		length(dataset.y_E), length(dataset.y_T), torque_weight)
+	return X, y, n_eff, intercept_dof
+end
+
 """
 	gcv(f::SCEFit) -> Float64
 
@@ -1546,10 +1563,7 @@ gcv(f)
 """
 function gcv(f::SCEFit)::Float64
 	Fitting._require_linear_estimator(f.estimator)
-	X, y = Fitting.assemble_weighted_problem(
-		f.dataset.X_E, f.dataset.X_T, f.dataset.y_E, f.dataset.y_T, f.torque_weight)
-	n_eff, intercept_dof = Fitting._gcv_sample_count(
-		length(f.dataset.y_E), length(f.dataset.y_T), f.torque_weight)
+	X, y, n_eff, intercept_dof = _gcv_core(f.dataset, f.torque_weight)
 	score, _ = Fitting._gcv_single(
 		X, y, f.residuals, f.estimator, f.jphi, n_eff, intercept_dof)
 	return score
@@ -1594,10 +1608,7 @@ gcv_r2(f)    # ~1 good, ~0 no better than the mean / zero-torque model
 """
 function gcv_r2(f::SCEFit)::Float64
 	Fitting._require_linear_estimator(f.estimator)
-	X, y = Fitting.assemble_weighted_problem(
-		f.dataset.X_E, f.dataset.X_T, f.dataset.y_E, f.dataset.y_T, f.torque_weight)
-	n_eff, intercept_dof = Fitting._gcv_sample_count(
-		length(f.dataset.y_E), length(f.dataset.y_T), f.torque_weight)
+	X, y, n_eff, intercept_dof = _gcv_core(f.dataset, f.torque_weight)
 	score, _ = Fitting._gcv_single(
 		X, y, f.residuals, f.estimator, f.jphi, n_eff, intercept_dof)
 	return Fitting._gcv_r2(score, Fitting._gcv_msy(y, n_eff))
@@ -1640,10 +1651,7 @@ function gcv_lambda(
 	any(<(0), lambdas) && throw(ArgumentError(
 		"gcv_lambda: all lambdas must be non-negative; got minimum $(minimum(lambdas))"))
 	_check_gcv_torque_weight("gcv_lambda", torque_weight)
-	X, y = Fitting.assemble_weighted_problem(
-		dataset.X_E, dataset.X_T, dataset.y_E, dataset.y_T, torque_weight)
-	n_eff, intercept_dof = Fitting._gcv_sample_count(
-		length(dataset.y_E), length(dataset.y_T), torque_weight)
+	X, y, n_eff, intercept_dof = _gcv_core(dataset, torque_weight)
 	gcvs, dofs = Fitting._gcv_lambda_path(X, y, lambdas, n_eff, intercept_dof)
 	msy = Fitting._gcv_msy(y, n_eff)
 	r2s = Fitting._gcv_r2.(gcvs, msy)
@@ -1761,8 +1769,7 @@ function _gcv_subset(
 	estimator::AbstractEstimator,
 	torque_weight::Real,
 )::Tuple{Float64, Float64}
-	X, y = Fitting.assemble_weighted_problem(
-		sub.X_E, sub.X_T, sub.y_E, sub.y_T, torque_weight)
+	X, y, n_eff, intercept_dof = _gcv_core(sub, torque_weight)
 	jvals = try
 		Fitting.solve_coefficients(estimator, X, y)
 	catch err
@@ -1770,8 +1777,6 @@ function _gcv_subset(
 		rethrow()
 	end
 	residuals = y .- X * jvals
-	n_eff, intercept_dof = Fitting._gcv_sample_count(
-		length(sub.y_E), length(sub.y_T), torque_weight)
 	score, _ = Fitting._gcv_single(
 		X, y, residuals, estimator, jvals, n_eff, intercept_dof)
 	return score, Fitting._gcv_r2(score, Fitting._gcv_msy(y, n_eff))
