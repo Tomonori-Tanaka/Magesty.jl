@@ -1081,11 +1081,14 @@ function _predict_energy(
 )::Float64
 	_ = symmetry  # accepted for API parity with `build_design_matrix_energy`
 	num_salcs = length(salc_list)
-	design_vector = Vector{Float64}(undef, num_salcs)
 	# Single-threaded inference path; build one cache and reuse across SALCs.
 	l_max = _compute_l_max(salc_list)
 	sh_cache = build_sh_cache_energy(spin_directions, l_max)
 
+	# Accumulate `Σ jphi[i] · ϕ_i(spin)` directly, fusing what was a design
+	# vector plus a `dot`. Each term `(group_value * scaling_factor) * jphi[i]`
+	# is unchanged; only the summation runs sequentially here.
+	acc = 0.0
 	for i = 1:num_salcs
 		key_group = salc_list[i]
 		n_C = length(key_group[1].atoms)
@@ -1094,10 +1097,10 @@ function _predict_energy(
 		for cbc in key_group
 			group_value += design_matrix_energy_element(cbc, sh_cache)
 		end
-		design_vector[i] = group_value * scaling_factor
+		acc += (group_value * scaling_factor) * jphi[i]
 	end
 
-	return dot(design_vector, jphi) + j0
+	return acc + j0
 end
 
 """

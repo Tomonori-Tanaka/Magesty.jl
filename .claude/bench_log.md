@@ -1266,3 +1266,24 @@ The per-draw `randperm`/`dataset[idx]` allocations and the `gcv(f)`
 re-assembly + re-SVD (flagged by the performance review) are left as-is: for a
 single diagnostic call on realistic dataset sizes the cost is immaterial, and
 caching `X`/its factorization on `SCEFit` would bloat a core type.
+
+## _predict_energy — fuse design vector into scalar accumulator (2026-06-13)
+
+`_predict_energy` (`src/Fitting.jl`) filled a `Vector{Float64}(undef, num_salcs)`
+and returned `dot(design_vector, jphi) + j0`; it now accumulates
+`acc += (group_value * scaling_factor) * jphi[i]` in the SALC loop. Each term is
+unchanged; only the summation runs sequentially instead of via BLAS `dot`
+(ULP-level difference; `~=` tests unaffected).
+
+Per-config inference, `fept_model.xml` baseline + fept EMBSET (30 configs),
+`predict_energy(model, configs)`:
+
+| Metric | Before | After | delta |
+|---|---|---|---|
+| Time median | 167.6 us | 157.9 us | -5.8 % |
+| Memory | 160.6 KiB | 151.7 KiB | -5.6 % |
+| Allocs | 4892 | 4832 | -60 (2/config) |
+
+Modest but consistent: removes the design-vector and `dot` temporaries
+(2 allocs/config). `build_sh_cache_energy` and `design_matrix_energy_element`
+dominate runtime, so the time effect is small; the win is reduced GC pressure.
