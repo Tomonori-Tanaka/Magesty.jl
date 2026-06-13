@@ -87,7 +87,7 @@ function _write_system_subtree!(
 	# Add lattice vectors
 	lattice_node = addelement!(system_node, TAG_LATTICE)
 	for i = 1:3
-		vector = structure.supercell.lattice_vectors[i, :]
+		vector = structure.supercell.lattice_vectors[:, i]
 		vector_str = join([fmt_lattice(x) for x in vector], " ")
 		addelement!(lattice_node, "a$i", vector_str)
 	end

@@ -74,6 +74,38 @@ end
 		end
 	end
 
+	@testset "SCEBasis round-trip preserves asymmetric lattice" begin
+		# Regression: the lattice writer emitted matrix rows under the
+		# `a$i` tags while the reader parses each `a$i` into column `i`,
+		# so a save / load round trip transposed `lattice_vectors`. A
+		# symmetric lattice (`L == Lᵀ`) hides the bug; an asymmetric
+		# (here upper-triangular) cell exposes it. Reciprocal vectors,
+		# Cartesian rotations, the SALC projection, and the design matrix
+		# are all rebuilt from the reloaded lattice, so a transpose
+		# silently corrupts every low-symmetry cell.
+		basis = SCEBasis(;
+			lattice = [3.0 1.0 0.5; 0.0 3.0 0.7; 0.0 0.0 3.0],
+			kd = [:X], kd_list = [1, 1],
+			positions = [[0.0, 0.0, 0.0], [0.0, 0.0, 0.1]],
+			periodicity = (false, false, false),
+			interaction = (body1 = (lmax = Dict(:X => 0),),
+						   body2 = (lsum = 2, cutoff = Dict((:X, :X) => -1.0))),
+			isotropy = true, verbosity = false,
+		)
+		L = basis.structure.supercell.lattice_vectors
+		# The fixture must be asymmetric, or the round trip could not
+		# distinguish `L` from `Lᵀ`.
+		@test L != permutedims(L)
+		mktempdir() do dir
+			path = joinpath(dir, "basis.xml")
+			Magesty.save(basis, path)
+			reloaded = Magesty.load(SCEBasis, path)
+			L_reloaded = reloaded.structure.supercell.lattice_vectors
+			@test L_reloaded ≈ L
+			@test !isapprox(L_reloaded, permutedims(L))
+		end
+	end
+
 	@testset "SCEModel round-trip" begin
 		basis = SCEBasis(SL_DIMER_TOML; verbosity = false)
 		n_salc = length(basis.salcbasis.salc_list)
