@@ -21,7 +21,7 @@ function calc_micromagnetics(
 )::Tuple{Matrix{Float64}, Matrix{Float64}}
 	num_atoms = basis.structure.supercell.num_atoms
 	atoms_in_prim = basis.symmetry.atoms_in_prim   # atom indices in the primitive cell
-	min_distance_pairs = Magesty.Clusters.set_mindist_pairs(
+	min_distance_pairs = Magesty.Clusters._set_mindist_pairs(
 		num_atoms,
 		basis.structure.x_image_cart,
 		basis.structure.exist_image,

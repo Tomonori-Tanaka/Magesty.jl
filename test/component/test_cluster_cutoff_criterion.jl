@@ -35,7 +35,7 @@ using Test
     #
     # Periodic images live in cells displaced by +/- 20 A; the minimum
     # image is always the in-cell one for every pair, so the periodic-
-    # image disambiguation branch of `is_within_cutoff` is a no-op here.
+    # image disambiguation branch of `_is_within_cutoff` is a no-op here.
     kd_name = ["A", "B", "C", "D"]
     nkd = length(kd_name)
     kd_int_list = [1, 2, 3, 4]

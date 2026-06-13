@@ -10,13 +10,13 @@ This module provides data structures and functions for managing and analyzing cl
 
 # Functions
 - `Cluster(structure, symmetry, nbody, cutoff_radii)`: Constructs a `Cluster` instance
-- `set_mindist_pairs(num_atoms, cartesian_coords, cell_exists)`: Computes minimum distance pairs
-- `is_within_cutoff(atomcell_list, kd_int_list, cutoff_radii, body, x_image_cart, min_distance_pairs)`: Checks cutoff conditions
-- `distance_atomcells(atomcell1, atomcell2, x_image_cart)`: Calculates distance between two atoms in different cells
-- `generate_clusters(structure, symmetry, cutoff_radii, nbody, min_distance_pairs)`: Generates interaction clusters
-- `irreducible_clusters(cluster_dict, symmetry)`: Selects one representative per translation orbit
+- `_set_mindist_pairs(num_atoms, cartesian_coords, cell_exists)`: Computes minimum distance pairs
+- `_is_within_cutoff(atomcell_list, kd_int_list, cutoff_radii, body, x_image_cart, min_distance_pairs)`: Checks cutoff conditions
+- `_distance_atomcells(atomcell1, atomcell2, x_image_cart)`: Calculates distance between two atoms in different cells
+- `_generate_clusters(structure, symmetry, cutoff_radii, nbody, min_distance_pairs)`: Generates interaction clusters
+- `_irreducible_clusters(cluster_dict, symmetry)`: Selects one representative per translation orbit
 - `_translation_canonical_form(cluster, symmetry)`: Lex-minimum translation image of a cluster (private helper)
-- `cluster_orbits(irreducible_cluster_dict, symmetry)`: Classifies irreducible clusters into spatial-symmetry orbits
+- `_cluster_orbits(irreducible_cluster_dict, symmetry)`: Classifies irreducible clusters into spatial-symmetry orbits
 - `print_cluster_stdout(min_distance_pairs, atoms_in_prim, kd_name, kd_int_list)`: Prints cluster information to stdout
 """
 
@@ -131,9 +131,9 @@ struct Cluster
 		start_time = time_ns()
 
 		# Computed once here; the same matrix is threaded into
-		# `generate_clusters` and stored on the struct so both consumers
+		# `_generate_clusters` and stored on the struct so both consumers
 		# share it.
-		min_distance_pairs = set_mindist_pairs(
+		min_distance_pairs = _set_mindist_pairs(
 			structure.supercell.num_atoms,
 			structure.x_image_cart,
 			structure.exist_image,
@@ -141,13 +141,13 @@ struct Cluster
 		)
 
 		cluster_dict::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}} =
-			generate_clusters(structure, symmetry, cutoff_radii, nbody, min_distance_pairs)
+			_generate_clusters(structure, symmetry, cutoff_radii, nbody, min_distance_pairs)
 
 		irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}} =
-			irreducible_clusters(cluster_dict, symmetry)
+			_irreducible_clusters(cluster_dict, symmetry)
 
 		cluster_orbits_dict::Dict{Int, Dict{Int, Vector{Vector{Int}}}} =
-			cluster_orbits(irreducible_cluster_dict, symmetry)
+			_cluster_orbits(irreducible_cluster_dict, symmetry)
 
 
 		if verbosity
@@ -190,7 +190,7 @@ function Cluster(
 end
 
 """
-	set_mindist_pairs(num_atoms, cartesian_coords, cell_exists; tol=DEFAULT_TOLERANCE)
+	_set_mindist_pairs(num_atoms, cartesian_coords, cell_exists; tol=DEFAULT_TOLERANCE)
 
 Computes minimum distance pairs between atoms in a crystal structure.
 
@@ -206,7 +206,7 @@ Computes minimum distance pairs between atoms in a crystal structure.
 # Throws
 - `AssertionError`: If input parameters are invalid
 """
-function set_mindist_pairs(
+function _set_mindist_pairs(
 	num_atoms::Integer,
 	cartesian_coords::AbstractArray{<:AbstractFloat, 3},
 	cell_exists::AbstractVector{Bool};
@@ -255,7 +255,7 @@ end
 
 
 """
-	is_within_cutoff(atomcell_list, kd_int_list, cutoff_radii, body, x_image_cart, min_distance_pairs) -> Bool
+	_is_within_cutoff(atomcell_list, kd_int_list, cutoff_radii, body, x_image_cart, min_distance_pairs) -> Bool
 
 Checks if all pairs of atoms in the given atom cell list are within the cutoff radius.
 
@@ -270,7 +270,7 @@ Checks if all pairs of atoms in the given atom cell list are within the cutoff r
 # Returns
 - `Bool`: `true` if all atom pairs are within cutoff, `false` otherwise
 """
-function is_within_cutoff(
+function _is_within_cutoff(
 	atomcell_list::Vector{AtomCell},
 	kd_int_list::Vector{Int},
 	cutoff_radii::AbstractArray{<:Real, 3},
@@ -280,7 +280,7 @@ function is_within_cutoff(
 )::Bool
 	for comb::Vector{AtomCell} in collect(combinations(atomcell_list, 2))
 		rc = cutoff_radii[body, kd_int_list[comb[1].atom], kd_int_list[comb[2].atom]]
-		distance = distance_atomcells(comb[1], comb[2], x_image_cart)
+		distance = _distance_atomcells(comb[1], comb[2], x_image_cart)
 		if rc < 0.0 || distance ≤ rc
 			if min_distance_pairs[comb[1].atom, comb[2].atom][1].distance + DEFAULT_TOLERANCE > distance
 				continue
@@ -296,7 +296,7 @@ end
 
 
 """
-	distance_atomcells(atomcell1, atomcell2, x_image_cart) -> Float64
+	_distance_atomcells(atomcell1, atomcell2, x_image_cart) -> Float64
 
 Calculates the Cartesian distance between two atoms in different cells.
 
@@ -308,7 +308,7 @@ Calculates the Cartesian distance between two atoms in different cells.
 # Returns
 - `Float64`: Distance between the two atoms in Angstroms
 """
-function distance_atomcells(
+function _distance_atomcells(
 	atomcell1::AtomCell,
 	atomcell2::AtomCell,
 	x_image_cart::AbstractArray{<:Real, 3},
@@ -322,7 +322,7 @@ end
 
 
 """
-	generate_clusters(structure, symmetry, cutoff_radii, nbody, min_distance_pairs) -> Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}
+	_generate_clusters(structure, symmetry, cutoff_radii, nbody, min_distance_pairs) -> Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}
 
 Generates interaction clusters based on cutoff radii and structure information.
 
@@ -332,7 +332,7 @@ Generates interaction clusters based on cutoff radii and structure information.
 - `cutoff_radii::AbstractArray{<:Real, 3}`: Cutoff radii for interactions
 - `nbody::Integer`: Number of interacting bodies
 - `min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}}`: Precomputed
-  minimum-distance pairs (output of `set_mindist_pairs` called with
+  minimum-distance pairs (output of `_set_mindist_pairs` called with
   `structure.supercell.num_atoms`, `structure.x_image_cart`,
   `structure.exist_image`, and `tol = symmetry.tol`). Passed in by the
   caller; this function does not recompute it.
@@ -340,7 +340,7 @@ Generates interaction clusters based on cutoff radii and structure information.
 # Returns
 - `Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}`: Dictionary of clusters organized by body and primitive atom index
 """
-function generate_clusters(
+function _generate_clusters(
 	structure::Structure,
 	symmetry::Symmetry,
 	cutoff_radii::AbstractArray{<:Real, 3},
@@ -382,7 +382,7 @@ function generate_clusters(
 	end
 
 	# Inner clusters are stored sorted (translationally-equivalent comparison
-	# in irreducible_clusters expects sorted atom lists); the outer vector
+	# in _irreducible_clusters expects sorted atom lists); the outer vector
 	# preserves insertion order.
 	interaction_clusters = Dict{Int, Dict{Int, Vector{Vector{AtomCell}}}}()
 	for body = 2:nbody
@@ -398,7 +398,7 @@ function generate_clusters(
 		interaction_atoms::Vector{AtomCell} = interaction_cutoff_dict[body][prim_atom_sc]
 		if body == 2
 			for other_atom_ac::AtomCell in interaction_atoms
-				distance = distance_atomcells(prim_atom_ac, other_atom_ac, structure.x_image_cart)
+				distance = _distance_atomcells(prim_atom_ac, other_atom_ac, structure.x_image_cart)
 				rc = cutoff_radii[
 					body,
 					structure.supercell.kd_int_list[prim_atom_sc],
@@ -413,7 +413,7 @@ function generate_clusters(
 				collect(combinations(interaction_atoms, body - 1))
 				atom_cell_list_all = vcat([prim_atom_ac], atom_combination)
 				atom_list_all = [atom_cell.atom for atom_cell in atom_cell_list_all]
-				if is_within_cutoff(
+				if _is_within_cutoff(
 					atom_cell_list_all,
 					structure.supercell.kd_int_list,
 					cutoff_radii,
@@ -656,14 +656,14 @@ function _translation_canonical_form(
 end
 
 """
-	is_translationally_equiv_cluster(cluster_target, cluster_ref, symmetry) -> Bool
+	_is_translationally_equiv_cluster(cluster_target, cluster_ref, symmetry) -> Bool
 
 Return `true` if `cluster_target` is reachable from `cluster_ref` by any
 pure translation in `symmetry.symnum_translation` (or its inverse).
 Internal predicate form of the translation-equivalence relation, retained
 for unit tests that exercise the relation directly.
 """
-function is_translationally_equiv_cluster(
+function _is_translationally_equiv_cluster(
 	cluster_target::AbstractVector{<:Integer},
 	cluster_ref::AbstractVector{<:Integer},
 	symmetry::Symmetry,
@@ -683,7 +683,7 @@ function is_translationally_equiv_cluster(
 	return false
 end
 
-function irreducible_clusters(
+function _irreducible_clusters(
 	cluster_dict::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}},
 	symmetry::Symmetry,
 )::Dict{Int, SortedCounter{Vector{Int}}}
@@ -716,7 +716,7 @@ function irreducible_clusters(
 end
 
 """
-	cluster_orbits(
+	_cluster_orbits(
 		irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}},
 		symmetry::Symmetry,
 	) -> Dict{Int, Dict{Int, Vector{Vector{Int}}}}
@@ -744,12 +744,12 @@ disjoint inputs may call it concurrently.
 
 # Example
 ```julia
-orbits = cluster_orbits(cluster.irreducible_cluster_dict, symmetry)
+orbits = _cluster_orbits(cluster.irreducible_cluster_dict, symmetry)
 # orbits[2][1] is the 2-body orbit whose lex-min cluster is globally smallest;
 # orbits[2][1][1] is that lex-min cluster itself.
 ```
 """
-function cluster_orbits(
+function _cluster_orbits(
 	irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}},
 	symmetry::Symmetry,
 )::Dict{Int, Dict{Int, Vector{Vector{Int}}}}
@@ -871,7 +871,7 @@ function cluster_orbits(
 	return result
 end
 
-# --- Union-find primitives used by `cluster_orbits` ---
+# --- Union-find primitives used by `_cluster_orbits` ---
 #
 # Path halving (in `_uf_find!`) and union by size (in `_uf_union!`)
 # give inverse-Ackermann amortized cost per operation. The edge count

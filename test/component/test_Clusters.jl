@@ -2,7 +2,7 @@ using Test
 using Magesty
 
 # Direct access to the symmetry-reduction primitives. `Cluster` is exported
-# from `Magesty`, but `is_translationally_equiv_cluster` and the
+# from `Magesty`, but `_is_translationally_equiv_cluster` and the
 # `cluster_dict` / `irreducible_cluster_dict` / `cluster_orbits_dict`
 # fields are internal contracts — qualified access makes that explicit.
 const _Clusters = Magesty.Clusters
@@ -23,7 +23,7 @@ end
 
 # Irreducible representatives for `body`, as sorted Vector{Int} clusters.
 # `SortedCounter` iterates over keys in sorted order; the keys here are
-# already sorted atom-index lists from `irreducible_clusters`.
+# already sorted atom-index lists from `_irreducible_clusters`.
 function _irreducible_reps(cluster, body::Integer)
 	return Vector{Int}[copy(c) for c in cluster.irreducible_cluster_dict[body]]
 end
@@ -48,21 +48,21 @@ function _check_invariants(symmetry, cluster, body::Integer)
 
 	# (1) Self-equivalence: every cluster is translationally equivalent to itself.
 	for c in reps
-		@test _Clusters.is_translationally_equiv_cluster(c, c, symmetry)
+		@test _Clusters._is_translationally_equiv_cluster(c, c, symmetry)
 	end
 
 	# (2) Symmetry of the equivalence relation on distinct representatives.
 	for i in eachindex(reps), j in (i+1):lastindex(reps)
 		c1, c2 = reps[i], reps[j]
-		@test _Clusters.is_translationally_equiv_cluster(c1, c2, symmetry) ==
-			  _Clusters.is_translationally_equiv_cluster(c2, c1, symmetry)
+		@test _Clusters._is_translationally_equiv_cluster(c1, c2, symmetry) ==
+			  _Clusters._is_translationally_equiv_cluster(c2, c1, symmetry)
 	end
 
 	# (3) Distinct irreducible representatives must NOT be translationally
-	# equivalent — that is exactly the property `irreducible_clusters`
+	# equivalent — that is exactly the property `_irreducible_clusters`
 	# is supposed to enforce.
 	for i in eachindex(reps), j in (i+1):lastindex(reps)
-		@test !_Clusters.is_translationally_equiv_cluster(reps[i], reps[j], symmetry)
+		@test !_Clusters._is_translationally_equiv_cluster(reps[i], reps[j], symmetry)
 	end
 
 	# (4) Orbits partition the irreducible representatives:
@@ -232,7 +232,7 @@ const _SQUARE_INPUT = Dict(
 
 		# (4) Cross-check against the predicate: equiv iff same canonical.
 		for i in eachindex(reps), j in eachindex(reps)
-			equiv = _Clusters.is_translationally_equiv_cluster(reps[i], reps[j], symmetry)
+			equiv = _Clusters._is_translationally_equiv_cluster(reps[i], reps[j], symmetry)
 			same_canonical = canonical(reps[i], symmetry) == canonical(reps[j], symmetry)
 			@test equiv == same_canonical
 		end

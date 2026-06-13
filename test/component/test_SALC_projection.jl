@@ -8,12 +8,12 @@ using Magesty
 # reached through qualified module names.
 const _SALC = Magesty.SALCBases
 const _CB = Magesty.CoupledBases
-const _IS_ZERO = _SALC.is_obviously_zero_coupled_basis_product
-const _PROJECTION = _SALC.projection_matrix_coupled_basis
+const _IS_ZERO = _SALC._is_obviously_zero_coupled_basis_product
+const _PROJECTION = _SALC._projection_matrix_coupled_basis
 
 # Build a CoupledBasis whose metadata matches what the predicate looks
 # at. The coefficient tensor is filled with zeros because
-# `is_obviously_zero_coupled_basis_product` only inspects `(Lf, ls,
+# `_is_obviously_zero_coupled_basis_product` only inspects `(Lf, ls,
 # atoms)`; the tensor never enters the cheap check.
 function _make_cb(; ls::Vector{Int}, Lf::Int, atoms::Vector{Int})
 	N = length(ls)
@@ -26,9 +26,9 @@ function _make_cb(; ls::Vector{Int}, Lf::Int, atoms::Vector{Int})
 end
 
 @testset "SALCBases projection layer" begin
-	# ---- is_obviously_zero_coupled_basis_product: pure metadata predicate
+	# ---- _is_obviously_zero_coupled_basis_product: pure metadata predicate
 
-	@testset "is_obviously_zero_coupled_basis_product" begin
+	@testset "_is_obviously_zero_coupled_basis_product" begin
 		base = _make_cb(ls = [1, 1], Lf = 0, atoms = [1, 2])
 
 		# Matching metadata: the predicate is conservative — the actual
@@ -53,11 +53,11 @@ end
 		@test _IS_ZERO(diff_atoms, base) == true
 	end
 
-	# ---- projection_matrix_coupled_basis: invariants on a real fixture
+	# ---- _projection_matrix_coupled_basis: invariants on a real fixture
 
 	@testset "projection_matrix invariants (dimer fixture)" begin
 		# Re-run the pipeline up to coupled-basis classification so we can
-		# call `projection_matrix_coupled_basis` directly on each group.
+		# call `_projection_matrix_coupled_basis` directly on each group.
 		toml = joinpath(@__DIR__, "..", "integration", "dimer", "input.toml")
 		input = TOML.parsefile(toml)
 		system, interaction, options = Magesty.InputSpecs.parse_toml_inputs(input)
@@ -67,12 +67,12 @@ end
 			structure, symmetry, interaction; verbosity = false,
 		)
 
-		classified = _SALC.construct_and_classify_coupled_basislist(
+		classified = _SALC._construct_and_classify_coupled_basislist(
 			structure, symmetry, cluster,
 			interaction.body1_lmax, interaction.bodyn_lsum, interaction.nbody;
 			isotropy = options.isotropy,
 		)
-		classified = _SALC.filter_basisdict(classified, symmetry)
+		classified = _SALC._filter_basisdict(classified, symmetry)
 
 		# Sanity: the dimer test fixture produces at least one non-empty
 		# group; otherwise the assertions below would all be vacuous.

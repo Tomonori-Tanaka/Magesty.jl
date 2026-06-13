@@ -299,7 +299,7 @@ end
 
 # Distinct primitive-cell offsets `n` such that sublattice `subl(b)` in cell `n`
 # sits at the minimum image distance from sublattice `subl(a)` in the home cell.
-# Replicates the equal-minimum-distance selection of `Clusters.set_mindist_pairs`
+# Replicates the equal-minimum-distance selection of `Clusters._set_mindist_pairs`
 # from the stored 27-image arrays, so every degenerate (equal-distance) lattice
 # vector connecting the pair is recovered — not only one minimum image. The
 # second return value is `true` when all offsets are integer to tolerance (the

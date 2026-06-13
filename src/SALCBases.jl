@@ -1,7 +1,15 @@
 """
-This module provides functionality for handling basis sets in crystal structure calculations.
-It includes tools for constructing, classifying, and manipulating basis functions that are
-adapted to the symmetry of the crystal structure.
+Symmetry-Adapted Linear Combination (SALC) basis construction.
+
+Builds, from a crystal structure, its space-group symmetry, and a cluster
+expansion, the symmetry-adapted basis used to assemble the spin-cluster
+expansion design matrix. The entry point is the `SALCBasis` constructor; the
+heavy step is the per-key-group projection-matrix diagonalization.
+
+The order of the key groups in `SALCBasis.salc_list` is load-bearing: it fixes
+the design-matrix column order and therefore the physical meaning of the fitted
+coefficients, and it must match the order used by the XML I/O. Do not reorder it
+without updating those sites together.
 """
 module SALCBases
 
@@ -211,12 +219,12 @@ function _compute_salc_groups(
 	coupled_basislist::SortedCounter{CoupledBases.CoupledBasis},
 	symmetry::Symmetry,
 )::Vector{Vector{CoupledBases.CoupledBasis_with_coefficient}}
-	projection_mat = projection_matrix_coupled_basis(coupled_basislist, symmetry)
+	projection_mat = _projection_matrix_coupled_basis(coupled_basislist, symmetry)
 	h_projection = Hermitian(projection_mat)
 	eigenvals, eigenvecs = eigen!(h_projection)
 	eigenvals = real.(round.(eigenvals, digits = 6))
 	eigenvecs = round.(eigenvecs .* (abs.(eigenvecs) .≥ 1e-8), digits = 10)
-	if !is_proper_eigenvals(eigenvals)
+	if !_is_proper_eigenvals(eigenvals)
 		# Projection eigenvalues must be exactly 0 or 1 (the projector is
 		# idempotent). A drift here means the coupled-basis tensor or the
 		# symmetry input is inconsistent — downstream SALCs would be wrong,
@@ -311,7 +319,7 @@ function SALCBasis(
 	# module state) means concurrent constructions never share it.
 	coupling_cache = CoupledBases.CouplingCache()
 	classified_coupled_basisdict::Dict{Int, SortedCounter{CoupledBases.CoupledBasis}} =
-		construct_and_classify_coupled_basislist(
+		_construct_and_classify_coupled_basislist(
 			structure,
 			symmetry,
 			cluster,
@@ -321,7 +329,7 @@ function SALCBasis(
 			isotropy = isotropy,
 			cache = coupling_cache,
 		)
-	classified_coupled_basisdict = filter_basisdict(classified_coupled_basisdict, symmetry)
+	classified_coupled_basisdict = _filter_basisdict(classified_coupled_basisdict, symmetry)
 
 
 	if verbosity
@@ -334,7 +342,8 @@ function SALCBasis(
 		[classified_coupled_basisdict[k] for k in keys_list]
 	# Pre-allocate array to store results for each key (preserving order)
 	# Each key can have multiple SALC groups (one per eigenvector)
-	salc_list_per_key = Vector{Vector{Vector{CoupledBases.CoupledBasis_with_coefficient}}}(undef, num_keys)
+	_SALCGroup = Vector{CoupledBases.CoupledBasis_with_coefficient}
+	salc_list_per_key = Vector{Vector{_SALCGroup}}(undef, num_keys)
 
 	if verbosity
 		println(@sprintf(
@@ -435,7 +444,7 @@ function SALCBasis(
 end
 
 """
-	construct_and_classify_coupled_basislist(
+	_construct_and_classify_coupled_basislist(
 		structure::Structure,
 		symmetry::Symmetry,
 		cluster::Cluster,
@@ -463,7 +472,7 @@ memory-efficient and keeps the resulting basis organized by symmetry label.
 - `Dict{Int, SortedCounter{CoupledBases.CoupledBasis}}`: Dictionary keyed by classification labels
   (based on `(nbody, Lf, sum(ls), Tuple(sort(ls)...))`), containing classified basis functions
 """
-function construct_and_classify_coupled_basislist(
+function _construct_and_classify_coupled_basislist(
 	structure::Structure,
 	symmetry::Symmetry,
 	cluster::Cluster,
@@ -532,7 +541,7 @@ function construct_and_classify_coupled_basislist(
 					# Get multiplicity from irreducible_cluster_dict
 					count = irreducible_cluster_dict[body].counts[atom_list]
 					sorted_atom_list = sort(atom_list)
-					cb_list::Vector{CoupledBases.CoupledBasis} = listup_coupled_basislist(
+					cb_list::Vector{CoupledBases.CoupledBasis} = _listup_coupled_basislist(
 						sorted_atom_list,
 						bodyn_lsum[body];
 						isotropy = isotropy,
@@ -544,7 +553,7 @@ function construct_and_classify_coupled_basislist(
 						# Check for translationally equivalent within orbit
 						found_equivalent = false
 						for existing_cb in orbit_basis_list
-							if is_translationally_equivalent_coupled_basis(
+							if _is_translationally_equivalent_coupled_basis(
 								cb,
 								existing_cb,
 								symmetry,
@@ -589,7 +598,7 @@ function construct_and_classify_coupled_basislist(
 end
 
 """
-	listup_coupled_basislist(atom_list, lsum; isotropy=false) -> Vector{CoupledBases.CoupledBasis}
+	_listup_coupled_basislist(atom_list, lsum; isotropy=false) -> Vector{CoupledBases.CoupledBasis}
 
 List up all coupled angular momentum basis functions for a given atom list and maximum angular momentum sum.
 
@@ -607,7 +616,7 @@ List up all coupled angular momentum basis functions for a given atom list and m
 - Skips l values less than the number of atoms or odd l values
 - Generates all possible combinations of angular momenta that sum to `lsum` or less
 """
-function listup_coupled_basislist(
+function _listup_coupled_basislist(
 	atom_list::Vector{<:Integer},
 	lsum::Integer;
 	isotropy::Bool = false,
@@ -635,7 +644,7 @@ end
 Check if the product of two `CoupledBasis` objects is obviously zero.
 This is a quick check for the step constructing projection matrix.
 """
-function is_obviously_zero_coupled_basis_product(
+function _is_obviously_zero_coupled_basis_product(
 	cb1::CoupledBases.CoupledBasis,
 	cb2::CoupledBases.CoupledBasis,
 )::Bool
@@ -652,7 +661,7 @@ function is_obviously_zero_coupled_basis_product(
 end
 
 """
-	tensor_inner_product(tensor1::AbstractArray{T, N}, tensor2::AbstractArray{T, N}) where {T, N} -> Float64
+	_tensor_inner_product(tensor1::AbstractArray{T, N}, tensor2::AbstractArray{T, N}) where {T, N} -> Float64
 
 Compute the inner product of two tensors.
 
@@ -669,10 +678,10 @@ Both tensors must have the same element type `T` and the same number of dimensio
 ```julia
 t1 = [1.0 2.0; 3.0 4.0]
 t2 = [5.0 6.0; 7.0 8.0]
-tensor_inner_product(t1, t2)  # 70.0
+_tensor_inner_product(t1, t2)  # 70.0
 ```
 """
-function tensor_inner_product(
+function _tensor_inner_product(
 	tensor1::AbstractArray{T, N},
 	tensor2::AbstractArray{T, N},
 ) where {T, N}
@@ -691,7 +700,7 @@ end
 
 
 """
-	collect_cluster_atoms(coupled_basislist) -> Set{Vector{Int}}
+	_collect_cluster_atoms(coupled_basislist) -> Set{Vector{Int}}
 
 Collect all unique atom lists from a list of coupled basis functions.
 
@@ -701,7 +710,7 @@ Collect all unique atom lists from a list of coupled basis functions.
 # Returns
 - `Set{Vector{Int}}`: Set of unique atom lists (as vectors)
 """
-function collect_cluster_atoms(
+function _collect_cluster_atoms(
 	coupled_basislist::SortedCounter{CoupledBases.CoupledBasis},
 )::Set{Vector{Int}}
 	result_set = Set{Vector{Int}}()
@@ -712,7 +721,7 @@ function collect_cluster_atoms(
 end
 
 """
-	find_translation_atoms(atom_list, cluster_atoms, symmetry) -> Vector{Int}
+	_find_translation_atoms(atom_list, cluster_atoms, symmetry) -> Vector{Int}
 
 Fold `atom_list` (same site order as a `CoupledBasis` before sorting) onto one of the
 clusters in `cluster_atoms` using a supercell→primitive translation recipe built from
@@ -738,7 +747,7 @@ coupled basis.
 # Throws
 - `ErrorException`: If no folding matches any cluster in `cluster_atoms`
 """
-function find_translation_atoms(
+function _find_translation_atoms(
 	atom_list::AbstractVector{<:Integer},
 	cluster_atoms::Set{Vector{Int}},
 	symmetry::Symmetry,
@@ -786,7 +795,7 @@ end
 
 
 """
-	projection_matrix_coupled_basis(coupled_basislist, symmetry) -> Matrix{Float64}
+	_projection_matrix_coupled_basis(coupled_basislist, symmetry) -> Matrix{Float64}
 
 Construct the projection matrix for coupled basis functions under symmetry operations.
 
@@ -811,7 +820,7 @@ and projects onto the subspace of basis functions that are invariant under the s
 - The matrix is averaged over all symmetry operations and time-reversal symmetry
 - Each basis function contributes a submatrix of size (2*Lf + 1) × (2*Lf + 1)
 """
-function projection_matrix_coupled_basis(
+function _projection_matrix_coupled_basis(
 	coupled_basislist::SortedCounter{CoupledBases.CoupledBasis},
 	symmetry::Symmetry,
 	;
@@ -819,7 +828,7 @@ function projection_matrix_coupled_basis(
 )::Matrix{Float64}
 	Lf = coupled_basislist[1].Lf
 	submatrix_dim = 2 * Lf + 1
-	cluster_atoms::Set{Vector{Int}} = collect_cluster_atoms(coupled_basislist)
+	cluster_atoms::Set{Vector{Int}} = _collect_cluster_atoms(coupled_basislist)
 	nbasis = length(coupled_basislist)
 	full_matrix_dim = nbasis * submatrix_dim
 
@@ -850,15 +859,15 @@ function projection_matrix_coupled_basis(
 			@inbounds for k = 1:N_atoms
 				atoms_shifted_list[k] = symmetry.map_sym[cb1.atoms[k], n]
 			end
-			primitive_atoms = find_translation_atoms(atoms_shifted_list, cluster_atoms, symmetry)
+			primitive_atoms = _find_translation_atoms(atoms_shifted_list, cluster_atoms, symmetry)
 			reordered_cb = reorder_atoms(cb1, primitive_atoms)
 			multiplier = time_rev_sym ? (-1)^sum(reordered_cb.ls) : 1
 			col_range = ((i-1)*submatrix_dim+1):(i*submatrix_dim)
 			for (j, cb2) in enumerate(coupled_basislist)
-				if is_obviously_zero_coupled_basis_product(reordered_cb, cb2)
+				if _is_obviously_zero_coupled_basis_product(reordered_cb, cb2)
 					continue
 				end
-				phase = tensor_inner_product(cb2.coeff_tensor, reordered_cb.coeff_tensor) / (2*Lf+1)
+				phase = _tensor_inner_product(cb2.coeff_tensor, reordered_cb.coeff_tensor) / (2*Lf+1)
 				row_range = ((j-1)*submatrix_dim+1):(j*submatrix_dim)
 				# Scale the base rotation by the phase and the time-reversal sign
 				# (`multiplier == 1` when `!time_rev_sym`) and write in place,
@@ -868,7 +877,7 @@ function projection_matrix_coupled_basis(
 			end
 		end
 
-		if check_irrep_unitary && !is_unitary(representation_mat, tol = 1e-8)
+		if check_irrep_unitary && !_is_unitary(representation_mat, tol = 1e-8)
 			# A unitary irrep requires each per-operation D(g) to be unitary.
 			# The accumulated projector itself is not unitary (it is
 			# idempotent), so the check must run before the average.
@@ -888,7 +897,7 @@ end
 
 
 """
-	is_translationally_equivalent_coupled_basis(
+	_is_translationally_equivalent_coupled_basis(
 		cb1::CoupledBases.CoupledBasis,
 		cb2::CoupledBases.CoupledBasis,
 		symmetry::Symmetry,
@@ -911,7 +920,7 @@ defined in `symmetry.symnum_translation`.
 # Returns
 - `Bool`: `true` if the `CoupledBasis` objects are translationally equivalent, `false` otherwise
 """
-function is_translationally_equivalent_coupled_basis(
+function _is_translationally_equivalent_coupled_basis(
 	cb1::CoupledBases.CoupledBasis,
 	cb2::CoupledBases.CoupledBasis,
 	symmetry::Symmetry,
@@ -987,7 +996,7 @@ end
 
 
 """
-	is_proper_eigenvals(eigenval::AbstractVector; tol = 1e-8)::Bool
+	_is_proper_eigenvals(eigenval::AbstractVector; tol = 1e-8)::Bool
 
 Checks whether all eigenvalues in the given vector are approximately 0 or 1.
 
@@ -1002,18 +1011,18 @@ Checks whether all eigenvalues in the given vector are approximately 0 or 1.
 ```julia
 # Check eigenvalues from a projection matrix
 eigenvals = [0.0, 1.0, 0.0, 1.0]
-is_valid = is_proper_eigenvals(eigenvals)  # true
+is_valid = _is_proper_eigenvals(eigenvals)  # true
 
 # With some tolerance
 eigenvals = [0.0, 1.0 + 1e-9, 0.0, 1.0]
-is_valid = is_proper_eigenvals(eigenvals)  # true
+is_valid = _is_proper_eigenvals(eigenvals)  # true
 
 # Invalid eigenvalues
 eigenvals = [0.0, 1.0, 0.5, 1.0]
-is_valid = is_proper_eigenvals(eigenvals)  # false
+is_valid = _is_proper_eigenvals(eigenvals)  # false
 ```
 """
-function is_proper_eigenvals(eigenval::AbstractVector; tol = 1e-8)::Bool
+function _is_proper_eigenvals(eigenval::AbstractVector; tol = 1e-8)::Bool
 	return all(x -> isapprox(x, 0, atol = tol) || isapprox(x, 1, atol = tol), eigenval)
 end
 
@@ -1022,28 +1031,7 @@ end
 
 
 """
-	is_symmetric(mat::AbstractMatrix{<:Real}; tol::Float64 = 1e-10) -> Bool
-
-Check if a matrix is symmetric (i.e., `A ≈ A'`).
-
-# Arguments
-- `mat::AbstractMatrix{<:Real}`: The matrix to check
-- `tol::Float64`: Tolerance for floating-point comparison (default: 1e-10)
-
-# Returns
-- `Bool`: `true` if the matrix is symmetric within the tolerance, `false` otherwise
-"""
-function is_symmetric(mat::AbstractMatrix{<:Real}; tol::Float64 = 1e-10)::Bool
-	# Check if matrix is square
-	if size(mat, 1) != size(mat, 2)
-		return false
-	end
-	# Check if matrix is symmetric: A ≈ A'
-	return isapprox(mat, mat', atol = tol)
-end
-
-"""
-	is_unitary(mat::AbstractMatrix{<:Real}; tol::Float64 = 1e-10) -> Bool
+	_is_unitary(mat::AbstractMatrix{<:Real}; tol::Float64 = 1e-10) -> Bool
 
 Check if a matrix is unitary (i.e., UᵀU ≈ I and UUᵀ ≈ I within tolerance).
 
@@ -1054,14 +1042,14 @@ Check if a matrix is unitary (i.e., UᵀU ≈ I and UUᵀ ≈ I within tolerance
 # Returns
 - `Bool`: `true` if the matrix is unitary within the tolerance, `false` otherwise
 """
-function is_unitary(mat::AbstractMatrix{<:Real}; tol::Float64 = 1e-10)::Bool
+function _is_unitary(mat::AbstractMatrix{<:Real}; tol::Float64 = 1e-10)::Bool
 	size(mat, 1) == size(mat, 2) || return false
 	return isapprox(mat' * mat, I, atol = tol) && isapprox(mat * mat', I, atol = tol)
 end
 
 
 """
-	filter_basisdict(
+	_filter_basisdict(
 		basisdict::Dict{Int, SortedCounter{CoupledBases.CoupledBasis}},
 		symmetry::Symmetry,
 	) -> Dict{Int, SortedCounter{CoupledBases.CoupledBasis}}
@@ -1105,7 +1093,7 @@ periodic boundary conditions.
   times the same basis appears due to translational symmetry.
 - The input dictionary keys are sorted before processing to ensure deterministic output.
 """
-function filter_basisdict(
+function _filter_basisdict(
 	basisdict::Dict{Int, SortedCounter{CoupledBases.CoupledBasis}},
 	symmetry::Symmetry,
 )::Dict{Int, SortedCounter{CoupledBases.CoupledBasis}}
