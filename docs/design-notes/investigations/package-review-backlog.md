@@ -37,6 +37,15 @@ needs. Sever­ity follows the panel schema (blocker / major / minor).
   a configuration that puts a (near-)zero moment on a SALC-referenced atom,
   catching both a non-magnetic site wrongly pulled into the basis and a
   magnetic site that collapsed to zero. Regression tests added for both.
+- **API — validation + docstrings + convention.** `oszicar_to_embset` now
+  validates `energy_kind in ("f","e0")` up front (was a misleading "energy
+  not found" later); SPEC argument name aligned to `filename`;
+  `Magesty.save` / `load` docstrings completed with `# Returns` / `# Examples`.
+  The "inconsistent docstring sections" finding rested on a wrong premise —
+  the `# Arguments` / `# Keyword arguments` split is the package majority (8
+  modules), not three outliers — so instead of mass-editing, the split style
+  was codified as canonical in `STYLE_GUIDE.md`. `Magesty.jl`'s unified
+  docstrings may converge to it opportunistically; not blocking.
 
 ## Deferred (decision pending)
 
@@ -126,20 +135,10 @@ Setup-time items (lower value, but matter for large supercells):
 
 ## API / UX
 
-- **Major — `energy_kind` not validated upfront.** `VaspIO.jl:644`: an
-  invalid value silently skips every energy line, then fires a generic
-  "energy not found" file error. Guard `energy_kind in ("f","e0")` at the
-  entry point (`oszicar_to_embset`, `VaspConvert.jl:396`).
-- **Major — SPEC vs implementation argument-name mismatch.** `SPEC.md:170`
-  lists `write_gcv_lambda(path, file=...)` but the implementation
-  (`FitCheckIO.jl:233,261`) uses `filename`. Align SPEC to `filename`.
-- **Major — missing docstring sections on `Magesty.save` / `load`.**
-  `Magesty.jl:1823,1873`: no `# Returns` (and `load` no `# Examples`).
-  CLAUDE.md requires the full layout for public symbols.
-- **Major — inconsistent docstring section style.** `VaspConvert.jl`,
-  `VaspSampling.jl`, `SunnyExport.jl` split `# Arguments` /
-  `# Keyword arguments`, while the rest of the package uses a single
-  `# Arguments` section. Merge for consistency.
+The `energy_kind` validation, the SPEC argument-name fix, the
+`Magesty.save` / `load` docstring sections, and the docstring-section
+convention are done (see "Already landed"). Remaining:
+
 - **Minor** — `SpinConfig` docstring lacks `# Examples`
   (`SpinConfigs.jl:52`); `atol_unit_norm::Float64` should be `::Real` with
   internal conversion (`SpinConfigs.jl:110`); `saxis` has no length / norm

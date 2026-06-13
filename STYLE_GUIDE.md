@@ -105,6 +105,29 @@ return (; energy=E, forces=F)
 return (energy=E, forces=F)
 ```
 
+## Docstrings
+
+Public-API docstrings follow the standard Julia format. List positional
+arguments under `# Arguments` and keyword arguments under a separate
+`# Keyword arguments` section, mirroring the `;` in the signature; then
+`# Returns`, and `# Examples`. A `# Throws` section is optional. Omit
+`# Keyword arguments` when the function takes no keyword arguments.
+
+```julia
+"""
+	f(x; scale = 1.0) -> Float64
+
+# Arguments
+- `x::Real`: the input value.
+
+# Keyword arguments
+- `scale::Real = 1.0`: multiplier applied to `x`.
+
+# Returns
+- `Float64`: `scale * x`.
+"""
+```
+
 ## Miscellaneous
 
 - Indent with 4 spaces.

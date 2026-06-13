@@ -1889,8 +1889,17 @@ The path must end in `.xml`; any other extension is an error. Use
 - `f::SCEFit`: Trained fit; saved as `SCEModel(f)`.
 - `path::AbstractString`: Output file path; must end in `.xml`.
 
+# Returns
+- `nothing`. The XML file is written as a side effect.
+
 # Throws
 - `ArgumentError` if `path` does not end in `.xml`.
+
+# Examples
+```julia
+Magesty.save(basis, "basis.xml")
+Magesty.save(model, "model.xml")
+```
 """
 function save(obj::SCEBasis, path::AbstractString)
 	_require_xml_extension(path)
@@ -1939,10 +1948,20 @@ The path must end in `.xml`; any other extension is an error.
 - `T::Type`: `SCEBasis` or `SCEModel`.
 - `path::AbstractString`: Input file path; must end in `.xml`.
 
+# Returns
+- `SCEBasis` or `SCEModel`: the deserialized object, matching the
+  requested type `T`.
+
 # Throws
 - `ArgumentError` if `path` does not end in `.xml`, if a required schema
   attribute is missing, or (for `SCEModel`) if the `<JPhi>` block is
   absent.
+
+# Examples
+```julia
+basis = Magesty.load(SCEBasis, "basis.xml")
+model = Magesty.load(SCEModel, "model.xml")
+```
 """
 function load(::Type{SCEBasis}, path::AbstractString)::SCEBasis
 	_require_xml_extension(path)

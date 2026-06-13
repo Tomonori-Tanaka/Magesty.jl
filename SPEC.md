@@ -167,8 +167,8 @@ gcv_r2(f::SCEFit)                                     # predictive R² = 1 - GCV
 gcv_lambda(dataset, lambdas; torque_weight = 1.0)    # -> GCVLambdaPath (ridge path)
 gcv_learning_curve(dataset, estimator = OLS();             # -> GCVSizeCurve (data sufficiency)
     sizes, repeats = 5, seed = 0, torque_weight = 1.0)
-write_gcv_lambda(path::GCVLambdaPath, file = "gcv_lambda.txt")
-write_gcv_learning_curve(curve::GCVSizeCurve, file = "gcv_learning_curve.txt")
+write_gcv_lambda(path::GCVLambdaPath, filename = "gcv_lambda.txt")
+write_gcv_learning_curve(curve::GCVSizeCurve, filename = "gcv_learning_curve.txt")
 
 # Persistence (XML) — not exported; call through the module to avoid
 # clashing with `save` / `load` from JLD2, FileIO, CSV.jl, etc.
