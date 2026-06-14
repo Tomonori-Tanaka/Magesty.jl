@@ -5,7 +5,7 @@ import Base: isless, ==, hash, show
 export AtomCell
 
 """
-	AtomCell(atom::Int, cell::Int)
+    AtomCell(atom::Int, cell::Int)
 A structure that stores atom index and imaginary (virtual) cell index.
 
 # Fields
@@ -19,8 +19,8 @@ julia> ac = AtomCell(1, 2)
 ```
 """
 struct AtomCell
-	atom::Int
-	cell::Int
+    atom::Int
+    cell::Int
 end
 
 isless(ac1::AtomCell, ac2::AtomCell) = (ac1.atom, ac1.cell) < (ac2.atom, ac2.cell)

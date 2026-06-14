@@ -22,10 +22,10 @@ _resolve_spinconfigs(embset_path::AbstractString) = read_embset(embset_path)
 
 # Per-atom element symbols of the predictor's structure, in atom order.
 function _element_names(model::SCEModel)::Vector{String}
-	structure = model.basis.structure
-	return String[
-		structure.kd_name[kd] for kd in structure.supercell.kd_int_list
-	]
+    structure = model.basis.structure
+    return String[
+        structure.kd_name[kd] for kd in structure.supercell.kd_int_list
+    ]
 end
 
 # --- File writers -------------------------------------------------------
@@ -33,91 +33,91 @@ end
 # Write the energy file: a two-line header followed by one row per
 # configuration with columns `index  DFT_Energy  SCE_Energy` (eV).
 function _write_energy_file(
-	filename::AbstractString,
-	observed::AbstractVector{<:Real},
-	predicted::AbstractVector{<:Real},
+    filename::AbstractString,
+    observed::AbstractVector{<:Real},
+    predicted::AbstractVector{<:Real},
 )::Nothing
-	n_configs = length(observed)
-	length(predicted) == n_configs || throw(ArgumentError(
-		"observed ($n_configs) and predicted ($(length(predicted))) " *
-		"energy counts differ"))
-	idx_width = max(ndigits(n_configs), 1)
-	row_fmt = Printf.Format(" %$(idx_width)d    % 15.10e    % 15.10e\n")
-	try
-		open(filename, "w") do io
-			println(io, "# data index,    DFT_Energy,    SCE_Energy")
-			println(io, "# unit of energy is eV")
-			for i = 1:n_configs
-				Printf.format(io, row_fmt, i, observed[i], predicted[i])
-			end
-		end
-	catch e
-		@error "Failed to write energies to $filename" exception =
-			(e, catch_backtrace())
-		rethrow(e)
-	end
-	return nothing
+    n_configs = length(observed)
+    length(predicted) == n_configs || throw(ArgumentError(
+        "observed ($n_configs) and predicted ($(length(predicted))) " *
+        "energy counts differ"))
+    idx_width = max(ndigits(n_configs), 1)
+    row_fmt = Printf.Format(" %$(idx_width)d    % 15.10e    % 15.10e\n")
+    try
+        open(filename, "w") do io
+            println(io, "# data index,    DFT_Energy,    SCE_Energy")
+            println(io, "# unit of energy is eV")
+            for i = 1:n_configs
+                Printf.format(io, row_fmt, i, observed[i], predicted[i])
+            end
+        end
+    catch e
+        @error "Failed to write energies to $filename" exception =
+            (e, catch_backtrace())
+        rethrow(e)
+    end
+    return nothing
 end
 
 # Write the torque file: a two-line header followed by a `# data index: N`
 # block per configuration, each block holding one row per atom with columns
 # `atom_index  element  DFT_xyz  SCE_xyz` (eV).
 function _write_torque_file(
-	filename::AbstractString,
-	observed::AbstractVector{<:AbstractMatrix{<:Real}},
-	predicted::AbstractVector{<:AbstractMatrix{<:Real}},
-	element_names::AbstractVector{<:AbstractString},
+    filename::AbstractString,
+    observed::AbstractVector{<:AbstractMatrix{<:Real}},
+    predicted::AbstractVector{<:AbstractMatrix{<:Real}},
+    element_names::AbstractVector{<:AbstractString},
 )::Nothing
-	n_configs = length(observed)
-	length(predicted) == n_configs || throw(ArgumentError(
-		"observed ($n_configs) and predicted ($(length(predicted))) " *
-		"torque counts differ"))
-	num_atoms = length(element_names)
-	idx_width = max(ndigits(num_atoms), 1)
-	element_width = isempty(element_names) ? 1 : maximum(length, element_names)
-	row_fmt = Printf.Format(
-		" %$(idx_width)d %$(element_width)s  % 15.10e   % 15.10e   " *
-		"% 15.10e    % 15.10e   % 15.10e   % 15.10e\n")
-	try
-		open(filename, "w") do io
-			println(io,
-				"# atom index,    element,   DFT_torque_x,    " *
-				"DFT_torque_y,    DFT_torque_z,    SCE_torque_x,    " *
-				"SCE_torque_y,    SCE_torque_z")
-			println(io, "# unit of torque is eV")
-			for c = 1:n_configs
-				obs = observed[c]
-				pred = predicted[c]
-				size(obs) == (3, num_atoms) || throw(ArgumentError(
-					"observed torque matrix for configuration $c has size " *
-					"$(size(obs)), expected (3, $num_atoms)"))
-				size(pred) == (3, num_atoms) || throw(ArgumentError(
-					"predicted torque matrix for configuration $c has size " *
-					"$(size(pred)), expected (3, $num_atoms)"))
-				println(io, "# data index: $c")
-				for a = 1:num_atoms
-					Printf.format(io, row_fmt,
-						a, element_names[a],
-						obs[1, a], obs[2, a], obs[3, a],
-						pred[1, a], pred[2, a], pred[3, a])
-				end
-			end
-		end
-	catch e
-		@error "Failed to write torques to $filename" exception =
-			(e, catch_backtrace())
-		rethrow(e)
-	end
-	return nothing
+    n_configs = length(observed)
+    length(predicted) == n_configs || throw(ArgumentError(
+        "observed ($n_configs) and predicted ($(length(predicted))) " *
+        "torque counts differ"))
+    num_atoms = length(element_names)
+    idx_width = max(ndigits(num_atoms), 1)
+    element_width = isempty(element_names) ? 1 : maximum(length, element_names)
+    row_fmt = Printf.Format(
+        " %$(idx_width)d %$(element_width)s  % 15.10e   % 15.10e   " *
+        "% 15.10e    % 15.10e   % 15.10e   % 15.10e\n")
+    try
+        open(filename, "w") do io
+            println(io,
+                "# atom index,    element,   DFT_torque_x,    " *
+                "DFT_torque_y,    DFT_torque_z,    SCE_torque_x,    " *
+                "SCE_torque_y,    SCE_torque_z")
+            println(io, "# unit of torque is eV")
+            for c = 1:n_configs
+                obs = observed[c]
+                pred = predicted[c]
+                size(obs) == (3, num_atoms) || throw(ArgumentError(
+                    "observed torque matrix for configuration $c has size " *
+                    "$(size(obs)), expected (3, $num_atoms)"))
+                size(pred) == (3, num_atoms) || throw(ArgumentError(
+                    "predicted torque matrix for configuration $c has size " *
+                    "$(size(pred)), expected (3, $num_atoms)"))
+                println(io, "# data index: $c")
+                for a = 1:num_atoms
+                    Printf.format(io, row_fmt,
+                        a, element_names[a],
+                        obs[1, a], obs[2, a], obs[3, a],
+                        pred[1, a], pred[2, a], pred[3, a])
+                end
+            end
+        end
+    catch e
+        @error "Failed to write torques to $filename" exception =
+            (e, catch_backtrace())
+        rethrow(e)
+    end
+    return nothing
 end
 
 # --- Public API ---------------------------------------------------------
 
 """
-	write_energies(f::SCEFit, filename::AbstractString = "energy_list.txt")
-	write_energies(predictor::Union{SCEModel, SCEFit},
-	               data::Union{SCEDataset, AbstractVector{SpinConfig}, AbstractString},
-	               filename::AbstractString)
+    write_energies(f::SCEFit, filename::AbstractString = "energy_list.txt")
+    write_energies(predictor::Union{SCEModel, SCEFit},
+                   data::Union{SCEDataset, AbstractVector{SpinConfig}, AbstractString},
+                   filename::AbstractString)
 
 Write observed (DFT) versus predicted (SCE) energies to a text file for
 fit-quality inspection. The output is consumed by the `FitCheck_energy.py`
@@ -155,25 +155,25 @@ write_energies(SCEModel(f), "EMBSET", "E.txt")          # model + EMBSET path
 ```
 """
 write_energies(f::SCEFit, filename::AbstractString = "energy_list.txt")::Nothing =
-	write_energies(SCEModel(f), f.dataset, filename)
+    write_energies(SCEModel(f), f.dataset, filename)
 
 function write_energies(
-	predictor::Union{SCEModel,SCEFit},
-	data::Union{SCEDataset,AbstractVector{SpinConfig},AbstractString},
-	filename::AbstractString,
+    predictor::Union{SCEModel,SCEFit},
+    data::Union{SCEDataset,AbstractVector{SpinConfig},AbstractString},
+    filename::AbstractString,
 )::Nothing
-	model = _resolve_predictor(predictor)
-	spinconfigs = _resolve_spinconfigs(data)
-	observed = Float64[sc.energy for sc in spinconfigs]
-	predicted = predict_energy(model, spinconfigs)
-	return _write_energy_file(filename, observed, predicted)
+    model = _resolve_predictor(predictor)
+    spinconfigs = _resolve_spinconfigs(data)
+    observed = Float64[sc.energy for sc in spinconfigs]
+    predicted = predict_energy(model, spinconfigs)
+    return _write_energy_file(filename, observed, predicted)
 end
 
 """
-	write_torques(f::SCEFit, filename::AbstractString = "torque_list.txt")
-	write_torques(predictor::Union{SCEModel, SCEFit},
-	              data::Union{SCEDataset, AbstractVector{SpinConfig}, AbstractString},
-	              filename::AbstractString)
+    write_torques(f::SCEFit, filename::AbstractString = "torque_list.txt")
+    write_torques(predictor::Union{SCEModel, SCEFit},
+                  data::Union{SCEDataset, AbstractVector{SpinConfig}, AbstractString},
+                  filename::AbstractString)
 
 Write observed (DFT) versus predicted (SCE) per-atom torques to a text file
 for fit-quality inspection. The output is consumed by the `FitCheck_torque.py`
@@ -212,26 +212,26 @@ write_torques(SCEModel(f), "EMBSET", "T.txt")   # model + EMBSET path
 ```
 """
 write_torques(f::SCEFit, filename::AbstractString = "torque_list.txt")::Nothing =
-	write_torques(SCEModel(f), f.dataset, filename)
+    write_torques(SCEModel(f), f.dataset, filename)
 
 function write_torques(
-	predictor::Union{SCEModel,SCEFit},
-	data::Union{SCEDataset,AbstractVector{SpinConfig},AbstractString},
-	filename::AbstractString,
+    predictor::Union{SCEModel,SCEFit},
+    data::Union{SCEDataset,AbstractVector{SpinConfig},AbstractString},
+    filename::AbstractString,
 )::Nothing
-	model = _resolve_predictor(predictor)
-	spinconfigs = _resolve_spinconfigs(data)
-	observed = Matrix{Float64}[sc.torques for sc in spinconfigs]
-	predicted = predict_torque(model, spinconfigs)
-	element_names = _element_names(model)
-	return _write_torque_file(filename, observed, predicted, element_names)
+    model = _resolve_predictor(predictor)
+    spinconfigs = _resolve_spinconfigs(data)
+    observed = Matrix{Float64}[sc.torques for sc in spinconfigs]
+    predicted = predict_torque(model, spinconfigs)
+    element_names = _element_names(model)
+    return _write_torque_file(filename, observed, predicted, element_names)
 end
 
 # --- GCV diagnostic writers ---------------------------------------------
 
 """
-	write_gcv_lambda(path::GCVLambdaPath,
-	                 filename::AbstractString = "gcv_lambda.txt")
+    write_gcv_lambda(path::GCVLambdaPath,
+                     filename::AbstractString = "gcv_lambda.txt")
 
 Write a ridge GCV penalty sweep ([`gcv_lambda`](@ref)) to a text file for
 inspection or plotting. The output is consumed by the `FitCheck_gcv_lambda.py`
@@ -259,35 +259,35 @@ write_gcv_lambda(path, "gcv_lambda.txt")
 ```
 """
 function write_gcv_lambda(
-	path::GCVLambdaPath,
-	filename::AbstractString = "gcv_lambda.txt",
+    path::GCVLambdaPath,
+    filename::AbstractString = "gcv_lambda.txt",
 )::Nothing
-	n = length(path.lambdas)
-	row_fmt = Printf.Format(" % 15.10e    % 15.10e    % 15.10e    % 15.10e\n")
-	try
-		open(filename, "w") do io
-			println(io, "# ridge GCV penalty sweep (gcv_lambda)")
-			println(io, "# torque_weight = ", path.torque_weight,
-				",  lambda_best = ", path.lambda_best)
-			println(io, "# GCV is in the weighted-objective unit (not eV^2);",
-				" GCV_R2 = 1 - GCV/MSY is on a fixed scale (1 perfect, 0 null)")
-			println(io, "# lambda,    GCV,    GCV_R2,    effective_dof")
-			for i = 1:n
-				Printf.format(io, row_fmt,
-					path.lambdas[i], path.gcv_scores[i], path.gcv_r2[i], path.dof[i])
-			end
-		end
-	catch e
-		@error "Failed to write GCV lambda path to $filename" exception =
-			(e, catch_backtrace())
-		rethrow(e)
-	end
-	return nothing
+    n = length(path.lambdas)
+    row_fmt = Printf.Format(" % 15.10e    % 15.10e    % 15.10e    % 15.10e\n")
+    try
+        open(filename, "w") do io
+            println(io, "# ridge GCV penalty sweep (gcv_lambda)")
+            println(io, "# torque_weight = ", path.torque_weight,
+                ",  lambda_best = ", path.lambda_best)
+            println(io, "# GCV is in the weighted-objective unit (not eV^2);",
+                " GCV_R2 = 1 - GCV/MSY is on a fixed scale (1 perfect, 0 null)")
+            println(io, "# lambda,    GCV,    GCV_R2,    effective_dof")
+            for i = 1:n
+                Printf.format(io, row_fmt,
+                    path.lambdas[i], path.gcv_scores[i], path.gcv_r2[i], path.dof[i])
+            end
+        end
+    catch e
+        @error "Failed to write GCV lambda path to $filename" exception =
+            (e, catch_backtrace())
+        rethrow(e)
+    end
+    return nothing
 end
 
 """
-	write_gcv_learning_curve(curve::GCVSizeCurve,
-	                         filename::AbstractString = "gcv_learning_curve.txt")
+    write_gcv_learning_curve(curve::GCVSizeCurve,
+                             filename::AbstractString = "gcv_learning_curve.txt")
 
 Write a data-sufficiency GCV learning curve ([`gcv_learning_curve`](@ref)) to a
 text file for inspection or plotting. The output is consumed by the
@@ -316,31 +316,31 @@ write_gcv_learning_curve(curve, "gcv_learning_curve.txt")
 ```
 """
 function write_gcv_learning_curve(
-	curve::GCVSizeCurve,
-	filename::AbstractString = "gcv_learning_curve.txt",
+    curve::GCVSizeCurve,
+    filename::AbstractString = "gcv_learning_curve.txt",
 )::Nothing
-	n = length(curve.sizes)
-	size_width = max(maximum(ndigits, curve.sizes; init = 1), 4)
-	row_fmt = Printf.Format(" %$(size_width)d    % 15.10e    % 15.10e    % 15.10e    % 15.10e\n")
-	try
-		open(filename, "w") do io
-			println(io, "# data-sufficiency GCV learning curve (gcv_learning_curve)")
-			println(io, "# estimator = ", curve.estimator)
-			println(io, "# torque_weight = ", curve.torque_weight,
-				",  repeats = ", curve.repeats, ",  seed = ", curve.seed)
-			println(io, "# GCV is in the weighted-objective unit (not eV^2);",
-				" GCV_R2 = 1 - GCV/MSY is on a fixed scale (1 perfect, 0 null)")
-			println(io, "# size,    GCV_mean,    GCV_std,    GCV_R2_mean,    GCV_R2_std")
-			for i = 1:n
-				Printf.format(io, row_fmt,
-					curve.sizes[i], curve.gcv_mean[i], curve.gcv_std[i],
-					curve.gcv_r2_mean[i], curve.gcv_r2_std[i])
-			end
-		end
-	catch e
-		@error "Failed to write GCV learning curve to $filename" exception =
-			(e, catch_backtrace())
-		rethrow(e)
-	end
-	return nothing
+    n = length(curve.sizes)
+    size_width = max(maximum(ndigits, curve.sizes; init = 1), 4)
+    row_fmt = Printf.Format(" %$(size_width)d    % 15.10e    % 15.10e    % 15.10e    % 15.10e\n")
+    try
+        open(filename, "w") do io
+            println(io, "# data-sufficiency GCV learning curve (gcv_learning_curve)")
+            println(io, "# estimator = ", curve.estimator)
+            println(io, "# torque_weight = ", curve.torque_weight,
+                ",  repeats = ", curve.repeats, ",  seed = ", curve.seed)
+            println(io, "# GCV is in the weighted-objective unit (not eV^2);",
+                " GCV_R2 = 1 - GCV/MSY is on a fixed scale (1 perfect, 0 null)")
+            println(io, "# size,    GCV_mean,    GCV_std,    GCV_R2_mean,    GCV_R2_std")
+            for i = 1:n
+                Printf.format(io, row_fmt,
+                    curve.sizes[i], curve.gcv_mean[i], curve.gcv_std[i],
+                    curve.gcv_r2_mean[i], curve.gcv_r2_std[i])
+            end
+        end
+    catch e
+        @error "Failed to write GCV learning curve to $filename" exception =
+            (e, catch_backtrace())
+        rethrow(e)
+    end
+    return nothing
 end

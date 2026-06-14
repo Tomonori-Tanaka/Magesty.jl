@@ -1,5 +1,5 @@
 """
-	module TesseralHarmonics
+    module TesseralHarmonics
 
 This module provides functions to compute spherical harmonics ( Y_{l,m} ) and related derivatives, following the formalism described in Drautz (Phys. Rev. B 102, 024104, 2020). It includes:
 
@@ -76,40 +76,40 @@ export Zₗₘ, ∂ᵢZlm
 # non-exported `LegendrePolynomials._unsafednPl!` and `LegendrePolynomials.dPl_recursion`;
 # upstream changes to those internals require updating this helper.
 @inline function _legendre_pair_unsafe!(buf::AbstractVector{Float64},
-		x::Real, l::Integer, am::Integer)::Tuple{Float64,Float64}
-	# dnPl(x, l, n) = 0 when n > l.
-	am > l && return (0.0, 0.0)
-	@boundscheck checkbounds(buf, l - am + 1)
+        x::Real, l::Integer, am::Integer)::Tuple{Float64,Float64}
+    # dnPl(x, l, n) = 0 when n > l.
+    am > l && return (0.0, 0.0)
+    @boundscheck checkbounds(buf, l - am + 1)
 
-	LegendrePolynomials._unsafednPl!(buf, x, l, am)
-	plm_raw = @inbounds buf[l - am + 1]
-	am == l && return (plm_raw, 0.0)
+    LegendrePolynomials._unsafednPl!(buf, x, l, am)
+    plm_raw = @inbounds buf[l - am + 1]
+    am == l && return (plm_raw, 0.0)
 
-	# One extra recurrence step: ni = am + 1.
-	ni = am + 1
-	@inbounds begin
-		P_nim1_nim1 = buf[1]
-		P_ni_ni = LegendrePolynomials.dPl_recursion(
-			Float64, ni, ni, nothing, P_nim1_nim1, nothing, x)
-		buf[1] = P_ni_ni
-		l == ni && return (plm_raw, P_ni_ni)
+    # One extra recurrence step: ni = am + 1.
+    ni = am + 1
+    @inbounds begin
+        P_nim1_nim1 = buf[1]
+        P_ni_ni = LegendrePolynomials.dPl_recursion(
+            Float64, ni, ni, nothing, P_nim1_nim1, nothing, x)
+        buf[1] = P_ni_ni
+        l == ni && return (plm_raw, P_ni_ni)
 
-		P_nim1_ni = buf[2]
-		P_ni_nip1 = LegendrePolynomials.dPl_recursion(
-			Float64, ni + 1, ni, P_ni_ni, P_nim1_ni, nothing, x)
-		buf[2] = P_ni_nip1
-		l == ni + 1 && return (plm_raw, P_ni_nip1)
+        P_nim1_ni = buf[2]
+        P_ni_nip1 = LegendrePolynomials.dPl_recursion(
+            Float64, ni + 1, ni, P_ni_ni, P_nim1_ni, nothing, x)
+        buf[2] = P_ni_nip1
+        l == ni + 1 && return (plm_raw, P_ni_nip1)
 
-		for li in (ni + 2):l
-			P_ni_lim2 = buf[li - ni - 1]
-			P_ni_lim1 = buf[li - ni]
-			P_nim1_lim1 = buf[li - ni + 1]
-			P_ni_li = LegendrePolynomials.dPl_recursion(
-				Float64, li, ni, P_ni_lim1, P_nim1_lim1, P_ni_lim2, x)
-			buf[li - ni + 1] = P_ni_li
-		end
-		return (plm_raw, buf[l - am])
-	end
+        for li in (ni + 2):l
+            P_ni_lim2 = buf[li - ni - 1]
+            P_ni_lim1 = buf[li - ni]
+            P_nim1_lim1 = buf[li - ni + 1]
+            P_ni_li = LegendrePolynomials.dPl_recursion(
+                Float64, li, ni, P_ni_lim1, P_nim1_lim1, P_ni_lim2, x)
+            buf[li - ni + 1] = P_ni_li
+        end
+        return (plm_raw, buf[l - am])
+    end
 end
 
 # Compute sqrt((2l+1)/(4π) * (l-m)!/(l+m)!) avoiding large factorial intermediates.
@@ -123,8 +123,8 @@ end
 end
 
 """
-	P̄ₗₘ(l::Integer, m::Integer, r̂z::Real) -> Float64
-	P̄ₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+    P̄ₗₘ(l::Integer, m::Integer, r̂z::Real) -> Float64
+    P̄ₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
 Compute P̄ₗₘ (Drautz's convention).
 
@@ -155,35 +155,35 @@ P̄ₗₘ(2, 1, [0.0, 0.0, 1.0])  # Vector input
 ```
 """
 function P̄ₗₘ(l::Integer, m::Integer, r̂z::Real)::Float64
-	am = abs(m)
-	return _parity(m) * _plm_norm(l, am) * dnPl(r̂z, l, am)
+    am = abs(m)
+    return _parity(m) * _plm_norm(l, am) * dnPl(r̂z, l, am)
 end
 
 function P̄ₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
-	return P̄ₗₘ(l, m, uvec[3])
+    return P̄ₗₘ(l, m, uvec[3])
 end
 
 # Buffered overload — see the module docstring's "Buffer requirements" section.
 function P̄ₗₘ(l::Integer, m::Integer, r̂z::Real, buf::AbstractVector{Float64})::Float64
-	@boundscheck checkbounds(buf, _required_buf_size(l, m))
-	am = abs(m)
-	return _parity(m) * _plm_norm(l, am) * dnPl(r̂z, l, am, buf)
+    @boundscheck checkbounds(buf, _required_buf_size(l, m))
+    am = abs(m)
+    return _parity(m) * _plm_norm(l, am) * dnPl(r̂z, l, am, buf)
 end
 
 function P̄ₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real},
-		buf::AbstractVector{Float64})::Float64
-	return P̄ₗₘ(l, m, uvec[3], buf)
+        buf::AbstractVector{Float64})::Float64
+    return P̄ₗₘ(l, m, uvec[3], buf)
 end
 
 """
-	dP̄ₗₘ_unsafe(l::Integer, m::Integer, r̂z::Real) -> Float64
+    dP̄ₗₘ_unsafe(l::Integer, m::Integer, r̂z::Real) -> Float64
 
 Derivative ``\\mathrm{d}\\bar{P}_{\\ell m}/\\mathrm{d}\\hat{r}_z`` with **no** validation of
 `l`, `m`, or `r̂z`. See also [`dP̄ₗₘ`](@ref).
 """
 function dP̄ₗₘ_unsafe(l::Integer, m::Integer, r̂z::Real)::Float64
-	am = abs(m)
-	return _parity(m) * _plm_norm(l, am) * dnPl(r̂z, l, am + 1)
+    am = abs(m)
+    return _parity(m) * _plm_norm(l, am) * dnPl(r̂z, l, am + 1)
 end
 
 # Buffered overload — see the module docstring's "Buffer requirements" section.
@@ -191,15 +191,15 @@ end
 # unified `l - |m| + 1` so a single shared buffer covers callers that mix this
 # with `P̄ₗₘ` (e.g. `∂ᵢZlm_unsafe`).
 function dP̄ₗₘ_unsafe(l::Integer, m::Integer, r̂z::Real,
-		buf::AbstractVector{Float64})::Float64
-	@boundscheck checkbounds(buf, _required_buf_size(l, m))
-	am = abs(m)
-	return _parity(m) * _plm_norm(l, am) * dnPl(r̂z, l, am + 1, buf)
+        buf::AbstractVector{Float64})::Float64
+    @boundscheck checkbounds(buf, _required_buf_size(l, m))
+    am = abs(m)
+    return _parity(m) * _plm_norm(l, am) * dnPl(r̂z, l, am + 1, buf)
 end
 
 """
-	dP̄ₗₘ(l::Integer, m::Integer, r̂z::Real) -> Float64
-	dP̄ₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+    dP̄ₗₘ(l::Integer, m::Integer, r̂z::Real) -> Float64
+    dP̄ₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
 Compute the derivative of P̄ₗₘ with respect to r̂z (cos θ).
 
@@ -230,20 +230,20 @@ dP̄ₗₘ(2, 1, [0.0, 0.0, 1.0])  # Vector input
 ```
 """
 function dP̄ₗₘ(l::Integer, m::Integer, r̂z::Real)::Float64
-	validate_lm(l, m)
-	validate_r̂z(r̂z)
-	return dP̄ₗₘ_unsafe(l, m, r̂z)
+    validate_lm(l, m)
+    validate_r̂z(r̂z)
+    return dP̄ₗₘ_unsafe(l, m, r̂z)
 end
 
 function dP̄ₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
-	validate_lm(l, m)
-	validate_uvec(uvec)
-	return dP̄ₗₘ_unsafe(l, m, uvec[3])
+    validate_lm(l, m)
+    validate_uvec(uvec)
+    return dP̄ₗₘ_unsafe(l, m, uvec[3])
 end
 
 
 """
-	Yₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex{Float64}
+    Yₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex{Float64}
 
 Compute the complex spherical harmonic Yₗₘ(θ,φ).
 
@@ -278,13 +278,13 @@ Yₗₘ(1, 1, [1.0, 0.0, 0.0])
 ```
 """
 function Yₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Complex
-	validate_lm(l, m)
-	validate_uvec(uvec)
-	return Yₗₘ_unsafe(l, m, uvec)
+    validate_lm(l, m)
+    validate_uvec(uvec)
+    return Yₗₘ_unsafe(l, m, uvec)
 end
 
 """
-	Yₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex
+    Yₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex
 
 Same as [`Yₗₘ`](@ref) but **does not** validate `l`, `m`, or `uvec`. Caller must ensure
 `-l ≤ m ≤ l`, `l ≥ 0`, and `uvec` is a length-3 unit vector (within numerical tolerance
@@ -294,34 +294,34 @@ Use after a single upfront `validate_lm` / `validate_uvec`, or when inputs come 
 invariants elsewhere.
 """
 function Yₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Complex
-	n = abs(m)
-	plm = P̄ₗₘ(l, n, uvec[3])
-	if m < 0
-		return _parity(n) * ComplexF64(uvec[1], -uvec[2])^n * plm
-	else
-		return ComplexF64(uvec[1], uvec[2])^n * plm
-	end
+    n = abs(m)
+    plm = P̄ₗₘ(l, n, uvec[3])
+    if m < 0
+        return _parity(n) * ComplexF64(uvec[1], -uvec[2])^n * plm
+    else
+        return ComplexF64(uvec[1], uvec[2])^n * plm
+    end
 end
 
 """
-	∂Yₗₘ_∂r̂x_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex{Float64}
+    ∂Yₗₘ_∂r̂x_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex{Float64}
 
 Same as [`∂Yₗₘ_∂r̂x`](@ref) without validating `l`, `m`, or `uvec`.
 """
 function ∂Yₗₘ_∂r̂x_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Complex{Float64}
-	m == 0 && return Complex{Float64}(0)
-	n = abs(m)
-	plm = P̄ₗₘ(l, n, uvec[3])
-	z_xy = if m < 0
-		ComplexF64(uvec[1], -uvec[2])
-	else
-		ComplexF64(uvec[1], uvec[2])
-	end
-	return (m < 0 ? (-1)^n * n : m) * z_xy^(n - 1) * plm
+    m == 0 && return Complex{Float64}(0)
+    n = abs(m)
+    plm = P̄ₗₘ(l, n, uvec[3])
+    z_xy = if m < 0
+        ComplexF64(uvec[1], -uvec[2])
+    else
+        ComplexF64(uvec[1], uvec[2])
+    end
+    return (m < 0 ? (-1)^n * n : m) * z_xy^(n - 1) * plm
 end
 
 """
-	∂Yₗₘ_∂r̂x(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex{Float64}
+    ∂Yₗₘ_∂r̂x(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex{Float64}
 
 Compute the partial derivative of Yₗₘ with respect to r̂x.
 
@@ -348,24 +348,24 @@ Reference: Equation (D18) in R. Drautz, Phys. Rev. B 102, 024104 (2020)
 - For hot paths, use [`∂Yₗₘ_∂r̂x_unsafe`](@ref).
 """
 function ∂Yₗₘ_∂r̂x(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Complex{Float64}
-	validate_lm(l, m)
-	validate_uvec(uvec)
-	return ∂Yₗₘ_∂r̂x_unsafe(l, m, uvec)
+    validate_lm(l, m)
+    validate_uvec(uvec)
+    return ∂Yₗₘ_∂r̂x_unsafe(l, m, uvec)
 end
 
 """
-	∂Yₗₘ_∂r̂y_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex{Float64}
+    ∂Yₗₘ_∂r̂y_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex{Float64}
 
 Same as [`∂Yₗₘ_∂r̂y`](@ref) without validating `l`, `m`, or `uvec`.
 """
 function ∂Yₗₘ_∂r̂y_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Complex{Float64}
-	m == 0 && return Complex{Float64}(0)
-	im_factor = m < 0 ? -im : im
-	return im_factor * ∂Yₗₘ_∂r̂x_unsafe(l, m, uvec)
+    m == 0 && return Complex{Float64}(0)
+    im_factor = m < 0 ? -im : im
+    return im_factor * ∂Yₗₘ_∂r̂x_unsafe(l, m, uvec)
 end
 
 """
-	∂Yₗₘ_∂r̂y(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex{Float64}
+    ∂Yₗₘ_∂r̂y(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex{Float64}
 
 Compute the partial derivative of Yₗₘ with respect to r̂y.
 
@@ -388,30 +388,30 @@ Reference: Equation (D19) in R. Drautz, Phys. Rev. B 102, 024104 (2020)
 - For hot paths, use [`∂Yₗₘ_∂r̂y_unsafe`](@ref).
 """
 function ∂Yₗₘ_∂r̂y(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Complex{Float64}
-	validate_lm(l, m)
-	validate_uvec(uvec)
-	return ∂Yₗₘ_∂r̂y_unsafe(l, m, uvec)
+    validate_lm(l, m)
+    validate_uvec(uvec)
+    return ∂Yₗₘ_∂r̂y_unsafe(l, m, uvec)
 end
 
 """
-	∂Yₗₘ_∂r̂z_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex{Float64}
+    ∂Yₗₘ_∂r̂z_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex{Float64}
 
 Same as [`∂Yₗₘ_∂r̂z`](@ref) without validating `l`, `m`, or `uvec`.
 """
 function ∂Yₗₘ_∂r̂z_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Complex{Float64}
-	n = abs(m)
-	dplm = dP̄ₗₘ_unsafe(l, n, uvec[3])
-	z_xy = if m < 0
-		ComplexF64(uvec[1], -uvec[2])
-	else
-		ComplexF64(uvec[1], uvec[2])
-	end
-	phase = m < 0 ? (-1)^n : 1
-	return phase * z_xy^n * dplm
+    n = abs(m)
+    dplm = dP̄ₗₘ_unsafe(l, n, uvec[3])
+    z_xy = if m < 0
+        ComplexF64(uvec[1], -uvec[2])
+    else
+        ComplexF64(uvec[1], uvec[2])
+    end
+    phase = m < 0 ? (-1)^n : 1
+    return phase * z_xy^n * dplm
 end
 
 """
-	∂Yₗₘ_∂r̂z(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex{Float64}
+    ∂Yₗₘ_∂r̂z(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex{Float64}
 
 Compute the partial derivative of complex spherical harmonic Yₗₘ with respect to r̂z.
 
@@ -437,24 +437,24 @@ Reference: Equation (D20) in R. Drautz, Phys. Rev. B 102, 024104 (2020)
 - For hot paths, use [`∂Yₗₘ_∂r̂z_unsafe`](@ref).
 """
 function ∂Yₗₘ_∂r̂z(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Complex{Float64}
-	validate_lm(l, m)
-	validate_uvec(uvec)
-	return ∂Yₗₘ_∂r̂z_unsafe(l, m, uvec)
+    validate_lm(l, m)
+    validate_uvec(uvec)
+    return ∂Yₗₘ_∂r̂z_unsafe(l, m, uvec)
 end
 
 """
-	yₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex
+    yₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex
 
 Same as [`yₗₘ`](@ref) without validating `l`, `m`, or `uvec`.
 """
 function yₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Complex
-	return uvec[1] * ∂Yₗₘ_∂r̂x_unsafe(l, m, uvec) +
-		   uvec[2] * ∂Yₗₘ_∂r̂y_unsafe(l, m, uvec) +
-		   uvec[3] * ∂Yₗₘ_∂r̂z_unsafe(l, m, uvec)
+    return uvec[1] * ∂Yₗₘ_∂r̂x_unsafe(l, m, uvec) +
+           uvec[2] * ∂Yₗₘ_∂r̂y_unsafe(l, m, uvec) +
+           uvec[3] * ∂Yₗₘ_∂r̂z_unsafe(l, m, uvec)
 end
 
 """
-	yₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex{Float64}
+    yₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Complex{Float64}
 
 Compute the directional derivative (uvec ⋅ ∇)Yₗₘ.
 
@@ -467,13 +467,13 @@ Reference: Equation (D22) in R. Drautz, Phys. Rev. B 102, 024104 (2020)
 - For hot paths, use [`yₗₘ_unsafe`](@ref).
 """
 function yₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Complex
-	validate_lm(l, m)
-	validate_uvec(uvec)
-	return yₗₘ_unsafe(l, m, uvec)
+    validate_lm(l, m)
+    validate_uvec(uvec)
+    return yₗₘ_unsafe(l, m, uvec)
 end
 
 """
-	Zₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+    Zₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
 Compute the tesseral harmonic Zₗₘ.
 
@@ -496,31 +496,31 @@ technical notes at https://Tomonori-Tanaka.github.io/Magesty.jl/technical_notes/
 - For repeated calls with inputs already checked, use [`Zₗₘ_unsafe`](@ref).
 """
 function Zₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
-	validate_lm(l, m)
-	validate_uvec(uvec)
-	return Zₗₘ_unsafe(l, m, uvec)
+    validate_lm(l, m)
+    validate_uvec(uvec)
+    return Zₗₘ_unsafe(l, m, uvec)
 end
 
 """
-	Zₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+    Zₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
 Same as [`Zₗₘ`](@ref) but **does not** validate `l`, `m`, or `uvec`. Caller must ensure
 `-l ≤ m ≤ l`, `l ≥ 0`, and `uvec` is a length-3 unit vector. Violations may produce wrong
 results or errors from lower-level code.
 """
 function Zₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
-	m == 0 && return P̄ₗₘ(l, 0, uvec[3])
+    m == 0 && return P̄ₗₘ(l, 0, uvec[3])
 
-	n = abs(m)
-	plm = P̄ₗₘ(l, n, uvec[3])
-	c = _parity(n) * √2 * plm
-	z_pow = ComplexF64(uvec[1], uvec[2])^n
+    n = abs(m)
+    plm = P̄ₗₘ(l, n, uvec[3])
+    c = _parity(n) * √2 * plm
+    z_pow = ComplexF64(uvec[1], uvec[2])^n
 
-	return m > 0 ? c * real(z_pow) : c * imag(z_pow)
+    return m > 0 ? c * real(z_pow) : c * imag(z_pow)
 end
 
 """
-	Zₗₘ_unsafe(l, m, uvec, buf::AbstractVector{Float64}) -> Float64
+    Zₗₘ_unsafe(l, m, uvec, buf::AbstractVector{Float64}) -> Float64
 
 Buffered variant of [`Zₗₘ_unsafe`](@ref) that reuses `buf` as the cache for
 `LegendrePolynomials.dnPl`, eliminating the per-call heap allocation.
@@ -529,34 +529,34 @@ Numerical result is identical to the unbuffered method.
 See the module docstring's "Buffer requirements" section for `buf` sizing.
 """
 function Zₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real},
-		buf::AbstractVector{Float64})::Float64
-	@boundscheck checkbounds(buf, _required_buf_size(l, m))
-	m == 0 && return P̄ₗₘ(l, 0, uvec[3], buf)
+        buf::AbstractVector{Float64})::Float64
+    @boundscheck checkbounds(buf, _required_buf_size(l, m))
+    m == 0 && return P̄ₗₘ(l, 0, uvec[3], buf)
 
-	n = abs(m)
-	plm = P̄ₗₘ(l, n, uvec[3], buf)
-	c = _parity(n) * √2 * plm
-	z_pow = ComplexF64(uvec[1], uvec[2])^n
+    n = abs(m)
+    plm = P̄ₗₘ(l, n, uvec[3], buf)
+    c = _parity(n) * √2 * plm
+    z_pow = ComplexF64(uvec[1], uvec[2])^n
 
-	return m > 0 ? c * real(z_pow) : c * imag(z_pow)
+    return m > 0 ? c * real(z_pow) : c * imag(z_pow)
 end
 
 """
-	∂Zₗₘ_∂r̂x_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+    ∂Zₗₘ_∂r̂x_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
 Same as [`∂Zₗₘ_∂r̂x`](@ref) without validating `l`, `m`, or `uvec`.
 """
 function ∂Zₗₘ_∂r̂x_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
-	m == 0 && return 0.0
-	n = abs(m)
-	plm = P̄ₗₘ(l, n, uvec[3])
-	c = _parity(n) * √2 * n * plm
-	z_pow_n1 = ComplexF64(uvec[1], uvec[2])^(n - 1)
-	return m > 0 ? c * real(z_pow_n1) : c * imag(z_pow_n1)
+    m == 0 && return 0.0
+    n = abs(m)
+    plm = P̄ₗₘ(l, n, uvec[3])
+    c = _parity(n) * √2 * n * plm
+    z_pow_n1 = ComplexF64(uvec[1], uvec[2])^(n - 1)
+    return m > 0 ? c * real(z_pow_n1) : c * imag(z_pow_n1)
 end
 
 """
-	∂Zₗₘ_∂r̂x(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+    ∂Zₗₘ_∂r̂x(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
 Compute the partial derivative of tesseral harmonic Zₗₘ with respect to r̂x.
 
@@ -583,27 +583,27 @@ technical notes at https://Tomonori-Tanaka.github.io/Magesty.jl/technical_notes/
 - For hot paths, use [`∂Zₗₘ_∂r̂x_unsafe`](@ref).
 """
 function ∂Zₗₘ_∂r̂x(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
-	validate_lm(l, m)
-	validate_uvec(uvec)
-	return ∂Zₗₘ_∂r̂x_unsafe(l, m, uvec)
+    validate_lm(l, m)
+    validate_uvec(uvec)
+    return ∂Zₗₘ_∂r̂x_unsafe(l, m, uvec)
 end
 
 """
-	∂Zₗₘ_∂r̂y_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+    ∂Zₗₘ_∂r̂y_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
 Same as [`∂Zₗₘ_∂r̂y`](@ref) without validating `l`, `m`, or `uvec`.
 """
 function ∂Zₗₘ_∂r̂y_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
-	m == 0 && return 0.0
-	n = abs(m)
-	plm = P̄ₗₘ(l, n, uvec[3])
-	c = _parity(n) * √2 * n * plm
-	z_pow_n1 = ComplexF64(uvec[1], uvec[2])^(n - 1)
-	return m > 0 ? -c * imag(z_pow_n1) : c * real(z_pow_n1)
+    m == 0 && return 0.0
+    n = abs(m)
+    plm = P̄ₗₘ(l, n, uvec[3])
+    c = _parity(n) * √2 * n * plm
+    z_pow_n1 = ComplexF64(uvec[1], uvec[2])^(n - 1)
+    return m > 0 ? -c * imag(z_pow_n1) : c * real(z_pow_n1)
 end
 
 """
-	∂Zₗₘ_∂r̂y(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+    ∂Zₗₘ_∂r̂y(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
 Compute the partial derivative of tesseral harmonic Zₗₘ with respect to r̂y.
 
@@ -626,27 +626,27 @@ magnetic quantum number inversion, reducing computational complexity.
 For hot paths, use [`∂Zₗₘ_∂r̂y_unsafe`](@ref).
 """
 function ∂Zₗₘ_∂r̂y(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
-	validate_lm(l, m)
-	validate_uvec(uvec)
-	return ∂Zₗₘ_∂r̂y_unsafe(l, m, uvec)
+    validate_lm(l, m)
+    validate_uvec(uvec)
+    return ∂Zₗₘ_∂r̂y_unsafe(l, m, uvec)
 end
 
 """
-	∂Zₗₘ_∂r̂z_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+    ∂Zₗₘ_∂r̂z_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
 Same as [`∂Zₗₘ_∂r̂z`](@ref) without validating `l`, `m`, or `uvec`.
 """
 function ∂Zₗₘ_∂r̂z_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
-	n = abs(m)
-	dplm = dP̄ₗₘ_unsafe(l, n, uvec[3])
-	m == 0 && return dplm
-	c = _parity(n) * √2 * dplm
-	z_pow = ComplexF64(uvec[1], uvec[2])^n
-	return m > 0 ? c * real(z_pow) : c * imag(z_pow)
+    n = abs(m)
+    dplm = dP̄ₗₘ_unsafe(l, n, uvec[3])
+    m == 0 && return dplm
+    c = _parity(n) * √2 * dplm
+    z_pow = ComplexF64(uvec[1], uvec[2])^n
+    return m > 0 ? c * real(z_pow) : c * imag(z_pow)
 end
 
 """
-	∂Zₗₘ_∂r̂z(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+    ∂Zₗₘ_∂r̂z(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
 Compute the partial derivative of tesseral harmonic Zₗₘ with respect to r̂z.
 
@@ -669,21 +669,21 @@ where n = |m| and (n,k) denotes binomial coefficient.
 - For hot paths, use [`∂Zₗₘ_∂r̂z_unsafe`](@ref).
 """
 function ∂Zₗₘ_∂r̂z(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
-	validate_lm(l, m)
-	validate_uvec(uvec)
-	return ∂Zₗₘ_∂r̂z_unsafe(l, m, uvec)
+    validate_lm(l, m)
+    validate_uvec(uvec)
+    return ∂Zₗₘ_∂r̂z_unsafe(l, m, uvec)
 end
 
 """
-	zzₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+    zzₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
 Same as [`zzₗₘ`](@ref) (directional derivative ``\\hat{r}\\cdot\\nabla Z_{\\ell m}`` in the
 tangent frame) without validating `l`, `m`, or `uvec`.
 """
 function zzₗₘ_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
-	return uvec[1] * ∂Zₗₘ_∂r̂x_unsafe(l, m, uvec) +
-		   uvec[2] * ∂Zₗₘ_∂r̂y_unsafe(l, m, uvec) +
-		   uvec[3] * ∂Zₗₘ_∂r̂z_unsafe(l, m, uvec)
+    return uvec[1] * ∂Zₗₘ_∂r̂x_unsafe(l, m, uvec) +
+           uvec[2] * ∂Zₗₘ_∂r̂y_unsafe(l, m, uvec) +
+           uvec[3] * ∂Zₗₘ_∂r̂z_unsafe(l, m, uvec)
 end
 
 """
@@ -704,94 +704,94 @@ Radial directional derivative ``\\hat{r}\\cdot\\nabla Z_{\\ell m}`` of the real
 - For hot paths, use [`zzₗₘ_unsafe`](@ref).
 """
 function zzₗₘ(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
-	validate_lm(l, m)
-	validate_uvec(uvec)
-	return zzₗₘ_unsafe(l, m, uvec)
+    validate_lm(l, m)
+    validate_uvec(uvec)
+    return zzₗₘ_unsafe(l, m, uvec)
 end
 
 """
-	∂Zₗₘ_∂x_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+    ∂Zₗₘ_∂x_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
 Same as [`∂Zₗₘ_∂x`](@ref) without validating `l`, `m`, or `uvec`.
 """
 function ∂Zₗₘ_∂x_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
-	return ∂Zₗₘ_∂r̂x_unsafe(l, m, uvec) - uvec[1] * zzₗₘ_unsafe(l, m, uvec)
+    return ∂Zₗₘ_∂r̂x_unsafe(l, m, uvec) - uvec[1] * zzₗₘ_unsafe(l, m, uvec)
 end
 
 function ∂Zₗₘ_∂x(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
-	validate_lm(l, m)
-	validate_uvec(uvec)
-	return ∂Zₗₘ_∂x_unsafe(l, m, uvec)
+    validate_lm(l, m)
+    validate_uvec(uvec)
+    return ∂Zₗₘ_∂x_unsafe(l, m, uvec)
 end
 
 """
-	∂Zₗₘ_∂y_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+    ∂Zₗₘ_∂y_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
 Same as [`∂Zₗₘ_∂y`](@ref) without validating `l`, `m`, or `uvec`.
 """
 function ∂Zₗₘ_∂y_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
-	return ∂Zₗₘ_∂r̂y_unsafe(l, m, uvec) - uvec[2] * zzₗₘ_unsafe(l, m, uvec)
+    return ∂Zₗₘ_∂r̂y_unsafe(l, m, uvec) - uvec[2] * zzₗₘ_unsafe(l, m, uvec)
 end
 
 function ∂Zₗₘ_∂y(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
-	validate_lm(l, m)
-	validate_uvec(uvec)
-	return ∂Zₗₘ_∂y_unsafe(l, m, uvec)
+    validate_lm(l, m)
+    validate_uvec(uvec)
+    return ∂Zₗₘ_∂y_unsafe(l, m, uvec)
 end
 
 """
-	∂Zₗₘ_∂z_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
+    ∂Zₗₘ_∂z_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Float64
 
 Same as [`∂Zₗₘ_∂z`](@ref) without validating `l`, `m`, or `uvec`.
 """
 function ∂Zₗₘ_∂z_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
-	return ∂Zₗₘ_∂r̂z_unsafe(l, m, uvec) - uvec[3] * zzₗₘ_unsafe(l, m, uvec)
+    return ∂Zₗₘ_∂r̂z_unsafe(l, m, uvec) - uvec[3] * zzₗₘ_unsafe(l, m, uvec)
 end
 
 function ∂Zₗₘ_∂z(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Float64
-	validate_lm(l, m)
-	validate_uvec(uvec)
-	return ∂Zₗₘ_∂z_unsafe(l, m, uvec)
+    validate_lm(l, m)
+    validate_uvec(uvec)
+    return ∂Zₗₘ_∂z_unsafe(l, m, uvec)
 end
 
 """
-	∂ᵢZlm_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> SVector{3,Float64}
+    ∂ᵢZlm_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> SVector{3,Float64}
 
 Same as [`∂ᵢZlm`](@ref) without validating `l`, `m`, or `uvec`.
 """
 function ∂ᵢZlm_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::SVector{3,Float64}
-	x, y, z = uvec[1], uvec[2], uvec[3]
-	n = abs(m)
-	plm  = P̄ₗₘ(l, n, z)
-	dplm = dP̄ₗₘ_unsafe(l, n, z)
+    x, y, z = uvec[1], uvec[2], uvec[3]
+    n = abs(m)
+    plm  = P̄ₗₘ(l, n, z)
+    dplm = dP̄ₗₘ_unsafe(l, n, z)
 
-	if m == 0
-		# ∂r̂x = ∂r̂y = 0, ∂r̂z = dplm  →  zzₗₘ = z * dplm
-		zz = z * dplm
-		return SVector{3,Float64}(-x * zz, -y * zz, dplm - z * zz)
-	end
+    if m == 0
+        # ∂r̂x = ∂r̂y = 0, ∂r̂z = dplm  →  zzₗₘ = z * dplm
+        zz = z * dplm
+        return SVector{3,Float64}(-x * zz, -y * zz, dplm - z * zz)
+    end
 
-	c = _parity(n) * √2
-	z_xy     = ComplexF64(x, y)
-	z_pow_n  = z_xy^n
-	z_pow_n1 = z_xy^(n - 1)
-	rn  = real(z_pow_n);  in_  = imag(z_pow_n)
-	rn1 = real(z_pow_n1); in1  = imag(z_pow_n1)
+    c = _parity(n) * √2
+    z_xy     = ComplexF64(x, y)
+    z_pow_n  = z_xy^n
+    z_pow_n1 = z_xy^(n - 1)
+    rn  = real(z_pow_n);  in_  = imag(z_pow_n)
+    rn1 = real(z_pow_n1); in1  = imag(z_pow_n1)
 
-	# ∂r̂ components of Zₗₘ
-	dZx, dZy, dZz = if m > 0
-		(c * n * plm * rn1, -c * n * plm * in1, c * dplm * rn)
-	else
-		(c * n * plm * in1,  c * n * plm * rn1, c * dplm * in_)
-	end
+    # ∂r̂ components of Zₗₘ
+    dZx, dZy, dZz = if m > 0
+        (c * n * plm * rn1, -c * n * plm * in1, c * dplm * rn)
+    else
+        (c * n * plm * in1,  c * n * plm * rn1, c * dplm * in_)
+    end
 
-	# zzₗₘ = r̂ ⋅ ∂r̂Z  (computed once, used three times)
-	zz = x * dZx + y * dZy + z * dZz
-	return SVector{3,Float64}(dZx - x * zz, dZy - y * zz, dZz - z * zz)
+    # zzₗₘ = r̂ ⋅ ∂r̂Z  (computed once, used three times)
+    zz = x * dZx + y * dZy + z * dZz
+    return SVector{3,Float64}(dZx - x * zz, dZy - y * zz, dZz - z * zz)
 end
 
 """
-	∂ᵢZlm_unsafe(l, m, uvec, buf::AbstractVector{Float64}) -> SVector{3,Float64}
+    ∂ᵢZlm_unsafe(l, m, uvec, buf::AbstractVector{Float64}) -> SVector{3,Float64}
 
 Buffered variant of [`∂ᵢZlm_unsafe`](@ref). `buf` is reused as the cache for
 both the `P̄ₗₘ` and `dP̄ₗₘ_unsafe` computations through a single
@@ -803,40 +803,40 @@ When the value `Zₗₘ` is also needed at the same `(l, m, uvec)`, prefer
 block mirrors this function — keep them in sync).
 """
 function ∂ᵢZlm_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real},
-		buf::AbstractVector{Float64})::SVector{3,Float64}
-	@boundscheck checkbounds(buf, _required_buf_size(l, m))
-	x, y, z = uvec[1], uvec[2], uvec[3]
-	n = abs(m)
-	# Single cache build covers both raw Legendre values.
-	plm_raw, dplm_raw = _legendre_pair_unsafe!(buf, z, l, n)
-	norm = _plm_norm(l, n)
-	plm  = _parity(n) * norm * plm_raw
-	dplm = _parity(n) * norm * dplm_raw
+        buf::AbstractVector{Float64})::SVector{3,Float64}
+    @boundscheck checkbounds(buf, _required_buf_size(l, m))
+    x, y, z = uvec[1], uvec[2], uvec[3]
+    n = abs(m)
+    # Single cache build covers both raw Legendre values.
+    plm_raw, dplm_raw = _legendre_pair_unsafe!(buf, z, l, n)
+    norm = _plm_norm(l, n)
+    plm  = _parity(n) * norm * plm_raw
+    dplm = _parity(n) * norm * dplm_raw
 
-	if m == 0
-		zz = z * dplm
-		return SVector{3,Float64}(-x * zz, -y * zz, dplm - z * zz)
-	end
+    if m == 0
+        zz = z * dplm
+        return SVector{3,Float64}(-x * zz, -y * zz, dplm - z * zz)
+    end
 
-	c = _parity(n) * √2
-	z_xy     = ComplexF64(x, y)
-	z_pow_n  = z_xy^n
-	z_pow_n1 = z_xy^(n - 1)
-	rn  = real(z_pow_n);  in_  = imag(z_pow_n)
-	rn1 = real(z_pow_n1); in1  = imag(z_pow_n1)
+    c = _parity(n) * √2
+    z_xy     = ComplexF64(x, y)
+    z_pow_n  = z_xy^n
+    z_pow_n1 = z_xy^(n - 1)
+    rn  = real(z_pow_n);  in_  = imag(z_pow_n)
+    rn1 = real(z_pow_n1); in1  = imag(z_pow_n1)
 
-	dZx, dZy, dZz = if m > 0
-		(c * n * plm * rn1, -c * n * plm * in1, c * dplm * rn)
-	else
-		(c * n * plm * in1,  c * n * plm * rn1, c * dplm * in_)
-	end
+    dZx, dZy, dZz = if m > 0
+        (c * n * plm * rn1, -c * n * plm * in1, c * dplm * rn)
+    else
+        (c * n * plm * in1,  c * n * plm * rn1, c * dplm * in_)
+    end
 
-	zz = x * dZx + y * dZy + z * dZz
-	return SVector{3,Float64}(dZx - x * zz, dZy - y * zz, dZz - z * zz)
+    zz = x * dZx + y * dZy + z * dZz
+    return SVector{3,Float64}(dZx - x * zz, dZy - y * zz, dZz - z * zz)
 end
 
 """
-	Zₗₘ_grad_unsafe(l, m, uvec, buf) -> Tuple{Float64, SVector{3,Float64}}
+    Zₗₘ_grad_unsafe(l, m, uvec, buf) -> Tuple{Float64, SVector{3,Float64}}
 
 Combined value and Cartesian gradient `(Zₗₘ, ∇Zₗₘ)` from a single
 `_legendre_pair_unsafe!` call. The result is bit-identical to calling
@@ -857,45 +857,45 @@ every `(l, m, atom)`, this avoids rebuilding the Legendre recursion twice.
   Cartesian gradient `∇Zₗₘ` (equal to `∂ᵢZlm_unsafe(l, m, uvec, buf)`).
 """
 @inline function Zₗₘ_grad_unsafe(l::Integer, m::Integer, uvec::AbstractVector{<:Real},
-		buf::AbstractVector{Float64})::Tuple{Float64, SVector{3,Float64}}
-	@boundscheck checkbounds(buf, _required_buf_size(l, m))
-	x, y, z = uvec[1], uvec[2], uvec[3]
-	n = abs(m)
-	# Single cache build covers both raw Legendre values, shared by Z and ∂Z.
-	plm_raw, dplm_raw = _legendre_pair_unsafe!(buf, z, l, n)
-	norm = _plm_norm(l, n)
-	plm  = _parity(n) * norm * plm_raw
-	dplm = _parity(n) * norm * dplm_raw
+        buf::AbstractVector{Float64})::Tuple{Float64, SVector{3,Float64}}
+    @boundscheck checkbounds(buf, _required_buf_size(l, m))
+    x, y, z = uvec[1], uvec[2], uvec[3]
+    n = abs(m)
+    # Single cache build covers both raw Legendre values, shared by Z and ∂Z.
+    plm_raw, dplm_raw = _legendre_pair_unsafe!(buf, z, l, n)
+    norm = _plm_norm(l, n)
+    plm  = _parity(n) * norm * plm_raw
+    dplm = _parity(n) * norm * dplm_raw
 
-	if m == 0
-		# Z = P̄ₗₘ(l, 0, z) = plm (parity(0) = 1); gradient as in ∂ᵢZlm_unsafe.
-		zz = z * dplm
-		return (plm, SVector{3,Float64}(-x * zz, -y * zz, dplm - z * zz))
-	end
+    if m == 0
+        # Z = P̄ₗₘ(l, 0, z) = plm (parity(0) = 1); gradient as in ∂ᵢZlm_unsafe.
+        zz = z * dplm
+        return (plm, SVector{3,Float64}(-x * zz, -y * zz, dplm - z * zz))
+    end
 
-	c = _parity(n) * √2
-	z_xy     = ComplexF64(x, y)
-	z_pow_n  = z_xy^n
-	z_pow_n1 = z_xy^(n - 1)
-	rn  = real(z_pow_n);  in_  = imag(z_pow_n)
-	rn1 = real(z_pow_n1); in1  = imag(z_pow_n1)
+    c = _parity(n) * √2
+    z_xy     = ComplexF64(x, y)
+    z_pow_n  = z_xy^n
+    z_pow_n1 = z_xy^(n - 1)
+    rn  = real(z_pow_n);  in_  = imag(z_pow_n)
+    rn1 = real(z_pow_n1); in1  = imag(z_pow_n1)
 
-	# Z: identical expression to `Zₗₘ_unsafe` (cZ = _parity(n) * √2 * plm).
-	cZ = c * plm
-	Z = m > 0 ? cZ * rn : cZ * in_
+    # Z: identical expression to `Zₗₘ_unsafe` (cZ = _parity(n) * √2 * plm).
+    cZ = c * plm
+    Z = m > 0 ? cZ * rn : cZ * in_
 
-	dZx, dZy, dZz = if m > 0
-		(c * n * plm * rn1, -c * n * plm * in1, c * dplm * rn)
-	else
-		(c * n * plm * in1,  c * n * plm * rn1, c * dplm * in_)
-	end
+    dZx, dZy, dZz = if m > 0
+        (c * n * plm * rn1, -c * n * plm * in1, c * dplm * rn)
+    else
+        (c * n * plm * in1,  c * n * plm * rn1, c * dplm * in_)
+    end
 
-	zz = x * dZx + y * dZy + z * dZz
-	return (Z, SVector{3,Float64}(dZx - x * zz, dZy - y * zz, dZz - z * zz))
+    zz = x * dZx + y * dZy + z * dZz
+    return (Z, SVector{3,Float64}(dZx - x * zz, dZy - y * zz, dZz - z * zz))
 end
 
 """
-	∂ᵢZlm(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Vector{Float64}
+    ∂ᵢZlm(l::Integer, m::Integer, uvec::AbstractVector{<:Real}) -> Vector{Float64}
 
 Cartesian gradient ``(\\partial_x Z_{\\ell m}, \\partial_y Z_{\\ell m}, \\partial_z Z_{\\ell m})``.
 
@@ -903,13 +903,13 @@ Cartesian gradient ``(\\partial_x Z_{\\ell m}, \\partial_y Z_{\\ell m}, \\partia
 - For hot paths, use [`∂ᵢZlm_unsafe`](@ref).
 """
 function ∂ᵢZlm(l::Integer, m::Integer, uvec::AbstractVector{<:Real})::Vector{Float64}
-	validate_lm(l, m)
-	validate_uvec(uvec)
-	return ∂ᵢZlm_unsafe(l, m, uvec)
+    validate_lm(l, m)
+    validate_uvec(uvec)
+    return ∂ᵢZlm_unsafe(l, m, uvec)
 end
 
 """
-	validate_lm(l::Integer, m::Integer)
+    validate_lm(l::Integer, m::Integer)
 
 Validate the quantum numbers l and m for spherical harmonics.
 
@@ -929,13 +929,13 @@ validate_lm(1, 2)    # Throws ArgumentError
 ```
 """
 function validate_lm(l::Integer, m::Integer)
-	l < 0 && throw(ArgumentError("l must be non-negative (got l = $l)"))
-	abs(m) > l && throw(ArgumentError("abs(m) must be ≤ l (got m = $m, l = $l)"))
-	return nothing
+    l < 0 && throw(ArgumentError("l must be non-negative (got l = $l)"))
+    abs(m) > l && throw(ArgumentError("abs(m) must be ≤ l (got m = $m, l = $l)"))
+    return nothing
 end
 
 """
-	validate_uvec(uvec::AbstractVector{<:Real}, tol::Real = 1e-8)
+    validate_uvec(uvec::AbstractVector{<:Real}, tol::Real = 1e-8)
 
 Validate that the input vector is a 3D unit vector within specified tolerance.
 
@@ -955,18 +955,18 @@ validate_uvec([1.0, 0.0])          # Throws ArgumentError (not 3D)
 ```
 """
 function validate_uvec(uvec::AbstractVector{<:Real}, tol::Real = 1e-8)
-	tol < 0 && throw(DomainError(tol, "tolerance must be non-negative"))
-	length(uvec) == 3 ||
-		throw(ArgumentError("vector must have exactly 3 elements (got $(length(uvec)))"))
+    tol < 0 && throw(DomainError(tol, "tolerance must be non-negative"))
+    length(uvec) == 3 ||
+        throw(ArgumentError("vector must have exactly 3 elements (got $(length(uvec)))"))
 
-	norm_uvec = norm(uvec)
-	isapprox(norm_uvec, 1.0, atol = tol) ||
-		throw(ArgumentError("vector must be normalized: norm = $norm_uvec, vec = $uvec"))
-	return nothing
+    norm_uvec = norm(uvec)
+    isapprox(norm_uvec, 1.0, atol = tol) ||
+        throw(ArgumentError("vector must be normalized: norm = $norm_uvec, vec = $uvec"))
+    return nothing
 end
 
 """
-	validate_r̂z(r̂z::Real)
+    validate_r̂z(r̂z::Real)
 
 Validate that the input is a real number in the range [-1, 1].
 
@@ -986,10 +986,10 @@ validate_r̂z(-2.0)   # Throws ArgumentError
 ```
 """
 function validate_r̂z(r̂z::Real)
-	if r̂z < -1.0 || r̂z > 1.0
-		throw(ArgumentError("r̂z must be in the range [-1, 1] (got r̂z = $r̂z)"))
-	end
-	return nothing
+    if r̂z < -1.0 || r̂z > 1.0
+        throw(ArgumentError("r̂z must be in the range [-1, 1] (got r̂z = $r̂z)"))
+    end
+    return nothing
 end
 
 end

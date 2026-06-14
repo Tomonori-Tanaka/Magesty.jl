@@ -1,5 +1,5 @@
 """
-	SpinConfigs
+    SpinConfigs
 
 A module for handling spin configurations in magnetic systems.
 
@@ -26,7 +26,7 @@ export SpinConfig, read_embset
 const ZERO_MOMENT_ATOL = 1.0e-10
 
 """
-	_calc_local_magfield_vertical(spin_directions, local_magfield) -> Matrix{Float64}
+    _calc_local_magfield_vertical(spin_directions, local_magfield) -> Matrix{Float64}
 
 Calculate the component of the local magnetic field that is perpendicular to the magnetic moments.
 
@@ -41,24 +41,24 @@ Calculate the component of the local magnetic field that is perpendicular to the
 - `ArgumentError` if dimensions of input matrices do not match
 """
 function _calc_local_magfield_vertical(
-	spin_directions::Matrix{Float64},
-	local_magfield::Matrix{Float64},
+    spin_directions::Matrix{Float64},
+    local_magfield::Matrix{Float64},
 )::Matrix{Float64}
-	# Validate input dimensions
-	if size(spin_directions) != size(local_magfield)
-		throw(ArgumentError("Dimensions of spin_directions and local_magfield must match"))
-	end
+    # Validate input dimensions
+    if size(spin_directions) != size(local_magfield)
+        throw(ArgumentError("Dimensions of spin_directions and local_magfield must match"))
+    end
 
-	local_magfield_vertical = zeros(3, size(local_magfield, 2))
-	for i = 1:size(local_magfield, 2)
-		proj_B = dot(local_magfield[:, i], spin_directions[:, i]) * spin_directions[:, i]
-		local_magfield_vertical[:, i] = local_magfield[:, i] - proj_B
-	end
-	return local_magfield_vertical
+    local_magfield_vertical = zeros(3, size(local_magfield, 2))
+    for i = 1:size(local_magfield, 2)
+        proj_B = dot(local_magfield[:, i], spin_directions[:, i]) * spin_directions[:, i]
+        local_magfield_vertical[:, i] = local_magfield[:, i] - proj_B
+    end
+    return local_magfield_vertical
 end
 
 """
-	SpinConfig
+    SpinConfig
 
 A single noncollinear spin configuration plus the DFT observables that
 go with it. Typically produced by `read_embset`, then handed to
@@ -114,93 +114,93 @@ sc.torques    # per-atom τᵢ = −mᵢ (eᵢ × Bᵢ), 3 × 2
 ```
 """
 struct SpinConfig
-	energy::Float64
-	magmom_size::Vector{Float64}
-	spin_directions::Matrix{Float64}
-	local_magfield::Matrix{Float64}
-	local_magfield_vertical::Matrix{Float64}
-	torques::Matrix{Float64}
+    energy::Float64
+    magmom_size::Vector{Float64}
+    spin_directions::Matrix{Float64}
+    local_magfield::Matrix{Float64}
+    local_magfield_vertical::Matrix{Float64}
+    torques::Matrix{Float64}
 
-	function SpinConfig(
-		energy::Real,
-		magmom_size::AbstractVector{<:Real},
-		spin_directions::AbstractMatrix{<:Real},
-		local_magfield::AbstractMatrix{<:Real};
-		atol_unit_norm::Real = 1e-6,
-	)
-		atol = Float64(atol_unit_norm)
-		num_atoms = length(magmom_size)
+    function SpinConfig(
+        energy::Real,
+        magmom_size::AbstractVector{<:Real},
+        spin_directions::AbstractMatrix{<:Real},
+        local_magfield::AbstractMatrix{<:Real};
+        atol_unit_norm::Real = 1e-6,
+    )
+        atol = Float64(atol_unit_norm)
+        num_atoms = length(magmom_size)
 
-		# Validate dimensions
-		if size(spin_directions, 1) != 3
-			throw(
-				ArgumentError(
-					"spin_directions must have 3 rows (x, y, z); got $(size(spin_directions, 1))",
-				),
-			)
-		end
-		if size(local_magfield, 1) != 3
-			throw(
-				ArgumentError(
-					"local_magfield must have 3 rows (x, y, z); got $(size(local_magfield, 1))",
-				),
-			)
-		end
-		if num_atoms != size(spin_directions, 2)
-			throw(
-				ArgumentError(
-					"Dimension mismatch: spin_directions has $(size(spin_directions, 2)) columns, " *
-					"but magmom_size has $num_atoms elements",
-				),
-			)
-		end
-		if num_atoms != size(local_magfield, 2)
-			throw(
-				ArgumentError(
-					"Dimension mismatch: local_magfield has $(size(local_magfield, 2)) columns, " *
-					"but magmom_size has $num_atoms elements",
-				),
-			)
-		end
+        # Validate dimensions
+        if size(spin_directions, 1) != 3
+            throw(
+                ArgumentError(
+                    "spin_directions must have 3 rows (x, y, z); got $(size(spin_directions, 1))",
+                ),
+            )
+        end
+        if size(local_magfield, 1) != 3
+            throw(
+                ArgumentError(
+                    "local_magfield must have 3 rows (x, y, z); got $(size(local_magfield, 1))",
+                ),
+            )
+        end
+        if num_atoms != size(spin_directions, 2)
+            throw(
+                ArgumentError(
+                    "Dimension mismatch: spin_directions has $(size(spin_directions, 2)) columns, " *
+                    "but magmom_size has $num_atoms elements",
+                ),
+            )
+        end
+        if num_atoms != size(local_magfield, 2)
+            throw(
+                ArgumentError(
+                    "Dimension mismatch: local_magfield has $(size(local_magfield, 2)) columns, " *
+                    "but magmom_size has $num_atoms elements",
+                ),
+            )
+        end
 
-		# Validate magnetic moment sizes
-		if any(x -> x < 0, magmom_size)
-			throw(ArgumentError("Magnetic moment sizes must be non-negative"))
-		end
+        # Validate magnetic moment sizes
+        if any(x -> x < 0, magmom_size)
+            throw(ArgumentError("Magnetic moment sizes must be non-negative"))
+        end
 
-		# Validate per-column unit-norm of spin_directions. The real
-		# tesseral harmonics Zₗₘ are defined on the unit sphere, so a
-		# non-unit (or NaN) direction silently breaks every downstream
-		# basis evaluation. NaN columns fail the comparison and are
-		# reported here rather than propagating through predictions.
-		for i = 1:num_atoms
-			n = norm(@view spin_directions[:, i])
-			if !(isfinite(n) && abs(n - 1.0) ≤ atol)
-				throw(
-					ArgumentError(
-						"spin_directions[:, $i] is not a unit vector: " *
-						"‖·‖ = $n (tolerance atol_unit_norm = $atol)",
-					),
-				)
-			end
-		end
+        # Validate per-column unit-norm of spin_directions. The real
+        # tesseral harmonics Zₗₘ are defined on the unit sphere, so a
+        # non-unit (or NaN) direction silently breaks every downstream
+        # basis evaluation. NaN columns fail the comparison and are
+        # reported here rather than propagating through predictions.
+        for i = 1:num_atoms
+            n = norm(@view spin_directions[:, i])
+            if !(isfinite(n) && abs(n - 1.0) ≤ atol)
+                throw(
+                    ArgumentError(
+                        "spin_directions[:, $i] is not a unit vector: " *
+                        "‖·‖ = $n (tolerance atol_unit_norm = $atol)",
+                    ),
+                )
+            end
+        end
 
-		# Calculate vertical component of local magnetic field
-		local_magfield_vertical = _calc_local_magfield_vertical(spin_directions, local_magfield)
+        # Calculate vertical component of local magnetic field
+        local_magfield_vertical = _calc_local_magfield_vertical(spin_directions, local_magfield)
 
-		new(
-			Float64(energy),
-			Float64.(magmom_size),
-			Float64.(spin_directions),
-			Float64.(local_magfield),
-			local_magfield_vertical,
-			_calc_torques(magmom_size, spin_directions, local_magfield),
-		)
-	end
+        new(
+            Float64(energy),
+            Float64.(magmom_size),
+            Float64.(spin_directions),
+            Float64.(local_magfield),
+            local_magfield_vertical,
+            _calc_torques(magmom_size, spin_directions, local_magfield),
+        )
+    end
 end
 
 """
-	_calc_torques(magmom_size::AbstractVector{<:Real}, spin_directions::AbstractMatrix{<:Real}, local_magfield::AbstractMatrix{<:Real})::Matrix{Float64}
+    _calc_torques(magmom_size::AbstractVector{<:Real}, spin_directions::AbstractMatrix{<:Real}, local_magfield::AbstractMatrix{<:Real})::Matrix{Float64}
 
 Calculate the torques for each atom in the spin configuration.
 
@@ -213,20 +213,20 @@ Calculate the torques for each atom in the spin configuration.
 - `Matrix{Float64}`: Torques for each atom [3 × num_atoms]
 """
 function _calc_torques(
-	magmom_size::AbstractVector{<:Real},
-	spin_directions::AbstractMatrix{<:Real},
-	local_magfield::AbstractMatrix{<:Real},
+    magmom_size::AbstractVector{<:Real},
+    spin_directions::AbstractMatrix{<:Real},
+    local_magfield::AbstractMatrix{<:Real},
 )::Matrix{Float64}
-	num_atoms = length(magmom_size)
-	torques = zeros(3, num_atoms)
-	for i = 1:num_atoms
-		torques[:, i] = -1.0 * (magmom_size[i] * spin_directions[:, i]) × local_magfield[:, i]
-	end
-	return torques
+    num_atoms = length(magmom_size)
+    torques = zeros(3, num_atoms)
+    for i = 1:num_atoms
+        torques[:, i] = -1.0 * (magmom_size[i] * spin_directions[:, i]) × local_magfield[:, i]
+    end
+    return torques
 end
 
 """
-	show(io::IO, ::MIME"text/plain", config::SpinConfig)
+    show(io::IO, ::MIME"text/plain", config::SpinConfig)
 
 Display a spin configuration in a human-readable, multi-line format.
 
@@ -244,47 +244,47 @@ compact representation, matching Julia's standard `show` conventions.
 ```
 energy (eV): <energy>
    atom  magmom     e_x     e_y     e_z     B_x         B_y         B_z         Bv_x        Bv_y        Bv_z
-	  1  <value>  <value>    <value>    <value>    <value>     <value>     <value>     <value>     <value>     <value>
-	  ...
+      1  <value>  <value>    <value>    <value>    <value>     <value>     <value>     <value>     <value>     <value>
+      ...
 ```
 """
 function show(io::IO, ::MIME"text/plain", config::SpinConfig)
-	println(io, "energy (eV): $(config.energy)")
-	println(
-		io,
-		"   atom  magmom     e_x     e_y     e_z     B_x         B_y         B_z         Bv_x        Bv_y        Bv_z",
-	)
+    println(io, "energy (eV): $(config.energy)")
+    println(
+        io,
+        "   atom  magmom     e_x     e_y     e_z     B_x         B_y         B_z         Bv_x        Bv_y        Bv_z",
+    )
 
-	num_atoms = length(config.magmom_size)
-	@inbounds for i = 1:num_atoms
-		println(io,
-			lpad(i, 7),
-			"  ",
-			lpad(@sprintf("%.5f", config.magmom_size[i]), 7),
-			"  ",
-			lpad(@sprintf("%.6f", config.spin_directions[1, i]), 9),
-			" ",
-			lpad(@sprintf("%.6f", config.spin_directions[2, i]), 9),
-			" ",
-			lpad(@sprintf("%.6f", config.spin_directions[3, i]), 9),
-			"  ",
-			lpad(@sprintf("%.5e", config.local_magfield[1, i]), 12),
-			" ",
-			lpad(@sprintf("%.5e", config.local_magfield[2, i]), 12),
-			" ",
-			lpad(@sprintf("%.5e", config.local_magfield[3, i]), 12),
-			" ",
-			lpad(@sprintf("%.5e", config.local_magfield_vertical[1, i]), 12),
-			" ",
-			lpad(@sprintf("%.5e", config.local_magfield_vertical[2, i]), 12),
-			" ",
-			lpad(@sprintf("%.5e", config.local_magfield_vertical[3, i]), 12),
-		)
-	end
+    num_atoms = length(config.magmom_size)
+    @inbounds for i = 1:num_atoms
+        println(io,
+            lpad(i, 7),
+            "  ",
+            lpad(@sprintf("%.5f", config.magmom_size[i]), 7),
+            "  ",
+            lpad(@sprintf("%.6f", config.spin_directions[1, i]), 9),
+            " ",
+            lpad(@sprintf("%.6f", config.spin_directions[2, i]), 9),
+            " ",
+            lpad(@sprintf("%.6f", config.spin_directions[3, i]), 9),
+            "  ",
+            lpad(@sprintf("%.5e", config.local_magfield[1, i]), 12),
+            " ",
+            lpad(@sprintf("%.5e", config.local_magfield[2, i]), 12),
+            " ",
+            lpad(@sprintf("%.5e", config.local_magfield[3, i]), 12),
+            " ",
+            lpad(@sprintf("%.5e", config.local_magfield_vertical[1, i]), 12),
+            " ",
+            lpad(@sprintf("%.5e", config.local_magfield_vertical[2, i]), 12),
+            " ",
+            lpad(@sprintf("%.5e", config.local_magfield_vertical[3, i]), 12),
+        )
+    end
 end
 
 """
-	read_embset(filepath::AbstractString) -> Vector{SpinConfig}
+    read_embset(filepath::AbstractString) -> Vector{SpinConfig}
 
 Read spin configurations from an EMBSET file.
 
@@ -299,47 +299,47 @@ Read spin configurations from an EMBSET file.
 - `ArgumentError` if the file does not exist
 """
 function read_embset(filepath::AbstractString)::Vector{SpinConfig}
-	if !isfile(filepath)
-		throw(ArgumentError("File does not exist: $filepath"))
-	end
+    if !isfile(filepath)
+        throw(ArgumentError("File does not exist: $filepath"))
+    end
 
-	# Detect number of atoms from file
-	num_atoms = _detect_num_atoms(filepath)
+    # Detect number of atoms from file
+    num_atoms = _detect_num_atoms(filepath)
 
-	# Read and filter lines
-	filtered_lines = String[]
-	open(filepath, "r") do file
-		for line in eachline(file)
-			stripped_line = strip(line)
-			if !isempty(stripped_line) && !startswith(stripped_line, "#")
-				push!(filtered_lines, stripped_line)
-			end
-		end
-	end
+    # Read and filter lines
+    filtered_lines = String[]
+    open(filepath, "r") do file
+        for line in eachline(file)
+            stripped_line = strip(line)
+            if !isempty(stripped_line) && !startswith(stripped_line, "#")
+                push!(filtered_lines, stripped_line)
+            end
+        end
+    end
 
-	# Validate file format
-	if length(filtered_lines) % (num_atoms + 1) != 0
-		throw(
-			ErrorException(
-				"Invalid EMBSET file format: Number of lines ($(length(filtered_lines))) " *
-				"is not divisible by $(num_atoms + 1)",
-			),
-		)
-	end
+    # Validate file format
+    if length(filtered_lines) % (num_atoms + 1) != 0
+        throw(
+            ErrorException(
+                "Invalid EMBSET file format: Number of lines ($(length(filtered_lines))) " *
+                "is not divisible by $(num_atoms + 1)",
+            ),
+        )
+    end
 
-	# Process configurations
-	num_configs = length(filtered_lines) ÷ (num_atoms + 1)
-	configs = Vector{SpinConfig}(undef, num_configs)
+    # Process configurations
+    num_configs = length(filtered_lines) ÷ (num_atoms + 1)
+    configs = Vector{SpinConfig}(undef, num_configs)
 
-	for i = 1:num_configs
-		configs[i] = _separate_embset(filtered_lines, num_atoms, i)
-	end
+    for i = 1:num_configs
+        configs[i] = _separate_embset(filtered_lines, num_atoms, i)
+    end
 
-	return configs
+    return configs
 end
 
 """
-	_detect_num_atoms(filepath::AbstractString) -> Integer
+    _detect_num_atoms(filepath::AbstractString) -> Integer
 
 Detect the number of atoms from an EMBSET file by counting the number of atom data lines in the first spin configuration.
 
@@ -353,54 +353,54 @@ Detect the number of atoms from an EMBSET file by counting the number of atom da
 - `ErrorException` if the file format is invalid
 """
 function _detect_num_atoms(filepath::AbstractString)::Integer
-	open(filepath, "r") do file
-		# Find first comment line (start of first config)
-		found_first_comment = false
-		skipped_energy_line = false
-		atom_count = 0
-		
-		for line in eachline(file)
-			stripped_line = strip(line)
-			
-			# Skip empty lines
-			if isempty(stripped_line)
-				continue
-			end
-			
-			# Find first comment line
-			if startswith(stripped_line, "#")
-				if found_first_comment && atom_count > 0
-					# Reached next config, stop counting
-					break
-				end
-				found_first_comment = true
-				skipped_energy_line = false
-				atom_count = 0
-				continue
-			end
-			
-			# After finding first comment, skip the energy line (first non-comment line)
-			if found_first_comment && !skipped_energy_line
-				skipped_energy_line = true
-				continue
-			end
-			
-			# Count atom data lines until next comment line
-			if found_first_comment && skipped_energy_line
-				atom_count += 1
-			end
-		end
-		
-		if atom_count == 0
-			throw(ErrorException("Could not detect number of atoms from EMBSET file: no atom data found"))
-		end
-		
-		return atom_count
-	end
+    open(filepath, "r") do file
+        # Find first comment line (start of first config)
+        found_first_comment = false
+        skipped_energy_line = false
+        atom_count = 0
+        
+        for line in eachline(file)
+            stripped_line = strip(line)
+            
+            # Skip empty lines
+            if isempty(stripped_line)
+                continue
+            end
+            
+            # Find first comment line
+            if startswith(stripped_line, "#")
+                if found_first_comment && atom_count > 0
+                    # Reached next config, stop counting
+                    break
+                end
+                found_first_comment = true
+                skipped_energy_line = false
+                atom_count = 0
+                continue
+            end
+            
+            # After finding first comment, skip the energy line (first non-comment line)
+            if found_first_comment && !skipped_energy_line
+                skipped_energy_line = true
+                continue
+            end
+            
+            # Count atom data lines until next comment line
+            if found_first_comment && skipped_energy_line
+                atom_count += 1
+            end
+        end
+        
+        if atom_count == 0
+            throw(ErrorException("Could not detect number of atoms from EMBSET file: no atom data found"))
+        end
+        
+        return atom_count
+    end
 end
 
 """
-	_separate_embset(filtered_lines, num_atoms, data_index) -> SpinConfig
+    _separate_embset(filtered_lines, num_atoms, data_index) -> SpinConfig
 
 Extract a single spin configuration from filtered EMBSET lines.
 
@@ -416,48 +416,48 @@ Extract a single spin configuration from filtered EMBSET lines.
 - `ErrorException` if the file format is invalid
 """
 function _separate_embset(
-	filtered_lines::AbstractVector{<:AbstractString},
-	num_atoms::Integer,
-	data_index::Integer,
+    filtered_lines::AbstractVector{<:AbstractString},
+    num_atoms::Integer,
+    data_index::Integer,
 )::SpinConfig
-	start_line = (num_atoms + 1) * (data_index - 1) + 1
-	end_line = (num_atoms + 1) * data_index
+    start_line = (num_atoms + 1) * (data_index - 1) + 1
+    end_line = (num_atoms + 1) * data_index
 
-	# Parse energy
-	energy = parse(Float64, filtered_lines[start_line])
+    # Parse energy
+    energy = parse(Float64, filtered_lines[start_line])
 
-	# Initialize arrays
-	magmom_size = Vector{Float64}(undef, num_atoms)
-	spin_directions = Matrix{Float64}(undef, 3, num_atoms)
-	local_magfield = Matrix{Float64}(undef, 3, num_atoms)
+    # Initialize arrays
+    magmom_size = Vector{Float64}(undef, num_atoms)
+    spin_directions = Matrix{Float64}(undef, 3, num_atoms)
+    local_magfield = Matrix{Float64}(undef, 3, num_atoms)
 
-	# Parse atom data
-	for (i, line) in enumerate(filtered_lines[(start_line+1):end_line])
-		line_split = split(line)
-		if length(line_split) < 7
-			throw(ErrorException("Invalid line format in EMBSET file"))
-		end
-		moment = parse.(Float64, line_split[2:4])
-		magmom_size[i] = norm(moment)
-		if magmom_size[i] ≤ ZERO_MOMENT_ATOL
-			# Non-magnetic site: the moment has no direction. Store a
-			# placeholder unit vector (never consumed unless the site enters
-			# the SALC basis, which `SCEDataset` rejects); the torque is zero
-			# because the magnitude is zero.
-			spin_directions[:, i] = [0.0, 0.0, 1.0]
-		else
-			spin_directions[:, i] = moment ./ magmom_size[i]
-		end
-		local_magfield[:, i] = parse.(Float64, line_split[5:7])
-	end
+    # Parse atom data
+    for (i, line) in enumerate(filtered_lines[(start_line+1):end_line])
+        line_split = split(line)
+        if length(line_split) < 7
+            throw(ErrorException("Invalid line format in EMBSET file"))
+        end
+        moment = parse.(Float64, line_split[2:4])
+        magmom_size[i] = norm(moment)
+        if magmom_size[i] ≤ ZERO_MOMENT_ATOL
+            # Non-magnetic site: the moment has no direction. Store a
+            # placeholder unit vector (never consumed unless the site enters
+            # the SALC basis, which `SCEDataset` rejects); the torque is zero
+            # because the magnitude is zero.
+            spin_directions[:, i] = [0.0, 0.0, 1.0]
+        else
+            spin_directions[:, i] = moment ./ magmom_size[i]
+        end
+        local_magfield[:, i] = parse.(Float64, line_split[5:7])
+    end
 
-	return SpinConfig(energy, magmom_size, spin_directions, local_magfield)
+    return SpinConfig(energy, magmom_size, spin_directions, local_magfield)
 end
 
 # Compact REPL display. Default Julia output dumps every per-atom matrix.
 function Base.show(io::IO, sc::SpinConfig)
-	print(io, "SpinConfig(num_atoms=", length(sc.magmom_size),
-		", energy=", sc.energy, ")")
+    print(io, "SpinConfig(num_atoms=", length(sc.magmom_size),
+        ", energy=", sc.energy, ")")
 end
 
 end

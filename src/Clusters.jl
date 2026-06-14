@@ -1,5 +1,5 @@
 """
-	module Clusters
+    module Clusters
 
 This module provides data structures and functions for managing and analyzing clusters of interacting atoms within a crystal structure.
 
@@ -44,7 +44,7 @@ const NUM_VIRTUAL_CELLS = VIRTUAL_CELL_GRID_SIZE^3  # Number of virtual cells in
 const DEFAULT_TOLERANCE = 1e-5  # Default tolerance for floating-point comparisons
 
 """
-	struct DistInfo
+    struct DistInfo
 
 Represents distance information between two atoms.
 
@@ -54,7 +54,7 @@ Represents distance information between two atoms.
 - `relative_vector::Vector{Float64}`: Relative Cartesian vector from first to second atom
 
 # Constructor
-	DistInfo(cell::Integer, distance::Real, relvec::AbstractVector{<:Real})
+    DistInfo(cell::Integer, distance::Real, relvec::AbstractVector{<:Real})
 
 Creates a new `DistInfo` instance. Ensures that `relvec` has length 3.
 
@@ -68,30 +68,30 @@ dist = DistInfo(2, 3.0, [2.0, 1.0, 0.0])
 ```
 """
 struct DistInfo
-	cell_index::Int
-	distance::Float64
-	relative_vector::Vector{Float64}
+    cell_index::Int
+    distance::Float64
+    relative_vector::Vector{Float64}
 
-	function DistInfo(cell::Integer, distance::Real, relvec::AbstractVector{<:Real})
-		@assert length(relvec) == 3 "The length of \"relvec\" must be 3."
-		return new(Int(cell), Float64(distance), Vector{Float64}(relvec))
-	end
+    function DistInfo(cell::Integer, distance::Real, relvec::AbstractVector{<:Real})
+        @assert length(relvec) == 3 "The length of \"relvec\" must be 3."
+        return new(Int(cell), Float64(distance), Vector{Float64}(relvec))
+    end
 end
 
 function Base.isless(distinfo1::DistInfo, distinfo2::DistInfo)::Bool
-	@inbounds begin
-		if distinfo1.distance < distinfo2.distance
-			return true
-		elseif distinfo1.distance ≈ distinfo2.distance
-			return distinfo1.cell_index < distinfo2.cell_index
-		end
-		return false
-	end
+    @inbounds begin
+        if distinfo1.distance < distinfo2.distance
+            return true
+        elseif distinfo1.distance ≈ distinfo2.distance
+            return distinfo1.cell_index < distinfo2.cell_index
+        end
+        return false
+    end
 end
 
 
 """
-	struct Cluster
+    struct Cluster
 
 Represents a collection of interaction clusters based on the specified number of bodies and cutoff radii.
 
@@ -102,7 +102,7 @@ Represents a collection of interaction clusters based on the specified number of
 - `cluster_dict::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}`: Dictionary of interaction clusters organized by body and primitive atom index
 
 # Constructor
-	Cluster(structure, symmetry, nbody, cutoff_radii)
+    Cluster(structure, symmetry, nbody, cutoff_radii)
 
 Creates a new `Cluster` instance based on the provided structure, symmetry information, number of bodies, and cutoff radii.
 
@@ -112,85 +112,85 @@ cluster = Cluster(structure, symmetry, 3, cutoff_radii)
 ```
 """
 struct Cluster
-	num_bodies::Int
-	cutoff_radii::OffsetArray{Float64, 3}
-	min_distance_pairs::Matrix{Vector{DistInfo}}
-	cluster_dict::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}
-	irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}}
-	cluster_orbits_dict::Dict{Int, Dict{Int, Vector{Vector{Int}}}}
+    num_bodies::Int
+    cutoff_radii::OffsetArray{Float64, 3}
+    min_distance_pairs::Matrix{Vector{DistInfo}}
+    cluster_dict::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}
+    irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}}
+    cluster_orbits_dict::Dict{Int, Dict{Int, Vector{Vector{Int}}}}
 
-	function Cluster(
-		structure::Structure,
-		symmetry::Symmetry,
-		nbody::Integer,
-		cutoff_radii::AbstractArray{<:Real, 3},
-		;
-		verbosity::Bool = true,
-	)
+    function Cluster(
+        structure::Structure,
+        symmetry::Symmetry,
+        nbody::Integer,
+        cutoff_radii::AbstractArray{<:Real, 3},
+        ;
+        verbosity::Bool = true,
+    )
 
-		start_time = time_ns()
+        start_time = time_ns()
 
-		# Computed once here; the same matrix is threaded into
-		# `_generate_clusters` and stored on the struct so both consumers
-		# share it.
-		min_distance_pairs = _set_mindist_pairs(
-			structure.supercell.num_atoms,
-			structure.x_image_cart,
-			structure.exist_image,
-			tol = symmetry.tol,
-		)
+        # Computed once here; the same matrix is threaded into
+        # `_generate_clusters` and stored on the struct so both consumers
+        # share it.
+        min_distance_pairs = _set_mindist_pairs(
+            structure.supercell.num_atoms,
+            structure.x_image_cart,
+            structure.exist_image,
+            tol = symmetry.tol,
+        )
 
-		cluster_dict::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}} =
-			_generate_clusters(structure, symmetry, cutoff_radii, nbody, min_distance_pairs)
+        cluster_dict::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}} =
+            _generate_clusters(structure, symmetry, cutoff_radii, nbody, min_distance_pairs)
 
-		irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}} =
-			_irreducible_clusters(cluster_dict, symmetry)
+        irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}} =
+            _irreducible_clusters(cluster_dict, symmetry)
 
-		cluster_orbits_dict::Dict{Int, Dict{Int, Vector{Vector{Int}}}} =
-			_cluster_orbits(irreducible_cluster_dict, symmetry)
-
-
-		if verbosity
-			print_cluster_stdout(
-				min_distance_pairs,
-				symmetry.atoms_in_prim,
-				structure.kd_name,
-				structure.supercell.kd_int_list,
-			)
-			elapsed_time = (time_ns() - start_time) / 1e9
-			println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
-			println("-------------------------------------------------------------------")
-		end
+        cluster_orbits_dict::Dict{Int, Dict{Int, Vector{Vector{Int}}}} =
+            _cluster_orbits(irreducible_cluster_dict, symmetry)
 
 
-		return new(
-			nbody,
-			cutoff_radii,
-			min_distance_pairs,
-			cluster_dict,
-			irreducible_cluster_dict,
-			cluster_orbits_dict,
-		)
-	end
+        if verbosity
+            print_cluster_stdout(
+                min_distance_pairs,
+                symmetry.atoms_in_prim,
+                structure.kd_name,
+                structure.supercell.kd_int_list,
+            )
+            elapsed_time = (time_ns() - start_time) / 1e9
+            println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
+            println("-------------------------------------------------------------------")
+        end
+
+
+        return new(
+            nbody,
+            cutoff_radii,
+            min_distance_pairs,
+            cluster_dict,
+            irreducible_cluster_dict,
+            cluster_orbits_dict,
+        )
+    end
 end
 
 function Cluster(
-	structure::Structure,
-	symmetry::Symmetry,
-	interaction::InteractionSpec;
-	verbosity::Bool = true,
+    structure::Structure,
+    symmetry::Symmetry,
+    interaction::InteractionSpec;
+    verbosity::Bool = true,
 )
-	return Cluster(
-		structure,
-		symmetry,
-		interaction.nbody,
-		interaction.bodyn_cutoff;
-		verbosity = verbosity,
-	)
+    return Cluster(
+        structure,
+        symmetry,
+        interaction.nbody,
+        interaction.bodyn_cutoff;
+        verbosity = verbosity,
+    )
 end
 
 """
-	_set_mindist_pairs(num_atoms, cartesian_coords, cell_exists; tol=DEFAULT_TOLERANCE)
+    _set_mindist_pairs(num_atoms, cartesian_coords, cell_exists; tol=DEFAULT_TOLERANCE)
 
 Computes minimum distance pairs between atoms in a crystal structure.
 
@@ -207,55 +207,55 @@ Computes minimum distance pairs between atoms in a crystal structure.
 - `AssertionError`: If input parameters are invalid
 """
 function _set_mindist_pairs(
-	num_atoms::Integer,
-	cartesian_coords::AbstractArray{<:AbstractFloat, 3},
-	cell_exists::AbstractVector{Bool};
-	tol::Real = DEFAULT_TOLERANCE,
+    num_atoms::Integer,
+    cartesian_coords::AbstractArray{<:AbstractFloat, 3},
+    cell_exists::AbstractVector{Bool};
+    tol::Real = DEFAULT_TOLERANCE,
 )::Matrix{Vector{DistInfo}}
-	@assert num_atoms > 0 "Number of atoms must be positive."
-	@assert size(cartesian_coords, 2) == num_atoms "Number of atoms in cartesian_coords must match num_atoms."
-	@assert length(cell_exists) == NUM_VIRTUAL_CELLS "Length of cell_exists must match NUM_VIRTUAL_CELLS."
+    @assert num_atoms > 0 "Number of atoms must be positive."
+    @assert size(cartesian_coords, 2) == num_atoms "Number of atoms in cartesian_coords must match num_atoms."
+    @assert length(cell_exists) == NUM_VIRTUAL_CELLS "Length of cell_exists must match NUM_VIRTUAL_CELLS."
 
-	distance_all = Matrix{Vector{DistInfo}}(undef, num_atoms, num_atoms)
-	initialized = falses(size(distance_all))
+    distance_all = Matrix{Vector{DistInfo}}(undef, num_atoms, num_atoms)
+    initialized = falses(size(distance_all))
 
-	@inbounds for i = 1:num_atoms, j = 1:num_atoms
-		distinfo_list = Vector{DistInfo}()
-		for cell_index = 1:NUM_VIRTUAL_CELLS
-			cell_exists[cell_index] || continue
+    @inbounds for i = 1:num_atoms, j = 1:num_atoms
+        distinfo_list = Vector{DistInfo}()
+        for cell_index = 1:NUM_VIRTUAL_CELLS
+            cell_exists[cell_index] || continue
 
-			distance = norm(cartesian_coords[:, i, 1] - cartesian_coords[:, j, cell_index])
-			relative_vector = cartesian_coords[:, j, cell_index] - cartesian_coords[:, i, 1]
-			push!(distinfo_list, DistInfo(cell_index, distance, relative_vector))
-		end
-		sort!(distinfo_list)
-		distance_all[i, j] = distinfo_list
-		initialized[i, j] = true
-	end
+            distance = norm(cartesian_coords[:, i, 1] - cartesian_coords[:, j, cell_index])
+            relative_vector = cartesian_coords[:, j, cell_index] - cartesian_coords[:, i, 1]
+            push!(distinfo_list, DistInfo(cell_index, distance, relative_vector))
+        end
+        sort!(distinfo_list)
+        distance_all[i, j] = distinfo_list
+        initialized[i, j] = true
+    end
 
-	@assert all(initialized) "Unassigned indices in distance_all variable"
+    @assert all(initialized) "Unassigned indices in distance_all variable"
 
-	min_distance_pairs = Matrix{Vector{DistInfo}}(undef, num_atoms, num_atoms)
-	initialized = falses(size(min_distance_pairs))
+    min_distance_pairs = Matrix{Vector{DistInfo}}(undef, num_atoms, num_atoms)
+    initialized = falses(size(min_distance_pairs))
 
-	@inbounds for i = 1:num_atoms, j = 1:num_atoms
-		dist_vec_tmp = Vector{DistInfo}()
-		min_dist = distance_all[i, j][1].distance
-		for distinfo in distance_all[i, j]
-			isapprox(distinfo.distance, min_dist, atol = tol) || break
-			push!(dist_vec_tmp, distinfo)
-		end
-		min_distance_pairs[i, j] = dist_vec_tmp
-		initialized[i, j] = true
-	end
+    @inbounds for i = 1:num_atoms, j = 1:num_atoms
+        dist_vec_tmp = Vector{DistInfo}()
+        min_dist = distance_all[i, j][1].distance
+        for distinfo in distance_all[i, j]
+            isapprox(distinfo.distance, min_dist, atol = tol) || break
+            push!(dist_vec_tmp, distinfo)
+        end
+        min_distance_pairs[i, j] = dist_vec_tmp
+        initialized[i, j] = true
+    end
 
-	@assert all(initialized) "Unassigned indices in min_distance_pairs variable"
-	return min_distance_pairs
+    @assert all(initialized) "Unassigned indices in min_distance_pairs variable"
+    return min_distance_pairs
 end
 
 
 """
-	_is_within_cutoff(atomcell_list, kd_int_list, cutoff_radii, body, x_image_cart, min_distance_pairs) -> Bool
+    _is_within_cutoff(atomcell_list, kd_int_list, cutoff_radii, body, x_image_cart, min_distance_pairs) -> Bool
 
 Checks if all pairs of atoms in the given atom cell list are within the cutoff radius.
 
@@ -271,32 +271,32 @@ Checks if all pairs of atoms in the given atom cell list are within the cutoff r
 - `Bool`: `true` if all atom pairs are within cutoff, `false` otherwise
 """
 function _is_within_cutoff(
-	atomcell_list::Vector{AtomCell},
-	kd_int_list::Vector{Int},
-	cutoff_radii::AbstractArray{<:Real, 3},
-	body::Integer,
-	x_image_cart::AbstractArray{<:Real, 3},
-	min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
+    atomcell_list::Vector{AtomCell},
+    kd_int_list::Vector{Int},
+    cutoff_radii::AbstractArray{<:Real, 3},
+    body::Integer,
+    x_image_cart::AbstractArray{<:Real, 3},
+    min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
 )::Bool
-	for comb::Vector{AtomCell} in collect(combinations(atomcell_list, 2))
-		rc = cutoff_radii[body, kd_int_list[comb[1].atom], kd_int_list[comb[2].atom]]
-		distance = _distance_atomcells(comb[1], comb[2], x_image_cart)
-		if rc < 0.0 || distance ≤ rc
-			if min_distance_pairs[comb[1].atom, comb[2].atom][1].distance + DEFAULT_TOLERANCE > distance
-				continue
-			else
-				return false
-			end
-		else
-			return false
-		end
-	end
-	return true
+    for comb::Vector{AtomCell} in collect(combinations(atomcell_list, 2))
+        rc = cutoff_radii[body, kd_int_list[comb[1].atom], kd_int_list[comb[2].atom]]
+        distance = _distance_atomcells(comb[1], comb[2], x_image_cart)
+        if rc < 0.0 || distance ≤ rc
+            if min_distance_pairs[comb[1].atom, comb[2].atom][1].distance + DEFAULT_TOLERANCE > distance
+                continue
+            else
+                return false
+            end
+        else
+            return false
+        end
+    end
+    return true
 end
 
 
 """
-	_distance_atomcells(atomcell1, atomcell2, x_image_cart) -> Float64
+    _distance_atomcells(atomcell1, atomcell2, x_image_cart) -> Float64
 
 Calculates the Cartesian distance between two atoms in different cells.
 
@@ -309,20 +309,20 @@ Calculates the Cartesian distance between two atoms in different cells.
 - `Float64`: Distance between the two atoms in Angstroms
 """
 function _distance_atomcells(
-	atomcell1::AtomCell,
-	atomcell2::AtomCell,
-	x_image_cart::AbstractArray{<:Real, 3},
+    atomcell1::AtomCell,
+    atomcell2::AtomCell,
+    x_image_cart::AbstractArray{<:Real, 3},
 )::Float64
-	return norm(
-		x_image_cart[:, atomcell1.atom, atomcell1.cell] -
-		x_image_cart[:, atomcell2.atom, atomcell2.cell],
-	)
+    return norm(
+        x_image_cart[:, atomcell1.atom, atomcell1.cell] -
+        x_image_cart[:, atomcell2.atom, atomcell2.cell],
+    )
 end
 
 
 
 """
-	_generate_clusters(structure, symmetry, cutoff_radii, nbody, min_distance_pairs) -> Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}
+    _generate_clusters(structure, symmetry, cutoff_radii, nbody, min_distance_pairs) -> Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}
 
 Generates interaction clusters based on cutoff radii and structure information.
 
@@ -341,117 +341,117 @@ Generates interaction clusters based on cutoff radii and structure information.
 - `Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}`: Dictionary of clusters organized by body and primitive atom index
 """
 function _generate_clusters(
-	structure::Structure,
-	symmetry::Symmetry,
-	cutoff_radii::AbstractArray{<:Real, 3},
-	nbody::Integer,
-	min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
+    structure::Structure,
+    symmetry::Symmetry,
+    cutoff_radii::AbstractArray{<:Real, 3},
+    nbody::Integer,
+    min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
 )::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}
 
-	interaction_cutoff_dict = Dict{Int, Dict{Int, Vector{AtomCell}}}()
-	for body = 2:nbody
-		interaction_cutoff_dict[body] = Dict{Int, Vector{AtomCell}}()
-		for prim_atom_sc in symmetry.atoms_in_prim
-			prim_atom_type = structure.supercell.kd_int_list[prim_atom_sc]
-			interaction_cutoff_dict[body][prim_atom_sc] = AtomCell[]
-			for other_atom_sc = 1:structure.supercell.num_atoms
-				if prim_atom_sc == other_atom_sc
-					continue
-				end
-				other_atom_type = structure.supercell.kd_int_list[other_atom_sc]
-				rc = cutoff_radii[body, prim_atom_type, other_atom_type]
+    interaction_cutoff_dict = Dict{Int, Dict{Int, Vector{AtomCell}}}()
+    for body = 2:nbody
+        interaction_cutoff_dict[body] = Dict{Int, Vector{AtomCell}}()
+        for prim_atom_sc in symmetry.atoms_in_prim
+            prim_atom_type = structure.supercell.kd_int_list[prim_atom_sc]
+            interaction_cutoff_dict[body][prim_atom_sc] = AtomCell[]
+            for other_atom_sc = 1:structure.supercell.num_atoms
+                if prim_atom_sc == other_atom_sc
+                    continue
+                end
+                other_atom_type = structure.supercell.kd_int_list[other_atom_sc]
+                rc = cutoff_radii[body, prim_atom_type, other_atom_type]
 
-				if rc < 0.0 || min_distance_pairs[prim_atom_sc, other_atom_sc][1].distance ≤ rc
-					for distinfo in min_distance_pairs[prim_atom_sc, other_atom_sc]
-						push!(
-							interaction_cutoff_dict[body][prim_atom_sc],
-							AtomCell(other_atom_sc, distinfo.cell_index),
-						)
-					end
-				end
-			end
-		end
-	end
-
-
-	# Finalize each cutoff bucket in sorted AtomCell order; downstream uses
-	# combinations() and translationally-equivalent cluster matching, both of
-	# which assume sorted input.
-	for body = 2:nbody, prim_atom_sc in symmetry.atoms_in_prim
-		sort!(interaction_cutoff_dict[body][prim_atom_sc])
-	end
-
-	# Inner clusters are stored sorted (translationally-equivalent comparison
-	# in _irreducible_clusters expects sorted atom lists); the outer vector
-	# preserves insertion order.
-	interaction_clusters = Dict{Int, Dict{Int, Vector{Vector{AtomCell}}}}()
-	for body = 2:nbody
-		interaction_clusters[body] = Dict{Int, Vector{Vector{AtomCell}}}()
-		for prim_atom_sc in symmetry.atoms_in_prim
-			interaction_clusters[body][prim_atom_sc] = Vector{AtomCell}[]
-		end
-	end
+                if rc < 0.0 || min_distance_pairs[prim_atom_sc, other_atom_sc][1].distance ≤ rc
+                    for distinfo in min_distance_pairs[prim_atom_sc, other_atom_sc]
+                        push!(
+                            interaction_cutoff_dict[body][prim_atom_sc],
+                            AtomCell(other_atom_sc, distinfo.cell_index),
+                        )
+                    end
+                end
+            end
+        end
+    end
 
 
-	for body = 2:nbody, prim_atom_sc in symmetry.atoms_in_prim
-		prim_atom_ac::AtomCell = AtomCell(prim_atom_sc, 1)
-		interaction_atoms::Vector{AtomCell} = interaction_cutoff_dict[body][prim_atom_sc]
-		if body == 2
-			for other_atom_ac::AtomCell in interaction_atoms
-				distance = _distance_atomcells(prim_atom_ac, other_atom_ac, structure.x_image_cart)
-				rc = cutoff_radii[
-					body,
-					structure.supercell.kd_int_list[prim_atom_sc],
-					structure.supercell.kd_int_list[other_atom_ac.atom],
-				]
-				if rc < 0.0 || distance ≤ rc
-					push!(interaction_clusters[body][prim_atom_sc], [other_atom_ac])
-				end
-			end
-		else
-			for atom_combination::Vector{AtomCell} in
-				collect(combinations(interaction_atoms, body - 1))
-				atom_cell_list_all = vcat([prim_atom_ac], atom_combination)
-				atom_list_all = [atom_cell.atom for atom_cell in atom_cell_list_all]
-				if _is_within_cutoff(
-					atom_cell_list_all,
-					structure.supercell.kd_int_list,
-					cutoff_radii,
-					body,
-					structure.x_image_cart,
-					min_distance_pairs,
-				) && length(atom_list_all) == length(unique(atom_list_all))
-					push!(interaction_clusters[body][prim_atom_sc], sort(atom_combination))
-				end
-			end
-		end
-	end
+    # Finalize each cutoff bucket in sorted AtomCell order; downstream uses
+    # combinations() and translationally-equivalent cluster matching, both of
+    # which assume sorted input.
+    for body = 2:nbody, prim_atom_sc in symmetry.atoms_in_prim
+        sort!(interaction_cutoff_dict[body][prim_atom_sc])
+    end
 
-	result = Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}()
-	for body = 2:nbody
-		result[body] = Dict{Int, OrderedDict{Vector{Int}, Int}}()
-		for prim_atom_sc in symmetry.atoms_in_prim
-			result[body][prim_atom_sc] = OrderedDict{Vector{Int}, Int}()
-		end
-	end
+    # Inner clusters are stored sorted (translationally-equivalent comparison
+    # in _irreducible_clusters expects sorted atom lists); the outer vector
+    # preserves insertion order.
+    interaction_clusters = Dict{Int, Dict{Int, Vector{Vector{AtomCell}}}}()
+    for body = 2:nbody
+        interaction_clusters[body] = Dict{Int, Vector{Vector{AtomCell}}}()
+        for prim_atom_sc in symmetry.atoms_in_prim
+            interaction_clusters[body][prim_atom_sc] = Vector{AtomCell}[]
+        end
+    end
 
-	for body = 2:nbody
-		for prim_atom_sc in symmetry.atoms_in_prim
-			cluster_counts = OrderedDict{Vector{Int}, Int}()
-			for cluster::Vector{AtomCell} in interaction_clusters[body][prim_atom_sc]
-				atom_list = [atom_cell.atom for atom_cell in cluster]
-				atom_list = vcat([prim_atom_sc], atom_list)
-				cluster_counts[atom_list] = get(cluster_counts, atom_list, 0) + 1
-			end
-			result[body][prim_atom_sc] = cluster_counts
-		end
-	end
 
-	return result
+    for body = 2:nbody, prim_atom_sc in symmetry.atoms_in_prim
+        prim_atom_ac::AtomCell = AtomCell(prim_atom_sc, 1)
+        interaction_atoms::Vector{AtomCell} = interaction_cutoff_dict[body][prim_atom_sc]
+        if body == 2
+            for other_atom_ac::AtomCell in interaction_atoms
+                distance = _distance_atomcells(prim_atom_ac, other_atom_ac, structure.x_image_cart)
+                rc = cutoff_radii[
+                    body,
+                    structure.supercell.kd_int_list[prim_atom_sc],
+                    structure.supercell.kd_int_list[other_atom_ac.atom],
+                ]
+                if rc < 0.0 || distance ≤ rc
+                    push!(interaction_clusters[body][prim_atom_sc], [other_atom_ac])
+                end
+            end
+        else
+            for atom_combination::Vector{AtomCell} in
+                collect(combinations(interaction_atoms, body - 1))
+                atom_cell_list_all = vcat([prim_atom_ac], atom_combination)
+                atom_list_all = [atom_cell.atom for atom_cell in atom_cell_list_all]
+                if _is_within_cutoff(
+                    atom_cell_list_all,
+                    structure.supercell.kd_int_list,
+                    cutoff_radii,
+                    body,
+                    structure.x_image_cart,
+                    min_distance_pairs,
+                ) && length(atom_list_all) == length(unique(atom_list_all))
+                    push!(interaction_clusters[body][prim_atom_sc], sort(atom_combination))
+                end
+            end
+        end
+    end
+
+    result = Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}}()
+    for body = 2:nbody
+        result[body] = Dict{Int, OrderedDict{Vector{Int}, Int}}()
+        for prim_atom_sc in symmetry.atoms_in_prim
+            result[body][prim_atom_sc] = OrderedDict{Vector{Int}, Int}()
+        end
+    end
+
+    for body = 2:nbody
+        for prim_atom_sc in symmetry.atoms_in_prim
+            cluster_counts = OrderedDict{Vector{Int}, Int}()
+            for cluster::Vector{AtomCell} in interaction_clusters[body][prim_atom_sc]
+                atom_list = [atom_cell.atom for atom_cell in cluster]
+                atom_list = vcat([prim_atom_sc], atom_list)
+                cluster_counts[atom_list] = get(cluster_counts, atom_list, 0) + 1
+            end
+            result[body][prim_atom_sc] = cluster_counts
+        end
+    end
+
+    return result
 end
 
 """
-	struct DistList
+    struct DistList
 
 Internal structure used to sort distance information in `print_cluster_stdout`.
 
@@ -460,16 +460,16 @@ Internal structure used to sort distance information in `print_cluster_stdout`.
 - `dist::Float64`: Distance value
 """
 struct DistList
-	atom::Int
-	dist::Float64
+    atom::Int
+    dist::Float64
 end
 
 function Base.isless(a::DistList, b::DistList)
-	return a.dist < b.dist
+    return a.dist < b.dist
 end
 
 """
-	print_cluster_stdout([io::IO=stdout,] min_distance_pairs, atoms_in_prim, kd_name, kd_int_list)
+    print_cluster_stdout([io::IO=stdout,] min_distance_pairs, atoms_in_prim, kd_name, kd_int_list)
 
 Print the list of neighboring atoms and distances for each atom in the
 primitive cell to `io`. Defaults to `stdout` when `io` is omitted,
@@ -487,123 +487,123 @@ output testable via `IOBuffer`.
 - `AssertionError`: If input parameters are invalid
 """
 function print_cluster_stdout(
-	io::IO,
-	min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
-	atoms_in_prim::AbstractVector{<:Integer},
-	kd_name::AbstractVector{<:AbstractString},
-	kd_int_list::AbstractVector{<:Integer},
+    io::IO,
+    min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
+    atoms_in_prim::AbstractVector{<:Integer},
+    kd_name::AbstractVector{<:AbstractString},
+    kd_int_list::AbstractVector{<:Integer},
 )
-	@assert length(atoms_in_prim) > 0 "atoms_in_prim must not be empty."
-	@assert length(kd_name) > 0 "kd_name must not be empty."
-	@assert length(kd_int_list) > 0 "kd_int_list must not be empty."
+    @assert length(atoms_in_prim) > 0 "atoms_in_prim must not be empty."
+    @assert length(kd_name) > 0 "kd_name must not be empty."
+    @assert length(kd_int_list) > 0 "kd_int_list must not be empty."
 
-	println(io, """
+    println(io, """
 
-	INTERACTION
-	===========
-	""")
+    INTERACTION
+    ===========
+    """)
 
-	num_atoms::Int = size(min_distance_pairs, 1)
-	neighbor_list = Vector{Vector{DistList}}(undef, length(atoms_in_prim))
+    num_atoms::Int = size(min_distance_pairs, 1)
+    neighbor_list = Vector{Vector{DistList}}(undef, length(atoms_in_prim))
 
-	# Create neighbor list for each primitive atom
-	for (i_prim, i_prim_atom) in enumerate(atoms_in_prim)
-		neighbor_list[i_prim] = DistList[]
-		for j = 1:num_atoms
-			push!(
-				neighbor_list[i_prim],
-				DistList(j, min_distance_pairs[i_prim_atom, j][1].distance),
-			)
-		end
-		sort!(neighbor_list[i_prim])
-	end
+    # Create neighbor list for each primitive atom
+    for (i_prim, i_prim_atom) in enumerate(atoms_in_prim)
+        neighbor_list[i_prim] = DistList[]
+        for j = 1:num_atoms
+            push!(
+                neighbor_list[i_prim],
+                DistList(j, min_distance_pairs[i_prim_atom, j][1].distance),
+            )
+        end
+        sort!(neighbor_list[i_prim])
+    end
 
-	println(io, " List of neighboring atoms below.")
-	println(io, " Format [N th-nearest shell, distance (Number of atoms on the shell)]")
-	println(io)
+    println(io, " List of neighboring atoms below.")
+    println(io, " Format [N th-nearest shell, distance (Number of atoms on the shell)]")
+    println(io)
 
-	# Print neighbor information for each primitive atom
-	for (i_prim, i_prim_atom) in enumerate(atoms_in_prim)
-		nth_nearest = 0
-		atom_list = Int[]
+    # Print neighbor information for each primitive atom
+    for (i_prim, i_prim_atom) in enumerate(atoms_in_prim)
+        nth_nearest = 0
+        atom_list = Int[]
 
-		@printf(io, "%5d (%3s): ", i_prim_atom, kd_name[kd_int_list[i_prim_atom]])
+        @printf(io, "%5d (%3s): ", i_prim_atom, kd_name[kd_int_list[i_prim_atom]])
 
-		dist_tmp = 0.0
+        dist_tmp = 0.0
 
-		for j = 1:num_atoms
-			# Skip if distance is zero (same atom)
-			if neighbor_list[i_prim][j].dist < 1e-8
-				continue
-			end
+        for j = 1:num_atoms
+            # Skip if distance is zero (same atom)
+            if neighbor_list[i_prim][j].dist < 1e-8
+                continue
+            end
 
-			# Check if this is a new distance shell
-			if abs(neighbor_list[i_prim][j].dist - dist_tmp) > 1e-6
-				# Print previous shell if not empty
-				if !isempty(atom_list)
-					nth_nearest += 1
+            # Check if this is a new distance shell
+            if abs(neighbor_list[i_prim][j].dist - dist_tmp) > 1e-6
+                # Print previous shell if not empty
+                if !isempty(atom_list)
+                    nth_nearest += 1
 
-					if nth_nearest > 1
-						print(io, " " ^ 13)
-					end
+                    if nth_nearest > 1
+                        print(io, " " ^ 13)
+                    end
 
-					@printf(io, "%3d%10.6f (%3d) -", nth_nearest, dist_tmp, length(atom_list))
+                    @printf(io, "%3d%10.6f (%3d) -", nth_nearest, dist_tmp, length(atom_list))
 
-					# Print atoms in this shell
-					for (k, atom_idx) in enumerate(atom_list)
-						if k > 1 && k % 4 == 1
-							println(io)
-							print(io, " " ^ 34)
-						end
-						@printf(io, "%4d(%3s)", atom_idx, kd_name[kd_int_list[atom_idx]])
-					end
-					println(io)
-				end
+                    # Print atoms in this shell
+                    for (k, atom_idx) in enumerate(atom_list)
+                        if k > 1 && k % 4 == 1
+                            println(io)
+                            print(io, " " ^ 34)
+                        end
+                        @printf(io, "%4d(%3s)", atom_idx, kd_name[kd_int_list[atom_idx]])
+                    end
+                    println(io)
+                end
 
-				# Start new shell
-				dist_tmp = neighbor_list[i_prim][j].dist
-				atom_list = [neighbor_list[i_prim][j].atom]
-			else
-				# Add to current shell
-				push!(atom_list, neighbor_list[i_prim][j].atom)
-			end
-		end
+                # Start new shell
+                dist_tmp = neighbor_list[i_prim][j].dist
+                atom_list = [neighbor_list[i_prim][j].atom]
+            else
+                # Add to current shell
+                push!(atom_list, neighbor_list[i_prim][j].atom)
+            end
+        end
 
-		# Print the last shell if not empty
-		if !isempty(atom_list)
-			nth_nearest += 1
+        # Print the last shell if not empty
+        if !isempty(atom_list)
+            nth_nearest += 1
 
-			if nth_nearest > 1
-				print(io, " " ^ 13)
-			end
+            if nth_nearest > 1
+                print(io, " " ^ 13)
+            end
 
-			@printf(io, "%3d%10.6f (%3d) -", nth_nearest, dist_tmp, length(atom_list))
+            @printf(io, "%3d%10.6f (%3d) -", nth_nearest, dist_tmp, length(atom_list))
 
-			# Print atoms in this shell
-			for (k, atom_idx) in enumerate(atom_list)
-				if k > 1 && k % 4 == 1
-					println(io)
-					print(io, " " ^ 34)
-				end
-				@printf(io, "%4d(%3s)", atom_idx, kd_name[kd_int_list[atom_idx]])
-			end
-			println(io)
-		end
-		println(io, "\n")
-	end
+            # Print atoms in this shell
+            for (k, atom_idx) in enumerate(atom_list)
+                if k > 1 && k % 4 == 1
+                    println(io)
+                    print(io, " " ^ 34)
+                end
+                @printf(io, "%4d(%3s)", atom_idx, kd_name[kd_int_list[atom_idx]])
+            end
+            println(io)
+        end
+        println(io, "\n")
+    end
 end
 
 # Convenience overload that dispatches to the IO-taking form with stdout
 # as the default stream.
 print_cluster_stdout(
-	min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
-	atoms_in_prim::AbstractVector{<:Integer},
-	kd_name::AbstractVector{<:AbstractString},
-	kd_int_list::AbstractVector{<:Integer},
+    min_distance_pairs::AbstractMatrix{<:AbstractVector{<:DistInfo}},
+    atoms_in_prim::AbstractVector{<:Integer},
+    kd_name::AbstractVector{<:AbstractString},
+    kd_int_list::AbstractVector{<:Integer},
 ) = print_cluster_stdout(stdout, min_distance_pairs, atoms_in_prim, kd_name, kd_int_list)
 
 """
-	_translation_canonical_form(cluster, symmetry) -> Vector{Int}
+    _translation_canonical_form(cluster, symmetry) -> Vector{Int}
 
 Return the lex-minimum sorted atom-list reachable from `cluster` under
 any pure translation in `symmetry.symnum_translation` (or its inverse).
@@ -630,33 +630,33 @@ for a supercell sublattice — but stays robust if the symmetry data is
 ever populated with only a generating subset.
 """
 function _translation_canonical_form(
-	cluster::AbstractVector{<:Integer},
-	symmetry::Symmetry,
+    cluster::AbstractVector{<:Integer},
+    symmetry::Symmetry,
 )::Vector{Int}
-	n = length(cluster)
-	best = sort(Vector{Int}(cluster))
-	buf = Vector{Int}(undef, n)
-	@inbounds for sym_tran in symmetry.symnum_translation
-		for i = 1:n
-			buf[i] = symmetry.map_sym[cluster[i], sym_tran]
-		end
-		sort!(buf)
-		if buf < best
-			best = copy(buf)
-		end
-		for i = 1:n
-			buf[i] = symmetry.map_sym_inv[cluster[i], sym_tran]
-		end
-		sort!(buf)
-		if buf < best
-			best = copy(buf)
-		end
-	end
-	return best
+    n = length(cluster)
+    best = sort(Vector{Int}(cluster))
+    buf = Vector{Int}(undef, n)
+    @inbounds for sym_tran in symmetry.symnum_translation
+        for i = 1:n
+            buf[i] = symmetry.map_sym[cluster[i], sym_tran]
+        end
+        sort!(buf)
+        if buf < best
+            best = copy(buf)
+        end
+        for i = 1:n
+            buf[i] = symmetry.map_sym_inv[cluster[i], sym_tran]
+        end
+        sort!(buf)
+        if buf < best
+            best = copy(buf)
+        end
+    end
+    return best
 end
 
 """
-	_is_translationally_equiv_cluster(cluster_target, cluster_ref, symmetry) -> Bool
+    _is_translationally_equiv_cluster(cluster_target, cluster_ref, symmetry) -> Bool
 
 Return `true` if `cluster_target` is reachable from `cluster_ref` by any
 pure translation in `symmetry.symnum_translation` (or its inverse).
@@ -664,62 +664,62 @@ Internal predicate form of the translation-equivalence relation, retained
 for unit tests that exercise the relation directly.
 """
 function _is_translationally_equiv_cluster(
-	cluster_target::AbstractVector{<:Integer},
-	cluster_ref::AbstractVector{<:Integer},
-	symmetry::Symmetry,
+    cluster_target::AbstractVector{<:Integer},
+    cluster_ref::AbstractVector{<:Integer},
+    symmetry::Symmetry,
 )::Bool
-	for sym_tran in symmetry.symnum_translation
-		cluster_target_shifted = [symmetry.map_sym[atom, sym_tran] for atom in cluster_target]
-		cluster_target_shifted_inv =
-			[symmetry.map_sym_inv[atom, sym_tran] for atom in cluster_target]
-		# Sort both for comparison (order doesn't matter for clusters)
-		if sort(cluster_target_shifted) == sort(cluster_ref)
-			return true
-		end
-		if sort(cluster_target_shifted_inv) == sort(cluster_ref)
-			return true
-		end
-	end
-	return false
+    for sym_tran in symmetry.symnum_translation
+        cluster_target_shifted = [symmetry.map_sym[atom, sym_tran] for atom in cluster_target]
+        cluster_target_shifted_inv =
+            [symmetry.map_sym_inv[atom, sym_tran] for atom in cluster_target]
+        # Sort both for comparison (order doesn't matter for clusters)
+        if sort(cluster_target_shifted) == sort(cluster_ref)
+            return true
+        end
+        if sort(cluster_target_shifted_inv) == sort(cluster_ref)
+            return true
+        end
+    end
+    return false
 end
 
 function _irreducible_clusters(
-	cluster_dict::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}},
-	symmetry::Symmetry,
+    cluster_dict::Dict{Int, Dict{Int, OrderedDict{Vector{Int}, Int}}},
+    symmetry::Symmetry,
 )::Dict{Int, SortedCounter{Vector{Int}}}
-	result = Dict{Int, SortedCounter{Vector{Int}}}()
+    result = Dict{Int, SortedCounter{Vector{Int}}}()
 
-	for body in sort(collect(keys(cluster_dict)))
-		result[body] = SortedCounter{Vector{Int}}()
+    for body in sort(collect(keys(cluster_dict)))
+        result[body] = SortedCounter{Vector{Int}}()
 
-		# Translation orbit representatives are keyed by canonical form.
-		# The first cluster encountered in (prim_atom_sc, cluster_dict key)
-		# iteration order is the stored representative, so XML I/O and
-		# SALC ordering downstream see a deterministic atom-list.
-		seen_canonical = Set{Vector{Int}}()
+        # Translation orbit representatives are keyed by canonical form.
+        # The first cluster encountered in (prim_atom_sc, cluster_dict key)
+        # iteration order is the stored representative, so XML I/O and
+        # SALC ordering downstream see a deterministic atom-list.
+        seen_canonical = Set{Vector{Int}}()
 
-		for prim_atom_sc in symmetry.atoms_in_prim
-			for cluster::Vector{Int} in keys(cluster_dict[body][prim_atom_sc])
-				cluster_list = sort(cluster)
-				canonical = _translation_canonical_form(cluster_list, symmetry)
-				if canonical in seen_canonical
-					continue
-				end
-				push!(seen_canonical, canonical)
+        for prim_atom_sc in symmetry.atoms_in_prim
+            for cluster::Vector{Int} in keys(cluster_dict[body][prim_atom_sc])
+                cluster_list = sort(cluster)
+                canonical = _translation_canonical_form(cluster_list, symmetry)
+                if canonical in seen_canonical
+                    continue
+                end
+                push!(seen_canonical, canonical)
 
-				original_count = cluster_dict[body][prim_atom_sc][cluster]
-				push!(result[body], cluster_list, original_count)
-			end
-		end
-	end
-	return result
+                original_count = cluster_dict[body][prim_atom_sc][cluster]
+                push!(result[body], cluster_list, original_count)
+            end
+        end
+    end
+    return result
 end
 
 """
-	_cluster_orbits(
-		irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}},
-		symmetry::Symmetry,
-	) -> Dict{Int, Dict{Int, Vector{Vector{Int}}}}
+    _cluster_orbits(
+        irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}},
+        symmetry::Symmetry,
+    ) -> Dict{Int, Dict{Int, Vector{Vector{Int}}}}
 
 Classify clusters in `irreducible_cluster_dict` into orbits under spatial symmetry operations.
 
@@ -750,125 +750,125 @@ orbits = _cluster_orbits(cluster.irreducible_cluster_dict, symmetry)
 ```
 """
 function _cluster_orbits(
-	irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}},
-	symmetry::Symmetry,
+    irreducible_cluster_dict::Dict{Int, SortedCounter{Vector{Int}}},
+    symmetry::Symmetry,
 )::Dict{Int, Dict{Int, Vector{Vector{Int}}}}
-	result = Dict{Int, Dict{Int, Vector{Vector{Int}}}}()
+    result = Dict{Int, Dict{Int, Vector{Vector{Int}}}}()
 
-	for body in sort(collect(keys(irreducible_cluster_dict)))
-		# Flatten the body's irreducible clusters into a lex-sorted Vector
-		# and a reverse-lookup index map. `SortedCounter` iterates in
-		# `isless` order and its keys are element-sorted at insertion, so
-		# each `c` is already sorted; `copy(c)` is enough to break aliasing
-		# with the SortedCounter's internal key object.
-		clusters_sorted = Vector{Vector{Int}}()
-		for c in irreducible_cluster_dict[body]
-			push!(clusters_sorted, copy(c))
-		end
-		n_clusters = length(clusters_sorted)
-		cluster_to_idx = Dict{Vector{Int}, Int}()
-		sizehint!(cluster_to_idx, n_clusters)
-		for i = 1:n_clusters
-			cluster_to_idx[clusters_sorted[i]] = i
-		end
+    for body in sort(collect(keys(irreducible_cluster_dict)))
+        # Flatten the body's irreducible clusters into a lex-sorted Vector
+        # and a reverse-lookup index map. `SortedCounter` iterates in
+        # `isless` order and its keys are element-sorted at insertion, so
+        # each `c` is already sorted; `copy(c)` is enough to break aliasing
+        # with the SortedCounter's internal key object.
+        clusters_sorted = Vector{Vector{Int}}()
+        for c in irreducible_cluster_dict[body]
+            push!(clusters_sorted, copy(c))
+        end
+        n_clusters = length(clusters_sorted)
+        cluster_to_idx = Dict{Vector{Int}, Int}()
+        sizehint!(cluster_to_idx, n_clusters)
+        for i = 1:n_clusters
+            cluster_to_idx[clusters_sorted[i]] = i
+        end
 
-		# Phase 1 (parallel): for each cluster, enumerate the set of
-		# in-set neighbor *indices* reachable in one (spatial symmetry
-		# operation, translation) step (forward and inverse). Each
-		# iteration is independent: it reads `clusters_sorted`,
-		# `cluster_to_idx`, and `symmetry.{symdata, symnum_translation,
-		# map_sym, map_sym_inv}` -- all immutable from this point on --
-		# and writes only to its own slot of `neighbors_per_cluster`.
-		#
-		# Scratch buffers (two `Vector{Int}` and one `Set{Int}`) are
-		# allocated per iteration. The orbit-neighbor count is at most
-		# `symmetry.ntran` (one per pure translation), which sets the
-		# `Set` size hint to avoid mid-loop rehashing. Empirically on
-		# the 3x3x3 FeGe pain point, hoisting these buffers to
-		# `threadid()`-indexed thread-local slots with `:static`
-		# scheduling reduced allocations by ~70 % but ran 10-15 % slower
-		# overall -- the allocator is not the bottleneck here and the
-		# indirection cost dominates.
-		neighbors_per_cluster = Vector{Vector{Int}}(undef, n_clusters)
-		Threads.@threads for i = 1:n_clusters
-			c = clusters_sorted[i]
-			local_set = Set{Int}()
-			sizehint!(local_set, symmetry.ntran)
-			buf_shifted = Vector{Int}(undef, body)
-			buf_translated = Vector{Int}(undef, body)
-			for n = eachindex(symmetry.symdata)
-				@inbounds for k = 1:body
-					buf_shifted[k] = symmetry.map_sym[c[k], n]
-				end
-				for sym_tran in symmetry.symnum_translation
-					@inbounds for k = 1:body
-						buf_translated[k] = symmetry.map_sym[buf_shifted[k], sym_tran]
-					end
-					sort!(buf_translated)
-					j = get(cluster_to_idx, buf_translated, 0)
-					if j > 0 && j != i
-						push!(local_set, j)
-					end
+        # Phase 1 (parallel): for each cluster, enumerate the set of
+        # in-set neighbor *indices* reachable in one (spatial symmetry
+        # operation, translation) step (forward and inverse). Each
+        # iteration is independent: it reads `clusters_sorted`,
+        # `cluster_to_idx`, and `symmetry.{symdata, symnum_translation,
+        # map_sym, map_sym_inv}` -- all immutable from this point on --
+        # and writes only to its own slot of `neighbors_per_cluster`.
+        #
+        # Scratch buffers (two `Vector{Int}` and one `Set{Int}`) are
+        # allocated per iteration. The orbit-neighbor count is at most
+        # `symmetry.ntran` (one per pure translation), which sets the
+        # `Set` size hint to avoid mid-loop rehashing. Empirically on
+        # the 3x3x3 FeGe pain point, hoisting these buffers to
+        # `threadid()`-indexed thread-local slots with `:static`
+        # scheduling reduced allocations by ~70 % but ran 10-15 % slower
+        # overall -- the allocator is not the bottleneck here and the
+        # indirection cost dominates.
+        neighbors_per_cluster = Vector{Vector{Int}}(undef, n_clusters)
+        Threads.@threads for i = 1:n_clusters
+            c = clusters_sorted[i]
+            local_set = Set{Int}()
+            sizehint!(local_set, symmetry.ntran)
+            buf_shifted = Vector{Int}(undef, body)
+            buf_translated = Vector{Int}(undef, body)
+            for n = eachindex(symmetry.symdata)
+                @inbounds for k = 1:body
+                    buf_shifted[k] = symmetry.map_sym[c[k], n]
+                end
+                for sym_tran in symmetry.symnum_translation
+                    @inbounds for k = 1:body
+                        buf_translated[k] = symmetry.map_sym[buf_shifted[k], sym_tran]
+                    end
+                    sort!(buf_translated)
+                    j = get(cluster_to_idx, buf_translated, 0)
+                    if j > 0 && j != i
+                        push!(local_set, j)
+                    end
 
-					@inbounds for k = 1:body
-						buf_translated[k] = symmetry.map_sym_inv[buf_shifted[k], sym_tran]
-					end
-					sort!(buf_translated)
-					j = get(cluster_to_idx, buf_translated, 0)
-					if j > 0 && j != i
-						push!(local_set, j)
-					end
-				end
-			end
-			neighbors_per_cluster[i] = collect(local_set)
-		end
+                    @inbounds for k = 1:body
+                        buf_translated[k] = symmetry.map_sym_inv[buf_shifted[k], sym_tran]
+                    end
+                    sort!(buf_translated)
+                    j = get(cluster_to_idx, buf_translated, 0)
+                    if j > 0 && j != i
+                        push!(local_set, j)
+                    end
+                end
+            end
+            neighbors_per_cluster[i] = collect(local_set)
+        end
 
-		# Phase 2 (serial): union-find merge. Each connected component
-		# is one orbit. The total edge count is bounded by
-		# `n_clusters * symmetry.ntran` and the inverse-Ackermann
-		# amortized cost per edge makes this phase negligible relative
-		# to Phase 1.
-		parent = collect(1:n_clusters)
-		sizes = ones(Int, n_clusters)
-		for i = 1:n_clusters
-			for j in neighbors_per_cluster[i]
-				_uf_union!(parent, sizes, i, j)
-			end
-		end
+        # Phase 2 (serial): union-find merge. Each connected component
+        # is one orbit. The total edge count is bounded by
+        # `n_clusters * symmetry.ntran` and the inverse-Ackermann
+        # amortized cost per edge makes this phase negligible relative
+        # to Phase 1.
+        parent = collect(1:n_clusters)
+        sizes = ones(Int, n_clusters)
+        for i = 1:n_clusters
+            for j in neighbors_per_cluster[i]
+                _uf_union!(parent, sizes, i, j)
+            end
+        end
 
-		# Phase 3 (serial): group cluster indices by root; build each
-		# orbit's cluster-list lex-sorted; emit orbits in lex-min order.
-		# `sort!(orbit)` makes `first(orbit)` the lex-min member; the
-		# subsequent `sort!(orbits, by = first)` numbers orbits by their
-		# lex-min member, so `orbit_index` is independent of thread
-		# scheduling and matches the previous sequential implementation
-		# (which encountered orbits in the same lex-min order, since
-		# `SortedCounter` iteration is lex-sorted).
-		groups = Dict{Int, Vector{Int}}()
-		for i = 1:n_clusters
-			r = _uf_find!(parent, i)
-			push!(get!(groups, r, Int[]), i)
-		end
+        # Phase 3 (serial): group cluster indices by root; build each
+        # orbit's cluster-list lex-sorted; emit orbits in lex-min order.
+        # `sort!(orbit)` makes `first(orbit)` the lex-min member; the
+        # subsequent `sort!(orbits, by = first)` numbers orbits by their
+        # lex-min member, so `orbit_index` is independent of thread
+        # scheduling and matches the previous sequential implementation
+        # (which encountered orbits in the same lex-min order, since
+        # `SortedCounter` iteration is lex-sorted).
+        groups = Dict{Int, Vector{Int}}()
+        for i = 1:n_clusters
+            r = _uf_find!(parent, i)
+            push!(get!(groups, r, Int[]), i)
+        end
 
-		orbits = Vector{Vector{Vector{Int}}}()
-		sizehint!(orbits, length(groups))
-		for indices in values(groups)
-			orbit = Vector{Vector{Int}}(undef, length(indices))
-			@inbounds for (k, idx) in enumerate(indices)
-				orbit[k] = clusters_sorted[idx]
-			end
-			sort!(orbit)
-			push!(orbits, orbit)
-		end
-		sort!(orbits, by = first)
+        orbits = Vector{Vector{Vector{Int}}}()
+        sizehint!(orbits, length(groups))
+        for indices in values(groups)
+            orbit = Vector{Vector{Int}}(undef, length(indices))
+            @inbounds for (k, idx) in enumerate(indices)
+                orbit[k] = clusters_sorted[idx]
+            end
+            sort!(orbit)
+            push!(orbits, orbit)
+        end
+        sort!(orbits, by = first)
 
-		result[body] = Dict{Int, Vector{Vector{Int}}}()
-		for (orbit_index, orbit) in enumerate(orbits)
-			result[body][orbit_index] = orbit
-		end
-	end
+        result[body] = Dict{Int, Vector{Vector{Int}}}()
+        for (orbit_index, orbit) in enumerate(orbits)
+            result[body][orbit_index] = orbit
+        end
+    end
 
-	return result
+    return result
 end
 
 # --- Union-find primitives used by `_cluster_orbits` ---
@@ -879,30 +879,30 @@ end
 # dwarfed by Phase 1's neighbor discovery.
 
 @inline function _uf_find!(parent::Vector{Int}, i::Int)::Int
-	@inbounds while parent[i] != i
-		parent[i] = parent[parent[i]]
-		i = parent[i]
-	end
-	return i
+    @inbounds while parent[i] != i
+        parent[i] = parent[parent[i]]
+        i = parent[i]
+    end
+    return i
 end
 
 @inline function _uf_union!(
-	parent::Vector{Int},
-	sizes::Vector{Int},
-	i::Int,
-	j::Int,
+    parent::Vector{Int},
+    sizes::Vector{Int},
+    i::Int,
+    j::Int,
 )
-	ri = _uf_find!(parent, i)
-	rj = _uf_find!(parent, j)
-	if ri == rj
-		return nothing
-	end
-	@inbounds if sizes[ri] < sizes[rj]
-		ri, rj = rj, ri
-	end
-	@inbounds parent[rj] = ri
-	@inbounds sizes[ri] += sizes[rj]
-	return nothing
+    ri = _uf_find!(parent, i)
+    rj = _uf_find!(parent, j)
+    if ri == rj
+        return nothing
+    end
+    @inbounds if sizes[ri] < sizes[rj]
+        ri, rj = rj, ri
+    end
+    @inbounds parent[rj] = ri
+    @inbounds sizes[ri] += sizes[rj]
+    return nothing
 end
 
 

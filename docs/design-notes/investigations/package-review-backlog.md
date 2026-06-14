@@ -110,10 +110,13 @@ dedup is under "Deferred". Remaining:
   `MAGESTY_CHECK_IRREP_UNITARY` is read once at load time into the module
   constant `CHECK_IRREP_UNITARY_DEFAULT`, which is now the keyword default;
   the docstring documents this. An explicit keyword still overrides it.
-- **Minor — indentation inconsistency.** Tabs vs 4-space mixed across the
-  package (STYLE_GUIDE prescribes 4-space). Normalize in a single
-  mechanical commit (re-baseline benchmarks if it touches hot-path files).
-  Large and noisy; kept separate on purpose.
+- **Minor — indentation inconsistency.** *(done)* Leading tabs across
+  `src/` and `test/` (50 files) normalized to 4 spaces per STYLE_GUIDE in a
+  single mechanical commit. The change is whitespace-only (`git diff -w` is
+  empty), so the parsed AST is unchanged and no benchmark re-baseline is
+  needed despite touching hot-path files; the full suite (unit + integration)
+  passes. `cli/` (a separate package), `tools/`, `examples/`, and `bench/`
+  were left out of scope.
 - **Minor (spec-level) — main module size.** `Magesty.jl` (~2000 lines)
   mixes type definitions, fitting, prediction, ~24 evaluation metrics,
   GCV, and I/O. Extracting `Metrics.jl` and a GCV-public file would each

@@ -8,7 +8,7 @@ using ..SphericalHarmonicsTransforms
 export rotmat2euler, Δl
 
 """
-	rotmat2euler(m::AbstractMatrix{<:Real}, mod_positive::Bool = true) -> Tuple{Float64, Float64, Float64}
+    rotmat2euler(m::AbstractMatrix{<:Real}, mod_positive::Bool = true) -> Tuple{Float64, Float64, Float64}
 
 Converts a 3x3 rotation matrix `m` to Euler angles `(α, β, γ)`.
 
@@ -30,44 +30,44 @@ println(angles)  # (0.0, 0.7853981633974483, 0.0)
 ```
 """
 function rotmat2euler(
-	m::AbstractMatrix{<:Real},
-	mod_positive::Bool = false;
-	tol::Real = 1e-12,
+    m::AbstractMatrix{<:Real},
+    mod_positive::Bool = false;
+    tol::Real = 1e-12,
 )::Tuple{Float64, Float64, Float64}
-	if size(m) != (3, 3)
-		throw(ArgumentError("Only 3x3 matrices are allowed"))
-	end
+    if size(m) != (3, 3)
+        throw(ArgumentError("Only 3x3 matrices are allowed"))
+    end
 
-	# Clamp m[3, 3] to [-1, 1] to handle floating point errors
-	m33_clamped = clamp(m[3, 3], -1.0, 1.0)
-	
-	if isapprox(m33_clamped, 1.0, atol = tol)
-		β = 0.0
-	elseif isapprox(m33_clamped, -1.0, atol = tol)
-		β = π
-	else
-		β = acos(m33_clamped)  # 0 ≤ β ≤ π
-	end
+    # Clamp m[3, 3] to [-1, 1] to handle floating point errors
+    m33_clamped = clamp(m[3, 3], -1.0, 1.0)
+    
+    if isapprox(m33_clamped, 1.0, atol = tol)
+        β = 0.0
+    elseif isapprox(m33_clamped, -1.0, atol = tol)
+        β = π
+    else
+        β = acos(m33_clamped)  # 0 ≤ β ≤ π
+    end
 
-	if isapprox(β, 0.0, atol = tol) || isapprox(β, π, atol = tol)
-		γ = 0
-		α = atan(-m[1, 2], m[2, 2])
-	else
-		γ = atan(m[3, 2], -m[3, 1])
-		α = atan(m[2, 3], m[1, 3])
-	end
+    if isapprox(β, 0.0, atol = tol) || isapprox(β, π, atol = tol)
+        γ = 0
+        α = atan(-m[1, 2], m[2, 2])
+    else
+        γ = atan(m[3, 2], -m[3, 1])
+        α = atan(m[2, 3], m[1, 3])
+    end
 
-	if mod_positive
-		α = mod(α, 2π)
-		γ = mod(γ, 2π)
-	end
+    if mod_positive
+        α = mod(α, 2π)
+        γ = mod(γ, 2π)
+    end
 
-	return (α, β, γ)
+    return (α, β, γ)
 end
 
 
 """
-	Δl(l::Int, α::Float64, β::Float64, γ::Float64)::Matrix{Float64}
+    Δl(l::Int, α::Float64, β::Float64, γ::Float64)::Matrix{Float64}
 
 Compute the Δ matrix for a given `l`, `α`, `β`, and `γ`.
 
@@ -89,36 +89,36 @@ Compute the Δ matrix for a given `l`, `α`, `β`, and `γ`.
 - M.A. Blanco et al., Journal of Molecular Structure (Theochem) 419 19-27 (1997).
 """
 function Δl(l::Integer, α::Real, β::Real, γ::Real; tol::Real = 1e-12)::Matrix{Float64}
-	# Ensure l is positive
-	if l < 0
-		throw(ArgumentError("Only positive l is allowed. Given: $l"))
-	end
+    # Ensure l is positive
+    if l < 0
+        throw(ArgumentError("Only positive l is allowed. Given: $l"))
+    end
 
-	cl_mat = c2r_sph_harm_matrix(l)  # Complex to real transformation matrix
-	wigD::Matrix{Complex} = wignerD(l, α, β, γ)  # Wigner D-matrix
+    cl_mat = c2r_sph_harm_matrix(l)  # Complex to real transformation matrix
+    wigD::Matrix{Complex} = wignerD(l, α, β, γ)  # Wigner D-matrix
 
-	# Compute Δ matrix (eq. (35) in the reference)
-	Δ = conj(cl_mat) * wigD * transpose(cl_mat)
+    # Compute Δ matrix (eq. (35) in the reference)
+    Δ = conj(cl_mat) * wigD * transpose(cl_mat)
 
-	# Check for excessive imaginary parts
-	if any(abs.(imag.(Δ)) .> tol)
-		throw(
-			ArgumentError("Matrix contains imaginary parts exceeding the threshold 1e-12"),
-		)
-	end
+    # Check for excessive imaginary parts
+    if any(abs.(imag.(Δ)) .> tol)
+        throw(
+            ArgumentError("Matrix contains imaginary parts exceeding the threshold 1e-12"),
+        )
+    end
 
-	realΔ = real(Δ)
+    realΔ = real(Δ)
 
-	if !(is_orthogonal(realΔ))
-		error("the rotation matrix is not orthogonal")
-	end
+    if !(is_orthogonal(realΔ))
+        error("the rotation matrix is not orthogonal")
+    end
 
-	return real(Δ)
+    return real(Δ)
 end
 
 function is_orthogonal(Q::AbstractMatrix{<:Real}; tol::Float64 = 1e-10)::Bool
-	n = size(Q, 1)
-	return (norm(Q' * Q - I(n)) < tol)
+    n = size(Q, 1)
+    return (norm(Q' * Q - I(n)) < tol)
 end
 
 end

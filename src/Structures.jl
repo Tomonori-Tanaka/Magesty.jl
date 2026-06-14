@@ -1,5 +1,5 @@
 """
-	module Structures
+    module Structures
 
 A module for managing crystal structures and periodic systems.
 """
@@ -19,7 +19,7 @@ const DIMENSIONS = 3  # Number of spatial dimensions
 export Structure
 
 """
-	Cell
+    Cell
 
 Represents the unit cell of a crystal structure with lattice vectors, atomic positions, and related properties.
 
@@ -54,61 +54,61 @@ Represents the unit cell of a crystal structure with lattice vectors, atomic pos
 The matrix representing reciprocal vectors are defined to be the inverse matrix of the lattice vectors.
 """
 struct Cell
-	lattice_vectors::SMatrix{3, 3, Float64}
-	reciprocal_vectors::SMatrix{3, 3, Float64}
-	num_atoms::Int
-	num_elements::Int
-	kd_int_list::Vector{Int}
-	x_frac::Matrix{Float64}
+    lattice_vectors::SMatrix{3, 3, Float64}
+    reciprocal_vectors::SMatrix{3, 3, Float64}
+    num_atoms::Int
+    num_elements::Int
+    kd_int_list::Vector{Int}
+    x_frac::Matrix{Float64}
 
 end
 
 function Cell(
-	lattice_vectors::AbstractMatrix{<:Real},
-	kd_int_list::AbstractVector{<:Integer},
-	x_frac::AbstractMatrix{<:Real},
+    lattice_vectors::AbstractMatrix{<:Real},
+    kd_int_list::AbstractVector{<:Integer},
+    x_frac::AbstractMatrix{<:Real},
 )
-	_validate_lattice_vectors(lattice_vectors)
+    _validate_lattice_vectors(lattice_vectors)
 
-	# Ensure concrete storage that matches the struct field types
-	lattice_matrix = SMatrix{3, 3, Float64}(lattice_vectors)
-	kd_vector = Vector{Int}(kd_int_list)
-	x_frac_matrix = Matrix{Float64}(x_frac)
+    # Ensure concrete storage that matches the struct field types
+    lattice_matrix = SMatrix{3, 3, Float64}(lattice_vectors)
+    kd_vector = Vector{Int}(kd_int_list)
+    x_frac_matrix = Matrix{Float64}(x_frac)
 
-	return Cell(lattice_matrix,
-		_calc_reciprocal_vectors(lattice_matrix),
-		length(kd_vector),
-		length(Set(kd_vector)),
-		kd_vector,
-		x_frac_matrix,
-	)
+    return Cell(lattice_matrix,
+        _calc_reciprocal_vectors(lattice_matrix),
+        length(kd_vector),
+        length(Set(kd_vector)),
+        kd_vector,
+        x_frac_matrix,
+    )
 end
 
 function show(io::IO, cell::Cell)
-	println(io, "\tlattice_vectors: ", cell.lattice_vectors)
-	println(io, "\treciprocal_vectors: ", cell.reciprocal_vectors)
-	println(io, "\tnum_atoms: ", cell.num_atoms)
-	println(io, "\tnum_elements: ", cell.num_elements)
-	println(io, "\tkd_ind_list: ", cell.kd_int_list)
-	println(io, "\tx_frac: ", cell.x_frac)
+    println(io, "\tlattice_vectors: ", cell.lattice_vectors)
+    println(io, "\treciprocal_vectors: ", cell.reciprocal_vectors)
+    println(io, "\tnum_atoms: ", cell.num_atoms)
+    println(io, "\tnum_elements: ", cell.num_elements)
+    println(io, "\tkd_ind_list: ", cell.kd_int_list)
+    println(io, "\tx_frac: ", cell.x_frac)
 end
 
 function _validate_lattice_vectors(lattice_vectors::AbstractMatrix{<:Real})
-	# Check linear independence and right-handed coordinate system
-	det_value = det(lattice_vectors)
-	if det_value ≈ 0
-		error("Lattice vectors are linearly dependent. det(lattice_vectors) = $det_value")
-	elseif det_value < 0
-		error("Lattice vectors do not form a right-handed coordinate system. det(lattice_vectors) = $det_value")
-	end
+    # Check linear independence and right-handed coordinate system
+    det_value = det(lattice_vectors)
+    if det_value ≈ 0
+        error("Lattice vectors are linearly dependent. det(lattice_vectors) = $det_value")
+    elseif det_value < 0
+        error("Lattice vectors do not form a right-handed coordinate system. det(lattice_vectors) = $det_value")
+    end
 end
 
 function _calc_reciprocal_vectors(lattice_vectors::AbstractMatrix{<:Real})
-	return inv(lattice_vectors)
+    return inv(lattice_vectors)
 end
 
 """
-	Structure
+    Structure
 
 Represents a periodic structure built from a Cell, with information about periodicity, atom types, and neighboring images.
 
@@ -137,326 +137,326 @@ Represents a periodic structure built from a Cell, with information about period
 
 """
 struct Structure
-	supercell::Cell
-	is_periodic::SVector{3, Bool}
-	kd_name::Vector{String}
-	x_image_frac::Array{Float64, 3}
-	x_image_cart::Array{Float64, 3}
-	exist_image::Vector{Bool}
-	atomtype_group::Vector{Vector{Int}}
+    supercell::Cell
+    is_periodic::SVector{3, Bool}
+    kd_name::Vector{String}
+    x_image_frac::Array{Float64, 3}
+    x_image_cart::Array{Float64, 3}
+    exist_image::Vector{Bool}
+    atomtype_group::Vector{Vector{Int}}
 
-	function Structure(
-		lattice_vectors::AbstractMatrix{<:Real},
-		is_periodic::AbstractVector{Bool},
-		kd_name::AbstractVector{<:AbstractString},
-		kd_int_list::AbstractVector{<:Integer},
-		x_frac::AbstractMatrix{<:Real},
-		;
-		verbosity::Bool = true,
-	)
-		start_time::UInt64 = time_ns()
-		supercell::Cell = Cell(lattice_vectors, kd_int_list, x_frac)
-		x_image_frac::Array{Float64, 3} = zeros(Float64, DIMENSIONS, size(x_frac, 2), NUM_CELLS)
-		x_image_cart::Array{Float64, 3} = zeros(Float64, DIMENSIONS, size(x_frac, 2), NUM_CELLS)
-		x_image_frac, x_image_cart = _calc_x_images(lattice_vectors, x_frac)
-		exist_image::Vector{Bool} = _calc_exist_image(is_periodic)
-		atomtype_group::Vector{Vector{Int}} = _calc_atomtype_group(kd_int_list)
+    function Structure(
+        lattice_vectors::AbstractMatrix{<:Real},
+        is_periodic::AbstractVector{Bool},
+        kd_name::AbstractVector{<:AbstractString},
+        kd_int_list::AbstractVector{<:Integer},
+        x_frac::AbstractMatrix{<:Real},
+        ;
+        verbosity::Bool = true,
+    )
+        start_time::UInt64 = time_ns()
+        supercell::Cell = Cell(lattice_vectors, kd_int_list, x_frac)
+        x_image_frac::Array{Float64, 3} = zeros(Float64, DIMENSIONS, size(x_frac, 2), NUM_CELLS)
+        x_image_cart::Array{Float64, 3} = zeros(Float64, DIMENSIONS, size(x_frac, 2), NUM_CELLS)
+        x_image_frac, x_image_cart = _calc_x_images(lattice_vectors, x_frac)
+        exist_image::Vector{Bool} = _calc_exist_image(is_periodic)
+        atomtype_group::Vector{Vector{Int}} = _calc_atomtype_group(kd_int_list)
 
-		if verbosity
-			_print_structure_stdout(supercell, kd_name)
-			elapsed_time::Float64 = (time_ns() - start_time) / 1e9
-			println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
-			println("-------------------------------------------------------------------")
-		end
+        if verbosity
+            _print_structure_stdout(supercell, kd_name)
+            elapsed_time::Float64 = (time_ns() - start_time) / 1e9
+            println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
+            println("-------------------------------------------------------------------")
+        end
 
-		return new(
-			supercell,
-			is_periodic,
-			kd_name,
-			x_image_frac,
-			x_image_cart,
-			exist_image,
-			atomtype_group,
-		)
-	end
+        return new(
+            supercell,
+            is_periodic,
+            kd_name,
+            x_image_frac,
+            x_image_cart,
+            exist_image,
+            atomtype_group,
+        )
+    end
 end
 
 """
-	Structure(system::SystemSpec) -> Structure
+    Structure(system::SystemSpec) -> Structure
 
 Create a Structure from a SystemSpec.
 """
 function Structure(system::SystemSpec; verbosity::Bool = true)::Structure
-	lattice_vectors::SMatrix{3, 3, Float64} = system.lattice_vectors
-	is_periodic::SVector{3, Bool} = system.is_periodic
-	kd_name::Vector{String} = system.kd_name
-	kd_int_list::Vector{Int} = system.kd_int_list
-	x_frac::Matrix{Float64} = system.x_fractional
+    lattice_vectors::SMatrix{3, 3, Float64} = system.lattice_vectors
+    is_periodic::SVector{3, Bool} = system.is_periodic
+    kd_name::Vector{String} = system.kd_name
+    kd_int_list::Vector{Int} = system.kd_int_list
+    x_frac::Matrix{Float64} = system.x_fractional
 
-	return Structure(
-		lattice_vectors,
-		is_periodic,
-		kd_name,
-		kd_int_list,
-		x_frac,
-		verbosity = verbosity,
-	)
+    return Structure(
+        lattice_vectors,
+        is_periodic,
+        kd_name,
+        kd_int_list,
+        x_frac,
+        verbosity = verbosity,
+    )
 end
 
 function Structure(input_xml::String; verbosity::Bool = true)::Structure
-	doc = readxml(input_xml)
+    doc = readxml(input_xml)
 
-	system_node = findfirst("//System", doc)
-	if isnothing(system_node)
-		throw(ArgumentError("<System> node not found in the XML file."))
-	end
+    system_node = findfirst("//System", doc)
+    if isnothing(system_node)
+        throw(ArgumentError("<System> node not found in the XML file."))
+    end
 
-	# Get lattice vectors
-	lattice_vectors::Matrix{Float64} = zeros(Float64, 3, 3)
-	lattice_node = findfirst("LatticeVector", system_node)
-	if isnothing(lattice_node)
-		throw(ArgumentError("<LatticeVector> node not found in the XML file."))
-	end
+    # Get lattice vectors
+    lattice_vectors::Matrix{Float64} = zeros(Float64, 3, 3)
+    lattice_node = findfirst("LatticeVector", system_node)
+    if isnothing(lattice_node)
+        throw(ArgumentError("<LatticeVector> node not found in the XML file."))
+    end
 
-	# Parse lattice vectors
-	for (i, label) in enumerate(["a1", "a2", "a3"])
-		vec_node = findfirst(label, lattice_node)
-		if isnothing(vec_node)
-			throw(ArgumentError("<$label> node not found in <LatticeVector>."))
-		end
-		vec_str = nodecontent(vec_node)
-		vec_values = parse.(Float64, split(vec_str))
-		if length(vec_values) != 3
-			throw(ArgumentError("Invalid lattice vector format in <$label>: $vec_str"))
-		end
-		lattice_vectors[:, i] = vec_values
-	end
+    # Parse lattice vectors
+    for (i, label) in enumerate(["a1", "a2", "a3"])
+        vec_node = findfirst(label, lattice_node)
+        if isnothing(vec_node)
+            throw(ArgumentError("<$label> node not found in <LatticeVector>."))
+        end
+        vec_str = nodecontent(vec_node)
+        vec_values = parse.(Float64, split(vec_str))
+        if length(vec_values) != 3
+            throw(ArgumentError("Invalid lattice vector format in <$label>: $vec_str"))
+        end
+        lattice_vectors[:, i] = vec_values
+    end
 
-	# Get periodicity
-	periodicity_node = findfirst("Periodicity", system_node)
-	if isnothing(periodicity_node)
-		throw(ArgumentError("<Periodicity> node not found in the XML file."))
-	end
-	periodicity_str = nodecontent(periodicity_node)
-	periodicity_values = parse.(Int, split(periodicity_str))
-	if length(periodicity_values) != 3
-		throw(ArgumentError("Invalid periodicity format: $periodicity_str"))
-	end
-	is_periodic::SVector{3, Bool} = SVector{3, Bool}(periodicity_values .== 1)
+    # Get periodicity
+    periodicity_node = findfirst("Periodicity", system_node)
+    if isnothing(periodicity_node)
+        throw(ArgumentError("<Periodicity> node not found in the XML file."))
+    end
+    periodicity_str = nodecontent(periodicity_node)
+    periodicity_values = parse.(Int, split(periodicity_str))
+    if length(periodicity_values) != 3
+        throw(ArgumentError("Invalid periodicity format: $periodicity_str"))
+    end
+    is_periodic::SVector{3, Bool} = SVector{3, Bool}(periodicity_values .== 1)
 
-	# Get atomic positions and species
-	positions_node = findfirst("Positions", system_node)
-	if isnothing(positions_node)
-		throw(ArgumentError("<Positions> node not found in the XML file."))
-	end
+    # Get atomic positions and species
+    positions_node = findfirst("Positions", system_node)
+    if isnothing(positions_node)
+        throw(ArgumentError("<Positions> node not found in the XML file."))
+    end
 
-	pos_nodes = findall("pos", positions_node)
-	num_atoms = length(pos_nodes)
-	if num_atoms == 0
-		throw(ArgumentError("No <pos> nodes found in <Positions>."))
-	end
+    pos_nodes = findall("pos", positions_node)
+    num_atoms = length(pos_nodes)
+    if num_atoms == 0
+        throw(ArgumentError("No <pos> nodes found in <Positions>."))
+    end
 
-	# Extract atomic species and positions
-	kd_name_set = Set{String}()
-	x_frac = zeros(Float64, 3, num_atoms)
-	kd_int_list = Vector{Int}()
+    # Extract atomic species and positions
+    kd_name_set = Set{String}()
+    x_frac = zeros(Float64, 3, num_atoms)
+    kd_int_list = Vector{Int}()
 
-	# First pass: collect unique element names
-	for pos_node in pos_nodes
-		element = pos_node["element"]
-		if isnothing(element)
-			throw(ArgumentError("Missing 'element' attribute in <pos> node."))
-		end
-		push!(kd_name_set, element)
-	end
+    # First pass: collect unique element names
+    for pos_node in pos_nodes
+        element = pos_node["element"]
+        if isnothing(element)
+            throw(ArgumentError("Missing 'element' attribute in <pos> node."))
+        end
+        push!(kd_name_set, element)
+    end
 
-	# Convert to sorted vector for consistent ordering
-	kd_name = sort(collect(kd_name_set))
-	element_to_index = Dict(element => i for (i, element) in enumerate(kd_name))
+    # Convert to sorted vector for consistent ordering
+    kd_name = sort(collect(kd_name_set))
+    element_to_index = Dict(element => i for (i, element) in enumerate(kd_name))
 
-	# Second pass: extract positions and create kd_int_list
-	for (i, pos_node) in enumerate(pos_nodes)
-		element = pos_node["element"]
-		pos_str = nodecontent(pos_node)
-		pos_values = parse.(Float64, split(pos_str))
-		if length(pos_values) != 3
-			throw(ArgumentError("Invalid position format in atom $i: $pos_str"))
-		end
-		x_frac[:, i] = pos_values
-		push!(kd_int_list, element_to_index[element])
-	end
+    # Second pass: extract positions and create kd_int_list
+    for (i, pos_node) in enumerate(pos_nodes)
+        element = pos_node["element"]
+        pos_str = nodecontent(pos_node)
+        pos_values = parse.(Float64, split(pos_str))
+        if length(pos_values) != 3
+            throw(ArgumentError("Invalid position format in atom $i: $pos_str"))
+        end
+        x_frac[:, i] = pos_values
+        push!(kd_int_list, element_to_index[element])
+    end
 
-	return Structure(
-		lattice_vectors,
-		is_periodic,
-		kd_name,
-		kd_int_list,
-		x_frac,
-		verbosity = verbosity,
-	)
+    return Structure(
+        lattice_vectors,
+        is_periodic,
+        kd_name,
+        kd_int_list,
+        x_frac,
+        verbosity = verbosity,
+    )
 end
 
 """
-	_calc_atomtype_group(kd_int_list) -> Vector{Vector{Int}}
+    _calc_atomtype_group(kd_int_list) -> Vector{Vector{Int}}
 
 Group atom indices by their types.
 """
 function _calc_atomtype_group(kd_int_list::AbstractVector{<:Integer})::Vector{Vector{Int}}
-	unique_vals::Vector{Int} = sort(unique(kd_int_list))
-	return [findall(x -> x == val, kd_int_list) for val in unique_vals]
+    unique_vals::Vector{Int} = sort(unique(kd_int_list))
+    return [findall(x -> x == val, kd_int_list) for val in unique_vals]
 end
 
 """
-	_calc_x_images(lattice_vectors, x_frac) -> Tuple{Array{Float64, 3}, Array{Float64, 3}}
+    _calc_x_images(lattice_vectors, x_frac) -> Tuple{Array{Float64, 3}, Array{Float64, 3}}
 
 Calculate fractional and Cartesian coordinates of atoms in neighboring cells.
 """
 function _calc_x_images(
-	lattice_vectors::AbstractMatrix{<:Real},
-	x_frac::AbstractMatrix{<:Real},
+    lattice_vectors::AbstractMatrix{<:Real},
+    x_frac::AbstractMatrix{<:Real},
 )::Tuple{Array{Float64, 3}, Array{Float64, 3}}
-	num_atoms::Int = size(x_frac, 2)
-	x_image_frac::Array{Float64, 3} = zeros(Float64, DIMENSIONS, num_atoms, NUM_CELLS)
-	x_image_cart::Array{Float64, 3} = zeros(Float64, DIMENSIONS, num_atoms, NUM_CELLS)
-	x_image_check::Array{Bool, 3} = fill(false, DIMENSIONS, num_atoms, NUM_CELLS)
+    num_atoms::Int = size(x_frac, 2)
+    x_image_frac::Array{Float64, 3} = zeros(Float64, DIMENSIONS, num_atoms, NUM_CELLS)
+    x_image_cart::Array{Float64, 3} = zeros(Float64, DIMENSIONS, num_atoms, NUM_CELLS)
+    x_image_check::Array{Bool, 3} = fill(false, DIMENSIONS, num_atoms, NUM_CELLS)
 
-	# Set up the center cell
-	x_image_frac[:, :, 1] = x_frac
-	x_image_cart[:, :, 1] = _frac2cart(lattice_vectors, x_frac)
-	x_image_check[:, :, 1] .= true
+    # Set up the center cell
+    x_image_frac[:, :, 1] = x_frac
+    x_image_cart[:, :, 1] = _frac2cart(lattice_vectors, x_frac)
+    x_image_check[:, :, 1] .= true
 
-	# Pre-allocate static vectors for better performance
-	x_image_tmp = MVector{3, Float64}(undef)
-	
-	# Calculate virtual cells
-	cell::Int = 1
-	for k = -1:1
-		for j = -1:1
-			for i = -1:1
-				if i == 0 && j == 0 && k == 0
-					continue  # Skip the center cell
-				end
-				cell += 1
+    # Pre-allocate static vectors for better performance
+    x_image_tmp = MVector{3, Float64}(undef)
+    
+    # Calculate virtual cells
+    cell::Int = 1
+    for k = -1:1
+        for j = -1:1
+            for i = -1:1
+                if i == 0 && j == 0 && k == 0
+                    continue  # Skip the center cell
+                end
+                cell += 1
 
-				for iat = 1:num_atoms
-					# Use static vector for temporary calculations
-					x_image_tmp[1] = x_frac[1, iat] + convert(Float64, i)
-					x_image_tmp[2] = x_frac[2, iat] + convert(Float64, j)
-					x_image_tmp[3] = x_frac[3, iat] + convert(Float64, k)
-					
-					x_image_frac[:, iat, cell] = x_image_tmp
-					x_image_check[:, iat, cell] .= true
-				end
-				x_image_cart[:, :, cell] = _frac2cart(lattice_vectors, @view(x_image_frac[:, :, cell]))
-			end
-		end
-	end
+                for iat = 1:num_atoms
+                    # Use static vector for temporary calculations
+                    x_image_tmp[1] = x_frac[1, iat] + convert(Float64, i)
+                    x_image_tmp[2] = x_frac[2, iat] + convert(Float64, j)
+                    x_image_tmp[3] = x_frac[3, iat] + convert(Float64, k)
+                    
+                    x_image_frac[:, iat, cell] = x_image_tmp
+                    x_image_check[:, iat, cell] .= true
+                end
+                x_image_cart[:, :, cell] = _frac2cart(lattice_vectors, @view(x_image_frac[:, :, cell]))
+            end
+        end
+    end
 
-	# Check completeness of calculations
-	if false in x_image_check
-		indices::Vector{CartesianIndex{3}} = findall(x -> x == false, x_image_check)
-		error("""
-			Error in `_calc_x_images`: Incomplete calculation detected.
-			Missing coordinates at indices: $indices
-			Please check the calculation of neighboring cell coordinates.
-		""")
-	end
+    # Check completeness of calculations
+    if false in x_image_check
+        indices::Vector{CartesianIndex{3}} = findall(x -> x == false, x_image_check)
+        error("""
+            Error in `_calc_x_images`: Incomplete calculation detected.
+            Missing coordinates at indices: $indices
+            Please check the calculation of neighboring cell coordinates.
+        """)
+    end
 
-	return x_image_frac, x_image_cart
+    return x_image_frac, x_image_cart
 end
 
 """
-	_frac2cart(lattice_vectors, x_frac) -> Matrix{Float64}
+    _frac2cart(lattice_vectors, x_frac) -> Matrix{Float64}
 
 Convert fractional coordinates to Cartesian coordinates.
 """
 function _frac2cart(
-	lattice_vectors::AbstractMatrix{<:Real},
-	x_frac::AbstractMatrix{<:Real},
+    lattice_vectors::AbstractMatrix{<:Real},
+    x_frac::AbstractMatrix{<:Real},
 )::Matrix{Float64}
-	# Convert to SMatrix for better performance with matrix multiplication
-	static_lattice = SMatrix{3,3,Float64}(lattice_vectors)
-	return Matrix(static_lattice * x_frac)
+    # Convert to SMatrix for better performance with matrix multiplication
+    static_lattice = SMatrix{3,3,Float64}(lattice_vectors)
+    return Matrix(static_lattice * x_frac)
 end
 
 """
-	_calc_exist_image(is_periodic) -> Vector{Bool}
+    _calc_exist_image(is_periodic) -> Vector{Bool}
 
 Determine which neighboring cells exist based on periodicity.
 """
 function _calc_exist_image(is_periodic::SVector{3, Bool})::Vector{Bool}
-	exist_image::Vector{Bool} = fill(true, NUM_CELLS)
-	# Cell index 1 represents the central supercell
-	# Other indices (2-27) represent neighboring virtual cells
-	cell::Int = 1
-	
-	# Use static vector for offset calculations
-	offset = MVector{3, Int}(undef)
-	
-	for z = -1:1
-		offset[3] = z
-		for y = -1:1
-			offset[2] = y
-			for x = -1:1
-				offset[1] = x
-				if x == 0 && y == 0 && z == 0
-					continue  # Skip the center cell
-				end
-				cell += 1
+    exist_image::Vector{Bool} = fill(true, NUM_CELLS)
+    # Cell index 1 represents the central supercell
+    # Other indices (2-27) represent neighboring virtual cells
+    cell::Int = 1
+    
+    # Use static vector for offset calculations
+    offset = MVector{3, Int}(undef)
+    
+    for z = -1:1
+        offset[3] = z
+        for y = -1:1
+            offset[2] = y
+            for x = -1:1
+                offset[1] = x
+                if x == 0 && y == 0 && z == 0
+                    continue  # Skip the center cell
+                end
+                cell += 1
 
-				if (abs(offset[1]) == 1 && !is_periodic[1]) ||
-					(abs(offset[2]) == 1 && !is_periodic[2]) ||
-					(abs(offset[3]) == 1 && !is_periodic[3])
-					exist_image[cell] = false
-				end
-			end
-		end
-	end
-	return exist_image
+                if (abs(offset[1]) == 1 && !is_periodic[1]) ||
+                    (abs(offset[2]) == 1 && !is_periodic[2]) ||
+                    (abs(offset[3]) == 1 && !is_periodic[3])
+                    exist_image[cell] = false
+                end
+            end
+        end
+    end
+    return exist_image
 end
 
 function show(io::IO, structure::Structure)
-	println(io, "supercell:\n ", structure.supercell)
-	println(io, "is_periodic: ", structure.is_periodic)
-	println(io, "kd_name: ", structure.kd_name)
-	println(io, "x_image_frac: \n", structure.x_image_frac)
-	println(io, "x_image_cart: \n", structure.x_image_cart)
-	println(io, "exist_image: ", structure.exist_image)
-	println(io, "atomtype_group: ", structure.atomtype_group)
+    println(io, "supercell:\n ", structure.supercell)
+    println(io, "is_periodic: ", structure.is_periodic)
+    println(io, "kd_name: ", structure.kd_name)
+    println(io, "x_image_frac: \n", structure.x_image_frac)
+    println(io, "x_image_cart: \n", structure.x_image_cart)
+    println(io, "exist_image: ", structure.exist_image)
+    println(io, "atomtype_group: ", structure.atomtype_group)
 end
 
 
 function _print_structure_stdout(cell::Cell, kd_name::AbstractVector{<:AbstractString})
-	println("""
+    println("""
 
-	SYSTEM
-	======
-	""")
-	println("Lattice vector (in Angstrom):")
-	for (i, label) in enumerate(["a1", "a2", "a3"])
-		println(
-			@sprintf("  %12.8e   %12.8e   %12.8e : %s",
-				cell.lattice_vectors[:, i]..., label)
-		)
-	end
-	println("")
-	println("Atomic species:")
-	for (i, species) in enumerate(kd_name)
-		println(@sprintf("  %*d: %s", length(string(cell.num_atoms)), i, species))
-	end
-	println("")
-	println("Atomic positions in fractional basis:")
-	for i = 1:cell.num_atoms
-		println(
-			@sprintf("  %*d: %12.8e   %12.8e   %12.8e   %*d",
-				length(string(cell.num_atoms)), i,
-				cell.x_frac[1, i],
-				cell.x_frac[2, i],
-				cell.x_frac[3, i],
-				length(string(cell.num_atoms)), cell.kd_int_list[i])
-		)
-	end
-	println("\n")
+    SYSTEM
+    ======
+    """)
+    println("Lattice vector (in Angstrom):")
+    for (i, label) in enumerate(["a1", "a2", "a3"])
+        println(
+            @sprintf("  %12.8e   %12.8e   %12.8e : %s",
+                cell.lattice_vectors[:, i]..., label)
+        )
+    end
+    println("")
+    println("Atomic species:")
+    for (i, species) in enumerate(kd_name)
+        println(@sprintf("  %*d: %s", length(string(cell.num_atoms)), i, species))
+    end
+    println("")
+    println("Atomic positions in fractional basis:")
+    for i = 1:cell.num_atoms
+        println(
+            @sprintf("  %*d: %12.8e   %12.8e   %12.8e   %*d",
+                length(string(cell.num_atoms)), i,
+                cell.x_frac[1, i],
+                cell.x_frac[2, i],
+                cell.x_frac[3, i],
+                length(string(cell.num_atoms)), cell.kd_int_list[i])
+        )
+    end
+    println("\n")
 end
 
 end
