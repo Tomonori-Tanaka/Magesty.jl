@@ -337,6 +337,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Internal
 
+- Split the oversized main module file `src/Magesty.jl` into two new files
+  that are `include`d into the same `Magesty` module namespace (the idiom
+  already used by the trailing includes such as `FitCheckIO.jl`), not Julia
+  submodules. `src/Evaluation.jl` now holds the prediction verbs
+  (`predict_energy` / `predict_torque`) and the accuracy metrics
+  (`r2_*` / `rss_*` / `residuals_*` / `rmse_*`) with their shared
+  `_eval_*` helpers; `src/GCV.jl` holds the generalized-cross-validation
+  diagnostics (`gcv` / `gcv_r2` / `gcv_lambda` / `gcv_learning_curve` and the
+  `GCVLambdaPath` / `GCVSizeCurve` result types). This is a verbatim code
+  move: every public binding keeps its module, signature, and docstring, so
+  `using Magesty`, `Magesty.save` / `Magesty.load`, and all `@ref` docstring
+  links are unaffected. The full test suite (including JET and Aqua) passes
+  unchanged; no numerical output changes.
 - `Cluster` construction (`src/Clusters.jl`) is significantly faster on
   three-body systems. `irreducible_clusters` switches from an
   O(N_clusters^2) linear scan against accepted representatives to an
