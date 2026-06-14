@@ -136,10 +136,23 @@ Hot-path items (high value):
 
 Setup-time items (lower value, but matter for large supercells):
 
-- **Major — O(n^2) translational-equivalence dedup.**
-  `SALCBases.jl:536-549`: linear scan over `orbit_basis_list`. Implement
-  `Base.hash(::CoupledBasis)` over the integer fields (exclude the float
-  tensor, matching `salc_fingerprint`) and dedup via a `Dict`.
+- **Major — O(n^2) translational-equivalence dedup.** *(prototyped,
+  verified, reverted — no benefit at current sizes.)* The dedup uses
+  `_is_translationally_equivalent_coupled_basis`, a symmetry-dependent
+  predicate that is *not* structural equality (it has non-reflexive
+  exclusions — same atom list or same first atom → not equivalent — and a
+  float `coeff_tensor` comparison), so a plain `Base.hash`/`==` swap would
+  change the merge result. The safe form keeps the predicate as the final
+  arbiter and only prefilters candidates into buckets keyed by the
+  integer-only necessary conditions `(Lf, Lseq, sorted (atom,l) pairs)`;
+  this is provably result-identical (full suite passed, SALC counts and Jφ
+  unchanged) and turns the scan into O(sum of bucket^2). But the profiler
+  showed the dedup is not a bottleneck at the available fixtures
+  (fept 16-atom: -2.5%; fege 64-atom: +1.0% — both within the ±2-4 ms noise
+  floor; allocations -0.03..-0.4%). Reverted to avoid added complexity for
+  no measured gain. The bucket-prefilter approach is the right one; revisit
+  only if large-supercell profiling (e.g. 4x4x4) shows the orbit scan
+  dominating.
 - **Major — defensive buffered SH derivative variants.**
   `TesseralHarmonics.jl:549-`: the unbuffered `∂Zₗₘ_∂r̂{x,y,z}_unsafe` /
   `zzₗₘ_unsafe` allocate a `dnPl` vector per call. Not on the current hot
