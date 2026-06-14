@@ -104,11 +104,12 @@ break, module-docstring expansion, index-loop style, and the immutable
 periodicity default are done (see "Already landed"). The OSZICAR parser
 dedup is under "Deferred". Remaining:
 
-- **Major — `ENV` lookup in a keyword default.** `SALCBases.jl` (the
-  `check_irrep_unitary` keyword):
-  `get(ENV, "MAGESTY_CHECK_IRREP_UNITARY", "0") == "1"` is a hidden,
-  per-call side channel. Read the env var once at load time into a module
-  constant, or make the knob an explicit, documented keyword.
+- **Major — `ENV` lookup in a keyword default.** *(done)* `SALCBases.jl`:
+  the `check_irrep_unitary` keyword of `_projection_matrix_coupled_basis`
+  no longer reads `ENV` on every call. The environment variable
+  `MAGESTY_CHECK_IRREP_UNITARY` is read once at load time into the module
+  constant `CHECK_IRREP_UNITARY_DEFAULT`, which is now the keyword default;
+  the docstring documents this. An explicit keyword still overrides it.
 - **Minor — indentation inconsistency.** Tabs vs 4-space mixed across the
   package (STYLE_GUIDE prescribes 4-space). Normalize in a single
   mechanical commit (re-baseline benchmarks if it touches hot-path files).

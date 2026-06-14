@@ -31,6 +31,13 @@ using ..ProgressReporting: with_progress, tick!
 
 export SALCBasis
 
+# Default for the `check_irrep_unitary` keyword of
+# `_projection_matrix_coupled_basis`. Read once at load time so the value is
+# fixed for the process instead of re-read from the environment on every call.
+# Set `MAGESTY_CHECK_IRREP_UNITARY=1` in the environment before loading the
+# package to enable the per-operation unitarity check by default.
+const CHECK_IRREP_UNITARY_DEFAULT = get(ENV, "MAGESTY_CHECK_IRREP_UNITARY", "0") == "1"
+
 
 """
 	struct SALCBasis
@@ -809,7 +816,8 @@ and projects onto the subspace of basis functions that are invariant under the s
 # Keywords
 - `check_irrep_unitary::Bool`: If `true`, verify that each per-operation
   representation matrix `D(g)` (built before the average) is unitary, as
-  required for a unitary irrep. Defaults to the environment variable
+  required for a unitary irrep. Defaults to `CHECK_IRREP_UNITARY_DEFAULT`,
+  which is read once at load time from the environment variable
   `MAGESTY_CHECK_IRREP_UNITARY` (`"1"` to enable, anything else off).
 
 # Returns
@@ -824,7 +832,7 @@ function _projection_matrix_coupled_basis(
 	coupled_basislist::SortedCounter{CoupledBases.CoupledBasis},
 	symmetry::Symmetry,
 	;
-	check_irrep_unitary::Bool = get(ENV, "MAGESTY_CHECK_IRREP_UNITARY", "0") == "1",
+	check_irrep_unitary::Bool = CHECK_IRREP_UNITARY_DEFAULT,
 )::Matrix{Float64}
 	Lf = coupled_basislist[1].Lf
 	submatrix_dim = 2 * Lf + 1
