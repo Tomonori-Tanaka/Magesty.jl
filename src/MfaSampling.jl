@@ -35,6 +35,12 @@ const VALID_VARIABLES = ("tau", "m")
 # Numerical guards on the scaled temperature τ = T/Tc.
 const MIN_TEMP = 1.0e-5
 const MAX_TEMP = 0.99999
+# Bracket for the self-consistent magnetization root m ∈ (0, 1). Kept just
+# inside (0, 1) to avoid the m → 0 singularity of coth(3m/τ) and the m = 1
+# saturation. Numerically coincident with the temperature guards but a
+# distinct physical quantity, so it carries its own name.
+const M_MIN = 1.0e-5
+const M_MAX = 0.99999
 # Concentration used in the near-uniform (τ > MAX_TEMP) limit; mirrors the
 # reference sampler so the high-temperature distribution is reproduced exactly.
 const KAPPA_UNIFORM = 1.0e-6
@@ -60,7 +66,7 @@ function thermal_averaged_m(τ::Real)::Float64
 		return 0.0
 	end
 	f(m) = m - coth(3m / τ) + τ / 3m
-	return Roots.find_zero(f, (MIN_TEMP, MAX_TEMP), Roots.Brent())
+	return Roots.find_zero(f, (M_MIN, M_MAX), Roots.Brent())
 end
 
 """

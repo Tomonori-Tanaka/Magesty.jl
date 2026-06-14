@@ -6,8 +6,15 @@ export r2c_sph_harm_matrix, c2r_sph_harm_matrix
     r2c_sph_harm_matrix(l::Integer) -> Matrix{ComplexF64}
 
 Compute the transformation matrix from tesseral harmonics to complex spherical harmonics.
+
+This is the inverse of [`c2r_sph_harm_matrix`](@ref), obtained as its adjoint.
+The adjoint equals the inverse only because `c2r_sph_harm_matrix` is unitary
+(an `L2`-orthonormal change of basis between the complex and real harmonics);
+a future change to the normalization that breaks that unitarity would break
+this identity. The round-trip `r2c * c2r ≈ I` is asserted in the tests.
 """
 function r2c_sph_harm_matrix(l::Integer)::Matrix{ComplexF64}
+    # Adjoint = inverse because c2r is unitary (see the docstring note).
     U = c2r_sph_harm_matrix(l)
     U = U'
     return U

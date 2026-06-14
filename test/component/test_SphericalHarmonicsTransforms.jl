@@ -129,6 +129,19 @@ using Test
 		end
 	end
 
+	@testset "Unitarity of c2r (justifies r2c = adjoint)" begin
+		# r2c_sph_harm_matrix returns c2r' and relies on that adjoint being the
+		# inverse, which holds only if c2r is unitary. Assert the assumption
+		# directly so a future normalization change that breaks unitarity is
+		# caught here, not silently downstream in the SALC design matrix.
+		for l in [0, 1, 2, 3, 4, 5]
+			U = SphericalHarmonicsTransforms.c2r_sph_harm_matrix(l)
+			I_expected = Matrix{ComplexF64}(I, 2l + 1, 2l + 1)
+			@test isapprox(U' * U, I_expected, atol = 1e-10)
+			@test isapprox(U * U', I_expected, atol = 1e-10)
+		end
+	end
+
 	@testset "Consistency: Inverse relationship" begin
 		@testset "l = 0" begin
 			U_c2r = SphericalHarmonicsTransforms.c2r_sph_harm_matrix(0)

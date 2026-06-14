@@ -83,16 +83,19 @@ needs. Sever­ity follows the panel schema (blocker / major / minor).
 
 ## Numerical
 
-- **Minor — overloaded constant.** `MfaSampling.jl:62-63`: the
-  temperature guards `(MIN_TEMP, MAX_TEMP)` are reused as the bracket for
-  the magnetization root `m`. Correct today only because `m in (0,1)`
-  coincides with the guard interval. Introduce a named `(M_MIN, M_MAX)`
-  bracket to decouple the two roles.
-- **Minor — implicit unitarity assumption.**
-  `SphericalHarmonicsTransforms.jl:10-14`: `r2c_sph_harm_matrix` returns
-  `c2r_sph_harm_matrix(l)'`, which is the true inverse only because
-  `c2r` is unitary. Add a comment stating the assumption (or an `@assert`
-  in a test) so a future normalization change cannot silently break it.
+All numerical minors are done.
+
+- **Minor — overloaded constant.** *(done)* `MfaSampling.jl`: the
+  magnetization root in `thermal_averaged_m` now brackets on named
+  `(M_MIN, M_MAX)` constants instead of reusing the temperature guards
+  `(MIN_TEMP, MAX_TEMP)`. The values are numerically coincident, so the
+  result is bit-identical; only the role is decoupled.
+- **Minor — implicit unitarity assumption.** *(done)*
+  `SphericalHarmonicsTransforms.jl`: `r2c_sph_harm_matrix` now documents
+  that its adjoint-equals-inverse identity holds only because `c2r` is
+  unitary, and a named "Unitarity of c2r" testset asserts `c2r' * c2r ≈ I`
+  (and `c2r * c2r' ≈ I`) for `l = 0..5`, so a normalization change that
+  breaks unitarity fails here rather than silently downstream.
 
 ## Maintainability
 
