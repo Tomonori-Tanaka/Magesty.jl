@@ -126,13 +126,43 @@ dedup is under "Deferred". Remaining:
 
 Hot-path items (high value):
 
-- **Major — type erasure in `salc_list`.** `SALCBases.jl:75,262`: the
-  containers hold `Vector{CoupledBasis_with_coefficient}` (the `{R,N}`
-  parameter is dropped), so the inner design-matrix kernels dispatch
-  dynamically per element instead of monomorphizing. Each key group is
-  homogeneous in body count; split or dispatch on `first(key_group)` to a
-  type-stable helper. **Needs numerical sign-off** (float summation order
-  may change) and a before/after `@btime` in the bench log.
+- **Major — type erasure in `salc_list`.** *(investigated 2026-06-14;
+  premise partly stale; deferred — profile before implementing.)*
+  `salc_list::Vector{Vector{CoupledBasis_with_coefficient}}` does drop the
+  `{R, N}` parameter, so each inner vector's element type is abstract. But
+  the heavy contraction is **already** isolated behind a function barrier:
+  the design-matrix kernels call `design_matrix_energy_element(cbc::
+  CoupledBasis_with_coefficient{R, N}, ...)` (`Fitting.jl`) and
+  `_accumulate_grad_torque_cluster!(..., cbc::...{R, N}, ...)`, which are
+  parametric methods that monomorphize on each element's concrete `{R, N}`.
+  An explicit comment at the energy `@threads` loop documents this as
+  deliberate ("rank-erasing annotations intentionally absent so Julia
+  specializes via call-site dispatch"). So the original "inner kernels
+  dispatch dynamically instead of monomorphizing" claim is **overstated** —
+  the worst case is already avoided.
+  - **Remaining inefficiency:** the `for cbc in key_group` call site is a
+    dynamic dispatch (abstract element type). In the energy kernel this sits
+    *inside* the spinconfig `j`-loop, so the same `cbc` is dispatched
+    `num_spinconfigs` times; the torque kernel dispatches per (spinconfig,
+    salc, cbc). Each dispatch is followed by a non-trivial contraction, so
+    the relative cost is likely small — but the energy kernel's redundant
+    per-spinconfig dispatch is the one plausibly-measurable case.
+  - **Safe fix (avoids the sign-off):** add one more function barrier at the
+    key-group level (narrow `key_group` to its concrete element type once,
+    outside the `j`-loop, then run a fully static inner loop). Because a
+    function barrier preserves the exact iteration order, the result is
+    **bit-identical** — the "float summation order may change" concern in the
+    original note does **not** apply to the barrier approach (it would only
+    apply to a data-reorganization variant). The outer
+    `Vector{Vector{...}}` cannot itself be made concrete (key groups differ
+    in `N`), so the barrier is the natural form.
+  - **Gate:** measurable only if profiling shows the per-element dispatch is
+    a real fraction of `build_design_matrix_energy` / `_torque`. Given the
+    large prior wins (specs 260524 ~12x, 260601), the headroom may be a few
+    percent. Profile first (`@code_warntype`/`@descend` to confirm the
+    per-element call is the only dynamic dispatch; baseline `@btime` on a
+    representative fixture), then decide. Record before/after in the bench
+    log if implemented.
 
 Setup-time items (lower value, but matter for large supercells):
 
