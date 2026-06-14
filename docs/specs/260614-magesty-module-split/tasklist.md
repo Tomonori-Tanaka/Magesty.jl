@@ -68,4 +68,7 @@ items that do not apply.
 - [x] `CHANGELOG.md` `[Unreleased]` updated (`### Internal` entry added).
 - [x] `Status:` line in this file and the table in
       `docs/specs/README.md` updated in sync.
-- [ ] Implementation commit hash appended below.
+- [x] Implementation commit hash appended below.
+
+Implementation commit: `31ef286` (refactor(magesty): split main module into
+Evaluation.jl and GCV.jl via include).
