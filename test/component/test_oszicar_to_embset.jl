@@ -51,6 +51,11 @@ using Test
 	# An invalid energy_kind is rejected up front (before any file is read),
 	# rather than surfacing later as a misleading "energy not found" error.
 	@test_throws ArgumentError oszicar_to_embset([oszicar_path]; energy_kind = "0K")
+
+	# A zero or wrong-length saxis is rejected: atan(0, 0) would otherwise
+	# silently collapse to the identity rotation and mask the bad input.
+	@test_throws ArgumentError oszicar_to_embset([oszicar_path]; saxis = [0.0, 0.0, 0.0])
+	@test_throws ArgumentError oszicar_to_embset([oszicar_path]; saxis = [0.0, 1.0])
 end
 
 println("All oszicar_to_embset tests passed.")

@@ -988,6 +988,10 @@ coefficients `jphi`; XML persistence stores it as the `j0` attribute of
 the `<JPhi>` block. `intercept` is a Magesty-native verb adopted because
 StatsAPI has no `intercept` concept; the two names refer to the same
 quantity.
+
+# Returns
+- `Float64`: the reference energy `j0` (the bias term), in the energy unit
+  of the DFT input.
 """
 function intercept end
 intercept(f::SCEFit)::Float64 = f.j0
@@ -998,6 +1002,9 @@ intercept(m::SCEModel)::Float64 = m.j0
 
 Number of observations (spin configurations) the fit was trained on, i.e.
 the energy-block observation count `n_configs`.
+
+# Returns
+- `Int`: the number of training spin configurations.
 """
 nobs(f::SCEFit)::Int = length(f.dataset)
 
@@ -1006,6 +1013,9 @@ nobs(f::SCEFit)::Int = length(f.dataset)
 
 Degrees of freedom consumed by the fit: `length(coef(f)) + 1` — the SCE
 coefficients plus the intercept.
+
+# Returns
+- `Int`: the number of SCE coefficients plus one for the intercept.
 """
 dof(f::SCEFit)::Int = length(f.jphi) + 1
 

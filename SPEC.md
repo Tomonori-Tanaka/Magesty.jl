@@ -179,6 +179,7 @@ Magesty.load(SCEModel, path)       # Read SCEModel
 # Estimators
 AbstractEstimator, OLS, Ridge, ElasticNet, Lasso, AdaptiveLasso,
     PrecomputedPilot, AdaptiveRidge
+Lasso(; lambda, standardize = true)      # convenience function (not a type): returns ElasticNet(alpha = 1, ...)
 AdaptiveLasso(fit::SCEFit; kwargs...)    # reuse an existing fit as pilot
 AdaptiveLasso(model::SCEModel; kwargs...) # reuse an existing model as pilot
 AdaptiveRidge(; lambda, epsilon, max_iter, tol)  # iterative L0 approximation

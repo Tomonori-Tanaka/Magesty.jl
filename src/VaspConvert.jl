@@ -328,6 +328,13 @@ end
 # Rotation built from the `saxis` quantization axis: `Rz(alpha) * Ry(beta)`,
 # where `(alpha, beta)` are the azimuthal and polar angles of `saxis`.
 function _saxis_rotation(saxis::AbstractVector{<:Real})::Matrix{Float64}
+	length(saxis) == 3 ||
+		throw(ArgumentError("saxis must have 3 components; got $(length(saxis))"))
+	# A zero (or non-finite) axis has no defined direction: atan(0, 0) would
+	# silently collapse to the identity rotation, masking the bad input.
+	n = norm(saxis)
+	(isfinite(n) && n > 0) ||
+		throw(ArgumentError("saxis must be a nonzero, finite vector; got $saxis"))
 	alpha = atan(saxis[2], saxis[1])
 	beta  = atan(sqrt(saxis[1]^2 + saxis[2]^2), saxis[3])
 	Rz = [cos(alpha) -sin(alpha) 0.0; sin(alpha) cos(alpha) 0.0; 0.0 0.0 1.0]

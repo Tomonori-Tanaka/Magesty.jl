@@ -101,6 +101,17 @@ verbs (`r2_energy`, `rmse_torque`, …).
 - `ArgumentError` if any entry of `magmom_size` is negative.
 - `ArgumentError` if any column of `spin_directions` deviates from unit
   norm by more than `atol_unit_norm` (NaN columns are also rejected).
+
+# Examples
+```julia
+# Two atoms: one along +z, one in-plane along +x.
+energy          = -12.34
+magmom_size     = [1.5, 1.5]
+spin_directions = [0.0 1.0; 0.0 0.0; 1.0 0.0]   # 3 × 2 (columns = atoms)
+local_magfield  = [0.0 0.1; 0.2 0.0; 0.0 0.0]   # 3 × 2, eV / μ_B
+sc = SpinConfig(energy, magmom_size, spin_directions, local_magfield)
+sc.torques    # per-atom τᵢ = −mᵢ (eᵢ × Bᵢ), 3 × 2
+```
 """
 struct SpinConfig
 	energy::Float64
@@ -115,8 +126,9 @@ struct SpinConfig
 		magmom_size::AbstractVector{<:Real},
 		spin_directions::AbstractMatrix{<:Real},
 		local_magfield::AbstractMatrix{<:Real};
-		atol_unit_norm::Float64 = 1e-6,
+		atol_unit_norm::Real = 1e-6,
 	)
+		atol = Float64(atol_unit_norm)
 		num_atoms = length(magmom_size)
 
 		# Validate dimensions
@@ -163,11 +175,11 @@ struct SpinConfig
 		# reported here rather than propagating through predictions.
 		for i = 1:num_atoms
 			n = norm(@view spin_directions[:, i])
-			if !(isfinite(n) && abs(n - 1.0) ≤ atol_unit_norm)
+			if !(isfinite(n) && abs(n - 1.0) ≤ atol)
 				throw(
 					ArgumentError(
 						"spin_directions[:, $i] is not a unit vector: " *
-						"‖·‖ = $n (tolerance atol_unit_norm = $atol_unit_norm)",
+						"‖·‖ = $n (tolerance atol_unit_norm = $atol)",
 					),
 				)
 			end

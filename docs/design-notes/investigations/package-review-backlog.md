@@ -46,6 +46,17 @@ needs. Sever­ity follows the panel schema (blocker / major / minor).
   modules), not three outliers — so instead of mass-editing, the split style
   was codified as canonical in `STYLE_GUIDE.md`. `Magesty.jl`'s unified
   docstrings may converge to it opportunistically; not blocking.
+- **API — remaining UX minors.** `SpinConfig` docstring gained `# Examples`;
+  `atol_unit_norm` relaxed to `::Real` with internal `Float64` conversion;
+  `_saxis_rotation` now rejects a zero / non-finite / wrong-length `saxis`
+  (was a silent identity rotation) with a regression test;
+  `intercept` / `nobs` / `dof` docstrings gained `# Returns`; SPEC notes
+  that `Lasso` is a convenience function returning `ElasticNet`, not a type.
+  The `AbstractEstimator` / `OLS` / `Ridge` "missing `# Arguments`" finding
+  was declined: `OLS` is a zero-field singleton, `AbstractEstimator` is
+  abstract, and `Ridge` documents `lambda` via `# Fields` (matching the
+  `ElasticNet` estimator style) — forcing `# Arguments` would contradict the
+  package's own convention.
 - **Performance — `_predict_energy` buffer removal.** Fused the per-call
   `design_vector` allocation plus `dot` into a single scalar accumulator in
   the SALC loop. Each term is unchanged; only the summation runs sequentially
@@ -139,19 +150,13 @@ Setup-time items (lower value, but matter for large supercells):
 
 ## API / UX
 
-The `energy_kind` validation, the SPEC argument-name fix, the
-`Magesty.save` / `load` docstring sections, and the docstring-section
-convention are done (see "Already landed"). Remaining:
-
-- **Minor** — `SpinConfig` docstring lacks `# Examples`
-  (`SpinConfigs.jl:52`); `atol_unit_norm::Float64` should be `::Real` with
-  internal conversion (`SpinConfigs.jl:110`); `saxis` has no length / norm
-  validation, so `[0,0,0]` silently gives an identity rotation
-  (`VaspConvert.jl:397`); `intercept` / `nobs` / `dof` docstrings lack the
-  section layout (`Magesty.jl:935-949`); `AbstractEstimator` / `OLS` /
-  `Ridge` docstrings lack `# Arguments` (`Fitting.jl:138-197`); `Lasso` is
-  a factory function returning `ElasticNet`, not a type — worth a one-line
-  SPEC annotation (`Magesty.jl:93`).
+All API / UX findings are done (see "Already landed"): the `energy_kind`
+validation, the SPEC argument-name fix, the `Magesty.save` / `load`
+docstring sections, the docstring-section convention, and the remaining UX
+minors (`SpinConfig` examples, `atol_unit_norm::Real`, `saxis` validation,
+`intercept` / `nobs` / `dof` `# Returns`, the `Lasso` SPEC note). The
+`AbstractEstimator` / `OLS` / `Ridge` "missing `# Arguments`" item was
+declined with rationale recorded above.
 
 ## Confirmed clean (for the record)
 
