@@ -117,10 +117,16 @@ dedup is under "Deferred". Remaining:
   needed despite touching hot-path files; the full suite (unit + integration)
   passes. `cli/` (a separate package), `tools/`, `examples/`, and `bench/`
   were left out of scope.
-- **Minor (spec-level) — main module size.** `Magesty.jl` (~2000 lines)
-  mixes type definitions, fitting, prediction, ~24 evaluation metrics,
-  GCV, and I/O. Extracting `Metrics.jl` and a GCV-public file would each
-  shed ~200 lines. Pursue via a spec if taken up.
+- **Minor (spec-level) — main module size.** *(done — spec
+  260614-magesty-module-split.)* `Magesty.jl` (~2088 lines) was split via
+  `include` into two same-namespace files: `Evaluation.jl` (prediction
+  verbs + accuracy metrics + `_eval_*` helpers) and `GCV.jl` (the GCV
+  diagnostics + result types). Submodules were rejected — the moved code
+  references `Fitting` internals and the core types heavily, so a submodule
+  would force export/import churn for no benefit. Verbatim move: public
+  bindings, signatures, docstrings, and `@ref` links all unchanged; main
+  file down to ~1260 lines; full suite + JET + Aqua green; no numerical
+  change (no bench needed, AST-equivalent).
 
 ## Performance
 
