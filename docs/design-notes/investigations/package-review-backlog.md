@@ -145,11 +145,28 @@ Setup-time items (lower value, but matter for large supercells):
   `zzₗₘ_unsafe` allocate a `dnPl` vector per call. Not on the current hot
   path (the kernels use the buffered `∂ᵢZlm_unsafe`), but add buffered
   overloads to guard against a future hot-path caller.
-- **Minor** — `√2` as a module constant
-  (`TesseralHarmonics.jl`, several sites); `zzₗₘ_unsafe` recomputing the
-  Legendre recursion three times (`TesseralHarmonics.jl:683-686`);
-  `_canonicalize_eigenspace` forming an explicit n×n projector
-  (`SALCBases.jl:188-206`) instead of `V * (V' * e_j)`.
+- **Minor — `√2` as a module constant.** *(declined)* `@code_typed` shows
+  `√2` is already constant-folded to the literal `1.4142135623730951` at
+  compile time (`x * √2` lowers to `mul_float(x, 1.4142135623730951)`), so a
+  module constant gives no runtime benefit. `√2` also mirrors the `√2` in the
+  surrounding equation docstrings; replacing it with `SQRT2` would reduce
+  readability. Not worth doing.
+- **Minor — `zzₗₘ_unsafe` triple Legendre recompute.** *(declined / folded
+  into the buffered-variants item)* The unbuffered `zzₗₘ_unsafe` and
+  `∂Zₗₘ_∂r̂{x,y,z}_unsafe` are not called by the design-matrix kernels (the
+  hot path uses the buffered `∂ᵢZlm_unsafe` / `Zₗₘ_grad_unsafe` in
+  `Fitting.jl`); they are reached only through thin internal wrappers. The
+  3× recompute is therefore off the hot path. If these gain a hot-path
+  caller, address it together with the "defensive buffered SH derivative
+  variants" item above.
+- **Minor — `_canonicalize_eigenspace` explicit n×n projector.** *(deferred)*
+  Replacing `P = V*V'` with on-demand columns `V*(V'eⱼ)` would avoid the n×n
+  allocation and skip unused columns after the loop's early break, but it is
+  setup-time only (once per degenerate eigenspace in SALC construction), the
+  gain is limited unless n is large (large supercells), and it changes the
+  BLAS reduction (gemm → gemv) so the canonical gauge shifts at the ULP
+  level — a SALC linked site that needs numerical sign-off. Revisit only if
+  large-supercell profiling shows the projector dominates.
 - **Profiler recommended** — measure SALC-construction throughput
   (`construct_and_classify_coupled_basislist` /
   `projection_matrix_coupled_basis`) on a representative large supercell
