@@ -9,9 +9,11 @@ using TOML
     # SALC structure exactly so downstream design matrices match.
     basis = SCEBasis(input; verbosity = false)
 
-    system_xml = joinpath(@__DIR__, "system.xml")
-    Magesty.save(basis, system_xml)
-    basis_from_xml = Magesty.load(SCEBasis, system_xml)
+    basis_from_xml = mktempdir() do dir
+        system_xml = joinpath(dir, "system.xml")
+        Magesty.save(basis, system_xml)
+        Magesty.load(SCEBasis, system_xml)
+    end
 
     @testset "SCEBasis XML round-trip" begin
         @test length(basis.salcbasis.salc_list) ==
@@ -38,7 +40,9 @@ using TOML
     dataset = SCEDataset(basis, embset_path)
     fitted = fit(SCEFit, dataset, Ridge(lambda = 0.0); torque_weight = 1.0, verbosity = false)
     model = SCEModel(fitted)
-    Magesty.save(model, joinpath(@__DIR__, "scecoeffs.xml"))
+    mktempdir() do dir
+        Magesty.save(model, joinpath(dir, "scecoeffs.xml"))
+    end
 
     @testset "SCEFit smoke checks" begin
         @test isfinite(intercept(fitted))
