@@ -31,7 +31,7 @@ Mozilla Public License Version 2.0
 
 If you use this software in your research, please cite [2]:
 
-T. Tanaka and Y. Gohda, "General spin models from noncollinear spin density functional theory and spin-cluster expansion", arXiv:2512.04458 (2025). <https://arxiv.org/abs/2512.04458>
+T. Tanaka and Y. Gohda, "General spin models from noncollinear spin density functional theory and spin-cluster expansion", Phys. Rev. Research 8, 023300 (2026). DOI: [10.1103/qqlf-d531](https://doi.org/10.1103/qqlf-d531)
 
 ## Contributing
 
@@ -44,7 +44,7 @@ We welcome contributions! Please feel free to:
 ## References
 
 1. R. Drautz and M. Fähnle, "Spin-cluster expansion: Parametrization of the general adiabatic magnetic energy surface with ab initio accuracy", Phys. Rev. B 69, 104404 (2004). DOI: [10.1103/PhysRevB.69.104404](https://doi.org/10.1103/PhysRevB.69.104404)
-2. T. Tanaka and Y. Gohda, "General spin models from noncollinear spin density functional theory and spin-cluster expansion", arXiv:2512.04458 (2025). <https://arxiv.org/abs/2512.04458>
+2. T. Tanaka and Y. Gohda, "General spin models from noncollinear spin density functional theory and spin-cluster expansion", Phys. Rev. Research 8, 023300 (2026). DOI: [10.1103/qqlf-d531](https://doi.org/10.1103/qqlf-d531)
 
 
 

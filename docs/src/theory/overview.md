@@ -127,4 +127,5 @@ Dzyaloshinskii–Moriya vector ``\vec{D}``, anisotropic exchange
    DOI: [10.1103/PhysRevB.69.104404](https://doi.org/10.1103/PhysRevB.69.104404)
 2. T. Tanaka and Y. Gohda, "General spin models from noncollinear spin
    density functional theory and spin-cluster expansion",
-   [arXiv:2512.04458](https://arxiv.org/abs/2512.04458)
+   *Phys. Rev. Research* **8**, 023300 (2026).
+   DOI: [10.1103/qqlf-d531](https://doi.org/10.1103/qqlf-d531)

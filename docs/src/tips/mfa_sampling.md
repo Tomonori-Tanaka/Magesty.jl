@@ -4,7 +4,7 @@ Theoretical background for the `magesty vasp mfa` command and the exported
 [`sample_mfa_incar`](@ref) API (implemented in the `MfaSampling` module). The
 sampler draws thermally distributed noncollinear spin configurations to be used
 as training data for the spin-cluster expansion. The formulation follows
-Tanaka & Gohda, arXiv:2410.11256 (2024) and arXiv:2512.04458 (2025); the same
+Tanaka & Gohda, arXiv:2410.11256 (2024) and Phys. Rev. Research 8, 023300 (2026); the same
 notation for the unit spin direction, order parameter, and Langevin function as
 the [ordering-wavevector analysis](mfa_analysis.md) is used throughout.
 

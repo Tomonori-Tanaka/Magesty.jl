@@ -39,7 +39,7 @@ See the [Tools](tools.md) page for details.
 
 If you use Magesty.jl in your research, please cite:
 
-> Tomonori Tanaka and Yoshihiro Gohda, "General spin models from noncollinear spin density functional theory and spin-cluster expansion", [arXiv:2512.04458](https://arxiv.org/abs/2512.04458)
+> Tomonori Tanaka and Yoshihiro Gohda, "General spin models from noncollinear spin density functional theory and spin-cluster expansion", *Phys. Rev. Research* **8**, 023300 (2026). DOI: [10.1103/qqlf-d531](https://doi.org/10.1103/qqlf-d531)
 
 ## References
 
