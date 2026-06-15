@@ -18,6 +18,10 @@ preserves it).
 
 ## Investigations
 
+- [Julia 1.10 (LTS) compatibility for the General-registry floor](docs/design-notes/investigations/julia-110-compatibility.md)
+  — conclusion: floor kept at 1.12; lowering to 1.10 is dependency-unblocked but CI
+  surfaced two 1.10-only runtime failures (LAPACK-dependent solver rank-deficiency
+  detection, `Structure(::SystemSpec)` dispatch) needing reviewed fixes (2026-06-15)
 - [Whole-package review sweep — open findings backlog](docs/design-notes/investigations/package-review-backlog.md)
   — four-axis panel over all of `src/`; lattice-transpose blocker and the
   global coupling cache landed, remaining numerical / maintainability /
