@@ -10,7 +10,7 @@ Julia package for constructing effective spin models in magnetic materials using
 
 ```julia
 using Pkg
-Pkg.add(url="https://github.com/Tomonori-Tanaka/Magesty.jl")
+Pkg.add("Magesty")
 ```
 
 ## Documentation

@@ -37,6 +37,13 @@ function _assert_salcbasis_equal(a, b; atol::Real = 1e-10)
     return nothing
 end
 
+# The XML writer stamps the running package version into the <version>
+# element. That field is environment metadata, not part of the schema or
+# the SALC coefficients this regression guards, so mask it before the
+# byte-equality comparison to keep the test stable across version bumps.
+_mask_version(xml::AbstractString) =
+    replace(xml, r"<version>.*?</version>" => "<version></version>")
+
 # Tests ----------------------------------------------------------------
 
 @testset "save / load" begin
@@ -259,7 +266,8 @@ end
                 mktempdir() do dir
                     path = joinpath(dir, "$name.xml")
                     Magesty.save(obj, path)
-                    @test read(path, String) == read(baseline, String)
+                    @test _mask_version(read(path, String)) ==
+                          _mask_version(read(baseline, String))
                 end
             end
         end
