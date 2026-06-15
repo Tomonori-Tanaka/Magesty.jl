@@ -19,7 +19,9 @@ using Magesty
     @testset "Hypothetical SCE model (isotropic)" begin
         input = TOML.parse(open(joinpath(@__DIR__, "input_isotropic.toml"), "r"))
         basis = SCEBasis(input; verbosity = false)
-        Magesty.save(basis, joinpath(@__DIR__, "system_isotropic.xml"))
+        mktempdir() do dir
+            Magesty.save(basis, joinpath(dir, "system_isotropic.xml"))
+        end
         # Heisenberg model: E = Σ_{<ij>} Jij * Si·Sj, Jij = -1.0 eV (ferromagnetic) for all pairs.
         #
         # Square lattice (4 atoms, PBC): 8 NN pairs + 8 diagonal (NNN) pairs within the supercell.

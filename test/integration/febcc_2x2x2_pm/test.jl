@@ -108,7 +108,9 @@ const NUM_CELLS = 27  # Total number of cells: center cell and its neighboring v
     spinconfigs = spinconfigs_all[1:num_cfg]
     dataset = SCEDataset(basis, spinconfigs)
     fitted = fit(SCEFit, dataset, OLS(); torque_weight = 0.5, verbosity = false)
-    Magesty.save(SCEModel(fitted), joinpath(@__DIR__, "scecoeffs.xml"))
+    mktempdir() do dir
+        Magesty.save(SCEModel(fitted), joinpath(dir, "scecoeffs.xml"))
+    end
 
     @testset "SCE Regression Roundtrip (energy + torque)" begin
         num_atoms = basis.structure.supercell.num_atoms

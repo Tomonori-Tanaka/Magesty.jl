@@ -38,7 +38,9 @@ input = TOML.parse(open(joinpath(@__DIR__, "input.toml"), "r"))
     dataset = SCEDataset(basis, spinconfig_list)
     fitted = fit(SCEFit, dataset, OLS(); torque_weight = 0.0, verbosity = false)
     model = SCEModel(fitted)
-    Magesty.save(model, joinpath(@__DIR__, "dimer.xml"))
+    mktempdir() do dir
+        Magesty.save(model, joinpath(dir, "dimer.xml"))
+    end
 
     @test Magesty.TesseralHarmonics.Zₗₘ(1, -1, [0.0, 0.0, 1.0]) ≈ 0.0 atol = 1e-6
     @test Magesty.TesseralHarmonics.Zₗₘ(1, 0, [0.0, 0.0, 1.0]) ≈ √(3 / 4π) atol = 1e-6
@@ -119,9 +121,11 @@ input = TOML.parse(open(joinpath(@__DIR__, "input.toml"), "r"))
         @test length(coef(dmi_fitted)) == 1
         @test coef(dmi_fitted)[1] * 3 / √2 ≈ -1.0 atol = 1e-6
 
-        dmi_xml = joinpath(@__DIR__, "dimer_dmi.xml")
-        Magesty.save(dmi_model, dmi_xml)
-        exchange_tensor = convert2tensor(dmi_xml, [1, 2])
+        mktempdir() do dir
+            dmi_xml = joinpath(dir, "dimer_dmi.xml")
+            Magesty.save(dmi_model, dmi_xml)
+            exchange_tensor = convert2tensor(dmi_xml, [1, 2])
+        end
         #display(exchange_tensor)
         #display(exchange_tensor.isotropic_jij)
         #display(exchange_tensor.dm_vector)
