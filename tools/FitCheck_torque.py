@@ -25,7 +25,7 @@ TOOLS_DIR = os.path.dirname(__file__)  # .../tools
 if TOOLS_DIR not in sys.path:
     sys.path.append(TOOLS_DIR)
 
-from utils.utils import parse_atom_indices
+from utils.utils import compute_point_density, parse_atom_indices
 
 MARKER_SIZE = 5
 MARKER_ALPHA = 0.8
@@ -163,6 +163,9 @@ def plot_torque(
     marker_size: float = MARKER_SIZE,
     marker_alpha: float = MARKER_ALPHA,
     tick_interval: float | None = None,
+    density: bool = False,
+    cmap: str = "viridis",
+    density_bins: int = 64,
 ) -> None:
     """
     Load torque data from files (convert eV -> meV for 'all' and 'norm'),
@@ -272,6 +275,36 @@ def plot_torque(
     if tick_interval is not None:
         ax.xaxis.set_major_locator(MultipleLocator(tick_interval))
         ax.yaxis.set_major_locator(MultipleLocator(tick_interval))
+
+    if density:
+        # Pool every point across files and color by local 2D density.
+        # Per-file colors and the legend no longer carry meaning, so they
+        # are replaced by a single density colormap with a colorbar.
+        obs_all = np.concatenate([o for o in observed_lists if o.size > 0])
+        pre_all = np.concatenate([p for p in predicted_lists if p.size > 0])
+        dens = compute_point_density(obs_all, pre_all, bins=density_bins)
+        order = np.argsort(dens)  # draw dense points on top
+        sc = ax.scatter(
+            obs_all[order],
+            pre_all[order],
+            c=dens[order],
+            cmap=cmap,
+            s=marker_size,
+            alpha=marker_alpha,
+            zorder=5,
+            edgecolors="none",
+        )
+        fig.colorbar(sc, ax=ax, label="Point density")
+        plt.tight_layout()
+
+        if output:
+            fig.savefig(output, dpi=300, bbox_inches="tight")
+            print(f"\nPlot saved as '{output}'")
+        else:
+            print("\nPlot not saved.")
+
+        plt.show()
+        return
 
     # Scatter for each file dataset
     for i, (obs, pre) in enumerate(zip(observed_lists, predicted_lists)):
@@ -397,6 +430,27 @@ def main() -> None:
         metavar="meV",
         help="Major tick interval (meV). Same for X and Y. Default: auto.",
     )
+    parser.add_argument(
+        "-d",
+        "--density",
+        action="store_true",
+        help="Color points by local 2D data density (pooled over all files) "
+        "with a colorbar, instead of per-file colors.",
+    )
+    parser.add_argument(
+        "--cmap",
+        type=str,
+        default="viridis",
+        help="Matplotlib colormap name for --density (default: viridis).",
+    )
+    parser.add_argument(
+        "--density-bins",
+        type=int,
+        default=64,
+        metavar="N",
+        help="Bins per axis for the density histogram fallback used when "
+        "SciPy is unavailable or the point count is large (default: 64).",
+    )
 
     args = parser.parse_args()
 
@@ -420,6 +474,9 @@ def main() -> None:
         marker_size=args.marker_size,
         marker_alpha=args.marker_alpha,
         tick_interval=args.tick_interval,
+        density=args.density,
+        cmap=args.cmap,
+        density_bins=args.density_bins,
     )
 
 
