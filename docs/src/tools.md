@@ -143,21 +143,46 @@ environment that has Sunny installed.
 
 **Usage:**
 ```bash
-# Print the Sunny.jl script to stdout
-magesty sunny script model.xml
+# MnTe: Mn²⁺ has S = 5/2. --spin is required.
+magesty sunny script model.xml --spin 5//2
 
 # Write it to a file
-magesty sunny script model.xml --output lswt.jl
+magesty sunny script model.xml --spin 5//2 --output lswt.jl
+
+# Per-species spin (e.g. a ferrimagnet)
+magesty sunny script model.xml --spin Mn=5//2,Fe=3//2
 ```
 
 **Arguments:**
 - `model` (positional): Path to a saved `SCEModel` XML file (from `Magesty.save`)
 
 **Options:**
+- `--spin` (**required**): physical effective spin length `S_eff = m/(g μ_B)`. A bare
+  number applies to all magnetic species (`5//2`, `2`); a comma list
+  `Mn=5//2,Fe=3//2` sets it per species. See "Physical spin" below.
+- `--g`: `g`-factor, scalar or per-species (default `2`); does not affect the bare dispersion
+- `--mode`: Sunny system mode, `auto` (default), `dipole`, or `dipole_uncorrected`
 - `--placement`: cell route, `auto` (default), `primitive`, or `explicit` (see below)
 - `--output`, `-o`: Output filename (appends `.jl` automatically if omitted; default: stdout)
 
 The same export is available programmatically as the exported `sce_to_sunny` function.
+
+### Physical spin
+
+The SCE couplings are fit with unit spin directions, so they absorb the spin
+magnitude (`J_SCE = J_phys·S²`). The classical energy is independent of the spin
+length, but the **magnon dispersion scales as `ħω ∝ 1/s`** for a fixed energy
+landscape. You must therefore supply the physical effective spin
+`S_eff = m/(g μ_B)` (the local-moment magnitude); the placeholder `s = 1` would
+inflate the dispersion by a factor `~S` (for MnTe, `S = 5/2` ⇒ ~2.5× too high). At
+emission each bilinear bond is rescaled by `1/(s_i s_j)` and each single-ion term
+by a mode-dependent factor, so `energy(sys)` still reproduces
+`predict_energy(model, …) - j0` while the dispersion is physical.
+
+Sunny requires `s` to be an exact multiple of `1/2`, so `--spin` must be a
+half-integer; a non-half-integer (itinerant) `S_eff` is rejected. `--mode=auto`
+uses `:dipole` (the quantum single-ion renormalization `s(2s-1)/2`);
+`:dipole_uncorrected` uses the classical `s²` large-`s` limit.
 
 ### What is converted
 
@@ -172,10 +197,9 @@ Hamiltonian (see the
 
 Higher-order terms (higher-`l` pairs, three-body and beyond) cannot be
 represented in Sunny's spin Hamiltonian and are skipped, with a warning listing
-what was dropped. Spins use the reduced convention `s = 1`, `g = 2`, so the
-dispersion is in the energy unit of the fit (typically eV). The reference energy
-`j0` and any spin-independent terms are dropped (Sunny carries no constant energy
-term); the dispersion is unaffected.
+what was dropped. The dispersion is in the energy unit of the fit (typically eV).
+The reference energy `j0` and any spin-independent terms are dropped (Sunny
+carries no constant energy term); the dispersion is unaffected.
 
 ### Cell route and the magnetic structure
 

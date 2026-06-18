@@ -31,8 +31,8 @@ end
 # Build the Sunny system from a generated script, map the model's supercell atoms
 # onto Sunny sites (reshaping to the supercell for the primitive route), and
 # return (is_primitive, max energy error over `n` random configs).
-function _roundtrip(model::SCEModel; n::Int = 20)
-    script = sce_to_sunny(model)
+function _roundtrip(model::SCEModel; spin = 5 // 2, n::Int = 20)
+    script = sce_to_sunny(model; spin = spin)
     primitive = occursin("Cell route: primitive", script)
     sys = _eval_system(script)
 
@@ -92,12 +92,39 @@ end
         @test err < 1e-8
     end
 
+    # Energy invariance under the spin choice: the s_i s_j (bond) and the mode
+    # factor (single-ion) cancel, so `energy(sys)` reproduces `predict_energy - j0`
+    # for any (half-integer) spin. Sunny requires s to be a multiple of 1/2.
+    @testset "energy invariant under spin: $(s)" for s in (1, 3 // 2, 5 // 2)
+        model = Magesty.load(SCEModel, _fix("fept_tetragonal_2x2x2", "scecoeffs.xml"))
+        _, err = _roundtrip(model; spin = s, n = 10)
+        @test err < 1e-8
+    end
+
+    # Magnon dispersion scales as ħω ∝ 1/s (fixed energy landscape). From the same
+    # aligned start both spins minimize to the same state, so the whole dispersion
+    # of spin = 1 is 5/2 times that of spin = 5//2.
+    @testset "dispersion scales as 1/s" begin
+        model = Magesty.load(SCEModel, _fix("chain", "chain.xml"))
+        function bandwidth(spin)
+            sys = _eval_system(sce_to_sunny(model; spin = spin))
+            for st in eachsite(sys)
+                set_dipole!(sys, [0.0, 0.0, 1.0], st)
+            end
+            minimize_energy!(sys)
+            swt = SpinWaveTheory(sys; measure = nothing)
+            path = q_space_path(sys.crystal, [[0, 0, 0], [0.5, 0, 0], [0.25, 0.1, 0]], 16)
+            return maximum(dispersion(swt, path))
+        end
+        @test bandwidth(1) ≈ 2.5 * bandwidth(5 // 2) rtol = 1e-5
+    end
+
     # The explicit (folded supercell) route stays available on request and remains
     # exact.
     @testset "explicit route on request: $(f[1])" for f in
                                                       (("fept_tetragonal_2x2x2", "scecoeffs.xml"),)
         model = Magesty.load(SCEModel, _fix(f...))
-        script = sce_to_sunny(model; placement = :explicit)
+        script = sce_to_sunny(model; spin = 5 // 2, placement = :explicit)
         @test occursin("Cell route: explicit", script)
         sys = _eval_system(script)
         nat = size(model.basis.structure.supercell.x_frac, 2)

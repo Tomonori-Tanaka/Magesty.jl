@@ -146,10 +146,11 @@ _rand_dir(rng) = (v = randn(rng, 3); SVector{3, Float64}(v ./ norm(v)))
 
     @testset "sce_to_sunny script generation" begin
         m = Magesty.load(Magesty.SCEModel, _fixture("dimer", "dimer_dmi.xml"))
-        s = sce_to_sunny(m)
+        s = sce_to_sunny(m; spin = 5//2)
         @test Meta.parseall(s) isa Expr                       # syntactically valid
         @test occursin("using Sunny", s)
         @test occursin("Cell route: primitive", s)
+        @test occursin("Moment(s = 5//2", s)                  # physical spin in Moment
         @test occursin("set_exchange!", s)
         @test occursin("SpinWaveTheory", s)
         @test occursin("q_space_path", s)
@@ -165,13 +166,13 @@ _rand_dir(rng) = (v = randn(rng, 3); SVector{3, Float64}(v ./ norm(v)))
         # fept (multiplicity > 1, with single-ion) now auto-selects the unfolded
         # primitive route.
         me = Magesty.load(Magesty.SCEModel, _fixture("fept_tetragonal_2x2x2", "scecoeffs.xml"))
-        sp = sce_to_sunny(me)
+        sp = sce_to_sunny(me; spin = 2)
         @test occursin("Cell route: primitive", sp)
         @test occursin("set_onsite_coupling!(sys, S ->", sp)   # single-ion path
         @test Meta.parseall(sp) isa Expr
 
         # The explicit (folded supercell) route remains available on request.
-        se = sce_to_sunny(me; placement = :explicit)
+        se = sce_to_sunny(me; spin = 2, placement = :explicit)
         @test occursin("Cell route: explicit", se)
         @test occursin("set_exchange_at!", se)
         @test occursin("set_onsite_coupling_at!", se)
@@ -180,9 +181,70 @@ _rand_dir(rng) = (v = randn(rng, 3); SVector{3, Float64}(v ./ norm(v)))
         # File output and argument validation.
         mktempdir() do dir
             p = joinpath(dir, "lswt")
-            sce_to_sunny(m; output = p)
+            sce_to_sunny(m; spin = 1, output = p)
             @test isfile(p * ".jl")
         end
-        @test_throws ArgumentError sce_to_sunny(m; placement = :nonsense)
+        @test_throws ArgumentError sce_to_sunny(m; spin = 1, placement = :nonsense)
+    end
+
+    @testset "physical spin" begin
+        m = Magesty.load(Magesty.SCEModel, _fixture("dimer", "dimer_dmi.xml"))
+
+        # `spin` is required: omitting it errors (rather than silently using s = 1).
+        @test_throws ArgumentError sce_to_sunny(m)
+
+        # Bilinear bonds are rescaled by 1/(s_i s_j): a single-species model with
+        # spin = 2 has every exchange-matrix entry 1/4 of the spin = 1 script.
+        function bond_nums(script)
+            vals = Float64[]
+            for line in split(script, '\n')
+                startswith(line, "set_exchange!") || continue
+                mat = split(split(line, '[')[2], ']')[1]   # matrix content between [ ]
+                for tok in eachmatch(r"-?\d+\.?\d*(?:e-?\d+)?", mat)
+                    push!(vals, parse(Float64, tok.match))
+                end
+            end
+            return vals
+        end
+        n1 = bond_nums(sce_to_sunny(m; spin = 1))
+        n2 = bond_nums(sce_to_sunny(m; spin = 2))
+        @test length(n1) == length(n2) && !isempty(n1)
+        @test all(isapprox.(n2, n1 ./ 4; atol = 1e-12))
+
+        # `:dipole_uncorrected` (classical limit) is available on request; `:auto`
+        # with a half-integer spin gives `:dipole`.
+        unc = sce_to_sunny(m; spin = 1, mode = :dipole_uncorrected)
+        @test occursin(":dipole_uncorrected", unc)
+        @test occursin(", :dipole)", sce_to_sunny(m; spin = 5 // 2))
+        # Non-half-integer S_eff is rejected (Sunny requires multiples of 1/2).
+        @test_throws ArgumentError sce_to_sunny(m; spin = 1.1)
+
+        # Internal helpers: spin resolution, onsite factor, mode selection.
+        smap, gmap = Magesty._sunny_resolve_spin_maps(
+            Dict("Mn" => 5 // 2), 2, ["Mn", "Te"], Set(["Mn"]))
+        @test smap["Mn"] == 5 // 2 && smap["Te"] == 1   # non-magnetic placeholder
+        @test gmap["Mn"] == 2
+        # magnetic species missing from the Dict
+        @test_throws ArgumentError Magesty._sunny_resolve_spin_maps(
+            Dict("Te" => 1), 2, ["Mn", "Te"], Set(["Mn"]))
+        # spin omitted
+        @test_throws ArgumentError Magesty._sunny_resolve_spin_maps(
+            nothing, 2, ["Mn"], Set(["Mn"]))
+
+        @test Magesty._sunny_onsite_factor(1, :dipole) == 2
+        @test Magesty._sunny_onsite_factor(5 // 2, :dipole) ≈ 0.2
+        @test Magesty._sunny_onsite_factor(2, :dipole_uncorrected) ≈ 0.25
+        # spin 1/2 has no quadrupole in :dipole
+        @test_throws ArgumentError Magesty._sunny_onsite_factor(1 // 2, :dipole)
+
+        @test Magesty._sunny_select_mode(:auto, [5 // 2]) === :dipole
+        @test Magesty._sunny_select_mode(:auto, [1.1]) === :dipole_uncorrected
+        @test Magesty._sunny_select_mode(:auto, [1, 1.1]) === :dipole_uncorrected
+        @test Magesty._sunny_select_mode(:dipole, [1.1]) === :dipole
+        @test_throws ArgumentError Magesty._sunny_select_mode(:bogus, [1])
+
+        @test Magesty._sunny_is_half_integer(5 // 2)
+        @test Magesty._sunny_is_half_integer(1)
+        @test !Magesty._sunny_is_half_integer(1.1)
     end
 end

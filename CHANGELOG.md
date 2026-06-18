@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING CHANGE:** `sce_to_sunny` now requires a `spin` keyword — the physical
+  effective spin length `S_eff = m/(g μ_B)` of each magnetic species (a scalar, or
+  a `species => value` Dict) — and accepts optional `g` and `mode`. The SCE
+  couplings absorb the spin magnitude (`J_SCE = J_phys·S²`), so the LSWT magnon
+  dispersion needs the physical spin; the previous fixed `s = 1` inflated magnon
+  frequencies by a factor `~S` (e.g. ~2.5× for MnTe, `S = 5/2`). Bilinear bonds are
+  rescaled by `1/(s_i s_j)` and single-ion terms by a mode-dependent factor at
+  emission, so `energy(sys)` is unchanged while the dispersion scales physically.
+  `spin` must be a half-integer (Sunny requires `s` to be a multiple of `1/2`). The
+  `magesty sunny script` CLI gains required `--spin` and optional `--g` / `--mode`.
+
 ## [0.1.0] - 2026-06-15
 
 First public release.
