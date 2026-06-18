@@ -9,7 +9,7 @@ authors:
   - family-names: Tanaka
     given-names: Tomonori
     orcid: "https://orcid.org/0000-0001-7306-6770"
-version: 0.1.0-DEV
+version: 0.1.1
 license: MPL-2.0
 repository-code: "https://github.com/Tomonori-Tanaka/Magesty.jl"
 url: "https://Tomonori-Tanaka.github.io/Magesty.jl/dev"

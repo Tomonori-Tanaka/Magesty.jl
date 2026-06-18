@@ -6,6 +6,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-06-19
+
+### Documentation
+
+- Installation instructions now lead with `Pkg.add("Magesty")` from the
+  General registry, and document installing the `magesty` command-line tool
+  without a repository checkout via
+  `Pkg.add(url="https://github.com/Tomonori-Tanaka/Magesty.jl", subdir="cli")`.
+- Citation metadata (`CITATION.cff`) now references the published article,
+  Phys. Rev. Research 8, 023300 (2026), rather than the arXiv preprint.
+
 ## [0.1.0] - 2026-06-15
 
 First public release.
@@ -404,5 +415,6 @@ First public release.
   the different operation sequences, with the regression test pinned
   at `rtol = 1e-9` (measured worst case `2.3e-11`).
 
-[Unreleased]: https://github.com/Tomonori-Tanaka/Magesty.jl/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Tomonori-Tanaka/Magesty.jl/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/Tomonori-Tanaka/Magesty.jl/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Tomonori-Tanaka/Magesty.jl/releases/tag/v0.1.0
