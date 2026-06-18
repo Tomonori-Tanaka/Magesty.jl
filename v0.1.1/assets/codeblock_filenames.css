@@ -1,0 +1,59 @@
+/*
+ * Sidebar: hide the sitename text, show logo only.
+ */
+#documenter .docs-sidebar .docs-package-name {
+	display: none;
+}
+
+/*
+ * Sidebar logo image size (Documenter default is max-height: 6rem).
+ * Themed CSS uses `html.theme--…` so a plain `#documenter …` rule loses to it; include both.
+ * Tune max-height / max-width; object-fit keeps aspect ratio.
+ */
+html[class*="theme--"] #documenter .docs-sidebar .docs-logo > img,
+#documenter .docs-sidebar .docs-logo > img {
+	max-height: 10rem;
+	max-width: 100%;
+	width: auto;
+	height: auto;
+	object-fit: contain;
+	margin: auto;
+}
+
+/*
+ * Map fenced-code language tags (doc-*) to a visible filename bar.
+ * Use ```doc-incar``` etc. in Markdown so the HTML has class "language-doc-incar".
+ */
+pre:has(> code.language-doc-incar)::before,
+pre:has(> code.language-doc-poscar)::before,
+pre:has(> code.language-doc-kpoints)::before,
+pre:has(> code.language-doc-input-toml)::before,
+pre:has(> code.language-doc-run-jl)::before {
+	display: block;
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	font-size: 0.82em;
+	padding: 0.35em 0.75em;
+	margin: -0.25em -0.25em 0.5em -0.25em;
+	border-bottom: 1px solid rgba(127, 127, 127, 0.25);
+	background: rgba(127, 127, 127, 0.12);
+}
+
+pre:has(> code.language-doc-incar)::before {
+	content: "INCAR";
+}
+
+pre:has(> code.language-doc-poscar)::before {
+	content: "POSCAR";
+}
+
+pre:has(> code.language-doc-kpoints)::before {
+	content: "KPOINTS";
+}
+
+pre:has(> code.language-doc-input-toml)::before {
+	content: "input.toml";
+}
+
+pre:has(> code.language-doc-run-jl)::before {
+	content: "run.jl";
+}
