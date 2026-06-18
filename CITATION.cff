@@ -28,5 +28,9 @@ preferred-citation:
     - family-names: Gohda
       given-names: Yoshihiro
   title: "General spin models from noncollinear spin density functional theory and spin-cluster expansion"
-  year: 2025
-  url: "https://arxiv.org/abs/2512.04458"
+  year: 2026
+  journal: "Physical Review Research"
+  volume: 8
+  start: "023300"
+  doi: "10.1103/qqlf-d531"
+  url: "https://doi.org/10.1103/qqlf-d531"
