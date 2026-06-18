@@ -2,7 +2,15 @@
 
 ## Installing the Package
 
-Open the Julia REPL and run:
+Magesty is registered in the Julia General registry. Open the Julia REPL
+and run:
+
+```julia
+using Pkg
+Pkg.add("Magesty")
+```
+
+To track the latest development version instead, add it by URL:
 
 ```julia
 using Pkg
