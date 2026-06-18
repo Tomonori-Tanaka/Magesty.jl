@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>API Examples · Magesty.jl</title><meta name="title" content="API Examples · Magesty.jl"/><meta property="og:title" content="API Examples · Magesty.jl"/><meta property="twitter:title" content="API Examples · Magesty.jl"/><meta name="description" content="Documentation for Magesty.jl."/><meta property="og:description" content="Documentation for Magesty.jl."/><meta property="twitter:description" content="Documentation for Magesty.jl."/><meta property="og:url" content="https://Tomonori-Tanaka.github.io/Magesty.jl/api_examples/"/><meta property="twitter:url" content="https://Tomonori-Tanaka.github.io/Magesty.jl/api_examples/"/><link rel="canonical" href="https://Tomonori-Tanaka.github.io/Magesty.jl/api_examples/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script><link href="../assets/codeblock_filenames.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.jpg" alt="Magesty.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">Magesty.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../installation/">Installation</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../tutorials/">Tutorials</a></li><li><a class="tocitem" href="../tutorials/case1_bcc_fe/">Case 1: bcc Fe</a></li></ul></li><li class="is-active"><a class="tocitem" href>API Examples</a><ul class="internal"><li><a class="tocitem" href="#Configuration-file-format"><span>Configuration file format</span></a></li><li><a class="tocitem" href="#Example-1:-Basic-flow"><span>Example 1: Basic flow</span></a></li><li><a class="tocitem" href="#Example-2:-Building-from-a-CIF-file-(AtomsIO)"><span>Example 2: Building from a CIF file (AtomsIO)</span></a></li><li><a class="tocitem" href="#Example-3:-Estimator-comparison-(reuse-one-dataset)"><span>Example 3: Estimator comparison (reuse one dataset)</span></a></li><li><a class="tocitem" href="#Example-4:-Train-/-test-split"><span>Example 4: Train / test split</span></a></li><li><a class="tocitem" href="#Example-5:-Cache-the-SALC-basis"><span>Example 5: Cache the SALC basis</span></a></li><li><a class="tocitem" href="#Example-6:-Predict-and-evaluate-on-custom-configurations"><span>Example 6: Predict and evaluate on custom configurations</span></a></li><li><a class="tocitem" href="#Example-7:-Evaluate-a-saved-model-on-new-data"><span>Example 7: Evaluate a saved model on new data</span></a></li><li><a class="tocitem" href="#Example-8:-Inspect-symmetry,-structure,-and-SALCs"><span>Example 8: Inspect symmetry, structure, and SALCs</span></a></li><li><a class="tocitem" href="#Example-9:-GCV-diagnostics-(penalty-and-data-sufficiency)"><span>Example 9: GCV diagnostics (penalty and data sufficiency)</span></a></li></ul></li><li><a class="tocitem" href="../input_keys/">Input Keys</a></li><li><a class="tocitem" href="../api/">API Reference</a></li><li><a class="tocitem" href="../api_internal/">Internal API</a></li><li><a class="tocitem" href="../tools/">Tools</a></li><li><a class="tocitem" href="../theory/">Theoretical Background</a></li><li><a class="tocitem" href="../tips/">Tips</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>API Examples</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>API Examples</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/Tomonori-Tanaka/Magesty.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="API-Examples"><a class="docs-heading-anchor" href="#API-Examples">API Examples</a><a id="API-Examples-1"></a><a class="docs-heading-anchor-permalink" href="#API-Examples" title="Permalink"></a></h1><p>This page demonstrates the SCE public API, feature by feature: <code>SCEBasis</code> → <code>SCEDataset</code> → <code>fit(SCEFit, ...)</code> → <code>SCEModel</code> → <code>Magesty.save</code> / <code>Magesty.load</code>. Runnable scripts for several of these examples live in the <code>examples/</code> directory of the repository. For an end-to-end walkthrough on a real system, see the <a href="../tutorials/">Tutorials</a> instead.</p><p><code>save</code> and <code>load</code> are intentionally <strong>not exported</strong> to avoid clashing with the generic names from JLD2, FileIO, CSV.jl, etc.; call them as <code>Magesty.save(...)</code> / <code>Magesty.load(...)</code>.</p><h2 id="Configuration-file-format"><a class="docs-heading-anchor" href="#Configuration-file-format">Configuration file format</a><a id="Configuration-file-format-1"></a><a class="docs-heading-anchor-permalink" href="#Configuration-file-format" title="Permalink"></a></h2><p>Magesty reads structure and interaction settings from a TOML file. Fit parameters (estimator, regularization, torque weight) are passed in Julia at <code>fit</code> time and <strong>do not</strong> live in the TOML.</p><pre><code class="language-toml toml hljs">[general]
+name = &quot;bccfe&quot;
+kd   = [&quot;Fe&quot;]           # list of element names
+nat  = 16               # total number of atoms in the supercell
+periodicity = [true, true, true]  # apply periodic boundary to all (x, y, z) directions
+
+[symmetry]
+tolerance = 1e-5        # symmetry detection tolerance
+isotropy = true         # restrict to Lf = 0 (isotropic exchange) terms
+
+[interaction]
+nbody = 2               # maximum interaction body order
+[interaction.body1]
+lmax.Fe = 0             # on-site (1-body) maximum angular momentum per element
+[interaction.body2]
+lsum = 2                # cutoff sum of l values for 2-body basis functions
+cutoff.&quot;Fe-Fe&quot; = -1     # pairwise cutoff radius in Å (-1 = include all pairs)
+
+[structure]
+kd_list  = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]  # element index per atom
+lattice  = [
+  [5.66, 0.0, 0.0],
+  [0.0, 5.66, 0.0],
+  [0.0, 0.0, 5.66],
+]
+position = [
+  [0.00, 0.00, 0.00],
+  [0.25, 0.25, 0.25],
+  # ... (16 atoms total)
+]</code></pre><p>For a full key reference see <a href="../input_keys/">Input Keys</a>.</p><h2 id="Example-1:-Basic-flow"><a class="docs-heading-anchor" href="#Example-1:-Basic-flow">Example 1: Basic flow</a><a id="Example-1:-Basic-flow-1"></a><a class="docs-heading-anchor-permalink" href="#Example-1:-Basic-flow" title="Permalink"></a></h2><p>Load a TOML template, build the dataset, fit, and inspect in-sample metrics. <code>torque_weight ∈ [0, 1]</code> is the convex combination of the per-sample energy MSE and torque MSE the augmented least-squares problem minimizes; the default <code>1.0</code> is a torque-only fit. Set <code>torque_weight = 0.5</code> to weigh both equally, or <code>0.0</code> to fit on energies alone.</p><pre><code class="language-julia hljs">using Magesty
+
+basis   = SCEBasis(&quot;input.toml&quot;)
+dataset = SCEDataset(basis, &quot;EMBSET&quot;)
+f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4); torque_weight = 1.0)
+
+println(&quot;RMSE energy: &quot;, rmse_energy(f) * 1000, &quot; meV&quot;)
+println(&quot;R^2  energy: &quot;, r2_energy(f))
+println(&quot;RMSE torque: &quot;, rmse_torque(f) * 1000, &quot; meV&quot;)
+println(&quot;j0: &quot;, intercept(f), &quot;  number of SCE coefficients: &quot;, length(coef(f)))
+
+Magesty.save(SCEModel(f), &quot;model.xml&quot;)</code></pre><h2 id="Example-2:-Building-from-a-CIF-file-(AtomsIO)"><a class="docs-heading-anchor" href="#Example-2:-Building-from-a-CIF-file-(AtomsIO)">Example 2: Building from a CIF file (AtomsIO)</a><a id="Example-2:-Building-from-a-CIF-file-(AtomsIO)-1"></a><a class="docs-heading-anchor-permalink" href="#Example-2:-Building-from-a-CIF-file-(AtomsIO)" title="Permalink"></a></h2><p><code>AtomsIO</code> is not a Magesty dependency — install it into the active environment when you want to load structure files. The <code>interaction</code> keyword mirrors the TOML <code>[interaction]</code> table.</p><pre><code class="language-julia hljs">using Magesty
+using AtomsIO   # ] add AtomsIO
+
+system  = load_system(&quot;FePt.cif&quot;)
+basis   = SCEBasis(
+    system;
+    interaction = (
+        body1 = (lmax = Dict(:Fe =&gt; 2, :Pt =&gt; 2),),
+        body2 = (lsum = 2,
+                 cutoff = Dict((:Fe, :Fe) =&gt; -1.0,
+                               (:Fe, :Pt) =&gt; -1.0,
+                               (:Pt, :Pt) =&gt; -1.0)),
+    ),
+    tolerance_sym = 1e-5,
+    isotropy = false,
+)
+dataset = SCEDataset(basis, &quot;EMBSET&quot;)
+f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4))</code></pre><h2 id="Example-3:-Estimator-comparison-(reuse-one-dataset)"><a class="docs-heading-anchor" href="#Example-3:-Estimator-comparison-(reuse-one-dataset)">Example 3: Estimator comparison (reuse one dataset)</a><a id="Example-3:-Estimator-comparison-(reuse-one-dataset)-1"></a><a class="docs-heading-anchor-permalink" href="#Example-3:-Estimator-comparison-(reuse-one-dataset)" title="Permalink"></a></h2><p><code>SCEDataset</code> stores the unweighted energy and torque design matrices, so you can sweep estimators and torque weights without rebuilding it.</p><pre><code class="language-julia hljs">using Magesty
+
+dataset = SCEDataset(SCEBasis(&quot;input.toml&quot;), &quot;EMBSET&quot;)
+for est in (OLS(), Ridge(lambda = 1e-4), Ridge(lambda = 1e-2))
+    f = fit(SCEFit, dataset, est)
+    println(est, &quot;: RMSE energy = &quot;, rmse_energy(f))
+end</code></pre><h2 id="Example-4:-Train-/-test-split"><a class="docs-heading-anchor" href="#Example-4:-Train-/-test-split">Example 4: Train / test split</a><a id="Example-4:-Train-/-test-split-1"></a><a class="docs-heading-anchor-permalink" href="#Example-4:-Train-/-test-split" title="Permalink"></a></h2><p><code>SCEDataset</code> supports vector indexing; the slice is a fresh dataset that shares the same <code>SCEBasis</code>.</p><pre><code class="language-julia hljs">using Magesty
+
+dataset = SCEDataset(SCEBasis(&quot;input.toml&quot;), &quot;EMBSET&quot;)
+n_train = round(Int, 0.8 * length(dataset))
+train   = dataset[1:n_train]
+test    = dataset[(n_train + 1):end]
+
+f = fit(SCEFit, train, Ridge(lambda = 1e-4))
+println(&quot;in-sample  RMSE energy: &quot;, rmse_energy(f))
+println(&quot;out-sample RMSE energy: &quot;, rmse_energy(f, test))</code></pre><h2 id="Example-5:-Cache-the-SALC-basis"><a class="docs-heading-anchor" href="#Example-5:-Cache-the-SALC-basis">Example 5: Cache the SALC basis</a><a id="Example-5:-Cache-the-SALC-basis-1"></a><a class="docs-heading-anchor-permalink" href="#Example-5:-Cache-the-SALC-basis" title="Permalink"></a></h2><p>Building an <code>SCEBasis</code> runs the heavy SALC construction. Persist it to XML and reload it later to skip that step. The XML schema is shared with the Monte Carlo package <code>SpinClusterMC.jl</code>.</p><pre><code class="language-julia hljs">using Magesty
+
+# Session 1: cache the basis.
+Magesty.save(SCEBasis(&quot;input.toml&quot;), &quot;basis.xml&quot;)
+
+# Session 2: reload, fit, save the model.
+basis   = Magesty.load(SCEBasis, &quot;basis.xml&quot;)
+dataset = SCEDataset(basis, &quot;EMBSET&quot;)
+f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
+Magesty.save(SCEModel(f), &quot;model.xml&quot;)</code></pre><h2 id="Example-6:-Predict-and-evaluate-on-custom-configurations"><a class="docs-heading-anchor" href="#Example-6:-Predict-and-evaluate-on-custom-configurations">Example 6: Predict and evaluate on custom configurations</a><a id="Example-6:-Predict-and-evaluate-on-custom-configurations-1"></a><a class="docs-heading-anchor-permalink" href="#Example-6:-Predict-and-evaluate-on-custom-configurations" title="Permalink"></a></h2><pre><code class="language-julia hljs">using Magesty
+using LinearAlgebra
+
+basis   = SCEBasis(&quot;input.toml&quot;)
+dataset = SCEDataset(basis, &quot;EMBSET&quot;)
+f       = fit(SCEFit, dataset, Ridge(lambda = 1e-4))
+model   = SCEModel(f)
+
+num_atoms = basis.structure.supercell.num_atoms
+
+# Ferromagnetic spin configuration along +z.
+spins_fm = zeros(3, num_atoms)
+spins_fm[3, :] .= 1.0
+println(&quot;FM energy: &quot;, predict_energy(model, spins_fm), &quot; eV&quot;)
+
+# Spiral configuration in the xy-plane.
+spins_spiral = zeros(3, num_atoms)
+for i in 1:num_atoms
+    angle = 2π * (i - 1) / num_atoms
+    spins_spiral[1, i] = cos(angle)
+    spins_spiral[2, i] = sin(angle)
+end
+T = predict_torque(model, spins_spiral)
+println(&quot;Max torque magnitude: &quot;, maximum(norm.(eachcol(T))))</code></pre><h2 id="Example-7:-Evaluate-a-saved-model-on-new-data"><a class="docs-heading-anchor" href="#Example-7:-Evaluate-a-saved-model-on-new-data">Example 7: Evaluate a saved model on new data</a><a id="Example-7:-Evaluate-a-saved-model-on-new-data-1"></a><a class="docs-heading-anchor-permalink" href="#Example-7:-Evaluate-a-saved-model-on-new-data" title="Permalink"></a></h2><p><code>SCEDataset</code> accepts a fitted <code>SCEModel</code> or <code>SCEFit</code> in place of an <code>SCEBasis</code>: it reuses the basis embedded in it (<code>model.basis</code> / <code>fit.dataset.basis</code>) without rebuilding the SALCs. This is convenient when reloading a saved model to score it on a fresh EMBSET file.</p><pre><code class="language-julia hljs">using Magesty
+
+# Reload a model saved earlier and score it on new reference data.
+model    = Magesty.load(SCEModel, &quot;model.xml&quot;)
+new_data = SCEDataset(model, &quot;EMBSET_new&quot;)   # basis taken from the model
+
+ŷ_E = predict_energy(model, new_data)
+ŷ_T = predict_torque(model, new_data)</code></pre><h2 id="Example-8:-Inspect-symmetry,-structure,-and-SALCs"><a class="docs-heading-anchor" href="#Example-8:-Inspect-symmetry,-structure,-and-SALCs">Example 8: Inspect symmetry, structure, and SALCs</a><a id="Example-8:-Inspect-symmetry,-structure,-and-SALCs-1"></a><a class="docs-heading-anchor-permalink" href="#Example-8:-Inspect-symmetry,-structure,-and-SALCs" title="Permalink"></a></h2><pre><code class="language-julia hljs">using Magesty
+
+basis = SCEBasis(&quot;input.toml&quot;)
+
+sym = basis.symmetry
+println(&quot;Space group: &quot;, sym.international_symbol,
+        &quot; (#&quot;, sym.spacegroup_number, &quot;)&quot;)
+println(&quot;Number of symmetry operations: &quot;, sym.nsym)
+
+cell = basis.structure.supercell
+println(&quot;Number of atoms: &quot;, cell.num_atoms)
+println(&quot;Lattice (columns):&quot;)
+display(Matrix(cell.lattice_vectors))
+
+println(&quot;Number of SALCs: &quot;, length(basis.salcbasis.salc_list))</code></pre><h2 id="Example-9:-GCV-diagnostics-(penalty-and-data-sufficiency)"><a class="docs-heading-anchor" href="#Example-9:-GCV-diagnostics-(penalty-and-data-sufficiency)">Example 9: GCV diagnostics (penalty and data sufficiency)</a><a id="Example-9:-GCV-diagnostics-(penalty-and-data-sufficiency)-1"></a><a class="docs-heading-anchor-permalink" href="#Example-9:-GCV-diagnostics-(penalty-and-data-sufficiency)" title="Permalink"></a></h2><p>Generalized cross-validation scores the combined energy+torque objective from a single fit. Use <code>gcv_lambda</code> to pick a ridge penalty and <code>gcv_learning_curve</code> to check whether there is enough training data (a flattening curve). Both work only for the linear estimators (<code>OLS</code>, <code>Ridge</code>, <code>AdaptiveRidge</code>). The raw GCV score is in the weighted-objective unit and only meaningful in relative comparison; <code>gcv_r2</code> (and the <code>gcv_r2</code> columns on the sweep results) gives the companion predictive R² on a fixed scale (<code>1</code> perfect, <code>0</code> matches the null model). See <a href="../theory/design_matrix_and_fitting/#Cross-validation-diagnostics">Cross-validation diagnostics</a> for the formula.</p><pre><code class="language-julia hljs">using Magesty
+
+dataset = SCEDataset(SCEBasis(&quot;input.toml&quot;), &quot;EMBSET&quot;)
+
+# Penalty selection: one SVD serves the whole lambda path.
+path = gcv_lambda(dataset, 10.0 .^ (-6:0.5:0))
+println(&quot;lambda_best = &quot;, path.lambda_best)
+f = fit(SCEFit, dataset, Ridge(lambda = path.lambda_best))
+println(&quot;GCV at lambda_best: &quot;, gcv(f), &quot;  (R2 = &quot;, gcv_r2(f), &quot;)&quot;)
+write_gcv_lambda(path, &quot;gcv_lambda.txt&quot;)
+# python tools/FitCheck_gcv_lambda.py gcv_lambda.txt --r2
+
+# Data sufficiency: average GCV over random subsets at each size.
+curve = gcv_learning_curve(dataset, Ridge(lambda = path.lambda_best); repeats = 8)
+write_gcv_learning_curve(curve, &quot;gcv_learning_curve.txt&quot;)
+# python tools/FitCheck_gcv_learning_curve.py gcv_learning_curve.txt --r2</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../tutorials/case1_bcc_fe/">« Case 1: bcc Fe</a><a class="docs-footer-nextpage" href="../input_keys/">Input Keys »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Thursday 18 June 2026 14:21">Thursday 18 June 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
