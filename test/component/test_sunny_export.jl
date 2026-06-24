@@ -21,6 +21,20 @@ _rand_dir(rng) = (v = randn(rng, 3); SVector{3, Float64}(v ./ norm(v)))
 @testset "SunnyExport" begin
     rng = MersenneTwister(20260529)
 
+    # Extract every numeric literal from the `set_exchange!` bilinear-matrix lines of
+    # a generated script (used to assert the bond rescale of the moment / coupling routes).
+    function bond_nums(script)
+        vals = Float64[]
+        for line in split(script, '\n')
+            startswith(line, "set_exchange!") || continue
+            mat = split(split(line, '[')[2], ']')[1]   # matrix content between [ ]
+            for tok in eachmatch(r"-?\d+\.?\d*(?:e-?\d+)?", mat)
+                push!(vals, parse(Float64, tok.match))
+            end
+        end
+        return vals
+    end
+
     @testset "l=1 pair matrix matches tesseral contraction" begin
         # folded index 1,2,3 ↔ m = -1,0,+1.
         for _ = 1:50
@@ -146,10 +160,11 @@ _rand_dir(rng) = (v = randn(rng, 3); SVector{3, Float64}(v ./ norm(v)))
 
     @testset "sce_to_sunny script generation" begin
         m = Magesty.load(Magesty.SCEModel, _fixture("dimer", "dimer_dmi.xml"))
-        s = sce_to_sunny(m)
+        s = sce_to_sunny(m; spin = 5//2)
         @test Meta.parseall(s) isa Expr                       # syntactically valid
         @test occursin("using Sunny", s)
         @test occursin("Cell route: primitive", s)
+        @test occursin("Moment(s = 5//2", s)                  # physical spin in Moment
         @test occursin("set_exchange!", s)
         @test occursin("SpinWaveTheory", s)
         @test occursin("q_space_path", s)
@@ -165,13 +180,13 @@ _rand_dir(rng) = (v = randn(rng, 3); SVector{3, Float64}(v ./ norm(v)))
         # fept (multiplicity > 1, with single-ion) now auto-selects the unfolded
         # primitive route.
         me = Magesty.load(Magesty.SCEModel, _fixture("fept_tetragonal_2x2x2", "scecoeffs.xml"))
-        sp = sce_to_sunny(me)
+        sp = sce_to_sunny(me; spin = 2)
         @test occursin("Cell route: primitive", sp)
         @test occursin("set_onsite_coupling!(sys, S ->", sp)   # single-ion path
         @test Meta.parseall(sp) isa Expr
 
         # The explicit (folded supercell) route remains available on request.
-        se = sce_to_sunny(me; placement = :explicit)
+        se = sce_to_sunny(me; spin = 2, placement = :explicit)
         @test occursin("Cell route: explicit", se)
         @test occursin("set_exchange_at!", se)
         @test occursin("set_onsite_coupling_at!", se)
@@ -180,9 +195,128 @@ _rand_dir(rng) = (v = randn(rng, 3); SVector{3, Float64}(v ./ norm(v)))
         # File output and argument validation.
         mktempdir() do dir
             p = joinpath(dir, "lswt")
-            sce_to_sunny(m; output = p)
+            sce_to_sunny(m; spin = 1, output = p)
             @test isfile(p * ".jl")
         end
-        @test_throws ArgumentError sce_to_sunny(m; placement = :nonsense)
+        @test_throws ArgumentError sce_to_sunny(m; spin = 1, placement = :nonsense)
+    end
+
+    @testset "physical spin" begin
+        m = Magesty.load(Magesty.SCEModel, _fixture("dimer", "dimer_dmi.xml"))
+
+        # `spin` is required: omitting it errors (rather than silently using s = 1).
+        @test_throws ArgumentError sce_to_sunny(m)
+
+        # Bilinear bonds are rescaled by 1/(s_i s_j): a single-species model with
+        # spin = 2 has every exchange-matrix entry 1/4 of the spin = 1 script.
+        n1 = bond_nums(sce_to_sunny(m; spin = 1))
+        n2 = bond_nums(sce_to_sunny(m; spin = 2))
+        @test length(n1) == length(n2) && !isempty(n1)
+        @test all(isapprox.(n2, n1 ./ 4; atol = 1e-12))
+
+        # `:dipole_uncorrected` (classical limit) is available on request; `:auto`
+        # with a half-integer spin gives `:dipole`.
+        unc = sce_to_sunny(m; spin = 1, mode = :dipole_uncorrected)
+        @test occursin(":dipole_uncorrected", unc)
+        @test occursin(", :dipole)", sce_to_sunny(m; spin = 5 // 2))
+        # A half-integer S_eff takes the energy-preserving :moment route by default.
+        @test occursin("Spin scaling: :moment", sce_to_sunny(m; spin = 5 // 2))
+
+        # Internal helpers: spin resolution, onsite factor, mode selection.
+        smap, gmap = Magesty._sunny_resolve_spin_maps(
+            Dict("Mn" => 5 // 2), 2, ["Mn", "Te"], Set(["Mn"]))
+        @test smap["Mn"] == 5 // 2 && smap["Te"] == 1   # non-magnetic placeholder
+        @test gmap["Mn"] == 2
+        # magnetic species missing from the Dict
+        @test_throws ArgumentError Magesty._sunny_resolve_spin_maps(
+            Dict("Te" => 1), 2, ["Mn", "Te"], Set(["Mn"]))
+        # spin omitted
+        @test_throws ArgumentError Magesty._sunny_resolve_spin_maps(
+            nothing, 2, ["Mn"], Set(["Mn"]))
+
+        # Non-magnetic / negative guard: S_eff is a magnitude, so it must be positive.
+        @test_throws ArgumentError Magesty._sunny_resolve_spin_maps(
+            -1, 2, ["Mn"], Set(["Mn"]))
+        @test_throws ArgumentError Magesty._sunny_resolve_spin_maps(
+            0, 2, ["Mn"], Set(["Mn"]))
+        # Non-half-integer no longer rejected here (the :moment route checks it later).
+        s11, _ = Magesty._sunny_resolve_spin_maps(1.1, 2, ["Mn"], Set(["Mn"]))
+        @test s11["Mn"] == 1.1
+
+        # Onsite factor: 2-arg (:moment, smom == sphys) and 3-arg (:coupling) forms.
+        @test Magesty._sunny_onsite_factor(1, :dipole) == 2
+        @test Magesty._sunny_onsite_factor(5 // 2, :dipole) ≈ 0.2
+        @test Magesty._sunny_onsite_factor(2, :dipole_uncorrected) ≈ 0.25
+        @test Magesty._sunny_onsite_factor(2, 2, :dipole_uncorrected) ≈ 0.25  # 1/(smom·sphys)
+        @test Magesty._sunny_onsite_factor(1, 2.5, :dipole_uncorrected) ≈ 0.4  # coupling: 1/(s₀ S)
+        # spin 1/2 has no quadrupole in :dipole
+        @test_throws ArgumentError Magesty._sunny_onsite_factor(1 // 2, :dipole)
+
+        @test Magesty._sunny_select_mode(:auto, [5 // 2]) === :dipole
+        @test Magesty._sunny_select_mode(:auto, [1.1]) === :dipole_uncorrected
+        @test Magesty._sunny_select_mode(:auto, [1, 1.1]) === :dipole_uncorrected
+        @test Magesty._sunny_select_mode(:dipole, [1.1]) === :dipole
+        @test_throws ArgumentError Magesty._sunny_select_mode(:bogus, [1])
+
+        # Scaling-route selection: :auto → :moment for half-integers, :coupling else.
+        @test Magesty._sunny_select_scaling(:auto, [5 // 2]) === :moment
+        @test Magesty._sunny_select_scaling(:auto, [1.1]) === :coupling
+        @test Magesty._sunny_select_scaling(:auto, [1, 1.1]) === :coupling
+        @test Magesty._sunny_select_scaling(:coupling, [5 // 2]) === :coupling
+        # :moment with a non-half-integer is rejected (Sunny's Moment constraint).
+        @test_throws ArgumentError Magesty._sunny_select_scaling(:moment, [1.1])
+        @test_throws ArgumentError Magesty._sunny_select_scaling(:bogus, [1])
+
+        @test Magesty._sunny_is_half_integer(5 // 2)
+        @test Magesty._sunny_is_half_integer(1)
+        @test !Magesty._sunny_is_half_integer(1.1)
+    end
+
+    @testset "coupling-scaling route" begin
+        m = Magesty.load(Magesty.SCEModel, _fixture("dimer", "dimer_dmi.xml"))
+
+        # A non-half-integer S_eff now succeeds (auto-selects the :coupling route)
+        # instead of erroring; Moment carries the placeholder s = 1 and the classical
+        # mode, while the couplings absorb S_eff.
+        c = sce_to_sunny(m; spin = 1.1)
+        @test Meta.parseall(c) isa Expr
+        @test occursin("Spin scaling: :coupling", c)
+        @test occursin("Moment(s = 1,", c)
+        @test occursin(":dipole_uncorrected", c)
+
+        # Coupling-route bonds scale as 1/S (not 1/S² like the :moment route): for a
+        # single magnetic species J = M/(s₀·√(S·S)) = M/S, so spin = 2 halves spin = 1.
+        n1 = bond_nums(sce_to_sunny(m; spin = 1, scaling = :coupling))
+        n2 = bond_nums(sce_to_sunny(m; spin = 2, scaling = :coupling))
+        @test length(n1) == length(n2) && !isempty(n1)
+        @test all(isapprox.(n2, n1 ./ 2; atol = 1e-12))
+
+        # Forcing :moment with a non-half-integer is rejected.
+        @test_throws ArgumentError sce_to_sunny(m; spin = 1.1, scaling = :moment)
+        # Explicit :coupling accepts a half-integer too (placeholder Moment).
+        @test occursin("Moment(s = 1,", sce_to_sunny(m; spin = 5 // 2, scaling = :coupling))
+
+        # :coupling + :dipole + single-ion anisotropy is unsupported (the quantum
+        # rank-2 renorm needs the real spin, not the placeholder).
+        me = Magesty.load(Magesty.SCEModel, _fixture("fept_tetragonal_2x2x2", "scecoeffs.xml"))
+        @test_throws ArgumentError sce_to_sunny(me; spin = 2, scaling = :coupling, mode = :dipole)
+        # The same model with the classical mode is fine.
+        @test occursin("Spin scaling: :coupling",
+            sce_to_sunny(me; spin = 2, scaling = :coupling, mode = :dipole_uncorrected))
+
+        # A non-uniform magnetic S_eff warns (off-diagonal exact, Larmor approximate)
+        # and still routes to :coupling with placeholder Moment spins.
+        plan = @test_logs (:warn,) Magesty._sunny_plan_spins(
+            Dict("Mn" => 1.1, "Fe" => 2.2), 2, ["Mn", "Fe"], Set(["Mn", "Fe"]), :auto, :auto)
+        @test plan.route === :coupling
+        @test plan.smom["Mn"] == 1 && plan.smom["Fe"] == 1
+        @test plan.sphys["Mn"] == 1.1 && plan.sphys["Fe"] == 2.2
+        @test plan.mode === :dipole_uncorrected
+
+        # Bond denominator: :moment → s_i s_j; :coupling → √(smom_i smom_j)·√(S_i S_j).
+        mplan = Magesty._sunny_plan_spins(5 // 2, 2, ["Mn"], Set(["Mn"]), :auto, :moment)
+        @test Magesty._sunny_bond_denom(mplan, "Mn", "Mn") ≈ (5 / 2)^2
+        cplan = Magesty._sunny_plan_spins(2.5, 2, ["Mn"], Set(["Mn"]), :auto, :coupling)
+        @test Magesty._sunny_bond_denom(cplan, "Mn", "Mn") ≈ 2.5   # s₀ = 1 ⇒ √1·√(2.5²)
     end
 end

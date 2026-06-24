@@ -198,7 +198,11 @@ sample_mfa_incar(incar_path; variable, start, stop, num_points, num_samples,
                  randomize, fix, uniform_atoms, outdir, prefix) -> Vector{String}
 
 # Sunny.jl export (also the `magesty sunny script` command-line subcommand)
-sce_to_sunny(model; output, placement) -> String
+# `spin` (effective spin length S_eff = m/(g μ_B); scalar or per-species Dict) is
+# required. `scaling = :moment` (half-integer; energy-preserving) or `:coupling`
+# (any positive real S_eff via a placeholder Moment; dispersion-only); `:auto`
+# (default) picks per spin. `g` / `mode` optional.
+sce_to_sunny(model; spin, g, mode, scaling, output, placement) -> String
 ```
 
 ## Primary external libraries

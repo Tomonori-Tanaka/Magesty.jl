@@ -6,6 +6,33 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `sce_to_sunny` gains a `scaling` keyword (`:auto` / `:moment` / `:coupling`; CLI
+  `--scaling`) that lets the exporter handle **itinerant / non-half-integer
+  moments** (e.g. Fe `2.2 μB` ⇒ `S_eff = 1.1`). The `:coupling` route keeps Sunny's
+  `Moment` at a placeholder `s₀ = 1` and folds the physical `S_eff` into the
+  couplings (`J = M/(s₀·√(S_i S_j))`, single-ion `1/(s₀ S_i)`), so the magnon
+  dispersion is physical for any positive real `S_eff`. Only the dispersion is
+  preserved — the static `energy(sys)` is then no longer the SCE energy. Exact for a
+  uniform `S_eff`; non-uniform `S_eff` keeps the off-diagonal exchange exact and
+  warns that the on-site (Larmor) term is approximate. `:auto` uses `:moment` for
+  half-integer spins and `:coupling` otherwise.
+
+### Changed
+
+- **BREAKING CHANGE:** `sce_to_sunny` now requires a `spin` keyword — the physical
+  effective spin length `S_eff = m/(g μ_B)` of each magnetic species (a scalar, or
+  a `species => value` Dict) — and accepts optional `g`, `mode`, and `scaling`. The
+  SCE couplings absorb the spin magnitude (`J_SCE = J_phys·S²`), so the LSWT magnon
+  dispersion needs the physical spin; the previous fixed `s = 1` inflated magnon
+  frequencies by a factor `~S` (e.g. ~2.5× for MnTe, `S = 5/2`). With the default
+  `scaling = :moment` (selected for half-integer spins), bilinear bonds are rescaled
+  by `1/(s_i s_j)` and single-ion terms by a mode-dependent factor at emission, so
+  `energy(sys)` is unchanged while the dispersion scales physically; non-half-integer
+  spins use the new `:coupling` route (see *Added*). The `magesty sunny script` CLI
+  gains required `--spin` and optional `--g` / `--mode` / `--scaling`.
+
 ## [0.1.1] - 2026-06-19
 
 ### Documentation
