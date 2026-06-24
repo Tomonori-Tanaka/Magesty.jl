@@ -259,6 +259,16 @@ Procedure (Claude executes):
   commit via `Write` + `git commit -F file` (to avoid heredoc accidents),
   detects `BREAKING CHANGE`s, and adds `Refs:` lines. The main agent must
   not run `git commit -m` directly.
+- To prepare a release, use the `release-helper` agent
+  (`.claude/agents/release-helper.md`). It decides the next version
+  (SemVer), bumps `Project.toml`, finalizes the `CHANGELOG.md` section and
+  footer links, sweeps the `[compat] Magesty` bound of in-repo
+  path-dependent packages (e.g. `cli/Project.toml`), and gates on
+  `make test-ci` (the CI-parity suite, which includes `test-cli` —
+  `make test-all` does not). It only prepares and verifies: it never
+  commits, pushes, tags, or posts the `@JuliaRegistrator` comment. The
+  main agent confirms the result with the user, then hands the commit to
+  `git-helper` and runs the push / registration.
 
 ### Code review: two tiers
 

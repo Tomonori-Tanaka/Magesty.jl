@@ -78,6 +78,15 @@ bench-symmetry:
 bench-profile-allocs:
 	julia --project=bench bench/profile_remaining_allocs.jl
 
+# Local CI-parity gate against the current environment: run exactly the jobs
+# GitHub Actions runs (core suite + Aqua + JET + the MagestyCLI package). Run
+# this before any release or version bump. `test-all` alone omits `test-cli`,
+# so a core version bump that outruns `cli/Project.toml`'s `Magesty` compat
+# (path-dependency resolution failure) would otherwise slip past local checks
+# and only fail in CI. For a cold-start, no-Manifest reproduction of CI on the
+# `release` channel, use `ci-local` below instead.
+test-ci: test-all test-aqua test-jet test-cli
+
 # Run the same checks GitHub Actions runs, locally, before pushing.
 # Uses the juliaup `release` channel (matches CI's `1`, currently 1.12.x).
 # CI also tests against the explicit `1.12` minimum; locally we skip the
