@@ -106,8 +106,8 @@ end
     # of spin = 1 is 5/2 times that of spin = 5//2.
     @testset "dispersion scales as 1/s" begin
         model = Magesty.load(SCEModel, _fix("chain", "chain.xml"))
-        function bandwidth(spin)
-            sys = _eval_system(sce_to_sunny(model; spin = spin))
+        function bandwidth(spin; scaling = :auto)
+            sys = _eval_system(sce_to_sunny(model; spin = spin, scaling = scaling))
             for st in eachsite(sys)
                 set_dipole!(sys, [0.0, 0.0, 1.0], st)
             end
@@ -117,6 +117,48 @@ end
             return maximum(dispersion(swt, path))
         end
         @test bandwidth(1) ≈ 2.5 * bandwidth(5 // 2) rtol = 1e-5
+
+        # The :coupling route (placeholder Moment s₀ = 1) reproduces the SAME physical
+        # dispersion as the :moment route at a half-integer spin where both are valid.
+        @test bandwidth(5 // 2; scaling = :coupling) ≈ bandwidth(5 // 2; scaling = :moment) rtol = 1e-5
+        # A non-half-integer S_eff runs only via :coupling, and its dispersion scales
+        # as ħω ∝ 1/S: doubling S_eff halves the bandwidth.
+        @test bandwidth(1.1; scaling = :coupling) ≈ 2 * bandwidth(2.2; scaling = :coupling) rtol = 1e-5
+    end
+
+    # The :coupling route only preserves the dispersion, not the static energy: with a
+    # placeholder Moment s₀ = 1 the represented landscape is scaled by c = s₀/S, so for
+    # a uniform single-species model (chain, no single-ion) energy(sys) = (predict - j0)/S.
+    @testset "coupling route scales the static energy by 1/S" begin
+        model = Magesty.load(SCEModel, _fix("chain", "chain.xml"))
+        nat = size(model.basis.structure.supercell.x_frac, 2)
+        S = 5 // 2
+        sys = _eval_system(sce_to_sunny(model; spin = S, scaling = :coupling))
+        prim = Magesty._sunny_build_primitive(model).prim
+        target = reshape_supercell(sys, Matrix(prim.reshape_matrix))
+        L = Matrix{Float64}(model.basis.structure.supercell.lattice_vectors)
+        xf = model.basis.structure.supercell.x_frac
+        wrapcart(v) = (g = L \ v; L * (g .- round.(g)))
+        ssites = collect(eachsite(target))
+        spos = [Sunny.global_position(target, s) for s in ssites]
+        sites = map(1:nat) do a
+            ra = L * SVector{3, Float64}(xf[:, a])
+            ssites[argmin([norm(wrapcart(spos[k] - ra)) for k in eachindex(ssites)])]
+        end
+        rng = MersenneTwister(99)
+        maxerr = 0.0
+        for _ = 1:10
+            sd = randn(rng, 3, nat)
+            for c = 1:nat
+                sd[:, c] ./= norm(sd[:, c])
+            end
+            for a = 1:nat
+                set_dipole!(target, sd[:, a], sites[a])
+            end
+            ref = (Magesty.predict_energy(model, sd) - model.j0) / Float64(S)
+            maxerr = max(maxerr, abs(energy(target) - ref))
+        end
+        @test maxerr < 1e-8
     end
 
     # The explicit (folded supercell) route stays available on request and remains

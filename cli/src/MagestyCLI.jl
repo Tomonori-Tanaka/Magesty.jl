@@ -277,34 +277,44 @@ otherwise the training supercell (folded dispersion).
 
 # Options
 
-- `--spin=<value>` (required): physical effective spin length `S_eff = m/(g μ_B)`.
+- `--spin=<value>`: (required) physical effective spin length `S_eff = m/(g μ_B)`.
   A bare number applies to all magnetic species (e.g. `5//2`, `2`); a comma list
   `Mn=5//2,Fe=3//2` sets it per species. The SCE couplings absorb the spin
   magnitude, so the magnon dispersion needs the physical spin (`s = 1` would
-  inflate it by `~S`). Must be a positive half-integer (Sunny requires `s` to be a
-  multiple of `1/2`).
+  inflate it by `~S`). Must be positive; with the `moment` scaling it must also be
+  a half-integer (Sunny requires `s` to be a multiple of `1/2`), while the
+  `coupling` scaling accepts any positive real (itinerant moments).
 - `--g=<value>`: `g`-factor, scalar or per-species (default: `2`). Does not affect
   the bare dispersion.
 - `--mode=<auto|dipole|dipole_uncorrected>`: Sunny system mode (default: `auto`,
   which picks `dipole` for half-integer spins and `dipole_uncorrected` otherwise).
+- `--scaling=<auto|moment|coupling>`: how `S_eff` is encoded (default: `auto`).
+  `moment` puts `S_eff` in `Moment` (energy-preserving, half-integer only);
+  `coupling` keeps `Moment` at a placeholder `s = 1` and rescales the couplings so
+  only the dispersion is physical (any positive real `S_eff`); `auto` picks `moment`
+  for all-half-integer spins and `coupling` otherwise.
 - `--placement=<auto|primitive|explicit>`: cell route (default: `auto`).
 - `-o, --output=<path>`: output file (`.jl` is appended if missing).
   Without it, the script is printed to stdout.
 """
 Comonicon.@cast function script(model::String; spin::String = "", g::String = "2",
-		mode::String = "auto", placement::String = "auto", output::String = "")
+		mode::String = "auto", scaling::String = "auto", placement::String = "auto",
+		output::String = "")
 	isempty(spin) && error("--spin is required: the physical effective spin length " *
 		"S_eff = m/(g μ_B); pass e.g. --spin=5//2 or --spin=Mn=5//2,Fe=3//2")
 	placement in ("auto", "primitive", "explicit") ||
 		error("--placement must be auto, primitive, or explicit; got \"$placement\"")
 	mode in ("auto", "dipole", "dipole_uncorrected") ||
 		error("--mode must be auto, dipole, or dipole_uncorrected; got \"$mode\"")
+	scaling in ("auto", "moment", "coupling") ||
+		error("--scaling must be auto, moment, or coupling; got \"$scaling\"")
 	out = isempty(output) ? nothing : output
 	text = sce_to_sunny(
 		Magesty.load(Magesty.SCEModel, model);
 		spin = _parse_spinlike(spin),
 		g = _parse_spinlike(g),
 		mode = Symbol(mode),
+		scaling = Symbol(scaling),
 		placement = Symbol(placement),
 		output = out,
 	)

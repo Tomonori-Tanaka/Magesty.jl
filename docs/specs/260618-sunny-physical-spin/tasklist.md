@@ -1,7 +1,8 @@
 # Tasklist: sce_to_sunny に物理スピン（実効スピン長）を渡す
 
-Status: implemented (2026-06-18) — tests green (unit / sunny / jet / aqua) and
-Tier 2 review panel resolved; pending commit on `feat/sunny-physical-spin`.
+Status: implemented (2026-06-18; follow-up `:coupling` route 2026-06-24) —
+tests green (unit / sunny / jet / aqua) and Tier 2 review panel resolved;
+pending commit on `feat/sunny-physical-spin`.
 
 This file holds coarse-grained, commit-sized milestones. Day-to-day
 tracking goes through `TaskCreate` in-session.
@@ -38,6 +39,21 @@ tracking goes through `TaskCreate` in-session.
       `S_eff = m/(gμ_B)`、`s(2s-1)/2`、モード選択、遍歴磁性の注意、文献。
 - [ ] `SPEC.md` シグネチャ反映（exit checklist の「public API 変更」項と対応）。
 - [ ] `CHANGELOG.md` `[Unreleased]` に `BREAKING CHANGE`。
+
+### M5 — `scaling = :coupling`（遍歴磁性 / 非半整数 `S_eff`, follow-up 2026-06-24）
+
+- [x] `sce_to_sunny` / CLI に `scaling`（`:auto` / `:moment` / `:coupling`）。
+      `:auto` は磁性 `S_eff` 全半整数→`:moment`、それ以外→`:coupling`。
+- [x] `:coupling`: Moment placeholder `s₀ = 1`、ボンド
+      `J = M/(√(smom_i smom_j)·√(S_i S_j))`、単一イオン古典係数 `1/(s₀ S_i)`。
+      非 uniform `S_eff` は `@warn`。`:coupling`＋`:dipole`＋単一イオンはエラー。
+- [x] `_sunny_resolve_spin_maps` の半整数チェックを route 依存に分離
+      （`:moment` のみ要求、`_sunny_select_scaling`）。正値チェックは共通。
+- [x] 単体テスト（route 選択・`1/S` ボンドスケール・非半整数許可・`:moment`
+      半整数エラー・非 uniform `@warn`・`:coupling`+`:dipole`+onsite エラー）。
+- [x] Sunny ゲート（`:coupling` 分散 == `:moment` 分散 @ 半整数、非半整数の
+      `1/S` 分散スケール、`:coupling` の静的エネルギー `= (predict-j0)/S`）。
+- [x] docs（tools.md `--scaling` 節）／docstring／CHANGELOG（`[Unreleased]` Added）。
 
 ## Exit checklist
 

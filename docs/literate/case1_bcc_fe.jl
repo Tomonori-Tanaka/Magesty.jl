@@ -113,8 +113,24 @@ Magesty.save(SCEModel(f), "model.xml");
 # command:
 #
 # ```bash
-# magesty sunny script model.xml --output sunny.jl
+# magesty sunny script model.xml --spin 1.1 --output sunny.jl
 # ```
+#
+# The `--spin` value is the physical effective spin length ``S_\text{eff} = m/(g\mu_B)``.
+# The SCE couplings are fit from *unit* spin directions, so they absorb the moment
+# magnitude (``J_\text{SCE} = J_\text{phys}\,S^2``); the magnon frequency, however, is
+# the energy curvature divided by the local angular momentum ``\hbar S_\text{eff}``, so
+# the dispersion needs ``S_\text{eff}`` explicitly. We use the full ordered moment of
+# bcc Fe, ``m \approx 2.2\,\mu_B`` (so ``S_\text{eff} \approx 1.1``). This is the moment
+# that carries the precessing angular momentum; the smaller value obtained by
+# integrating the spin density inside the VASP atomic sphere (here ``\approx 1.5\,\mu_B``)
+# is a projection artifact and would overstate the dispersion.
+#
+# Because ``S_\text{eff} = 1.1`` is not a half-integer (Sunny's `Moment` accepts only
+# multiples of ``1/2``), `magesty sunny script` automatically uses its *coupling* scaling
+# route: Sunny's `Moment` spin is held at a placeholder ``s_0 = 1`` while ``S_\text{eff}``
+# is folded into the exchange constants. The magnon dispersion is then physical; only the
+# absolute static energy of the Sunny system is rescaled (it is not used here).
 #
 # The generated script builds the spin system from the fitted exchange constants
 # and evaluates the dispersion along the standard bcc high-symmetry path
@@ -127,7 +143,10 @@ Magesty.save(SCEModel(f), "model.xml");
 # ![Spin-wave dispersion of bcc Fe along the Γ–H–N–Γ–P–H path](case1_inputs/dispersion.png)
 #
 # As a check against experiment, the SCE dispersion along the Γ–N direction
-# closely tracks inelastic neutron-scattering measurements of bcc Fe[^expt]:
+# closely tracks inelastic neutron-scattering measurements of bcc Fe[^expt]. Using the
+# physical ``S_\text{eff} = 1.1`` (rather than the ``s = 1`` placeholder) lowers the whole
+# dispersion by the factor ``1/S_\text{eff} \approx 0.9``, bringing it into closer
+# agreement with the measured energies:
 #
 # ![SCE (Sunny) magnon dispersion along Γ–N compared with experiment](case1_inputs/dispersion_exp.png)
 #
@@ -135,4 +154,6 @@ Magesty.save(SCEModel(f), "model.xml");
 #     J. W. Lynn, R. A. Robinson, and H. A. Mook, "Neutron scattering study of the
 #     magnetic excitations in ferromagnetic iron at high energy transfers",
 #     J. Appl. Phys. **55**, 1895–1897 (1984).
-#     DOI: [10.1063/1.333511](https://doi.org/10.1063/1.333511).
+#     DOI: [10.1063/1.333511](https://doi.org/10.1063/1.333511). The digitized
+#     points used here are in [`febcc_spinwave.csv`](case1_inputs/febcc_spinwave.csv)
+#     (columns: ``q`` in Å⁻¹ along Γ–N, energy in meV).

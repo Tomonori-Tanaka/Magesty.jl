@@ -44,33 +44,89 @@ const _SUNNY_L1_AXIS_TO_MIDX = (3, 1, 2)
 # The SCE couplings are fit with unit spin directions, so they absorb the spin
 # magnitude: the per-bond matrix M reconstructs `ê_a' M ê_b` regardless of the
 # moment size, and the classical energy is independent of the spin length chosen
-# in Sunny. The *magnon dispersion*, however, scales as ħω ∝ 1/s for a fixed
-# energy landscape (precession of an angular momentum ħs), so the emitted script
-# must use the physical effective spin S_eff = m/(g μ_B) to be correct.
+# in Sunny. The *magnon dispersion*, however, scales as ħω ∝ 1/S for a fixed
+# energy landscape (precession of an angular momentum ħS), so the emitted script
+# must encode the physical effective spin S_eff = m/(g μ_B) to be correct.
 #
-# Energy-preserving rescale applied at emission (so `energy(sys)` is unchanged):
-#   - bilinear bond i–j : J_Sunny = M / (s_i s_j)   (s factors cancel in energy)
-#   - single-ion site i : factor below, mode-dependent
+# Two emission routes (`scaling`) carry S_eff differently:
+#
+#   :moment   — Sunny's `Moment` spin IS the physical S_eff. The static energy is
+#               preserved (`energy(sys) == predict_energy - j0`) AND the dispersion
+#               is physical. Requires S_eff to be a half-integer (Sunny rejects
+#               other `Moment` spins).
+#     bilinear : J = M / (s_i s_j)          (s factors cancel in the energy)
+#     single-ion : mode factor, with s = S_eff
+#
+#   :coupling — Sunny's `Moment` spin is a fixed half-integer placeholder s₀ = 1;
+#               the couplings carry S_eff so only the dispersion is physical. This
+#               works for ANY positive real S_eff (itinerant / non-half-integer
+#               moments). The dispersion is invariant under an overall spin scale
+#               c (s_i → c S_i, J → J/c), so picking c = s₀/S keeps the Moment
+#               half-integer while the dispersion stays physical. The price: the
+#               whole represented landscape is scaled by c, so `energy(sys)` is no
+#               longer the SCE energy (LSWT dispersion is unaffected). Exact for a
+#               uniform S_eff; off-diagonal-exact / Larmor-approximate otherwise.
+#     bilinear : J = M / (√(s_i s_j) √(S_i S_j))   → M/(s₀ S) for uniform S
+#     single-ion : classical factor 1/(s₀ S_i) (scales the gap as A/S, matching
+#                  the bilinear's 1/S); the quantum :dipole renorm needs the real
+#                  S and cannot be represented by the placeholder, so :coupling +
+#                  :dipole + single-ion is rejected.
 
-# Inverse of Sunny's renormalization of a rank-2 (single-ion) operator, so the
-# emitted operator reproduces the classical form `ê'Aê`:
-#   :dipole             — Sunny renormalizes by s(2s-1)/2 (the quantum coherent-
-#                         state quadrupole; it vanishes at s = 1/2). Inverse =
-#                         2/(s(2s-1)).
-#   :dipole_uncorrected — classical s→∞ limit, renormalization s². Inverse = 1/s².
-function _sunny_onsite_factor(s::Real, mode::Symbol)::Float64
-    sf = Float64(s)
+# Prefactor converting the classical quadratic form `ê'Aê` (single-ion) into the
+# Sunny spin operator whose mode expectation reproduces the physical magnon. The
+# Moment spin `smom` may differ from the physical `sphys` (the :coupling route),
+# so both are passed; for the :moment route they coincide.
+#   :dipole_uncorrected — classical limit. The operator's classical value scales
+#       as smom², so factor = 1/(smom·sphys) makes the landscape scale by
+#       smom/sphys (consistent with the bilinear rescale). Equals 1/S² when
+#       smom = sphys = S.
+#   :dipole — Sunny renormalizes a rank-2 operator by smom(2smom-1)/2 (the quantum
+#       coherent-state quadrupole; it vanishes at smom = 1/2). The inverse
+#       2/(smom(2smom-1)) reproduces the classical form, but this only yields the
+#       physical single-ion dispersion when smom = sphys (the :moment route);
+#       callers forbid the placeholder (:coupling) case.
+function _sunny_onsite_factor(smom::Real, sphys::Real, mode::Symbol)::Float64
+    sm = Float64(smom)
+    S = Float64(sphys)
     if mode === :dipole_uncorrected
-        return 1 / sf^2
+        return 1 / (sm * S)
     elseif mode === :dipole
-        sf > 0.5 || throw(ArgumentError(
-            "single-ion anisotropy with spin s = $s in :dipole mode: a spin s ≤ 1/2 " *
+        # The quantum rank-2 renormalization depends on the *actual* Moment spin, so
+        # it only reproduces the physical single-ion dispersion when the Moment spin
+        # is the physical spin (the :moment route). Reject a placeholder Moment here
+        # so the invariant is enforced at the point of use, not only by `_sunny_check_plan`.
+        sm ≈ S || throw(ArgumentError(
+            "single-ion anisotropy in :dipole mode needs the Moment spin to be the " *
+            "physical spin (s = $smom, S_eff = $sphys); a placeholder Moment cannot " *
+            "carry the quantum quadrupole. Use mode = :dipole_uncorrected or scaling = :moment."))
+        sm > 0.5 || throw(ArgumentError(
+            "single-ion anisotropy with spin s = $smom in :dipole mode: a spin s ≤ 1/2 " *
             "carries no rank-2 quadrupole (the s(2s-1)/2 renormalization vanishes). " *
             "Pass mode = :dipole_uncorrected for this model."))
-        return 2 / (sf * (2sf - 1))
+        return 2 / (sm * (2sm - 1))
     else
         throw(ArgumentError("mode must be :dipole or :dipole_uncorrected; got :$mode"))
     end
+end
+
+# Convenience for the :moment route, where the Moment spin equals the physical
+# spin. Keeps `1/s²` (uncorrected) and `2/(s(2s-1))` (:dipole) at s = S_eff.
+_sunny_onsite_factor(s::Real, mode::Symbol)::Float64 = _sunny_onsite_factor(s, s, mode)
+
+# Placeholder Moment spin used by the :coupling route. The dispersion is invariant
+# under the overall spin scale, so any half-integer works; s₀ = 1 is the simplest.
+const _SUNNY_COUPLING_S0 = 1
+
+# Fully resolved per-species spin plan for one route. `sphys` is the physical S_eff
+# (drives the coupling rescale and the mode auto-selection); `smom` is what is
+# written to Sunny's `Moment` (= sphys for :moment, = s₀ for :coupling). Defined
+# here, before the emission functions that take it in their signatures.
+struct _SunnySpinPlan
+    sphys::Dict{String, Real}
+    smom::Dict{String, Real}
+    gmap::Dict{String, Real}
+    mode::Symbol     # resolved :dipole | :dipole_uncorrected
+    route::Symbol    # :moment | :coupling
 end
 
 # A spin length is "half-integer" when 2s is an integer (positivity is checked
@@ -461,24 +517,37 @@ function _sunny_onsite_line(setter::String, A::AbstractMatrix, target::String,
         "), $target)"
 end
 
-function _sunny_header(model::SCEModel, skipped::Vector{String}, route::Symbol,
-                       mode::Symbol)::String
+# `cell_route` is the spatial placement (`:primitive` / `:explicit`); `plan.route`
+# is the spin-scaling route (`:moment` / `:coupling`). They are independent.
+function _sunny_header(model::SCEModel, skipped::Vector{String}, cell_route::Symbol,
+                       plan::_SunnySpinPlan)::String
     io = IOBuffer()
     println(io, "# Auto-generated by Magesty `sce_to_sunny` (do not edit by hand;")
     println(io, "# regenerate from the SCEModel instead).")
     println(io, "#")
-    println(io, "# Spin convention: physical effective spin S_eff = m/(g μ_B) per species")
-    println(io, "# (see the Moment lines below); Sunny mode :$(mode).")
-    println(io, "# The SCE couplings are fit with unit spin directions, so they absorb the")
-    println(io, "# spin magnitude (J_SCE = J_phys·S²). Bilinear bonds are rescaled by")
-    println(io, "# 1/(s_i s_j) and single-ion terms by the :$(mode) factor, so the static")
-    println(io, "# energy is unchanged (energy(sys) == predict_energy - j0) while the magnon")
-    println(io, "# dispersion scales physically (s = 1 would inflate it by ~S).")
-    println(io, "# Energies are in the unit of the fit (typically eV). The reference energy")
-    println(io, "# j0 = $(_sunny_fmt(model.j0)) and any spin-independent terms are dropped")
-    println(io, "# (Sunny has no constant energy term); the dispersion is unaffected.")
-    println(io, "# Cell route: $(route) " *
-        (route === :primitive ? "(chemical primitive cell; unfolded dispersion)." :
+    println(io, "# The SCE couplings are fit with unit spin directions, so they absorb")
+    println(io, "# the spin magnitude (J_SCE = J_phys·S²). The magnon dispersion needs")
+    println(io, "# the physical effective spin S_eff = m/(g μ_B); s = 1 inflates it by ~S.")
+    if plan.route === :moment
+        println(io, "# Spin scaling: :moment — Sunny's Moment spin IS S_eff (see the Moment")
+        println(io, "# lines below); mode :$(plan.mode). Bilinear bonds are rescaled by")
+        println(io, "# 1/(s_i s_j) and single-ion terms by the :$(plan.mode) factor, so the")
+        println(io, "# static energy is unchanged (energy(sys) == predict_energy - j0) and")
+        println(io, "# the dispersion is physical.")
+    elseif plan.route === :coupling
+        println(io, "# Spin scaling: :coupling — Sunny's Moment spin is the placeholder")
+        println(io, "# s₀ = $(_SUNNY_COUPLING_S0); the physical S_eff is carried by the couplings")
+        println(io, "# (J = M/(s₀·√(S_i S_j)), single-ion 1/(s₀ S_i)). Mode :$(plan.mode).")
+        println(io, "# Only the magnon DISPERSION is physical; the static energy is rescaled")
+        println(io, "# and is NOT the SCE energy. Exact for a uniform S_eff.")
+    else
+        error("unreachable scaling route: $(plan.route)")
+    end
+    println(io, "# Energies are in the unit of the fit (typically eV). The reference")
+    println(io, "# energy j0 = $(_sunny_fmt(model.j0)) and any spin-independent terms are")
+    println(io, "# dropped (Sunny has no constant energy term); the dispersion is unaffected.")
+    println(io, "# Cell route: $(cell_route) " *
+        (cell_route === :primitive ? "(chemical primitive cell; unfolded dispersion)." :
          "(training supercell; the dispersion is folded into the supercell BZ)."))
     if !isempty(skipped)
         println(io, "#")
@@ -530,9 +599,9 @@ end
 
 # Emit the primitive-cell (unfolded) script.
 function _sunny_emit_primitive(model::SCEModel, pm::_SunnyPrimitiveModel,
-                               smap::AbstractDict, gmap::AbstractDict, mode::Symbol)::String
+                               plan::_SunnySpinPlan)::String
     io = IOBuffer()
-    print(io, _sunny_header(model, pm.skipped, :primitive, mode))
+    print(io, _sunny_header(model, pm.skipped, :primitive, plan))
     println(io)
     println(io, "using Sunny")
     println(io)
@@ -549,23 +618,21 @@ function _sunny_emit_primitive(model::SCEModel, pm::_SunnyPrimitiveModel,
     println(io, "types = [", join(("\"$t\"" for t in types), ", "), "]")
     println(io, "cryst = Crystal(latvecs, positions, 1; types = types)")
     println(io)
-    moments = join(("$i => Moment(s = $(_sunny_num_literal(smap[types[i]])), " *
-                    "g = $(_sunny_num_literal(gmap[types[i]])))" for i = 1:natp), ", ")
-    println(io, "sys = System(cryst, [$moments], :$(mode))")
+    moments = join(("$i => Moment(s = $(_sunny_num_literal(plan.smom[types[i]])), " *
+                    "g = $(_sunny_num_literal(plan.gmap[types[i]])))" for i = 1:natp), ", ")
+    println(io, "sys = System(cryst, [$moments], :$(plan.mode))")
     println(io)
-    println(io, "# ---- Bilinear exchange (per primitive bond; ê_i' J ê_j, J = M/(s_i s_j)) ----")
+    println(io, "# ---- Bilinear exchange (per primitive bond; ê_i' J ê_j) ----")
     for key in sort!(collect(keys(pm.bonds)))
         i, j, n1, n2, n3 = key
-        si = Float64(smap[types[i]])
-        sj = Float64(smap[types[j]])
-        M = pm.bonds[key] ./ (si * sj)
+        M = pm.bonds[key] ./ _sunny_bond_denom(plan, types[i], types[j])
         println(io, "set_exchange!(sys, $(_sunny_mat_literal(M)), Bond($i, $j, [$n1, $n2, $n3]))")
     end
     if !isempty(pm.onsites)
         println(io)
         println(io, "# ---- Single-ion anisotropy (ê' A ê) ----")
         for i in sort!(collect(keys(pm.onsites)))
-            factor = _sunny_onsite_factor(smap[types[i]], mode)
+            factor = _sunny_plan_onsite_factor(plan, types[i])
             println(io, "let")
             println(io, _sunny_onsite_line("set_onsite_coupling!", pm.onsites[i], string(i), factor))
             println(io, "end")
@@ -594,9 +661,9 @@ end
 
 # Emit the explicit supercell (folded) script; exact for any model.
 function _sunny_emit_explicit(model::SCEModel, terms::_SunnyTerms,
-                              smap::AbstractDict, gmap::AbstractDict, mode::Symbol)::String
+                              plan::_SunnySpinPlan)::String
     io = IOBuffer()
-    print(io, _sunny_header(model, terms.skipped, :explicit, mode))
+    print(io, _sunny_header(model, terms.skipped, :explicit, plan))
     println(io)
     println(io, "using Sunny")
     println(io)
@@ -615,17 +682,15 @@ function _sunny_emit_explicit(model::SCEModel, terms::_SunnyTerms,
     println(io, "types = [", join(("\"S$a\"" for a = 1:nat), ", "), "]")
     println(io, "cryst = Crystal(latvecs, positions, 1; types = types)")
     println(io)
-    moments = join(("$a => Moment(s = $(_sunny_num_literal(smap[species(a)])), " *
-                    "g = $(_sunny_num_literal(gmap[species(a)])))" for a = 1:nat), ", ")
-    println(io, "sys = System(cryst, [$moments], :$(mode))")
+    moments = join(("$a => Moment(s = $(_sunny_num_literal(plan.smom[species(a)])), " *
+                    "g = $(_sunny_num_literal(plan.gmap[species(a)])))" for a = 1:nat), ", ")
+    println(io, "sys = System(cryst, [$moments], :$(plan.mode))")
     println(io, "sys = to_inhomogeneous(sys)")
     println(io)
-    println(io, "# ---- Bilinear exchange (J = M/(s_i s_j)) ----")
+    println(io, "# ---- Bilinear exchange (ê_i' J ê_j) ----")
     for key in sort!(collect(keys(terms.pairs)))
         a, b = key
-        sa = Float64(smap[species(a)])
-        sb = Float64(smap[species(b)])
-        M = terms.pairs[key] ./ (sa * sb)
+        M = terms.pairs[key] ./ _sunny_bond_denom(plan, species(a), species(b))
         o = _sunny_supercell_offset(model, a, b)
         println(io, "set_exchange_at!(sys, $(_sunny_mat_literal(M)), " *
             "(1, 1, 1, $a), (1, 1, 1, $b); offset = ($(o[1]), $(o[2]), $(o[3])))")
@@ -634,7 +699,7 @@ function _sunny_emit_explicit(model::SCEModel, terms::_SunnyTerms,
         println(io)
         println(io, "# ---- Single-ion anisotropy ----")
         for a in sort!(collect(keys(terms.onsites)))
-            factor = _sunny_onsite_factor(smap[species(a)], mode)
+            factor = _sunny_plan_onsite_factor(plan, species(a))
             line = _sunny_onsite_line("set_onsite_coupling_at!", terms.onsites[a], "(1, 1, 1, $a)", factor)
             println(io, "let")
             println(io, line)
@@ -697,16 +762,13 @@ function _sunny_resolve_spin_maps(spin::Union{Real, AbstractDict, Nothing},
         smap[sp] = _sunny_lookup_species(spin, sp, magnetic, 1, "spin")
         gmap[sp] = _sunny_lookup_species(g, sp, magnetic, 2, "g")
     end
-    # Sunny's `Moment` requires the spin length to be an exact multiple of 1/2, so a
-    # non-half-integer (itinerant) S_eff cannot be passed through directly. Catch it
-    # here with an actionable message rather than emitting a script that errors when
-    # Sunny builds the System.
+    # The effective spin length is a magnitude, so it must be positive. The
+    # half-integer restriction is route-specific (Sunny's `Moment` accepts only
+    # multiples of 1/2 directly, the :moment route) and is checked in `_sunny_plan_spins`.
     for sp in magnetic
-        s = smap[sp]
-        (s > 0 && _sunny_is_half_integer(s)) || throw(ArgumentError(
-            "spin for species \"$sp\" is $s, but Sunny requires the spin length s to " *
-            "be a positive multiple of 1/2 (it rejects other values at `System` " *
-            "construction). Pass a positive half-integer S_eff for each magnetic species."))
+        smap[sp] > 0 || throw(ArgumentError(
+            "spin for species \"$sp\" is $(smap[sp]); the effective spin length " *
+            "S_eff = m/(g μ_B) must be positive."))
     end
     return smap, gmap
 end
@@ -723,6 +785,93 @@ function _sunny_select_mode(mode::Symbol, magnetic_spins::AbstractVector{<:Real}
         throw(ArgumentError(
             "mode must be :auto, :dipole, or :dipole_uncorrected; got :$mode"))
     end
+end
+
+# Choose the spin-scaling route. `:auto` uses `:moment` (Sunny's `Moment` spin = the
+# physical S_eff; static energy and dispersion both exact) when every magnetic
+# S_eff is a half-integer, otherwise `:coupling` (placeholder Moment, couplings
+# carry S_eff; dispersion-only) so itinerant / non-half-integer moments still work.
+function _sunny_select_scaling(scaling::Symbol,
+                               magnetic_spins::AbstractVector{<:Real})::Symbol
+    if scaling === :auto
+        return all(_sunny_is_half_integer, magnetic_spins) ? :moment : :coupling
+    elseif scaling === :moment
+        all(_sunny_is_half_integer, magnetic_spins) || throw(ArgumentError(
+            "scaling = :moment requires every magnetic spin to be a half-integer " *
+            "(Sunny's `Moment` rejects other values), but got $(collect(magnetic_spins)). " *
+            "Use scaling = :coupling (or :auto) to keep the physical S_eff in the " *
+            "couplings with a placeholder Moment spin."))
+        return :moment
+    elseif scaling === :coupling
+        return :coupling
+    else
+        throw(ArgumentError("scaling must be :auto, :moment, or :coupling; got :$scaling"))
+    end
+end
+
+# Resolve spin/g, pick the scaling route and the system mode, and build the Moment
+# spin map. `mode` auto-selection keys off the *physical* S_eff (so a :coupling
+# placeholder Moment of s₀ = 1 does not masquerade as a quantum spin). Warns when
+# the :coupling route is used with a non-uniform magnetic S_eff (off-diagonal
+# exchange stays exact; the on-site/Larmor term becomes approximate).
+function _sunny_plan_spins(spin::Union{Real, AbstractDict, Nothing},
+                           g::Union{Real, AbstractDict},
+                           all_species::AbstractVector{<:AbstractString},
+                           magnetic::AbstractSet, mode::Symbol, scaling::Symbol)::_SunnySpinPlan
+    sphys, gmap = _sunny_resolve_spin_maps(spin, g, all_species, magnetic)
+    mag_spins = [sphys[sp] for sp in magnetic]
+    route = _sunny_select_scaling(scaling, mag_spins)
+    sel = _sunny_select_mode(mode, mag_spins)
+    if route === :moment
+        smom = copy(sphys)
+    else
+        smom = Dict{String, Real}(sp => _SUNNY_COUPLING_S0 for sp in all_species)
+        if length(unique(round.(Float64.(mag_spins); digits = 9))) > 1
+            per_species = join(("$sp = $(sphys[sp])" for sp in sort!(collect(magnetic))), ", ")
+            @warn(
+                "sce_to_sunny: scaling = :coupling with a non-uniform magnetic S_eff " *
+                "($per_species); the dispersion is exact only for a uniform S_eff. The " *
+                "off-diagonal exchange stays exact, but the on-site (Larmor) term is " *
+                "approximate. For an exact multi-sublattice dispersion use scaling = :moment " *
+                "with half-integer spins.")
+        end
+    end
+    return _SunnySpinPlan(sphys, smom, gmap, sel, route)
+end
+
+# Per-bond denominator D so the emitted coupling is M/D (pair energy ê_i' (M/D) ê_j
+# evaluated with Moment spins). :moment → s_i s_j (energy-preserving). :coupling →
+# √(smom_i smom_j) √(S_i S_j), which gives the physical off-diagonal exchange
+# √(S_i S_j)·J_phys for any spins and reduces to M/(s₀ S) for a uniform S.
+function _sunny_bond_denom(plan::_SunnySpinPlan, spi::AbstractString,
+                           spj::AbstractString)::Float64
+    if plan.route === :moment
+        return Float64(plan.sphys[spi]) * Float64(plan.sphys[spj])
+    elseif plan.route === :coupling
+        return sqrt(Float64(plan.smom[spi]) * Float64(plan.smom[spj])) *
+               sqrt(Float64(plan.sphys[spi]) * Float64(plan.sphys[spj]))
+    else
+        error("unreachable scaling route: $(plan.route)")
+    end
+end
+
+# Single-ion factor for one species under a plan (route- and mode-aware).
+_sunny_plan_onsite_factor(plan::_SunnySpinPlan, sp::AbstractString)::Float64 =
+    _sunny_onsite_factor(plan.smom[sp], plan.sphys[sp], plan.mode)
+
+# Guard the one single-ion case the :coupling route cannot represent: a quantum
+# (:dipole) rank-2 operator needs the real spin, not the s₀ placeholder.
+function _sunny_check_plan(plan::_SunnySpinPlan, has_onsite::Bool)::Nothing
+    if plan.route === :coupling && plan.mode === :dipole && has_onsite
+        throw(ArgumentError(
+            "scaling = :coupling with mode = :dipole and single-ion anisotropy is " *
+            "unsupported: the quantum rank-2 renormalization s(2s-1)/2 depends on the " *
+            "physical spin, which the placeholder Moment (s = $(_SUNNY_COUPLING_S0)) does " *
+            "not carry, so the single-ion dispersion would be wrong. Use " *
+            "mode = :dipole_uncorrected (classical single-ion, consistent with the " *
+            "coupling route) or scaling = :moment with a half-integer spin."))
+    end
+    return nothing
 end
 
 # Real element of supercell atom `a` (the explicit route labels each atom with a
@@ -763,24 +912,26 @@ end
 # the tuple unpacking is in a typed top-level function (a closure tripped JET).
 function _sunny_primitive_script(model::SCEModel, pm::_SunnyPrimitiveModel,
                                  spin::Union{Real, AbstractDict, Nothing},
-                                 g::Union{Real, AbstractDict}, mode::Symbol)::String
+                                 g::Union{Real, AbstractDict}, mode::Symbol,
+                                 scaling::Symbol)::String
     all_sp, mag = _sunny_primitive_species(pm)
-    smap, gmap = _sunny_resolve_spin_maps(spin, g, all_sp, mag)
-    sel = _sunny_select_mode(mode, [smap[sp] for sp in mag])
-    return _sunny_emit_primitive(model, pm, smap, gmap, sel)
+    plan = _sunny_plan_spins(spin, g, all_sp, mag, mode, scaling)
+    _sunny_check_plan(plan, !isempty(pm.onsites))
+    return _sunny_emit_primitive(model, pm, plan)
 end
 
 function _sunny_explicit_script(model::SCEModel, terms::_SunnyTerms,
                                 spin::Union{Real, AbstractDict, Nothing},
-                                g::Union{Real, AbstractDict}, mode::Symbol)::String
+                                g::Union{Real, AbstractDict}, mode::Symbol,
+                                scaling::Symbol)::String
     all_sp, mag = _sunny_explicit_species(model, terms)
-    smap, gmap = _sunny_resolve_spin_maps(spin, g, all_sp, mag)
-    sel = _sunny_select_mode(mode, [smap[sp] for sp in mag])
-    return _sunny_emit_explicit(model, terms, smap, gmap, sel)
+    plan = _sunny_plan_spins(spin, g, all_sp, mag, mode, scaling)
+    _sunny_check_plan(plan, !isempty(terms.onsites))
+    return _sunny_emit_explicit(model, terms, plan)
 end
 
 """
-    sce_to_sunny(model::SCEModel; spin, g=2, mode=:auto, output=nothing, placement=:auto) -> String
+    sce_to_sunny(model::SCEModel; spin, g=2, mode=:auto, scaling=:auto, output=nothing, placement=:auto) -> String
 
 Export a fitted spin-cluster-expansion model to a runnable [Sunny.jl](https://github.com/SunnySuite/Sunny.jl)
 script that computes a linear spin-wave-theory (LSWT) magnon dispersion, and
@@ -799,15 +950,30 @@ unaffected. Energies are in the unit of the fit (typically eV).
 
 The SCE couplings are fit with unit spin directions, so they absorb the spin
 magnitude (`J_SCE = J_phys·S²`). The classical energy is therefore independent of
-the spin length, but the magnon dispersion scales as `ħω ∝ 1/s` for a fixed energy
+the spin length, but the magnon dispersion scales as `ħω ∝ 1/S` for a fixed energy
 landscape. You must pass the physical effective spin `S_eff = m/(g μ_B)` (the
 local-moment magnitude); using `s = 1` would inflate the dispersion by a factor
-`~S` (for MnTe, `S = 5/2` ⇒ ~2.5× too high). At emission each bilinear bond is
-rescaled by `1/(s_i s_j)` and each single-ion term by a mode-dependent factor, so
-`energy(sys)` still reproduces `predict_energy(model, …) - j0` for any spin.
+`~S` (for MnTe, `S = 5/2` ⇒ ~2.5× too high).
 
-Sunny requires `s` to be an exact multiple of `1/2`, so `S_eff` must be a
-half-integer; a non-half-integer (itinerant) moment is rejected with an error.
+`scaling` selects how `S_eff` is encoded, since Sunny's `Moment` only accepts spin
+lengths that are exact multiples of `1/2`:
+
+- `:moment` — put `S_eff` directly into `Moment`. Each bilinear bond is rescaled by
+  `1/(s_i s_j)` and each single-ion term by a mode-dependent factor, so `energy(sys)`
+  still reproduces `predict_energy(model, …) - j0` *and* the dispersion is physical.
+  Requires `S_eff` to be a half-integer.
+- `:coupling` — keep `Moment` at a fixed half-integer placeholder (`s₀ = 1`) and let
+  the couplings carry `S_eff` (`J = M/(s₀·√(S_i S_j))`, single-ion `1/(s₀ S_i)`).
+  Accepts **any positive real `S_eff`** (itinerant / non-half-integer moments). The
+  dispersion is invariant under an overall spin scale, so this still yields the
+  physical magnon dispersion, but the represented energy landscape is rescaled —
+  `energy(sys)` is then *not* the SCE energy. Exact for a uniform `S_eff`; for a
+  non-uniform `S_eff` the off-diagonal exchange stays exact while the on-site
+  (Larmor) term is approximate (a warning is emitted).
+
+`:auto` (default) uses `:moment` when every magnetic `S_eff` is a half-integer and
+`:coupling` otherwise, so half-integer moments keep the exact (energy-preserving)
+behavior while itinerant moments still produce a physical dispersion.
 
 # Arguments
 - `model::SCEModel`: a fitted model (e.g. from `SCEModel(fit)` or
@@ -817,7 +983,9 @@ half-integer; a non-half-integer (itinerant) moment is rejected with an error.
 - `spin::Union{Real, AbstractDict}` (required): the effective spin length
   `S_eff = m/(g μ_B)`. A scalar applies to every magnetic species; a
   `Dict(species => S_eff)` sets it per species (every magnetic species must be
-  present). Must be a positive half-integer. Omitting it is an error.
+  present). Must be positive. With `scaling = :moment` it must also be a
+  half-integer; `scaling = :coupling` (or `:auto`) accepts any positive real.
+  Omitting it is an error.
 - `g::Union{Real, AbstractDict} = 2`: the `g`-factor passed to `Moment`; scalar or
   per-species `Dict`. It does not affect the bare dispersion (only an external
   field or neutron intensities would use it).
@@ -825,7 +993,14 @@ half-integer; a non-half-integer (itinerant) moment is rejected with an error.
   magnetic spin is a half-integer, otherwise `:dipole_uncorrected` (the classical
   limit, appropriate for non-half-integer / itinerant moments). `:dipole` applies
   the quantum single-ion renormalization `s(2s-1)/2` (undefined for `s ≤ 1/2`);
-  `:dipole_uncorrected` uses the classical `s²`.
+  `:dipole_uncorrected` uses the classical `s²`. Note: `mode = :dipole` combined
+  with `scaling = :coupling` and single-ion anisotropy is rejected — the quantum
+  renormalization cannot ride the placeholder Moment (use `:dipole_uncorrected`).
+- `scaling::Symbol = :auto`: how the physical `S_eff` is encoded (see *Physical
+  spin*). `:moment` puts `S_eff` in `Moment` (energy-preserving, half-integer only);
+  `:coupling` keeps `Moment` at a placeholder `s₀ = 1` and rescales the couplings
+  (dispersion-only, any positive real `S_eff`); `:auto` picks `:moment` for
+  all-half-integer magnetic spins and `:coupling` otherwise.
 - `output::Union{AbstractString, Nothing} = nothing`: when given, the script is
   also written to this file (`.jl` is appended if absent).
 - `placement::Symbol = :auto`: `:primitive` maps interactions onto the chemical
@@ -840,16 +1015,20 @@ half-integer; a non-half-integer (itinerant) moment is rejected with an error.
 
 # Throws
 - `ArgumentError`: if `spin` is omitted; if a `spin` / `g` `Dict` is missing a
-  magnetic species; if any magnetic `spin` is not a positive half-integer (Sunny
-  requires multiples of `1/2`); if `mode` or `placement` is invalid; or if a model
-  with single-ion anisotropy uses `mode = :dipole` with `s ≤ 1/2`.
+  magnetic species; if any magnetic `spin` is not positive; if `scaling = :moment`
+  (or `:auto` resolving to it) is used with a non-half-integer spin; if `mode`,
+  `scaling`, or `placement` is invalid; if a model with single-ion anisotropy uses
+  `mode = :dipole` with `s ≤ 1/2`; or if `scaling = :coupling` is combined with
+  `mode = :dipole` and single-ion anisotropy.
 
 # Examples
 ```julia
 model = Magesty.load(SCEModel, "model.xml")
-# MnTe: Mn²⁺ has S = 5/2.
+# MnTe: Mn²⁺ has S = 5/2 (half-integer ⇒ :moment route, energy-preserving).
 script = sce_to_sunny(model; spin = 5//2, output = "lswt.jl")
-# Per-species (e.g. a ferrimagnet):
+# Itinerant moment, e.g. Fe 2.2 μB ⇒ S_eff = 1.1 (:auto picks the :coupling route).
+script = sce_to_sunny(model; spin = 1.1)
+# Per-species:
 script = sce_to_sunny(model; spin = Dict("Mn" => 5//2, "Fe" => 1.1))
 ```
 """
@@ -858,6 +1037,7 @@ function sce_to_sunny(
     spin::Union{Real, AbstractDict, Nothing} = nothing,
     g::Union{Real, AbstractDict} = 2,
     mode::Symbol = :auto,
+    scaling::Symbol = :auto,
     output::Union{AbstractString, Nothing} = nothing,
     placement::Symbol = :auto,
 )::String
@@ -865,20 +1045,19 @@ function sce_to_sunny(
         "placement must be :auto, :primitive, or :explicit; got :$placement"))
 
     # The decomposition (`_sunny_build_*`) returns the unscaled M^SCE; the per-route
-    # `_sunny_*_script` helpers resolve per-species spin/g, pick the system mode, and
-    # apply the spin rescale at emission, so `energy(sys)` reproduces
-    # `predict_energy - j0` for any spin.
+    # `_sunny_*_script` helpers resolve per-species spin/g, pick the scaling route and
+    # system mode, and apply the spin rescale at emission.
     #
     # Build the primitive route only when it may be used; a forced :explicit request
     # skips it and avoids a redundant second SALC walk.
     if placement === :explicit
         terms = _sunny_build_terms(model)
-        text = _sunny_explicit_script(model, terms, spin, g, mode)
+        text = _sunny_explicit_script(model, terms, spin, g, mode, scaling)
         _sunny_warn_skipped(terms.skipped)
     else
         pm = _sunny_build_primitive(model)
         if pm.clean
-            text = _sunny_primitive_script(model, pm, spin, g, mode)
+            text = _sunny_primitive_script(model, pm, spin, g, mode, scaling)
             _sunny_warn_skipped(pm.skipped)
         else
             placement === :primitive && @warn(
@@ -886,7 +1065,7 @@ function sce_to_sunny(
                 "(interaction range reaches >= half the supercell). Falling back to " *
                 ":explicit; the dispersion will be folded into the supercell BZ.")
             terms = _sunny_build_terms(model)
-            text = _sunny_explicit_script(model, terms, spin, g, mode)
+            text = _sunny_explicit_script(model, terms, spin, g, mode, scaling)
             _sunny_warn_skipped(terms.skipped)
         end
     end

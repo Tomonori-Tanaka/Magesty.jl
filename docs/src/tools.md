@@ -151,6 +151,9 @@ magesty sunny script model.xml --spin 5//2 --output lswt.jl
 
 # Per-species spin (e.g. a ferrimagnet)
 magesty sunny script model.xml --spin Mn=5//2,Fe=3//2
+
+# Itinerant moment, e.g. Fe 2.2 μB ⇒ S_eff = 1.1 (auto-selects the coupling route)
+magesty sunny script model.xml --spin 1.1
 ```
 
 **Arguments:**
@@ -162,6 +165,7 @@ magesty sunny script model.xml --spin Mn=5//2,Fe=3//2
   `Mn=5//2,Fe=3//2` sets it per species. See "Physical spin" below.
 - `--g`: `g`-factor, scalar or per-species (default `2`); does not affect the bare dispersion
 - `--mode`: Sunny system mode, `auto` (default), `dipole`, or `dipole_uncorrected`
+- `--scaling`: how `S_eff` is encoded, `auto` (default), `moment`, or `coupling` (see "Physical spin")
 - `--placement`: cell route, `auto` (default), `primitive`, or `explicit` (see below)
 - `--output`, `-o`: Output filename (appends `.jl` automatically if omitted; default: stdout)
 
@@ -171,18 +175,34 @@ The same export is available programmatically as the exported `sce_to_sunny` fun
 
 The SCE couplings are fit with unit spin directions, so they absorb the spin
 magnitude (`J_SCE = J_phys·S²`). The classical energy is independent of the spin
-length, but the **magnon dispersion scales as `ħω ∝ 1/s`** for a fixed energy
+length, but the **magnon dispersion scales as `ħω ∝ 1/S`** for a fixed energy
 landscape. You must therefore supply the physical effective spin
 `S_eff = m/(g μ_B)` (the local-moment magnitude); the placeholder `s = 1` would
-inflate the dispersion by a factor `~S` (for MnTe, `S = 5/2` ⇒ ~2.5× too high). At
-emission each bilinear bond is rescaled by `1/(s_i s_j)` and each single-ion term
-by a mode-dependent factor, so `energy(sys)` still reproduces
-`predict_energy(model, …) - j0` while the dispersion is physical.
+inflate the dispersion by a factor `~S` (for MnTe, `S = 5/2` ⇒ ~2.5× too high).
 
-Sunny requires `s` to be an exact multiple of `1/2`, so `--spin` must be a
-half-integer; a non-half-integer (itinerant) `S_eff` is rejected. `--mode=auto`
-uses `:dipole` (the quantum single-ion renormalization `s(2s-1)/2`);
-`:dipole_uncorrected` uses the classical `s²` large-`s` limit.
+Because Sunny's `Moment` only accepts spin lengths that are multiples of `1/2`,
+`--scaling` selects how `S_eff` is encoded:
+
+- **`moment`** — put `S_eff` directly into `Moment`. Each bilinear bond is rescaled
+  by `1/(s_i s_j)` and each single-ion term by a mode-dependent factor, so
+  `energy(sys)` still reproduces `predict_energy(model, …) - j0` **and** the
+  dispersion is physical. Requires a half-integer `S_eff`.
+- **`coupling`** — keep `Moment` at a fixed placeholder `s₀ = 1` and let the
+  couplings carry `S_eff` (`J = M/(s₀·√(S_i S_j))`, single-ion `1/(s₀ S_i)`). This
+  accepts **any positive real `S_eff`** (itinerant / non-half-integer moments).
+  Since the dispersion is invariant under an overall spin scale, the magnon
+  dispersion is still physical, but the represented energy landscape is rescaled —
+  `energy(sys)` is then **not** the SCE energy. Exact for a uniform `S_eff`; for a
+  non-uniform `S_eff` the off-diagonal exchange stays exact while the on-site
+  (Larmor) term is approximate (a warning is emitted).
+- **`auto`** (default) — `moment` when every magnetic `S_eff` is a half-integer,
+  `coupling` otherwise.
+
+`--mode=auto` selects `:dipole` (the quantum single-ion renormalization
+`s(2s-1)/2`) for half-integer spins and `:dipole_uncorrected` (the classical `s²`
+large-`s` limit) otherwise. Quantum single-ion anisotropy (`:dipole`) cannot be
+represented through the `coupling` placeholder, so combining `--scaling=coupling`,
+`--mode=dipole`, and a model with single-ion anisotropy is rejected.
 
 ### What is converted
 

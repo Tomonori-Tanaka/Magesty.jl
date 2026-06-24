@@ -135,12 +135,19 @@ checklist に既出のためここでは除外。）
    ガードし、`:dipole_uncorrected` を案内。
 3. **非磁性種の Moment placeholder**: 不活性サイトが LSWT にゼロモードとして現れる
    可能性。既存 `s=1` 挙動を踏襲（現行スクリプトで実績あり）、回帰で確認。
-4. **Sunny の半整数制約 → 遍歴磁性は保留（option B）**: Sunny は `s` を 1/2 の
-   整数倍に強制するため、非半整数 `S_eff`（Fe 1.1 等）はそのまま渡せず、生成時に
-   エラーとする。物理モーメントと Sunny の `s` を分離して分散だけ物理的にする
-   option A（`J = M/(s_ref·S_eff)`、静的エネルギー不一致・単一イオン非対応）は
-   将来拡張として保留。なお遍歴磁性自体の物理的限界（縦ゆらぎ・Stoner 連続体）も
-   docs で注意喚起。
+4. **Sunny の半整数制約 → 遍歴磁性（option A を follow-up で実装, 2026-06-24）**:
+   Sunny は `s` を 1/2 の整数倍に強制する。初版（option B）は非半整数 `S_eff` を
+   エラーにしたが、follow-up で物理モーメントと Sunny の `s` を分離する option A を
+   `scaling = :coupling` として実装した（M5 参照）。Moment は placeholder
+   `s₀ = 1`、couplings が `S_eff` を吸収（`J = M/(s₀·√(S_i S_j))`、単一イオン
+   `1/(s₀ S_i)`）。分散は全体スピンスケール `c` に対して不変なので物理分散を再現
+   するが、静的エネルギーは `c = s₀/S` 倍にスケールし `energy(sys) != predict - j0`。
+   uniform `S_eff` で厳密、非 uniform は off-diagonal 厳密・Larmor 近似（`@warn`）。
+   量子単一イオン（`:dipole`）は placeholder で表現できないため
+   `:coupling`＋`:dipole`＋単一イオンはエラー（`:auto` は非半整数で
+   `:dipole_uncorrected` を選ぶので通常は到達しない）。`scaling = :auto` は磁性
+   `S_eff` が全て半整数なら `:moment`、それ以外は `:coupling`。なお遍歴磁性自体の
+   物理的限界（縦ゆらぎ・Stoner 連続体）も docs で注意喚起。
 5. **`g` の役割**: 分散には無影響と明記（誤期待の防止）。
 
 ### 実装順（tasklist と対応）

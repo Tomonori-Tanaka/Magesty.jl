@@ -71,19 +71,34 @@ end
 	model_path = joinpath(@__DIR__, "..", "..", "test", "integration", "dimer", "dimer_dmi.xml")
 
 	# CLI subcommand `magesty sunny script`: exits 0 and writes a parseable
-	# Sunny.jl script.
+	# Sunny.jl script. `--spin` is required (the physical effective spin length).
 	cli_outfile = tempname() * ".jl"
 	try
 		exit_code = MagestyCLI.command_main(
-			["sunny", "script", model_path, "--output", cli_outfile],
+			["sunny", "script", model_path, "--spin", "5//2", "--output", cli_outfile],
 		)
 		@test exit_code == 0
 		text = read(cli_outfile, String)
 		@test Meta.parseall(text) isa Expr
 		@test occursin("using Sunny", text)
 		@test occursin("SpinWaveTheory", text)
+		@test occursin("Spin scaling: :moment", text)   # half-integer ⇒ moment route
 	finally
 		isfile(cli_outfile) && rm(cli_outfile)
+	end
+
+	# A non-half-integer (itinerant) S_eff is accepted via the coupling route.
+	cli_outfile2 = tempname() * ".jl"
+	try
+		exit_code = MagestyCLI.command_main(
+			["sunny", "script", model_path, "--spin", "1.1", "--output", cli_outfile2],
+		)
+		@test exit_code == 0
+		text = read(cli_outfile2, String)
+		@test Meta.parseall(text) isa Expr
+		@test occursin("Spin scaling: :coupling", text)
+	finally
+		isfile(cli_outfile2) && rm(cli_outfile2)
 	end
 end
 
