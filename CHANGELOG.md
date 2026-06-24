@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-25
+
 ### Added
 
 - `sce_to_sunny` gains a `scaling` keyword (`:auto` / `:moment` / `:coupling`; CLI
@@ -442,6 +444,7 @@ First public release.
   the different operation sequences, with the regression test pinned
   at `rtol = 1e-9` (measured worst case `2.3e-11`).
 
-[Unreleased]: https://github.com/Tomonori-Tanaka/Magesty.jl/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/Tomonori-Tanaka/Magesty.jl/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Tomonori-Tanaka/Magesty.jl/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/Tomonori-Tanaka/Magesty.jl/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Tomonori-Tanaka/Magesty.jl/releases/tag/v0.1.0
