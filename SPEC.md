@@ -30,6 +30,7 @@ in `src/Magesty.jl` reflects the dependency order.
 | `CoupledBases.jl` | Intermediate representation for angular-momentum-coupled bases |
 | `InputSpecs.jl` | Typed values (`SystemSpec` / `InteractionSpec` / `SymmetryOptions`) and TOML / Dict parser (`parse_toml_inputs`, including wildcard species expansion) |
 | `RotationMatrix.jl` | Rotation matrices |
+| `ProgressReporting.jl` | TTY-aware progress reporting for long `@threads` loops (`with_progress` / `tick!`), used by `SALCBases` and `Fitting` |
 | `XMLIO.jl` | XML I/O for bases and models |
 | `AtomsBaseAdapter.jl` | AtomsBase / Unitful boundary adapter (`system_to_specs` / `kwargs_to_specs`) |
 | `AtomCells.jl` | Lightweight type holding atom sites plus unit-cell info |
@@ -41,6 +42,9 @@ in `src/Magesty.jl` reflects the dependency order.
 | `VaspConvert.jl` | VASP conversion APIs (`vasp_to_extxyz`, `poscar_to_toml`, `oszicar_to_embset`) |
 | `VaspSampling.jl` | MFA spin-sampling API for VASP INCAR (`sample_mfa_incar`) |
 | `SunnyExport.jl` | Sunny.jl LSWT script export (`sce_to_sunny`); text generation, no Sunny dependency |
+| `Evaluation.jl` | Prediction verbs (`predict_energy` / `predict_torque`) and accuracy metrics; spliced into `Magesty` via `include`, not a standalone module |
+| `GCV.jl` | Combined energy+torque generalized cross-validation diagnostics; spliced into `Magesty` via `include`, not a standalone module |
+| `FitCheckIO.jl` | Plain-text writers of observed-vs-predicted values (`write_energies` / `write_torques`); spliced into `Magesty` via `include`, not a standalone module |
 
 ## Main types (current API)
 
