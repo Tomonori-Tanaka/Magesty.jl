@@ -1,4 +1,5 @@
 using Test
+using DelimitedFiles
 using LinearAlgebra
 using TOML
 using Magesty
@@ -120,6 +121,61 @@ end
             rank_from_eigs = count(ev -> isapprox(ev, 1.0; atol = 1e-6), eigvals_P)
             @test isapprox(tr(P), rank_from_eigs; atol = 1e-8)
             @test 0 <= rank_from_eigs <= d
+        end
+    end
+
+    # ---- _projection_matrix_coupled_basis: value regression vs baseline
+
+    @testset "projection_matrix vs committed baseline (fege_2x2x2)" begin
+        # Guards the projection values themselves against silent drift
+        # (the invariant checks above would pass for any valid projector,
+        # including a subtly wrong one). Baselines cover one group per
+        # distinct matrix dimension of the fege_2x2x2 fixture. Comparison
+        # is isapprox, not `==`: the Wigner rotation matrices go through
+        # trig functions whose last-bit rounding differs across libm
+        # implementations and architectures, so byte equality would be
+        # flaky on CI (same tolerance convention as the fresh-build
+        # baseline test in test_save_load.jl).
+        toml = joinpath(@__DIR__, "..", "integration", "fege_2x2x2", "input.toml")
+        input = TOML.parsefile(toml)
+        system, interaction, options = Magesty.InputSpecs.parse_toml_inputs(input)
+        structure = Magesty.Structures.Structure(system; verbosity = false)
+        symmetry = Magesty.Symmetries.Symmetry(structure, options; verbosity = false)
+        cluster = Magesty.Clusters.Cluster(
+            structure, symmetry, interaction; verbosity = false,
+        )
+
+        classified = _SALC._construct_and_classify_coupled_basislist(
+            structure, symmetry, cluster,
+            interaction.body1_lmax, interaction.bodyn_lsum, interaction.nbody;
+            isotropy = options.isotropy,
+        )
+        classified = _SALC._filter_basisdict(classified, symmetry)
+
+        # (group key => matrix dimension) at baseline-capture time. A key
+        # or dimension mismatch means the classification labeling changed;
+        # regenerate the baselines deliberately rather than papering over.
+        # To regenerate: run the pipeline above on the fege_2x2x2 fixture,
+        # then for each entry of `baseline_groups`
+        #     P = _PROJECTION(classified[key], symmetry)
+        #     writedlm(joinpath(baseline_dir,
+        #                       "fege_projection_group$(key).txt"), P, ' ')
+        # and update `baseline_groups` if keys or dimensions moved.
+        baseline_groups = Dict(1 => 12, 2 => 60, 4 => 36, 9 => 4, 11 => 20)
+        baseline_dir = joinpath(@__DIR__, "baselines")
+        for (key, dim) in sort(collect(baseline_groups))
+            @testset "group $key (dim $dim)" begin
+                has_key = haskey(classified, key)
+                @test has_key
+                if has_key
+                    P = _PROJECTION(classified[key], symmetry)
+                    @test size(P) == (dim, dim)
+                    B = readdlm(
+                        joinpath(baseline_dir, "fege_projection_group$(key).txt"),
+                    )
+                    @test isapprox(P, B; atol = 1e-8)
+                end
+            end
         end
     end
 end

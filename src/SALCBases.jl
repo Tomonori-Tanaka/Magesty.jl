@@ -851,16 +851,22 @@ function _projection_matrix_coupled_basis(
     end
 
     projection_mat = zeros(Float64, full_matrix_dim, full_matrix_dim)
-    # Single-operation representation matrix D(g) for the current (symop,
-    # time_rev_sym). Reused as a scratch buffer to avoid `2*nsym` heap
-    # allocations of `full_matrix_dim^2` Float64 matrices; the accumulated
-    # projector is the average of these `D(g)`s.
-    representation_mat = zeros(Float64, full_matrix_dim, full_matrix_dim)
+    # Single-operation representation matrices D(g) for the current symop,
+    # one per time-reversal variant. Reused as scratch buffers to avoid
+    # `2*nsym` heap allocations of `full_matrix_dim^2` Float64 matrices;
+    # the accumulated projector is the average of these `D(g)`s. The two
+    # variants differ only by a per-basis sign, so all remaining work
+    # (atom shift, translation fold, atom reorder, tensor inner product)
+    # is computed once and both blocks are written in a single pass over
+    # the basis pairs.
+    representation_mat_no_time_rev = zeros(Float64, full_matrix_dim, full_matrix_dim)
+    representation_mat_time_rev = zeros(Float64, full_matrix_dim, full_matrix_dim)
     # All cbs in this list share the same cluster size, so allocate once and refill.
     N_atoms = length(coupled_basislist[1].atoms)
     atoms_shifted_list = Vector{Int}(undef, N_atoms)
-    for (n, symop) in enumerate(symmetry.symdata), time_rev_sym in (false, true)
-        fill!(representation_mat, 0.0)
+    for (n, symop) in enumerate(symmetry.symdata)
+        fill!(representation_mat_no_time_rev, 0.0)
+        fill!(representation_mat_time_rev, 0.0)
         base_rot_mat = base_rot_mats[n]
 
         for (i, cb1) in enumerate(coupled_basislist)
@@ -869,7 +875,10 @@ function _projection_matrix_coupled_basis(
             end
             primitive_atoms = _find_translation_atoms(atoms_shifted_list, cluster_atoms, symmetry)
             reordered_cb = reorder_atoms(cb1, primitive_atoms)
-            multiplier = time_rev_sym ? (-1)^sum(reordered_cb.ls) : 1
+            # Time-reversal sign. `sum(cb1.ls)` equals
+            # `sum(reordered_cb.ls)`: `reorder_atoms` permutes `ls`, and
+            # an integer sum is permutation-invariant.
+            multiplier = (-1)^sum(cb1.ls)
             col_range = ((i-1)*submatrix_dim+1):(i*submatrix_dim)
             for (j, cb2) in enumerate(coupled_basislist)
                 if _is_obviously_zero_coupled_basis_product(reordered_cb, cb2)
@@ -877,26 +886,33 @@ function _projection_matrix_coupled_basis(
                 end
                 phase = _tensor_inner_product(cb2.coeff_tensor, reordered_cb.coeff_tensor) / (2*Lf+1)
                 row_range = ((j-1)*submatrix_dim+1):(j*submatrix_dim)
-                # Scale the base rotation by the phase and the time-reversal sign
-                # (`multiplier == 1` when `!time_rev_sym`) and write in place,
-                # avoiding a temporary matrix per (symop, basis pair).
-                factor = multiplier * phase
-                @views representation_mat[row_range, col_range] .= base_rot_mat .* factor
+                # Scale the base rotation by the phase (plus the
+                # time-reversal sign for the reversed variant) and write
+                # in place, avoiding a temporary matrix per (symop, basis
+                # pair).
+                @views representation_mat_no_time_rev[row_range, col_range] .=
+                    base_rot_mat .* phase
+                @views representation_mat_time_rev[row_range, col_range] .=
+                    base_rot_mat .* (multiplier * phase)
             end
         end
 
-        if check_irrep_unitary && !_is_unitary(representation_mat, tol = 1e-8)
-            # A unitary irrep requires each per-operation D(g) to be unitary.
-            # The accumulated projector itself is not unitary (it is
-            # idempotent), so the check must run before the average.
-            error(
-                "Representation matrix D(g) is not unitary " *
-                "(symmetry operation index n = $n). D(g)'D(g) = " *
-                "$(representation_mat' * representation_mat)",
-            )
+        # Check and accumulate the two variants in a fixed order (no time
+        # reversal first) so the summation order of the projector average
+        # stays deterministic.
+        for representation_mat in (representation_mat_no_time_rev, representation_mat_time_rev)
+            if check_irrep_unitary && !_is_unitary(representation_mat, tol = 1e-8)
+                # A unitary irrep requires each per-operation D(g) to be unitary.
+                # The accumulated projector itself is not unitary (it is
+                # idempotent), so the check must run before the average.
+                error(
+                    "Representation matrix D(g) is not unitary " *
+                    "(symmetry operation index n = $n). D(g)'D(g) = " *
+                    "$(representation_mat' * representation_mat)",
+                )
+            end
+            projection_mat .+= representation_mat
         end
-
-        projection_mat .+= representation_mat
     end
 
     # Average over all symmetry operations (2 for time reversal)
