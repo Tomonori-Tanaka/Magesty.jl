@@ -16,6 +16,28 @@
 
 # --- Prediction ---------------------------------------------------------
 
+# The real tesseral harmonics Zₗₘ are defined on the unit sphere, so a
+# non-unit (or NaN) spin-direction column silently yields wrong physics.
+# Data arriving as a `SpinConfig` is validated at construction; the raw
+# `AbstractMatrix` entry points validate here, at the public wrapper,
+# so the inner Fitting kernels stay check-free. The tolerance matches
+# the `SpinConfig` constructor default (`atol_unit_norm = 1e-6`).
+function _check_unit_spin_directions(spin_directions::AbstractMatrix{<:Real})
+    for i = 1:size(spin_directions, 2)
+        n = norm(@view spin_directions[:, i])
+        if !(isfinite(n) && abs(n - 1.0) ≤ 1e-6)
+            throw(
+                ArgumentError(
+                    "spin_directions[:, $i] is not a unit vector: " *
+                    "‖·‖ = $n (tolerance 1e-6). Normalize each column " *
+                    "before calling predict_energy / predict_torque.",
+                ),
+            )
+        end
+    end
+    return nothing
+end
+
 """
     predict_energy(model::SCEModel, spin_directions::AbstractMatrix{<:Real}) -> Float64
     predict_energy(model::SCEModel, sc::SpinConfig) -> Float64
@@ -32,7 +54,9 @@ Predict SCE energies for one or more spin configurations.
 - `model::SCEModel` or `f::SCEFit`: Trained predictor. `SCEFit` inputs
   delegate through `SCEModel(f)`.
 - `spin_directions::AbstractMatrix{<:Real}`: Spin direction matrix of size
-  `3 × num_atoms` (rows = x, y, z; unit-vector columns).
+  `3 × num_atoms` (rows = x, y, z). Columns must be unit vectors
+  (`‖·‖ = 1` within `1e-6`); a non-unit or non-finite column throws an
+  `ArgumentError`.
 - `sc::SpinConfig`: Single spin configuration; equivalent to passing
   `sc.spin_directions`.
 - `sd_list::AbstractVector{<:AbstractMatrix{<:Real}}`: Sequence of spin
@@ -58,10 +82,15 @@ Return type depends on the second positional argument:
 | `configs::AbstractVector{SpinConfig}`                     | `Vector{Float64}` of length `length(configs)`, in input order.                               |
 | `dataset::SCEDataset`                                     | `Vector{Float64}` of length `length(dataset)`, in dataset order.                             |
 """
-predict_energy(model::SCEModel, spin_directions::AbstractMatrix{<:Real})::Float64 =
-    Fitting._predict_energy(
+function predict_energy(
+    model::SCEModel,
+    spin_directions::AbstractMatrix{<:Real},
+)::Float64
+    _check_unit_spin_directions(spin_directions)
+    return Fitting._predict_energy(
         model.j0, model.jphi,
         model.basis.salcbasis.salc_list, model.basis.symmetry, spin_directions)
+end
 predict_energy(model::SCEModel, sc::SpinConfig)::Float64 =
     predict_energy(model, sc.spin_directions)
 predict_energy(f::SCEFit, spin_directions::AbstractMatrix{<:Real})::Float64 =
@@ -113,7 +142,9 @@ Predict per-atom SCE torques for one or more spin configurations.
 - `model::SCEModel` or `f::SCEFit`: Trained predictor. `SCEFit` inputs
   delegate through `SCEModel(f)`.
 - `spin_directions::AbstractMatrix{<:Real}`: Spin direction matrix of size
-  `3 × num_atoms` (rows = x, y, z; unit-vector columns).
+  `3 × num_atoms` (rows = x, y, z). Columns must be unit vectors
+  (`‖·‖ = 1` within `1e-6`); a non-unit or non-finite column throws an
+  `ArgumentError`.
 - `sc::SpinConfig`: Single spin configuration; equivalent to passing
   `sc.spin_directions`.
 - `sd_list::AbstractVector{<:AbstractMatrix{<:Real}}`: Sequence of spin
@@ -137,9 +168,14 @@ Return type depends on the second positional argument:
 | `configs::AbstractVector{SpinConfig}`                     | `Vector{Matrix{Float64}}` of length `length(configs)`, in input order; each element is `3 × num_atoms`.          |
 | `dataset::SCEDataset`                                     | `Vector{Matrix{Float64}}` of length `length(dataset)`, in dataset order; each element is `3 × num_atoms`.        |
 """
-predict_torque(model::SCEModel, spin_directions::AbstractMatrix{<:Real})::Matrix{Float64} =
-    Fitting._predict_torque(
+function predict_torque(
+    model::SCEModel,
+    spin_directions::AbstractMatrix{<:Real},
+)::Matrix{Float64}
+    _check_unit_spin_directions(spin_directions)
+    return Fitting._predict_torque(
         model.jphi, model.basis.salcbasis.salc_list, model.basis.symmetry, spin_directions)
+end
 predict_torque(model::SCEModel, sc::SpinConfig)::Matrix{Float64} =
     predict_torque(model, sc.spin_directions)
 predict_torque(f::SCEFit, spin_directions::AbstractMatrix{<:Real})::Matrix{Float64} =

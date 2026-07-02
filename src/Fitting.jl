@@ -1896,6 +1896,10 @@ Coefficient of determination ``R^2 = 1 - SS_{res}/SS_{tot}`` between observed
 and predicted values, with `SS_res = Σ(observed - predicted)²` and
 `SS_tot = Σ(observed - mean(observed))²`. Internal helper behind the public
 `r2_*` evaluation verbs.
+
+Returns `NaN` when `SS_tot` is non-positive (all observed values equal, e.g.
+a single-configuration evaluation set), where R² is undefined — matching the
+degenerate-target convention of `_gcv_r2`.
 """
 function _calc_r2score(
     observed_list::AbstractVector{<:Real},
@@ -1903,6 +1907,7 @@ function _calc_r2score(
 )::Float64
     ss_res = sum((observed_list .- predicted_list) .^ 2)
     ss_tot = sum((observed_list .- mean(observed_list)) .^ 2)
+    ss_tot <= 0.0 && return NaN
     return 1 - ss_res / ss_tot
 end
 

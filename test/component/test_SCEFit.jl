@@ -145,6 +145,31 @@ end
         @test all(T_cfg[i] ≈ predict_torque(m, dataset)[i] for i in 1:2)
     end
 
+    @testset "predict_* reject non-unit spin directions" begin
+        # The tesseral harmonics are defined on the unit sphere, so the
+        # raw-matrix entry points must reject non-unit columns instead of
+        # silently returning wrong physics. SpinConfig inputs are already
+        # validated at construction.
+        f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3, verbosity = false)
+        m = SCEModel(f)
+        sd_unit = configs[1].spin_directions
+
+        sd_scaled = 2.0 .* sd_unit
+        @test_throws ArgumentError predict_energy(m, sd_scaled)
+        @test_throws ArgumentError predict_torque(m, sd_scaled)
+
+        sd_nan = copy(sd_unit)
+        sd_nan[1, 1] = NaN
+        @test_throws ArgumentError predict_energy(m, sd_nan)
+        @test_throws ArgumentError predict_torque(m, sd_nan)
+
+        # the vector-of-matrices path validates each entry
+        @test_throws ArgumentError predict_energy(m, [sd_unit, sd_scaled])
+
+        # unit-norm input is unaffected
+        @test predict_energy(m, sd_unit) == predict_energy(m, configs[1])
+    end
+
     @testset "evaluation verbs are self-consistent" begin
         f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3, verbosity = false)
 
@@ -179,6 +204,18 @@ end
         @test isfinite(rmse_energy(f, test_slice))
         @test length(residuals_torque(f, test_slice)) ==
               3 * basis.structure.supercell.num_atoms
+    end
+
+    @testset "R^2 is NaN on a degenerate evaluation set" begin
+        # SS_tot = 0 (all observed values equal) leaves R^2 undefined; the
+        # convention, matching the GCV-side `_gcv_r2`, is NaN rather than
+        # +/-Inf. A perfect fit on such a set is also NaN (0/0), not 1.
+        @test isnan(Magesty.Fitting._calc_r2score([1.0, 1.0], [0.9, 1.1]))
+        @test isnan(Magesty.Fitting._calc_r2score([1.0, 1.0], [1.0, 1.0]))
+        # Public verb: a single-configuration set has a single observed
+        # energy, hence SS_tot = 0.
+        f = fit(SCEFit, dataset, OLS(); torque_weight = 0.3, verbosity = false)
+        @test isnan(r2_energy(f, dataset[2:2]))
     end
 
     @testset "basis-identity check (same recipe accepted)" begin
