@@ -1309,3 +1309,39 @@ FMA-fuse), so the output is bit-identical — verified `X == X_old && y == y_old
 
 Bit-identical, so all 22,780 unit tests pass unchanged. Mitigates the OOM risk
 on large torque-rich datasets (the ~3x transient peak is removed).
+
+## _projection_matrix_coupled_basis — time-reversal dedup (2026-07-02, spec 260702-salc-projection-timerev-dedup)
+
+The `(symop, time_rev_sym)` loop recomputed all time-reversal-independent
+work twice per symmetry operation: atom shift, `_find_translation_atoms`,
+`reorder_atoms`, and the whole inner `cb2` loop (zero predicate +
+`_tensor_inner_product`). Only a per-basis sign differs between the two
+variants, and the sign needs only `sum(cb1.ls)` (permutation-invariant, so
+the reorder is not required for it). The loop now runs once per symop and
+fills two scratch buffers (`representation_mat_no_time_rev` / `_trs`) in a single
+pass; the unitarity check and the accumulation into `projection_mat` keep
+the original order (no time reversal first), so the summation order of the
+projector average is unchanged.
+
+Bit-identity gate (same machine, arm64): before/after snapshots of all 54
+fege_2x2x2 projection matrices, all 81,192 SALC coefficient values
+(coefficient + coeff_tensor + folded_tensor), and `salc_fingerprint` on
+dimer + fege compare exact `==`. PASS.
+
+`make bench-salcbasis` (fege_2x2x2, 20 samples, adjacent sessions on an
+idle machine; the untouched `_listup_coupled_basislist` stage moved
+64 -> 58 us between the same two sessions, which bounds the session noise):
+
+| Metric | Before | After | delta |
+|---|---|---|---|
+| projection time median | 85.4 ms | 43.9 ms | -49 % (1.95x) |
+| projection memory | 63.89 MiB | 34.75 MiB | -46 % |
+| projection allocs | 1,694,588 | 890,495 | -47 % |
+| SALCBasis ctor time median | 363.6 ms | 305.5 ms | -16 % (1.19x) |
+| SALCBasis ctor memory | 317.04 MiB | 225.47 MiB | -29 % |
+| SALCBasis ctor allocs | 8,029,198 | 5,732,635 | -29 % |
+
+Cost: one extra `full_matrix_dim^2` scratch buffer per call. Full suite
+(23,752 tests), JET, and Aqua green; a committed projection-value baseline
+probe (fege groups of dims 4/12/20/36/60, isapprox atol=1e-8) was added to
+`test/component/test_SALC_projection.jl`.
