@@ -1,6 +1,6 @@
 # Tasklist: SALC projection time-reversal dedup
 
-Status: implemented (2026-07-02)
+Status: complete (2026-07-02)
 
 This file holds coarse-grained, commit-sized milestones. Day-to-day
 tracking goes through `TaskCreate` in-session.
