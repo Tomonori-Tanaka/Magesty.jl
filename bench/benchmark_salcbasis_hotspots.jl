@@ -164,12 +164,12 @@ function run_bench(cfg::Dict{Symbol, Any})
     )
 
     println("\nWarming up target functions...")
-    Magesty.SALCBases.listup_coupled_basislist(
+    Magesty.SALCBases._listup_coupled_basislist(
         ctx.atom_list,
         ctx.lsum;
         isotropy = ctx.isotropy,
     )
-    Magesty.SALCBases.projection_matrix_coupled_basis(ctx.representative_group, ctx.symmetry)
+    Magesty.SALCBases._projection_matrix_coupled_basis(ctx.representative_group, ctx.symmetry)
     Magesty.SALCBasis(
         ctx.structure,
         ctx.symmetry,
@@ -182,7 +182,7 @@ function run_bench(cfg::Dict{Symbol, Any})
     nsamples = cfg[:samples]
     nevals = cfg[:evals]
 
-    bench_listup = @benchmark Magesty.SALCBases.listup_coupled_basislist(
+    bench_listup = @benchmark Magesty.SALCBases._listup_coupled_basislist(
         $(ctx.atom_list),
         $(ctx.lsum);
         isotropy = $(ctx.isotropy),
@@ -190,7 +190,7 @@ function run_bench(cfg::Dict{Symbol, Any})
     show(stdout, MIME"text/plain"(), bench_listup)
     println()
 
-    bench_projection = @benchmark Magesty.SALCBases.projection_matrix_coupled_basis(
+    bench_projection = @benchmark Magesty.SALCBases._projection_matrix_coupled_basis(
         $(ctx.representative_group),
         $(ctx.symmetry),
     ) samples=nsamples evals=nevals
@@ -209,7 +209,7 @@ function run_bench(cfg::Dict{Symbol, Any})
 
     print_profile_for(() -> begin
         for _ in 1:cfg[:profile_iters_listup]
-            Magesty.SALCBases.listup_coupled_basislist(
+            Magesty.SALCBases._listup_coupled_basislist(
                 ctx.atom_list,
                 ctx.lsum;
                 isotropy = ctx.isotropy,
@@ -219,7 +219,7 @@ function run_bench(cfg::Dict{Symbol, Any})
 
     print_profile_for(() -> begin
         for _ in 1:cfg[:profile_iters_projection]
-            Magesty.SALCBases.projection_matrix_coupled_basis(
+            Magesty.SALCBases._projection_matrix_coupled_basis(
                 ctx.representative_group,
                 ctx.symmetry,
             )
