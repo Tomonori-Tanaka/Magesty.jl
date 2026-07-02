@@ -191,14 +191,34 @@ keyword arguments. All paths funnel into the three typed value objects
 same structure / symmetry / cluster / SALC construction.
 
 The `interaction` argument is a nested `NamedTuple` keyed `body1`,
-`body2`, ...; see the API documentation for the accepted format and
-the per-path Unitful requirements.
+`body2`, ...; it mirrors the TOML `[interaction]` table documented on
+the "Input Keys Reference" docs page (see the `# Examples` block below
+for the shape, and the API documentation for the per-path Unitful
+requirements).
 
 The extractor form `SCEBasis(x)` returns the basis embedded in an
 `SCEModel`, `SCEDataset`, or `SCEFit` (and is the identity on an
 `SCEBasis`), so generic code can accept any of the four uniformly. The
 returned basis shares storage with the input — `SCEBasis` is treated as
 a value object and is not mutated by the public API.
+
+# Examples
+```julia
+# AtomsBase path (structure loaded via AtomsIO); the same `interaction`
+# NamedTuple is accepted by the raw-keyword path:
+basis = SCEBasis(
+    system;
+    interaction = (
+        body1 = (lmax = Dict(:Fe => 2, :Pt => 2),),
+        body2 = (lsum = 2,
+                 cutoff = Dict((:Fe, :Fe) => -1.0,
+                               (:Fe, :Pt) => -1.0,
+                               (:Pt, :Pt) => -1.0)),
+    ),
+    tolerance_sym = 1e-5,
+    isotropy = false,
+)
+```
 """
 function SCEBasis(
     system_spec::SystemSpec,

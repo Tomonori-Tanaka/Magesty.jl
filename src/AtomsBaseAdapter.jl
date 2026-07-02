@@ -224,8 +224,9 @@ Build the three typed input value objects from an
 # Arguments
 - `sys::AtomsBase.AbstractSystem`: The material system.
 - `interaction::NamedTuple`: Nested `body1` / `body2` / ... interaction
-  specification (see the spec's "Interaction parameters"). Element /
-  kind fan-out is applied.
+  specification, mirroring the TOML `[interaction]` table documented on
+  the "Input Keys Reference" docs page. Element / kind fan-out is
+  applied.
 - `name::AbstractString = "system"`: System name recorded in `SystemSpec`.
 - `tolerance_sym::Real = 1e-3`: Symmetry-detection tolerance.
 - `isotropy::Bool = false`: Restrict to isotropic (Lf = 0) terms.
