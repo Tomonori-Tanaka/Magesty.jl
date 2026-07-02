@@ -1,6 +1,6 @@
 # Design: SALC projection time-reversal dedup
 
-Status: draft (2026-07-02)
+Status: implemented (2026-07-02)
 
 ## Summary
 
@@ -48,11 +48,11 @@ function _projection_matrix_coupled_basis(
 ## Restructured loop (sketch)
 
 ```julia
-representation_mat_notrs = zeros(Float64, full_matrix_dim, full_matrix_dim)
-representation_mat_trs   = zeros(Float64, full_matrix_dim, full_matrix_dim)
+representation_mat_no_time_rev = zeros(Float64, full_matrix_dim, full_matrix_dim)
+representation_mat_time_rev   = zeros(Float64, full_matrix_dim, full_matrix_dim)
 for (n, symop) in enumerate(symmetry.symdata)
-    fill!(representation_mat_notrs, 0.0)
-    fill!(representation_mat_trs, 0.0)
+    fill!(representation_mat_no_time_rev, 0.0)
+    fill!(representation_mat_time_rev, 0.0)
     base_rot_mat = base_rot_mats[n]
     for (i, cb1) in enumerate(coupled_basislist)
         # -- time_rev_sym-independent work, now computed once --
@@ -69,9 +69,9 @@ for (n, symop) in enumerate(symmetry.symdata)
             phase = _tensor_inner_product(cb2.coeff_tensor,
                                           reordered_cb.coeff_tensor) / (2*Lf+1)
             row_range = ((j-1)*submatrix_dim+1):(j*submatrix_dim)
-            @views representation_mat_notrs[row_range, col_range] .=
+            @views representation_mat_no_time_rev[row_range, col_range] .=
                 base_rot_mat .* phase
-            @views representation_mat_trs[row_range, col_range] .=
+            @views representation_mat_time_rev[row_range, col_range] .=
                 base_rot_mat .* (multiplier * phase)
         end
     end
@@ -80,10 +80,10 @@ for (n, symop) in enumerate(symmetry.symdata)
     # `check_irrep_unitary && !_is_unitary(mat, tol = 1e-8) && error(...)`
     # (with the current D(g)'D(g) diagnostic), applied to each buffer
     # before it is accumulated; shown abbreviated here.
-    check_irrep_unitary && _assert_unitary(representation_mat_notrs, n)  # illustrative
-    projection_mat .+= representation_mat_notrs
-    check_irrep_unitary && _assert_unitary(representation_mat_trs, n)   # illustrative
-    projection_mat .+= representation_mat_trs
+    check_irrep_unitary && _assert_unitary(representation_mat_no_time_rev, n)  # illustrative
+    projection_mat .+= representation_mat_no_time_rev
+    check_irrep_unitary && _assert_unitary(representation_mat_time_rev, n)   # illustrative
+    projection_mat .+= representation_mat_time_rev
 end
 ```
 

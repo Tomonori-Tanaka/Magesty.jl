@@ -1,6 +1,6 @@
 # Requirements: SALC projection time-reversal dedup
 
-Status: draft (2026-07-02)
+Status: implemented (2026-07-02)
 
 ## Goal
 

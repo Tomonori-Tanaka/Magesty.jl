@@ -6,6 +6,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `r2_energy` / `r2_torque` now return `NaN` on a degenerate evaluation set
+  (all observed values equal, e.g. a single configuration), matching the GCV
+  convention, instead of an inconsistent `±Inf`/`NaN`.
+- The raw-matrix `predict_energy` / `predict_torque` entry points validate
+  that every spin-direction column is a unit vector (tolerance `1e-6`, same
+  as the `SpinConfig` constructor) and throw an `ArgumentError` on non-unit
+  or non-finite columns instead of silently returning wrong physics.
+
+### Internal
+
+- `SALCBasis` construction: the projection-matrix stage no longer recomputes
+  the time-reversal-independent work (atom shift, translation fold, atom
+  reorder, tensor inner products) twice per symmetry operation. Projection
+  stage ~1.9× faster with −47% allocations on the FeGe 2×2×2 fixture
+  (constructor overall ~1.2× faster, −29% allocations); output verified
+  bit-identical on the development machine.
+
 ## [0.2.0] - 2026-06-25
 
 ### Added
