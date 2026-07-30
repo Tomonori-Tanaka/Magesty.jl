@@ -168,6 +168,10 @@ model   = SCEModel(f)
 
 num_atoms = basis.structure.supercell.num_atoms
 
+# Every column of a spin-direction matrix must be a unit vector
+# (tolerance 1e-6); predict_energy / predict_torque throw an
+# ArgumentError on non-unit or non-finite columns.
+
 # Ferromagnetic spin configuration along +z.
 spins_fm = zeros(3, num_atoms)
 spins_fm[3, :] .= 1.0
