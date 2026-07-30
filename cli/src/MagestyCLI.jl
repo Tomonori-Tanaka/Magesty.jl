@@ -176,8 +176,10 @@ so a sample set is reproducible from its log alone.
 
 # Flags
 
-- `--randomize`: apply a random global rotation (quantization-axis
-  randomization) to each drawn configuration.
+- `--randomize`: apply a Haar-uniform random global rotation
+  (quantization-axis randomization) to each drawn configuration. Uniform over
+  all of `SO(3)`, so the sampled orientations are isotropic regardless of the
+  direction the reference `MAGMOM` happens to be written along.
 """
 Comonicon.@cast function mfa(
 	incar::String,

@@ -28,8 +28,10 @@ both `MAGMOM` and `M_CONSTR` to the sampled configuration.
 - `start::Real`, `stop::Real`, `num_points::Integer` (required): the sweep
   values are `range(start, stop; length = num_points)`.
 - `num_samples::Integer = 1`: configurations drawn per sweep value.
-- `randomize::Bool = false`: apply a random global rotation (quantization-axis
-  randomization) to each drawn configuration.
+- `randomize::Bool = false`: apply a Haar-uniform random global rotation
+  (quantization-axis randomization) to each drawn configuration. Uniform over
+  all of `SO(3)`, so the sampled orientations are isotropic regardless of the
+  direction the reference `MAGMOM` happens to be written along.
 - `fix::AbstractString = ""`: 1-based atom indices kept at their input
   directions (rotated by the same global rotation when `randomize`), e.g.
   `"1-10,12,20-22"`.

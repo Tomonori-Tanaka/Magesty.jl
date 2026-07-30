@@ -157,8 +157,10 @@ sweep of the control variable.
 - `start::Real`, `stop::Real`, `num_points::Integer`: the sweep values are
   `range(start, stop; length = num_points)`.
 - `num_samples::Integer = 1`: configurations drawn per sweep value.
-- `randomize::Bool = false`: apply a single random global rotation
-  (quantization-axis randomization) to each drawn configuration.
+- `randomize::Bool = false`: apply a single Haar-uniform random global rotation
+  (quantization-axis randomization) to each drawn configuration. Uniform over
+  all of `SO(3)`, so the sampled orientations are isotropic regardless of the
+  orientation `spin_matrix` is written in.
 - `fixed_indices::AbstractVector{<:Integer} = Int[]`: 1-based atom indices kept
   at their input directions (rotated by the same global rotation when
   `randomize`), i.e. not sampled.
@@ -304,32 +306,23 @@ function _overwrite_uniform!(
     return nothing
 end
 
-# Random rotation taking +z to a uniformly random axis on the sphere.
+# Haar-uniform random rotation in SO(3). A unit quaternion obtained by
+# normalizing a 4D Gaussian is uniform on S^3, which pushes forward to the Haar
+# measure on SO(3); the resulting distribution of R is therefore invariant under
+# left and right multiplication by any fixed rotation, so the sampled directions
+# are isotropic whatever orientation the reference configuration is written in.
+# (The earlier implementation returned the minimal rotation carrying +z to a
+# random axis. That family is only 2-parameter -- a measure-zero subset of SO(3)
+# -- and is isotropic only for a reference already aligned with +z.)
 function _random_rotation_matrix()::SMatrix{3, 3, Float64}
-    return _rotation_matrix_from_vectors(SVector(0.0, 0.0, 1.0), _random_unit_vector())
-end
-
-# Rotation matrix R with R*v1 = v2 (both normalized) via Rodrigues' formula;
-# returns ±I for (anti)parallel inputs.
-function _rotation_matrix_from_vectors(
-    v1::SVector{3, Float64},
-    v2::SVector{3, Float64},
-)::SMatrix{3, 3, Float64}
-    a = v1 / norm(v1)
-    b = v2 / norm(v2)
-    axis = cross(a, b)
-    sin_θ = norm(axis)
-    cos_θ = dot(a, b)
-    if isapprox(sin_θ, 0.0; atol = ZERO_NORM_ATOL)
-        return cos_θ > 0 ? SMatrix{3, 3, Float64}(I) : SMatrix{3, 3, Float64}(-1.0 * I)
-    end
-    v = axis / sin_θ
-    K = @SMatrix [
-        0.0   -v[3]  v[2]
-        v[3]   0.0  -v[1]
-        -v[2]  v[1]   0.0
+    q = SVector{4, Float64}(randn(), randn(), randn(), randn())
+    q = q / norm(q)
+    w, x, y, z = q[1], q[2], q[3], q[4]
+    return @SMatrix [
+        1-2*(y^2 + z^2)  2*(x * y - w * z)  2*(x * z + w * y)
+        2*(x * y + w * z)  1-2*(x^2 + z^2)  2*(y * z - w * x)
+        2*(x * z - w * y)  2*(y * z + w * x)  1-2*(x^2 + y^2)
     ]
-    return SMatrix{3, 3, Float64}(I) + sin_θ * K + (1 - cos_θ) * (K * K)
 end
 
 # Column i of a 3 × n_atoms matrix as a stack-resident SVector.

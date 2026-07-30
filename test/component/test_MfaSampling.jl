@@ -121,6 +121,67 @@ end
         stop = 0.5, num_points = 2, fixed_indices = [5])  # out of range
 end
 
+@testset "randomize draws a Haar-uniform rotation" begin
+    # Exact identities of the Haar measure on SO(3), used as the oracle:
+    #   <R> = 0            (invariance under left multiplication)
+    #   <tr R> = 0         (the rotation angle satisfies <cos θ> = -1/2 under
+    #                       p(θ) = (1 - cos θ)/π, and tr R = 1 + 2 cos θ)
+    # Per-entry variance is <R_ij^2> = 1/3, so σ(<R_ij>) = 1/sqrt(3N); for
+    # tr R, Var(cos θ) = 1/4 gives σ(<tr R>) = 1/sqrt(N).
+    #
+    # The pre-fix sampler returned the minimal rotation carrying +z to a random
+    # axis. That family has <R_xx> = <R_yy> = 1/2 and hence <tr R> = 1, so both
+    # gates below fail on it by >100σ — they resolve the defect with margin, not
+    # merely a fitted tolerance.
+    Random.seed!(11)
+    N = 20_000
+    Rsum = zeros(3, 3)
+    for _ = 1:N
+        Rsum .+= Magesty.MfaSampling._random_rotation_matrix()
+    end
+    Rmean = Rsum / N
+    @test isapprox(Rmean, zeros(3, 3); atol = 0.03)   # 7σ headroom (σ ≈ 0.0041)
+    @test isapprox(tr(Rmean), 0.0; atol = 0.05)       # 7σ headroom (σ ≈ 0.0071)
+
+    # Every sampled rotation must be a proper rotation.
+    Random.seed!(12)
+    for _ = 1:200
+        R = Magesty.MfaSampling._random_rotation_matrix()
+        @test isapprox(R' * R, I; atol = 1e-12)
+        @test isapprox(det(R), 1.0; atol = 1e-12)
+    end
+end
+
+@testset "randomize is isotropic regardless of the reference orientation" begin
+    # <n n^T> = I/3 is exact for any isotropic distribution of unit vectors, and
+    # constrains the polar and azimuthal marginals at once. τ below MIN_TEMP puts
+    # the sweep in the ordered branch, so the vMF scatter is switched off and only
+    # the global rotation is under test.
+    #
+    # The reference is deliberately non-collinear and not aligned with +z: the
+    # pre-fix sampler was isotropic for a +z reference by construction, and biased
+    # the azimuth by ~8x for an in-plane one (deviation 0.17 in <n n^T> for the x
+    # column). Diagonal entries have σ = sqrt(4/45)/sqrt(N) ≈ 0.0021 at N = 20000,
+    # so atol = 0.02 leaves ~9σ of headroom while the defect exceeds it 8-fold.
+    Random.seed!(13)
+    N = 20_000
+    refs = [SVector(1.0, 0.0, 0.0), SVector(0.0, 1.0, 0.0), SVector(0.0, 0.0, 1.0),
+        normalize(SVector(1.0, 1.0, 1.0))]
+    spins = reduce(hcat, refs)
+    configs = mfa_sweep(spins; variable = "tau", start = 1.0e-6, stop = 1.0e-6,
+        num_points = 1, num_samples = N, randomize = true)
+    @test length(configs) == N
+    for atom = 1:length(refs)
+        C = zeros(3, 3)
+        for c in configs
+            n = SVector{3, Float64}(c[1, atom], c[2, atom], c[3, atom])
+            C .+= n * n'
+        end
+        C ./= N
+        @test isapprox(C, Matrix(I / 3, 3, 3); atol = 0.02)
+    end
+end
+
 @testset "parse_atom_index_spec" begin
     @test parse_atom_index_spec(""; max_index = 10) == Int[]
     @test parse_atom_index_spec("1-10,12,20-22"; max_index = 22) ==

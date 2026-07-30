@@ -125,7 +125,7 @@ magesty vasp mfa INCAR m --start 0.2 --stop 0.8 --num-points 7 \
 - `--outdir`: Output directory (default: `.`, created if needed)
 
 **Flags:**
-- `--randomize`: Apply a random global rotation (quantization-axis randomization) to each drawn configuration
+- `--randomize`: Apply a Haar-uniform random global rotation (quantization-axis randomization) to each drawn configuration — uniform over all of `SO(3)`, hence isotropic regardless of the direction the reference `MAGMOM` is written along
 
 Output files are `<outdir>/sample-NN.INCAR`, numbered `(point-1)·num_samples + sample` and zero-padded to the width of `num_points · num_samples`.
 

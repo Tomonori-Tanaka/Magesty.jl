@@ -8,6 +8,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **`randomize` now draws a Haar-uniform rotation.** `mfa_sweep(...;
+  randomize = true)`, `sample_mfa_incar(...; randomize = true)` and
+  `magesty vasp mfa --randomize` applied the *minimal* rotation carrying `+z`
+  to a random axis. That is a 2-parameter family — a measure-zero subset of
+  `SO(3)` that leaves the twist about the new axis unsampled — so the sampled
+  ensemble was isotropic only for a reference configuration already aligned
+  with `+z`. For an in-plane reference (`MAGMOM = ±m 0 0`) the azimuthal
+  distribution was biased by a factor of ~8, i.e. two physically equivalent
+  ways of writing the same configuration gave different sampling
+  distributions. The rotation is now drawn from the Haar measure via a
+  normalized 4D-Gaussian unit quaternion. **This changes the sampled
+  configurations**: any anisotropic (SOC) fit — single-ion anisotropy,
+  anisotropic exchange, DMI, and azimuth-dependent quantities generally —
+  built from a sample set whose reference was *not* along `+z` carries a
+  systematic error and should be resampled and refitted. Isotropic exchange
+  and non-SOC fits are unaffected (the energy is invariant under a global
+  rotation), as are sample sets whose reference was written along `0 0 ±m`.
 - `r2_energy` / `r2_torque` now return `NaN` on a degenerate evaluation set
   (all observed values equal, e.g. a single configuration), matching the GCV
   convention, instead of an inconsistent `±Inf`/`NaN`.

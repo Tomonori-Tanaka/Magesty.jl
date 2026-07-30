@@ -223,7 +223,17 @@ global rotation:
   global rotation to each drawn configuration, so the reference axis
   $\hat{\boldsymbol{e}}_0$ is not pinned to a fixed Cartesian direction across the
   sample set. Fixed atoms are rotated by the same global rotation, preserving
-  their orientation relative to the sampled spins.
+  their orientation relative to the sampled spins. The rotation is drawn from the
+  Haar (uniform) measure on $SO(3)$ — a unit quaternion obtained by normalizing a
+  4D Gaussian is uniform on $S^3$, which pushes forward to Haar measure on
+  $SO(3)$. Haar uniformity is what makes the sampled ensemble isotropic
+  *regardless of the orientation the reference configuration is written in*: a
+  distribution that only randomizes where $\hat{\boldsymbol{z}}$ lands is a
+  2-parameter family, and leaves the twist about the new axis unsampled, which
+  biases the azimuthal distribution of any reference that is not along
+  $\hat{\boldsymbol{z}}$. This matters for anisotropic (SOC) fits, where the
+  single-ion, anisotropic-exchange, and DMI coefficients are sensitive to the
+  angular coverage of the ensemble; isotropic exchange is insensitive to it.
 
 All three preserve per-atom magnitudes and leave zero-norm spins untouched.
 
