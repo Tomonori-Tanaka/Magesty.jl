@@ -72,6 +72,16 @@ position = [            # fractional coordinates
 | `tolerance` | Float64 | no | Symmetry detection tolerance (default: `1e-3`) |
 | `isotropy` | Bool | no | Only include isotropic (`Lf = 0`) terms (default: `false`) |
 
+`tolerance` is the spglib `symprec`: the Cartesian distance (in Å) below
+which two positions count as coincident during the symmetry search. Coordinates
+coming out of a structural relaxation typically carry residual distortions of
+order `1e-4` Å, which a tight tolerance reads as a genuine symmetry breaking.
+The detected space group and the tolerance it was obtained with are both
+printed in the `SYMMETRY` block of the log; check them against the symmetry you
+expect, because a demoted space group leaves equivalent sites independent and
+silently inflates the number of SCE coefficients. When a tolerance ten times
+looser would find more symmetry operations, a warning reports both results.
+
 ### `[interaction]`
 
 | Key | Type | Required | Description |

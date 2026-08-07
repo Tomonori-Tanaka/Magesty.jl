@@ -1,7 +1,9 @@
 using Test
+using Logging
 using StaticArrays
 using Magesty.Symmetries
 using Magesty.Structures
+using Magesty.InputSpecs: SymmetryOptions
 
 @testset "Symmetry Tests" begin
     @testset "Basic Components" begin
@@ -201,6 +203,151 @@ using Magesty.Structures
             @test symmetry.symdata[1].rotation_frac * SVector{3, Float64}(x_frac[:, 2]) +
                   symmetry.symdata[1].translation_frac ≈ SVector{3, Float64}(x_frac[:, 2]) atol=1e-5
         end
+    end
+
+    @testset "Tolerance Drives the spglib Search" begin
+        # A cubic CsCl-type cell whose Cl site is displaced along z by a
+        # distance that straddles the two tolerances under test.
+        #
+        #   Cs at (0, 0, 0), Cl at (1/2, 1/2, 1/2 + delta), a = 4.0 Ang.
+        #
+        # With delta = 1.25e-5 in fractional units the Cl atom sits
+        # d = 1.25e-5 * 4.0 = 5.0e-5 Ang off the body center, so any operation
+        # that reverses z (the horizontal mirror, the inversion, the two-fold
+        # axes normal to z) misplaces it by 2d = 1.0e-4 Ang. spglib accepts an
+        # operation when that mismatch is below `symprec`, hence
+        #
+        #   symprec = 1e-5  ->  1.0e-4 > symprec: z-reversing operations are
+        #                       rejected. What survives is the point group of a
+        #                       tetragonal polar axis along z, 4mm (order 8:
+        #                       E, 2 C4z, C2z, 2 sigma_v, 2 sigma_d), i.e. the
+        #                       symmorphic space group P4mm (99).
+        #   symprec = 1e-3  ->  1.0e-4 < symprec: the displacement is absorbed
+        #                       and the full cubic m-3m (order 48) is recovered,
+        #                       i.e. Pm-3m (221).
+        #
+        # Neither cell is primitive-reducible and both leave two atoms in the
+        # primitive cell, so ntran = 1 and nsym equals the point-group order.
+        lattice_vectors = SMatrix{3, 3, Float64}([
+            4.0 0.0 0.0;
+            0.0 4.0 0.0;
+            0.0 0.0 4.0
+        ])
+        is_periodic = SVector{3, Bool}([true, true, true])
+        kd_name = ["Cs", "Cl"]
+        kd_int_list = [1, 2]
+        delta = 1.25e-5
+        x_frac = [0.0 0.5;
+                  0.0 0.5;
+                  0.0 0.5+delta]
+
+        structure = Structure(
+            lattice_vectors,
+            is_periodic,
+            kd_name,
+            kd_int_list,
+            x_frac,
+            verbosity = false
+        )
+
+        symmetry_tight = Symmetry(structure, 1e-5, verbosity = false)
+        @test symmetry_tight.international_symbol == "P4mm"
+        @test symmetry_tight.spacegroup_number == 99
+        @test symmetry_tight.nsym == 8
+        @test symmetry_tight.ntran == 1
+        @test symmetry_tight.nat_prim == 2
+        @test symmetry_tight.tol == 1e-5
+
+        symmetry_loose = Symmetry(structure, 1e-3, verbosity = false)
+        @test symmetry_loose.international_symbol == "Pm-3m"
+        @test symmetry_loose.spacegroup_number == 221
+        @test symmetry_loose.nsym == 48
+        @test symmetry_loose.ntran == 1
+        @test symmetry_loose.nat_prim == 2
+        @test symmetry_loose.tol == 1e-3
+
+        # The `SymmetryOptions` constructor must forward the same tolerance.
+        options = SymmetryOptions(tolerance_sym = 1e-3)
+        symmetry_from_options = Symmetry(structure, options, verbosity = false)
+        @test symmetry_from_options.spacegroup_number ==
+              symmetry_loose.spacegroup_number
+        @test symmetry_from_options.nsym == symmetry_loose.nsym
+    end
+
+    @testset "Looser-Tolerance Warning" begin
+        # Same cell as above: a = 4.0 Ang, Cl displaced along z by
+        # d = 1.25e-5 * 4.0 = 5.0e-5 Ang, so a z-reversing operation misplaces
+        # it by 2d = 1.0e-4 Ang. The re-search runs at ten times the requested
+        # tolerance, which brackets that mismatch for tol = 3e-5:
+        #
+        #   tol      = 3.0e-5 < 1.0e-4  -> P4mm  (99),  8 operations
+        #   10 * tol = 3.0e-4 > 1.0e-4  -> Pm-3m (221), 48 operations
+        #
+        # so the looser search strictly gains operations and must warn. At
+        # tol = 1e-3 both searches already sit above the mismatch, return the
+        # same 48 operations, and must stay silent.
+        lattice_vectors = SMatrix{3, 3, Float64}([
+            4.0 0.0 0.0;
+            0.0 4.0 0.0;
+            0.0 0.0 4.0
+        ])
+        is_periodic = SVector{3, Bool}([true, true, true])
+        kd_name = ["Cs", "Cl"]
+        kd_int_list = [1, 2]
+        delta = 1.25e-5
+        x_frac = [0.0 0.5;
+                  0.0 0.5;
+                  0.0 0.5+delta]
+
+        structure = Structure(
+            lattice_vectors,
+            is_periodic,
+            kd_name,
+            kd_int_list,
+            x_frac,
+            verbosity = false
+        )
+
+        # The warning is a `verbosity` diagnostic; the extra search is skipped
+        # entirely when the caller asked for silence.
+        redirect_stdout(devnull) do
+            @test_logs (:warn,) match_mode = :any Symmetry(
+                structure, 3e-5, verbosity = true)
+            @test_logs min_level = Logging.Warn Symmetry(
+                structure, 1e-3, verbosity = true)
+        end
+        @test_logs min_level = Logging.Warn Symmetry(
+            structure, 3e-5, verbosity = false)
+    end
+
+    @testset "Symmetry Printout Reports the Tolerance" begin
+        lattice_vectors = SMatrix{3, 3, Float64}([
+            1.0 0.0 0.0;
+            0.0 1.0 0.0;
+            0.0 0.0 1.0
+        ])
+        is_periodic = SVector{3, Bool}([true, true, true])
+        kd_name = ["Po"]
+        kd_int_list = [1]
+        x_frac = reshape([0.0, 0.0, 0.0], 3, 1)
+
+        structure = Structure(
+            lattice_vectors,
+            is_periodic,
+            kd_name,
+            kd_int_list,
+            x_frac,
+            verbosity = false
+        )
+
+        printout = mktemp() do path, io
+            redirect_stdout(io) do
+                Symmetry(structure, 2.5e-4, verbosity = true)
+            end
+            flush(io)
+            return read(path, String)
+        end
+        @test occursin("Symmetry tolerance (symprec) = 2.500e-04", printout)
     end
 
     @testset "Error Cases" begin

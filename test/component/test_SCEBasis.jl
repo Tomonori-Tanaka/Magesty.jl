@@ -50,6 +50,41 @@ end
         @test b_kw.structure.supercell.x_frac ≈ b_toml.structure.supercell.x_frac
     end
 
+    @testset "every entry point shares one default tolerance" begin
+        # The symmetry tolerance is declared once, in `InputSpecs`, and the
+        # TOML table documents that value as its default. An entry point that
+        # substitutes its own literal would make the same structure resolve to
+        # a different space group depending on which constructor built it, so
+        # each path is checked against the single constant rather than against
+        # a repeated number.
+        default_tol = Magesty.InputSpecs.DEFAULT_TOLERANCE_SYM
+
+        b_kw = SCEBasis(;
+            lattice = [1.0 0.0 0.0; 0.0 1.0 0.0; 0.0 0.0 1.0],
+            kd = [:X], kd_list = [1, 1],
+            positions = [[0.0, 0.0, 0.0], [0.0, 0.0, 0.1]],
+            periodicity = (false, false, false),
+            interaction = (body1 = (lmax = Dict(:X => 0),),
+                           body2 = (lsum = 2, cutoff = Dict((:X, :X) => -1.0))),
+            isotropy = true, verbosity = false,
+        )
+        @test b_kw.symmetry.tol == default_tol
+
+        b_sys = SCEBasis(_periodic_pair();
+            interaction = (body1 = (lmax = Dict(:Fe => 2),),
+                           body2 = (lsum = 2, cutoff = Dict((:Fe, :Fe) => -1.0))),
+            verbosity = false,
+        )
+        @test b_sys.symmetry.tol == default_tol
+
+        # The TOML fixture pins a tolerance explicitly; dropping just that key
+        # (the `[symmetry]` section itself is required) exposes the default.
+        d = TOML.parsefile(DIMER_TOML)
+        delete!(d["symmetry"], "tolerance")
+        _, _, options = Magesty.parse_toml_inputs(d)
+        @test options.tolerance_sym == default_tol
+    end
+
     @testset "AtomsBase path" begin
         sys = _periodic_pair()
         b = SCEBasis(sys;
