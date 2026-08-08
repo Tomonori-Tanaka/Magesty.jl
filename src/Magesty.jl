@@ -215,7 +215,7 @@ basis = SCEBasis(
                                (:Fe, :Pt) => -1.0,
                                (:Pt, :Pt) => -1.0)),
     ),
-    tolerance_sym = 1e-5,
+    tolerance_sym = 1e-3,
     isotropy = false,
 )
 ```
@@ -266,7 +266,7 @@ function SCEBasis(
     system::AtomsBase.AbstractSystem;
     interaction::NamedTuple,
     name::AbstractString = "system",
-    tolerance_sym::Real = 1e-5,
+    tolerance_sym::Real = InputSpecs.DEFAULT_TOLERANCE_SYM,
     isotropy::Bool = false,
     verbosity::Bool = true,
 )
@@ -288,7 +288,7 @@ function SCEBasis(;
     periodicity = (true, true, true),
     interaction::NamedTuple,
     name::AbstractString = "system",
-    tolerance_sym::Real = 1e-5,
+    tolerance_sym::Real = InputSpecs.DEFAULT_TOLERANCE_SYM,
     isotropy::Bool = false,
     verbosity::Bool = true,
 )
@@ -456,7 +456,7 @@ function SCEDataset(
     spinconfigs::AbstractVector{SpinConfig};
     interaction::NamedTuple,
     name::AbstractString = "system",
-    tolerance_sym::Real = 1e-5,
+    tolerance_sym::Real = InputSpecs.DEFAULT_TOLERANCE_SYM,
     isotropy::Bool = false,
     verbosity::Bool = true,
 )

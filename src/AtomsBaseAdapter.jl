@@ -16,6 +16,7 @@ using ..InputSpecs:
     SystemSpec,
     InteractionSpec,
     SymmetryOptions,
+    DEFAULT_TOLERANCE_SYM,
     expand_pair_table,
     expand_species_table
 
@@ -235,7 +236,7 @@ function system_to_specs(
     sys::AtomsBase.AbstractSystem,
     interaction::NamedTuple;
     name::AbstractString = "system",
-    tolerance_sym::Real = 1e-3,
+    tolerance_sym::Real = DEFAULT_TOLERANCE_SYM,
     isotropy::Bool = false,
 )
     kd_name, kd_int_list, kind_to_element = _kind_tables(sys)
@@ -280,7 +281,7 @@ function kwargs_to_specs(;
     periodicity = (true, true, true),
     interaction::NamedTuple,
     name::AbstractString = "system",
-    tolerance_sym::Real = 1e-3,
+    tolerance_sym::Real = DEFAULT_TOLERANCE_SYM,
     isotropy::Bool = false,
 )
     size(lattice) == (3, 3) ||

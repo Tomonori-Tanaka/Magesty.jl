@@ -6,7 +6,47 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- The `SYMMETRY` log block reports the tolerance the search ran with
+  (`Symmetry tolerance (symprec) = ...`) next to the space group, so a
+  mismatch between the requested and the effective tolerance is visible
+  without instrumenting the code.
+- Symmetry detection re-runs the search at a tolerance ten times looser and
+  warns when that finds strictly more operations, naming both space groups and
+  operation counts. Coordinates fresh out of a relaxation routinely trip this,
+  and the demotion it reports is otherwise silent.
+
+### Changed
+
+- **The `tolerance_sym` default is now `1e-3` on every entry point.** The
+  `AtomsBase` and raw-keyword constructors of `SCEBasis` / `SCEDataset`
+  hardcoded `1e-5`, contradicting the `1e-3` that the TOML path and the input
+  documentation declare. While the tolerance never reached spglib the two were
+  indistinguishable; now they are not, so all entry points read the single
+  `DEFAULT_TOLERANCE_SYM` constant instead of repeating a literal. Callers that
+  want the tighter value pass `tolerance_sym = 1e-5` explicitly.
+
 ### Fixed
+
+- **The symmetry tolerance now reaches spglib.** `Symmetry` built its
+  `Spglib.Cell` and called `get_dataset` without passing the tolerance, so the
+  search always ran at the spglib default `symprec = 1e-5` regardless of
+  `[symmetry] tolerance` in the TOML input or `tolerance_sym` in the API. The
+  tolerance was applied only to the floating-point comparisons that classify
+  the operations spglib had already returned, so no error or warning was
+  raised — the documented default of `1e-3` had never taken effect, and
+  loosening the tolerance to accommodate a relaxed structure did nothing.
+  **This changes the detected symmetry**: with the default TOML tolerance the
+  effective `symprec` goes from `1e-5` to `1e-3`, and a structure carrying
+  residual relaxation distortions of order `1e-4` Å may now be assigned a
+  higher-symmetry space group. That is the intended behavior — the extra
+  operations constrain symmetry-equivalent sites to share coefficients — but
+  it reduces the number of independent SCE coefficients and therefore changes
+  fitted models. Any basis or fit built before this release should be
+  regenerated; weakly determined terms (single-ion anisotropy in particular)
+  are the ones most affected. Set `tolerance = 1.0e-5` explicitly to reproduce
+  the old behavior.
 
 - **`randomize` now draws a Haar-uniform rotation.** `mfa_sweep(...;
   randomize = true)`, `sample_mfa_incar(...; randomize = true)` and

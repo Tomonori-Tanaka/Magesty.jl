@@ -142,7 +142,12 @@ struct Symmetry
         cell = structure.supercell
         # convert x_frac::Matrix{Float64} to x_frac::Vector{Vector{Float64}}
         x_frac_vec = collect(eachcol(cell.x_frac))
-        _spglib_data = get_dataset(Spglib.Cell(cell.lattice_vectors, x_frac_vec, cell.kd_int_list))
+        # `tol` is the spglib `symprec`: it sets the Cartesian distance below
+        # which two positions are considered coincident during the symmetry
+        # search, and is reused below for the floating-point comparisons that
+        # classify the returned operations.
+        _spglib_data = get_dataset(
+            Spglib.Cell(cell.lattice_vectors, x_frac_vec, cell.kd_int_list), tol)
         if isnothing(_spglib_data)
             error("Spglib failed to get dataset. Please check the input structure or tolerance setting.")
         end
@@ -181,7 +186,9 @@ struct Symmetry
                 spglib_data.spacegroup_number,
                 spglib_data.n_operations,
                 ntran,
-                nat_prim)
+                nat_prim,
+                tol)
+            _warn_if_looser_symprec_raises_symmetry(cell, x_frac_vec, tol, spglib_data)
             elapsed_time = (time_ns() - start_time) / 1e9
             println(@sprintf(" Time Elapsed: %.6f sec.", elapsed_time))
             println("-------------------------------------------------------------------")
@@ -207,6 +214,45 @@ end
 
 function Symmetry(structure::Structure, options::SymmetryOptions; verbosity::Bool = true)
     return Symmetry(structure, options.tolerance_sym, verbosity = verbosity)
+end
+
+"""
+    _warn_if_looser_symprec_raises_symmetry(cell, x_frac_vec, tol, spglib_data)
+
+Repeat the spglib search with a tolerance ten times looser than `tol` and warn
+when it returns strictly more symmetry operations.
+
+A structure taken straight from a relaxation often keeps residual distortions
+of order 1e-4 Ang. Such a distortion is physically meaningless but is enough to
+make spglib reject an operation, which demotes the space group, leaves
+symmetry-equivalent sites independent, and inflates the number of SCE
+coefficients. Nothing in the pipeline fails in that case, so the only signal is
+this comparison against a looser search.
+"""
+function _warn_if_looser_symprec_raises_symmetry(
+    cell::Structures.Cell,
+    x_frac_vec::AbstractVector,
+    tol::Real,
+    spglib_data::Spglib.Dataset,
+)::Nothing
+    loose_tol = 10 * tol
+    loose_data = get_dataset(
+        Spglib.Cell(cell.lattice_vectors, x_frac_vec, cell.kd_int_list), loose_tol)
+    if isnothing(loose_data) || loose_data.n_operations <= spglib_data.n_operations
+        return nothing
+    end
+    @warn """
+    A looser symmetry tolerance finds a higher-symmetry space group.
+      symprec = $(@sprintf("%.3e", tol)): $(spglib_data.international_symbol) \
+    ($(spglib_data.spacegroup_number)), $(spglib_data.n_operations) operations
+      symprec = $(@sprintf("%.3e", loose_tol)): $(loose_data.international_symbol) \
+    ($(loose_data.spacegroup_number)), $(loose_data.n_operations) operations
+    The structure may be a slightly distorted copy of the higher-symmetry one. \
+    Fitting under the lower symmetry treats equivalent sites as independent, \
+    which inflates the coefficient count and weakens the constraints on weakly \
+    determined terms. Symmetrize the coordinates, or raise the symmetry \
+    tolerance, if the higher symmetry is the intended one."""
+    return nothing
 end
 
 function _construct_symnum_translation(spglib_data::Spglib.Dataset, tol::Real)::Vector{Int}
@@ -451,6 +497,7 @@ function print_symmetry_stdout(
     nsym::Integer,
     ntran::Integer,
     nat_prim::Integer,
+    tol::Real,
 )
     println("""
 
@@ -460,6 +507,7 @@ function print_symmetry_stdout(
     str = """
      Space group:  $(international_symbol)  ($(spacegroup_number))
      Number of symmetry operations = $(nsym)
+     Symmetry tolerance (symprec) = $(@sprintf("%.3e", tol))
 
     """
     if ntran == 1

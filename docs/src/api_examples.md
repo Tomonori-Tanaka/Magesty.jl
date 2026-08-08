@@ -96,7 +96,7 @@ basis   = SCEBasis(
                                (:Fe, :Pt) => -1.0,
                                (:Pt, :Pt) => -1.0)),
     ),
-    tolerance_sym = 1e-5,
+    tolerance_sym = 1e-3,
     isotropy = false,
 )
 dataset = SCEDataset(basis, "EMBSET")

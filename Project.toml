@@ -40,6 +40,7 @@ GLMNet = "0.7"
 JET = "0.11"
 LegendrePolynomials = "0.4"
 LinearAlgebra = "1"
+Logging = "1"
 MultivariateStats = "0.10"
 OffsetArrays = "1"
 Printf = "1"
@@ -66,6 +67,7 @@ ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 MultivariateStats = "6f286f6a-111f-5878-ab1e-185364afe411"
 Rotations = "6038ab10-8711-5258-84ad-4b1120ba62dc"
 Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
@@ -73,4 +75,4 @@ SpheriCart = "5caf2b29-02d9-47a3-9434-5931c85ba645"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "BenchmarkTools", "JET", "Aqua", "SpheriCart", "Rotations", "ArgParse", "Serialization", "DelimitedFiles", "MultivariateStats"]
+test = ["Test", "BenchmarkTools", "JET", "Aqua", "Logging", "SpheriCart", "Rotations", "ArgParse", "Serialization", "DelimitedFiles", "MultivariateStats"]
